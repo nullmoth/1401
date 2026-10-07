@@ -284,7 +284,7 @@ def selftest():
 
 
 def cli_write(argv):
-    """write <disk number> <EFI build dir> <darwin major> [--driver <tar.gz>] [--extra <file>]... [--allow-large]
+    """write <disk number> <EFI build dir> <darwin major> [--driver <tar.gz>] [--extra <file>]... [--profile <Report.json>] [--allow-large]
     The Windows app's write step. Every line printed is "STEP|OK|PROGRESS|STOP ..." so the window can show it."""
     from . import apple, nullmoth  # noqa: PLC0415
     num, efi, darwin = int(argv[0]), argv[1], int(argv[2])
@@ -310,6 +310,19 @@ def cli_write(argv):
     print(f"STEP erasing and writing disk {num} ({disk.get('FriendlyName')})", flush=True)
     res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress)
     root = res["root"]
+    # per-system rules: the Mac side reads the PC's real board/chipset/CPU/GPUs from NullMoth/system-profile.json
+    for rp in opt("--profile"):
+        try:
+            from . import nullmoth  # noqa: PLC0415
+            with open(rp, encoding="utf-8") as fh:
+                prof = nullmoth.system_profile(json.load(fh))
+            nm = os.path.join(root, "NullMoth")
+            os.makedirs(nm, exist_ok=True)
+            with open(os.path.join(nm, "system-profile.json"), "w", encoding="utf-8") as fh:
+                json.dump(prof, fh, indent=1, sort_keys=True)
+            print("system profile written to the stick (board, chipset, CPU, GPUs)")
+        except Exception as e:  # noqa: BLE001 - the stick still works without it; say why
+            print(f"NOTE system profile not written: {e}")
     for f in opt("--extra"):
         d = os.path.join(root, "NullMoth"); os.makedirs(d, exist_ok=True)
         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))

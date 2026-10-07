@@ -244,6 +244,8 @@ namespace A1401
                 if (pkg != null) args += " --driver " + Engine.Q(pkg);
                 var mac = Directory.Exists(Engine.NullMothDir) ? Directory.GetFiles(Engine.NullMothDir, "1401-Mac-*.zip").FirstOrDefault() : null;
                 if (mac != null) args += " --extra " + Engine.Q(mac);
+                var report = Path.Combine(Engine.Work, "scan", "Report.json");
+                if (File.Exists(report)) args += " --profile " + Engine.Q(report);
                 if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
                 int rc = await Engine.Run(args, Say);
                 busy = false; next.Enabled = true; refresh.Enabled = true;

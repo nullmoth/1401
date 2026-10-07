@@ -154,6 +154,18 @@ def stage(usb_root, cache_dir, fetch=None):
     return dst
 
 
+def system_profile(report):
+    """What the Mac side's per-system rules need from Windows (macOS only sees the SMBIOS model 1401 set): the real board,
+    chipset and form factor, the CPU, and every GPU with its PCI id and Resizable BAR state. Field names are the
+    hardware report's own (Motherboard.Name/Chipset/Platform, CPU.Manufacturer/Processor Name/Codename, GPU.*)."""
+    mb, cpu = report.get("Motherboard") or {}, report.get("CPU") or {}
+    gpus = [{"name": n, "vendor": g.get("Manufacturer"), "id": g.get("Device ID"), "type": g.get("Device Type"),
+             "rebar": g.get("Resizable BAR")} for n, g in (report.get("GPU") or {}).items() if isinstance(g, dict)]
+    return {"board": mb.get("Name"), "chipset": mb.get("Chipset"), "platform": mb.get("Platform"),
+            "cpu_vendor": (cpu.get("Manufacturer") or "").lower() or None, "cpu": cpu.get("Processor Name"),
+            "cpu_codename": cpu.get("Codename"), "gpus": gpus}
+
+
 RELEASE_API = "https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/latest"
 _PKG_RE = re.compile(r"^nullmoth-nvidia-(\d+\.\d+\.\d+)\.tar\.gz$")
 _MAC_RE = re.compile(r"^1401-Mac-(\d+\.\d+\.\d+)\.zip$")
@@ -288,6 +300,13 @@ def selftest():
     arm("a package whose SHA-256 is wrong never reaches the stick", "SHA-256" in bad and not os.path.exists(os.path.join(usb, "NullMoth", PACKAGE["name"])), bad)
     import shutil  # noqa: PLC0415
     shutil.rmtree(t, ignore_errors=True)
+    t490 = os.path.join(HERE, "..", "tests", "corpus", "cache", "thinkpad-t490s", "Report.json")
+    if os.path.exists(t490):
+        with open(t490) as fh:
+            sp = system_profile(json.load(fh))
+        arm("the stick's system profile carries the real board, chipset, form factor, CPU and GPUs",
+            sp["board"] == "LENOVO 20NXS1U203" and sp["chipset"] == "Cannon Point-LP" and sp["platform"] == "Laptop"
+            and sp["cpu_vendor"] == "intel" and sp["gpus"] and sp["gpus"][0]["id"], (sp["board"], sp["chipset"], sp["cpu_vendor"]))
     # --- Update driver (newest release, verified by its own SHA256SUMS.txt) - no network: fake release + fetch
     import hashlib  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
