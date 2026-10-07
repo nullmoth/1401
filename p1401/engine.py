@@ -378,9 +378,17 @@ def _prepare_out(out_dir):
     if os.path.exists(os.path.join(out_dir, MARKER)):
         # a second Build failed "Access is denied: ...EFI\\OC\\ACPI" because Windows leaves the old build's
         # folders ReadOnly and the upstream cleanup can't delete them. Our own previous build: clear the flag, wipe it.
+        # 10-07 (NM-3YJDQC1P): the wipe stopped with FileNotFoundError on ...\EFI\OC\Drivers\UefiPxeBcDxe.efi - the
+        # file was gone by the time this handler ran (an antivirus scan or the engine's own cleanup), and chmod on a
+        # missing path raised. A file that is already gone is what the wipe wanted.
         def _force(fn, path, _exc):
-            os.chmod(path, stat.S_IWRITE)
-            fn(path)
+            if not os.path.lexists(path):
+                return
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                fn(path)
+            except FileNotFoundError:
+                pass
         shutil.rmtree(out_dir, onerror=_force)
     os.makedirs(out_dir, exist_ok=True)
     return out_dir

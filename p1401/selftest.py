@@ -291,6 +291,34 @@ def main():
     arm("refuses to build into a non-empty folder it did not make (the engine wipes its output dir)",
         refused and os.path.exists(os.path.join(busy, "precious.txt")), "refused" if refused else "ACCEPTED")
 
+    # NM-3YJDQC1P: a file of our previous build vanishes while the wipe runs (antivirus). The first unlink removes it
+    # and still reports failure, as Windows does; the wipe must finish instead of raising FileNotFoundError.
+    prev = tempfile.mkdtemp(prefix="1401-selftest-")
+    open(os.path.join(prev, engine.MARKER), "w").write("1401")
+    os.makedirs(os.path.join(prev, "EFI", "OC", "Drivers"))
+    gone = os.path.join(prev, "EFI", "OC", "Drivers", "UefiPxeBcDxe.efi")
+    open(gone, "wb").write(b"x")
+    real_unlink = os.unlink
+    def flaky_unlink(path, *a, **k):
+        if os.fspath(path).endswith("UefiPxeBcDxe.efi") and os.path.exists(path):
+            real_unlink(path, *a, **k)
+            raise PermissionError(13, "in use", os.fspath(path))
+        return real_unlink(path, *a, **k)
+    os.unlink = flaky_unlink
+    fd_rmtree = getattr(shutil, "_rmtree_impl", None)
+    if fd_rmtree is not None and hasattr(shutil, "_rmtree_unsafe"):
+        shutil._rmtree_impl = shutil._rmtree_unsafe   # Windows' rmtree: unlink by full path, as on the user's PC
+    try:
+        engine._prepare_out(prev)
+        wiped = (os.path.isdir(prev) and not os.listdir(prev), "")
+    except Exception as e:
+        wiped = (False, f"{type(e).__name__}: {e}")
+    finally:
+        os.unlink = real_unlink
+        if fd_rmtree is not None:
+            shutil._rmtree_impl = fd_rmtree
+    arm("a previous build whose file vanishes mid-wipe is still wiped (NM-3YJDQC1P)", wiped[0], wiped[1] or "empty")
+
     # --- device choice + report normalizer
     ctx = "1. Network Controller\n   Device ID: 14E4-43A0\n2. Intel(R) Wi-Fi 6 AX200 160MHz\n   Device ID: 8086-2723"
     pol = engine.Policy(prefer={"WiFi": "Intel(R) Wi-Fi 6 AX200 160MHz"})

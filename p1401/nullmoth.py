@@ -24,7 +24,7 @@ BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_o
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
 PACKAGE = {"name": "nullmoth-nvidia-1.0.6.tar.gz",
            "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.9/nullmoth-nvidia-1.0.6.tar.gz",
-           "sha256": "1d5a1ff62ca0d95c3370dde6fb1dbab7b8bbb29f63508e221bfaa5b845b94393"}
+           "sha256": "25fdedc727b4ee3792ff5439d056d79f362219c77e5a3f2bdd35e054429229cf"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
