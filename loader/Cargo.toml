@@ -1,0 +1,16 @@
+[package]
+name = "loader1401"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+description = "1401 loader: the reverse Boot Camp boot layer (replaces OpenCore)"
+
+[dependencies]
+uefi = { version = "0.41.0", features = ["panic_handler", "logger", "alloc", "global_allocator"] }
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+
+[profile.dev]
+panic = "abort"

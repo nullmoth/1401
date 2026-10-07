@@ -1,0 +1,260 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Web.Script.Serialization;
+using System.Windows.Forms;
+
+namespace A1401
+{
+    class MainForm : Form
+    {
+        static readonly string[] Steps = { "Introduction", "Check this PC", "Build the Mac setup", "Your BIOS steps", "Create the macOS stick", "Done" };
+        int page;
+        readonly Label[] side = new Label[Steps.Length];
+        readonly Panel body = new Panel();
+        readonly Label title = new Label(), note = new Label();
+        readonly Button back = new Button(), next = new Button();
+        readonly TextBox log = new TextBox();
+        readonly ProgressBar bar = new ProgressBar();
+        readonly ComboBox disks = new ComboBox();
+        readonly Button refresh = new Button();
+        readonly WebBrowser guide = new WebBrowser();
+        readonly LinkLabel ocLink = new LinkLabel();
+        readonly ListView facts = new ListView();
+        bool busy, scanned, built, written;
+        string scanDir, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
+
+        public MainForm()
+        {
+            Text = "1401 Assistant";
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            ClientSize = new Size(900, 620);
+            FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false;
+            BackColor = Theme.Bg; ForeColor = Theme.Text; Font = Theme.Body;
+            StartPosition = FormStartPosition.CenterScreen;
+
+            var head = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Panel };
+            var mark = new PictureBox { Image = Theme.Mark(), SizeMode = PictureBoxSizeMode.Zoom, Bounds = new Rectangle(14, 9, 56, 56) };
+            var brand = new Label { Text = "NullMoth", Font = Theme.Brand, ForeColor = Theme.Purple, AutoSize = true, Location = new Point(80, 8) };
+            var sub = new Label { Text = "1401 Assistant  -  macOS on the PC you already own", Font = Theme.Mono, ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(84, 46) };
+            head.Controls.AddRange(new Control[] { mark, brand, sub });
+
+            var nav = new Panel { Dock = DockStyle.Left, Width = 220, BackColor = Theme.Panel2, Padding = new Padding(12, 16, 8, 8) };
+            for (int i = Steps.Length - 1; i >= 0; i--)
+            {
+                side[i] = new Label { Text = (i + 1) + ".  " + Steps[i], Dock = DockStyle.Top, Height = 34, Font = Theme.Body, ForeColor = Theme.Muted };
+                nav.Controls.Add(side[i]);
+            }
+
+            var foot = new Panel { Dock = DockStyle.Bottom, Height = 56, BackColor = Theme.Panel };
+            back.Text = "< Back"; back.Bounds = new Rectangle(560, 12, 150, 32); Theme.Style(back, false);
+            next.Text = "Continue >"; next.Bounds = new Rectangle(720, 12, 160, 32); Theme.Style(next);
+            back.Click += (s, e) => Go(page - 1); next.Click += (s, e) => OnNext();
+            foot.Controls.AddRange(new Control[] { back, next });
+
+            body.Dock = DockStyle.Fill; body.Padding = new Padding(24, 18, 24, 12); body.BackColor = Theme.Bg;
+            title.Font = Theme.Title; title.ForeColor = Theme.Text; title.AutoSize = false; title.Bounds = new Rectangle(24, 14, 620, 40);
+            note.AutoSize = false; note.Bounds = new Rectangle(24, 58, 620, 96); note.ForeColor = Theme.Text;
+            log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical; log.BackColor = Color.Black;
+            log.ForeColor = Theme.Cyan; log.Font = new Font("Courier New", 9f); log.BorderStyle = BorderStyle.FixedSingle;
+            log.Bounds = new Rectangle(24, 330, 620, 140);
+            bar.Bounds = new Rectangle(24, 300, 620, 18);
+            facts.View = View.Details; facts.FullRowSelect = true; facts.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            facts.BackColor = Theme.Panel; facts.ForeColor = Theme.Text; facts.Font = new Font("Courier New", 9.5f);
+            facts.Columns.Add("", 170); facts.Columns.Add("", 440); facts.Bounds = new Rectangle(24, 156, 620, 136);
+            disks.DropDownStyle = ComboBoxStyle.DropDownList; disks.Bounds = new Rectangle(24, 170, 500, 28);
+            disks.BackColor = Theme.Panel; disks.ForeColor = Theme.Text; disks.Font = new Font("Courier New", 10f);
+            refresh.Text = "Refresh"; refresh.Bounds = new Rectangle(534, 168, 110, 30); Theme.Style(refresh, false);
+            refresh.Click += (s, e) => FillDisks();
+            guide.Bounds = new Rectangle(24, 110, 620, 360); guide.ScriptErrorsSuppressed = true;
+            ocLink.Text = "OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"; ocLink.AutoSize = true;
+            ocLink.Location = new Point(24, 300); ocLink.LinkColor = Theme.Cyan; ocLink.Font = new Font("Verdana", 9.5f);
+            ocLink.LinkClicked += (s, e) => System.Diagnostics.Process.Start("https://dortania.github.io/OpenCore-Install-Guide/");
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink });
+
+            Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
+            Go(0);
+        }
+
+        void Say(string s)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action<string>(Say), s); return; }
+            if (s.StartsWith("PROGRESS ")) { int p; var parts = s.Split(' '); if (int.TryParse(parts[1], out p)) bar.Value = Math.Max(0, Math.Min(100, p)); return; }
+            log.AppendText(s + Environment.NewLine);
+        }
+
+        void Show(params Control[] on)
+        {
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink }) c.Visible = on.Contains(c);
+        }
+
+        void Go(int p)
+        {
+            if (busy || p < 0 || p >= Steps.Length) return;
+            page = p;
+            for (int i = 0; i < Steps.Length; i++)
+            {
+                side[i].ForeColor = i == page ? Theme.Purple : (i < page ? Theme.Cyan : Theme.Muted);
+                side[i].Font = i == page ? new Font("Verdana", 9.75f, FontStyle.Bold) : Theme.Body;
+            }
+            title.Text = Steps[page]; back.Enabled = page > 0 && page < Steps.Length - 1; next.Text = "Continue >";
+            switch (page)
+            {
+                case 0:
+                    note.Text = "The 1401 Assistant helps you install macOS on this PC, the way Boot Camp put Windows on a Mac.\r\n\r\n" +
+                        "It checks this PC, builds the startup files macOS needs for your exact hardware, shows the BIOS settings to change on your board, " +
+                        "and makes a macOS install stick. Windows stays as it is. Nothing about this PC is sent anywhere.\r\n\r\n" +
+                        "You need: an internet connection and a USB stick of 16 GB or more that can be erased.\r\n\r\n" +
+                        "1401 is new and may not work on every PC. If it does not work on yours, set up OpenCore by hand with the guide below; " +
+                        "the NullMoth app works on any OpenCore setup.";
+                    Show(ocLink); var miss = Engine.Missing(); if (miss != null) { note.Text = miss; next.Enabled = false; } else next.Enabled = true;
+                    break;
+                case 1:
+                    note.Text = scanned ? "This PC was checked. Continue, or check again." : "1401 reads this PC's hardware (processor, board, graphics, network, storage) and its ACPI tables. This takes about a minute.";
+                    next.Text = scanned ? "Continue >" : "Check this PC"; Show(facts, log); next.Enabled = true; break;
+                case 2:
+                    note.Text = built ? summary : "1401 now picks the newest macOS your hardware runs and builds the startup files (OpenCore EFI) for it, then checks them with OpenCore's own validator. Downloads OpenCore and drivers.";
+                    next.Text = built ? "Continue >" : "Build"; Show(facts, log); next.Enabled = scanned; break;
+                case 3:
+                    note.Text = "These are the BIOS settings for your board. Take a photo of this page before restarting.";
+                    Show(guide); next.Enabled = true;
+                    if (guideFile != null && File.Exists(guideFile)) guide.Navigate(guideFile);
+                    break;
+                case 4:
+                    note.Text = "Plug in the USB stick that will become the macOS installer. EVERYTHING on it is erased.\r\n" +
+                        "1401 downloads macOS from Apple onto it and adds the startup files" + (summary.Contains("NVIDIA") ? " and the NullMoth NVIDIA driver." : ".");
+                    next.Text = written ? "Continue >" : "Erase and create"; Show(disks, refresh, bar, log); FillDisks(); next.Enabled = true; break;
+                case 5:
+                    note.Text = "The macOS stick is ready.\r\n\r\n1. Restart and open your board's boot menu (the key is in your BIOS steps), then choose the stick.\r\n" +
+                        "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer.\r\n" +
+                        "3. When macOS is running, open the NullMoth folder on the stick and run 1401.app to finish the NVIDIA driver.";
+                    next.Text = "Close"; Show(); next.Enabled = true; break;
+            }
+        }
+
+        async void OnNext()
+        {
+            if (busy) return;
+            if (page == 0) { Go(1); return; }
+            if (page == 1 && !scanned)
+            {
+                busy = true; next.Enabled = false; log.Clear();
+                scanDir = Path.Combine(Engine.Work, "scan"); Wipe(scanDir);
+                Say("Checking this PC...");
+                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir), Say);
+                busy = false; next.Enabled = true;
+                if (rc != 0) { Say("The check failed. The lines above say why."); return; }
+                scanned = true; LoadFacts(); Say("Done."); Go(1); return;
+            }
+            if (page == 2 && !built)
+            {
+                busy = true; next.Enabled = false; log.Clear();
+                efiDir = Path.Combine(Engine.Work, "efi");
+                var rep = Path.Combine(scanDir, "Report.json"); var acpi = Path.Combine(scanDir, "ACPI");
+                var lines = new List<string>();
+                Say("Building the startup files for this PC...");
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json", l => { lines.Add(l); });
+                busy = false; next.Enabled = true;
+                var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
+                try
+                {
+                    var r = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(json);
+                    if (!(r["ok"] is bool) || !(bool)r["ok"]) { Say("The build stopped: " + r["error"]); return; }
+                    var mv = "" + r["macos_version"]; macosFull = mv; darwin = mv.Split('.')[0];
+                    var notices = r["notices"] as System.Collections.ArrayList;
+                    summary = "macOS " + MacName(darwin) + " for this PC, as a " + r["smbios"] + ". The startup files passed OpenCore's own check.";
+                    if (notices != null) foreach (var n in notices) if (("" + n).StartsWith("NullMoth")) summary += "\r\n" + n;
+                    built = true;
+                }
+                catch (Exception e) { Say("Could not read the build result: " + e.Message); foreach (var l in lines.Take(40)) Say(l); return; }
+                guideFile = Path.Combine(Engine.Work, "BIOS-steps.html");
+                await Engine.Run("p1401.guide " + Engine.Q(rep) + " " + Engine.Q(Path.Combine(efiDir, "EFI", "OC", "config.plist")) + " --macos " + macosFull + " --html " + Engine.Q(guideFile), Say);
+                Say("Done."); Go(2); return;
+            }
+            if (page == 4 && !written)
+            {
+                var d = disks.SelectedItem as UsbDisk;
+                if (d == null) { MessageBox.Show(this, "Plug in a USB stick and press Refresh.", "1401"); return; }
+                var ok = MessageBox.Show(this, "Erase " + d + " and make it the macOS installer?\r\n\r\nEverything on it will be lost.",
+                    "1401 - erase this stick?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                if (ok != DialogResult.Yes) return;
+                busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
+                var args = "p1401.usbwriter write " + d.Number + " " + Engine.Q(efiDir) + " " + darwin;
+                var pkg = Directory.Exists(Engine.NullMothDir) ? Directory.GetFiles(Engine.NullMothDir, "nullmoth-nvidia-*.tar.gz").FirstOrDefault() : null;
+                if (pkg != null) args += " --driver " + Engine.Q(pkg);
+                var mac = Directory.Exists(Engine.NullMothDir) ? Directory.GetFiles(Engine.NullMothDir, "1401-Mac-*.zip").FirstOrDefault() : null;
+                if (mac != null) args += " --extra " + Engine.Q(mac);
+                if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
+                int rc = await Engine.Run(args, Say);
+                busy = false; next.Enabled = true; refresh.Enabled = true;
+                if (rc != 0) { Say("Writing the stick did not finish. The lines above say why; nothing else on this PC was touched."); return; }
+                written = true; bar.Value = 100; Go(5); return;
+            }
+            if (page == 5) { Close(); return; }
+            Go(page + 1);
+        }
+
+        // A folder left by an earlier run may hold read-only files; clear the flag first, and if Windows still holds it, use a fresh name
+        void Wipe(string dir)
+        {
+            if (!Directory.Exists(dir)) return;
+            try
+            {
+                foreach (var f in Directory.GetFileSystemEntries(dir, "*", SearchOption.AllDirectories)) File.SetAttributes(f, FileAttributes.Normal);
+                Directory.Delete(dir, true);
+            }
+            catch (Exception) { Directory.Move(dir, dir + "-old-" + DateTime.Now.Ticks); }
+        }
+
+        void LoadFacts()
+        {
+            facts.Items.Clear();
+            try
+            {
+                var r = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(scanDir, "Report.json")));
+                Action<string, string> add = (k, v) => facts.Items.Add(new ListViewItem(new[] { k, v }));
+                var mb = r.ContainsKey("Motherboard") ? r["Motherboard"] as Dictionary<string, object> : null;
+                if (mb != null) add("Board", "" + mb["Name"]);
+                var cpu = r.ContainsKey("CPU") ? r["CPU"] as Dictionary<string, object> : null;
+                if (cpu != null) add("Processor", "" + (cpu.ContainsKey("Processor Name") ? cpu["Processor Name"] : cpu["Manufacturer"]));
+                var gpu = r.ContainsKey("GPU") ? r["GPU"] as Dictionary<string, object> : null;
+                if (gpu != null) foreach (var g in gpu) add("Graphics", g.Key);
+                var net = r.ContainsKey("Network") ? r["Network"] as Dictionary<string, object> : null;
+                if (net != null) foreach (var n in net) add("Network", n.Key);
+            }
+            catch (Exception e) { Say("Could not read the report: " + e.Message); }
+        }
+
+        string Self()
+        {
+            var root = Path.GetPathRoot(Application.ExecutablePath) ?? "";
+            return root.Length >= 2 ? root.Substring(0, 2).ToUpperInvariant() : "";
+        }
+
+        void FillDisks()
+        {
+            disks.Items.Clear();
+            try
+            {
+                var self = Self();
+                foreach (var d in Disks.ListUsb())
+                {
+                    if (self.Length == 2 && d.Letters.ToUpperInvariant().Contains(self)) continue;
+                    if (d.Size < 15UL * 1000 * 1000 * 1000) continue;
+                    disks.Items.Add(d);
+                }
+            }
+            catch (Exception e) { Say("Could not list USB sticks: " + e.Message); }
+            if (disks.Items.Count > 0) disks.SelectedIndex = 0;
+            else Say("No USB stick found. Plug one in (16 GB or more, not the stick 1401 runs from) and press Refresh.");
+        }
+
+        static string MacName(string d)
+        {
+            switch (d) { case "25": return "Tahoe"; case "24": return "Sequoia"; case "23": return "Sonoma"; case "22": return "Ventura"; case "21": return "Monterey"; default: return d; }
+        }
+    }
+}

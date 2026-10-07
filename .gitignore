@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+# the engine caches OpenCorePkg + kexts + iasl inside its own folder; never commit downloads
+upstream/OpCore-Simplify/OCK_Files/
+upstream/OpCore-Simplify/Results/
+upstream/OpCore-Simplify/Scripts/iasl*
+# real users' reports are fetched by commit, never committed here (their repos, their licences)
+tests/corpus/cache/
+build/
+dist/
+out/
+# dev environment + Rust build output
+.venv/
+loader/target/

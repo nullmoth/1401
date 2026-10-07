@@ -1,0 +1,333 @@
+"""Runs OpCore Simplify's engine headless (upstream/OpCore-Simplify, BSD-3, pinned in upstream/PINNED.json).
+
+The engine is an interactive console app with ~40 prompts. We don't modify it, we answer its prompts:
+- Every prompt has to match a rule in PROMPT_RULES or the build stops with UnknownPrompt. An unexpected prompt
+  is a question about the user's machine that nobody answered, and just pressing enter there is how people end
+  up with an EFI that boots to a black screen.
+- If the same prompt comes back 3 times in a row the engine didn't accept our answer, so we stop instead of looping.
+- Every answer is saved as a Decision along with what the engine printed before asking, so the summary screen
+  can show what was picked and a bug report has the whole transcript.
+"""
+import contextlib
+import dataclasses
+import importlib.util
+import io
+import os
+import stat
+import re
+import shutil
+import sys
+import tempfile
+from dataclasses import dataclass, field
+
+from . import nullmoth
+from . import policy as policy_mod
+from . import report as report_mod
+from . import validate as validate_mod
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPSTREAM = os.path.join(REPO, "upstream", "OpCore-Simplify")
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+MARKER = ".1401-build"  # a folder we may wipe carries this file; any other folder is refused
+
+
+class UnknownPrompt(RuntimeError):
+    pass
+
+
+class EngineLoop(RuntimeError):
+    pass
+
+
+class EngineExit(RuntimeError):
+    pass
+
+
+@dataclass
+class Policy:
+    """The choices a beginner never has to make. Each default says why."""
+    macos: str = ""                 # "" = the engine's suggested (newest stable the hardware supports)
+    # Tahoe dropped AppleHDA. AppleALC needs the OCLP AppleHDA rollback, which means SIP and AMFI off.
+    # VoodooHDA sounds a bit worse but leaves both on, so it's the default.
+    tahoe_audio: str = "voodoohda"  # or "applealc"
+    # OpCore Simplify can copy every saved Windows Wi-Fi password into the EFI, in plaintext. Off unless the
+    # user turns it on.
+    import_wifi_passwords: bool = False
+    force_load_unsupported_kexts: bool = False
+    # Filled by 1401's pre-pass, never by the user: device kind ("WiFi") -> the device name 1401 picked.
+    prefer: dict = field(default_factory=dict)
+
+
+@dataclass
+class Decision:
+    prompt: str
+    answer: str
+    context: str  # what the engine printed right before asking
+
+
+@dataclass
+class BuildResult:
+    ok: bool
+    out_dir: str
+    macos_version: str = ""
+    smbios: str = ""
+    needs_oclp: bool = False
+    disabled_devices: dict = field(default_factory=dict)
+    bios_requirements: list = field(default_factory=list)
+    kexts: list = field(default_factory=list)
+    decisions: list = field(default_factory=list)
+    notices: list = field(default_factory=list)
+    error: str = ""
+    transcript: str = ""
+    hardware: dict = field(default_factory=dict)
+    policy_changes: list = field(default_factory=list)
+    validation: dict = field(default_factory=dict)
+
+
+def _choose_last(prompt, ctx, policy):
+    # "Select a GPU combination (1-N)": the engine sorts combos by (device count, newest macOS) ascending,
+    # so the last one keeps the most working hardware.
+    m = re.search(r"\((\d+)-(\d+)\)", prompt)
+    return m.group(2)
+
+
+def _choose_device(prompt, ctx, policy):
+    # "Select a WiFi device (1-N)": answer with the device 1401's pre-pass chose, looked up by name in the list the
+    # engine just printed. No preference means the engine's first listed device.
+    kind = re.match(r"^Select a (.+?) device", prompt).group(1)
+    want = policy.prefer.get(kind)
+    if not want:
+        return "1"
+    for line in ctx.splitlines():
+        m = re.match(r"^\s*(\d+)\. (.+?)\s*$", line)
+        if m and m.group(2) == want:
+            return m.group(1)
+    raise UnknownPrompt(f"1401 chose {want!r} as the {kind} device but the engine did not list it:\n{ctx}")
+
+
+# (pattern on the prompt, answer or fn(prompt, context, policy)) - first match wins.
+PROMPT_RULES = [
+    (r"^Press Enter", ""),
+    (r"^Build EFI for UEFI\?", "yes"),
+    (r"^Please enter the macOS version", lambda p, c, pol: pol.macos),
+    (r"^Select audio kext for your system", lambda p, c, pol: "1" if pol.tahoe_audio == "applealc" else "2"),
+    (r"^Select kext for your AMD .* GPU \(default", ""),
+    (r"^Select kext for your Intel WiFi device \(default", ""),
+    (r"^Do you want to force load", lambda p, c, pol: "yes" if pol.force_load_unsupported_kexts else "no"),
+    (r"^Would you like to scan for WiFi profiles", lambda p, c, pol: "yes" if pol.import_wifi_passwords else "no"),
+    (r"^Enter the ID of the codec layout", ""),
+    (r"^Select a .* combination \(\d+-\d+\)", _choose_last),
+    (r"^Select a .* device \(\d+-\d+\)", _choose_device),
+]
+
+
+class _Tee(io.TextIOBase):
+    def __init__(self, echo):
+        self.buf, self.echo = io.StringIO(), echo
+
+    def write(self, s):
+        self.buf.write(s)
+        if self.echo:
+            sys.__stdout__.write(s)
+        return len(s)
+
+    def text(self):
+        return ANSI.sub("", self.buf.getvalue())
+
+
+class Headless:
+    """Patches the engine's Utils so it can run without a console, and records the conversation."""
+
+    def __init__(self, utils_mod, policy, echo=False):
+        self.U, self.policy, self.echo = utils_mod.Utils, policy, echo
+        self.decisions, self.notices = [], []
+        self._saved, self._last, self._repeat, self._mark = {}, None, 0, 0
+
+    def _context(self):
+        text = self.tee.text()
+        ctx = text[self._mark:]
+        self._mark = len(text)
+        return "\n".join(l for l in ctx.strip().splitlines()[-60:] if l.strip())
+
+    def request_input(self, _self, prompt="Press Enter to continue..."):
+        p = ANSI.sub("", prompt).strip()
+        ctx = self._context()
+        self._repeat = self._repeat + 1 if p == self._last else 1
+        self._last = p
+        if self._repeat >= 3:
+            raise EngineLoop(f"engine re-asked {p!r} {self._repeat}x - our answer was rejected.\n{ctx}")
+        for pat, ans in PROMPT_RULES:
+            if re.search(pat, p):
+                a = ans(p, ctx, self.policy) if callable(ans) else ans
+                if pat == r"^Press Enter":
+                    if ctx:
+                        self.notices.append(ctx)
+                else:
+                    self.decisions.append(Decision(p, a, ctx))
+                self.tee.write(f"{prompt}{a}\n")
+                return a
+        raise UnknownPrompt(f"no rule answers {p!r}. The engine had just printed:\n{ctx}")
+
+    def __enter__(self):
+        h = self
+        patches = {
+            "request_input": lambda s, prompt="Press Enter to continue...": h.request_input(s, prompt),
+            "head": lambda s, text=None, width=68, resize=True: print(f"\n== {text or ''}"),
+            "adjust_window_size": lambda s, *a, **k: None,
+            "open_folder": lambda s, *a, **k: None,
+            "exit_program": lambda s, *a, **k: (_ for _ in ()).throw(EngineExit("engine asked to exit")),
+            "progress_bar": lambda s, title, steps, i, done=False: print(
+                f"[{title}] {'done' if done else steps[i] if i < len(steps) else ''}"),
+        }
+        for k, fn in patches.items():
+            self._saved[k] = getattr(self.U, k, None)
+            setattr(self.U, k, fn)
+        self.tee = _Tee(self.echo)
+        self._redirect = contextlib.redirect_stdout(self.tee)
+        self._redirect.__enter__()
+        return self
+
+    def __exit__(self, *exc):
+        self._redirect.__exit__(*exc)
+        for k, fn in self._saved.items():
+            setattr(self.U, k, fn)
+        return False
+
+
+def _load_engine():
+    if UPSTREAM not in sys.path:
+        sys.path.insert(0, UPSTREAM)
+    from Scripts import utils as utils_mod  # noqa: PLC0415 - only importable once UPSTREAM is on the path
+    spec = importlib.util.spec_from_file_location("ocs_main", os.path.join(UPSTREAM, "OpCore-Simplify.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod, utils_mod
+
+
+def _prepare_out(out_dir):
+    """The engine wipes its result dir. Only ever hand it a folder that is empty or one we made."""
+    out_dir = os.path.abspath(out_dir)
+    if os.path.exists(out_dir) and os.listdir(out_dir) and not os.path.exists(os.path.join(out_dir, MARKER)):
+        raise RuntimeError(f"refusing to build into {out_dir}: not empty and not a 1401 build folder")
+    if os.path.exists(os.path.join(out_dir, MARKER)):
+        # a second Build failed "Access is denied: ...EFI\\OC\\ACPI" because Windows leaves the old build's
+        # folders ReadOnly and the upstream cleanup can't delete them. Our own previous build: clear the flag, wipe it.
+        def _force(fn, path, _exc):
+            os.chmod(path, stat.S_IWRITE)
+            fn(path)
+        shutil.rmtree(out_dir, onerror=_force)
+    os.makedirs(out_dir, exist_ok=True)
+    return out_dir
+
+
+def _wifi_prepass(hw, policy, h, o):
+    """The engine caps macOS at what the oldest Wi-Fi card supports, then keeps only one card anyway, so with two
+    cards the weaker one decides for the whole machine. The trx40 report (Broadcom 14E4-43A0, max Ventura, next to
+    an Intel AX200 that runs Tahoe) got offered Ventura, which doesn't even get security updates anymore.
+    So pick the card with the newest native support first (ties keep the engine's order), show the engine only
+    that card when it suggests a version, and give it the same card when it asks which Wi-Fi to use.
+    Returns the hardware dict to suggest from."""
+    from Scripts.datasets import pci_data  # noqa: PLC0415 - importable once the engine is loaded
+    net = hw.get("Network") or {}
+    wifi = [n for n, p in net.items() if p.get("Device ID") in pci_data.WirelessCardIDs
+            and (p.get("Compatibility") or (None, None))[0]]
+    if len(wifi) < 2:
+        return hw
+    best = max(wifi, key=lambda n: o.u.parse_darwin_version(net[n]["Compatibility"][0]))
+    policy.prefer["WiFi"] = best
+    h.notices.append(f"{len(wifi)} Wi-Fi cards found; 1401 uses {best!r} (newest macOS natively) and leaves "
+                     + ", ".join(repr(n) for n in wifi if n != best) + " off.")
+    return {**hw, "Network": {n: p for n, p in net.items() if n not in wifi or n == best}}
+
+
+def _oclp_still_needed(cust, flagged, h):
+    """hardware_customization sets needs_oclp for any OCLP-capable device, then disables the devices that weren't
+    picked without clearing the flag. trx40 (Broadcom disabled, AX200 picked) ended up with AMFIPass, so AMFI was
+    bypassed for a card that's turned off. Recompute it from what's still enabled. AppleALC on Tahoe still sets
+    it later in select_required_kexts, which is right since the user chose that."""
+    left = [n for sect in cust.values() if isinstance(sect, dict)
+            for n, p in sect.items() if isinstance(p, dict) and p.get("OCLP Compatibility")]
+    if flagged and not left:
+        h.notices.append("OpenCore Legacy Patcher is not needed: the only device that needed it is disabled.")
+    return bool(left)
+
+
+def _nullmoth_gpu_pass(checker, h):
+    """Runs the engine's GPU check, then gives cards the NullMoth driver supports macOS 15 (nullmoth.mark). A machine
+    whose only GPU is such a card made the engine exit; with the card marked it builds."""
+    orig = checker.check_gpu_compatibility
+
+    def wrapped():
+        try:
+            orig()
+            exited = None
+        except EngineExit as e:
+            exited = e
+        hit = nullmoth.mark(checker.hardware_report)
+        if not hit:
+            if exited:
+                raise exited
+            return
+        gpus = checker.hardware_report.get("GPU", {})
+        checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
+        h.notices.append("NullMoth driver: " + ", ".join(hit) + " will run on macOS 15 Sequoia."
+                         + ("" if nullmoth.tested(checker.hardware_report) else
+                            " This card is in NVIDIA's supported list but has not been tested with the driver yet."))
+    checker.check_gpu_compatibility = wrapped
+
+
+def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True):
+    """Report.json + ACPI dump -> OpenCore EFI in out_dir. download=False stops after planning (no network)."""
+    policy = policy or Policy()
+    policy = dataclasses.replace(policy, prefer=dict(policy.prefer))  # the Wi-Fi pre-pass writes to prefer
+    out_dir = _prepare_out(out_dir)
+    scratch = tempfile.mkdtemp(prefix="1401-report-")
+    res = BuildResult(ok=False, out_dir=out_dir)
+    mod, utils_mod = _load_engine()
+    h = Headless(utils_mod, policy, echo)
+    try:
+        with h:
+            o = mod.OCPE()
+            o.result_dir = out_dir
+            rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch)
+            h.notices += norm_notes
+            valid, errors, warnings, report = o.v.validate_report(rpath)
+            if not valid or errors:
+                raise RuntimeError(f"hardware report rejected: {errors}")
+            o.ac.dsdt = o.ac.acpi.acpi_tables = None
+            o.ac.read_acpi_tables(os.path.abspath(acpi_dir))
+            if not o.ac.ensure_dsdt():
+                raise RuntimeError(f"no usable DSDT in {acpi_dir} - the ACPI dump is required")
+            _nullmoth_gpu_pass(o.c, h)
+            hw, native, oclp_versions = o.c.check_compatibility(report)
+            res.hardware = hw
+            mv = o.select_macos_version(_wifi_prepass(hw, policy, h, o), native, oclp_versions)
+            cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
+            needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
+            smbios = o.s.select_smbios_model(cust, mv)
+            o.ac.select_acpi_patches(cust, disabled)
+            needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
+            o.s.smbios_specific_options(cust, smbios, mv, o.ac.patches, o.k)
+            res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
+            res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
+            res.kexts = [k.name for k in o.k.kexts if k.checked]
+            res.bios_requirements = o.check_bios_requirements(report, cust)
+            if download:
+                o.o.gather_bootloader_kexts(o.k.kexts, mv)
+                o.build_opencore_efi(cust, disabled, smbios, mv, needs_oclp)
+                open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
+                res.decisions = h.decisions  # the policy pass reads what was decided
+                res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
+                res.validation = validate_mod.validate(out_dir)
+                if not res.validation.get("ok"):
+                    raise RuntimeError("EFI failed validation: " + (res.validation.get("error") or
+                                       f"ocvalidate issues={(res.validation.get('ocvalidate') or {}).get('issues')} "
+                                       f"invariants={res.validation.get('invariants')}"))
+            res.ok = True
+    except Exception as e:  # reported to the caller in res.error
+        res.error = f"{type(e).__name__}: {e}"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+    res.decisions, res.notices = h.decisions, h.notices
+    res.transcript = h.tee.text() if hasattr(h, "tee") else ""
+    return res

@@ -1,0 +1,110 @@
+{
+  "about": "Real Hardware Sniffer reports, pinned by commit. Fetched into cache/ (git-ignored), never committed.",
+  "entries": [
+    {
+      "slug": "z490-vision-g",
+      "repo": "5T33Z0/Gigabyte-Z490-Vision-G-Hackintosh-OpenCore",
+      "path": "Additional_Files/SysReport",
+      "note": "desktop Comet Lake",
+      "commit": "ab49469652c4cc613c5055c87c49581f324a7e19"
+    },
+    {
+      "slug": "esprimo-q958",
+      "repo": "5T33Z0/Fujitsu-Esprimo-Q958-Hackintosh-OpenCore",
+      "path": "SysReport",
+      "note": "desktop Coffee Lake SFF",
+      "commit": "18f5164d21e727b30530e7bd6aea8c6c713266cb"
+    },
+    {
+      "slug": "optiplex-5050-micro",
+      "repo": "5T33Z0/Dell-Optiplex-5050-Micro-OpenCore",
+      "path": "SysReport",
+      "note": "desktop Kaby Lake micro",
+      "commit": "78616d1da7aca4ec2a61677e2c021de639a1340c"
+    },
+    {
+      "slug": "celsius-h760",
+      "repo": "5T33Z0/Fujitsu-Celsius-H760-OpenCore",
+      "path": "Addiditional_Files/SysReport",
+      "note": "laptop workstation Skylake",
+      "commit": "d6af70011c6f7794820700e5b8a1c352c95c7a9f"
+    },
+    {
+      "slug": "dell-3442",
+      "repo": "matheusmoreirainamine/Hackintosh-Dell-3442-",
+      "path": "SysReport",
+      "note": "laptop Haswell",
+      "commit": "ea9efab38f61295c205f87498a706f8e4ea423fc"
+    },
+    {
+      "slug": "dell-5530",
+      "repo": "EcthorSilva/hackintosh-dell-5530",
+      "path": "ACPI - hardware sniffer/Results",
+      "note": "laptop",
+      "commit": "8c3a8b97a00da818e46eebf435a8fb5cbf7cff5b"
+    },
+    {
+      "slug": "x570-5800x-6600xt",
+      "repo": "absences/hackintosh-x570-5800x-6600xt",
+      "path": "SysReport",
+      "note": "desktop AMD Zen3 + Navi23",
+      "commit": "a15f8a1458780f915a8c8d8c17f04661cbeae95a"
+    },
+    {
+      "slug": "trx40-3960x",
+      "repo": "klich3/macOS-on-ROG-TRX40-AMD-Threadripper-3960X",
+      "path": "ACPI/Hardware-Sniffer",
+      "note": "HEDT AMD Threadripper",
+      "commit": "bad6ddd3e322e47c12b6ad7a8a4d56b31132c2cb"
+    },
+    {
+      "slug": "dell-e7470",
+      "repo": "richardcj2710/EFI_Mon_DELLE7470",
+      "path": "SysReport",
+      "note": "laptop Skylake",
+      "commit": "4b0c179c8107deaf762804929f1bbe0a6b07b3c8"
+    },
+    {
+      "slug": "thinkpad-t490s",
+      "repo": "arturafriansyah/EFI-Thinkpad-T490s",
+      "path": "EXPORT JSON T490s Fresh",
+      "note": "laptop Whiskey Lake",
+      "commit": "4c4aff2ed18ad6ff2f0a585814be86a3794a2fb4"
+    },
+    {
+      "slug": "sequoia-generic",
+      "repo": "hanedotoaranea/macOS-Sequoia-15-",
+      "path": "EFI Seqouia 15/OpCore-Simplify/SysReport",
+      "note": "unknown",
+      "commit": "3dd633ab390679699c57ba1f0ee1384dafaccb7c"
+    },
+    {
+      "slug": "b660-12900kf",
+      "repo": "klich3/macOS-on-B660-PLUS-D4-i9-12900KF",
+      "path": "ACPI",
+      "note": "desktop Alder Lake (report only, no ACPI)",
+      "commit": "837d72664bee02d1158545d33dc3c280d991ce95"
+    },
+    {
+      "slug": "hp-pavilion-15-dk0",
+      "repo": "spacecodee/HP-HP-PAVILION-GAMING-LAPTOP-15-DK0XXX-EFI",
+      "path": "",
+      "note": "laptop (report only)",
+      "commit": "ca2fecc22def06fdf29d8e37891d311a66c166f4"
+    },
+    {
+      "slug": "lenovo-c640",
+      "repo": "n1soryu/lenovo-c640-13iml-opcore-efi",
+      "path": "",
+      "note": "laptop (report only)",
+      "commit": "0a7088ff5005d87f39cb36cb9ff5fff2810927bc"
+    },
+    {
+      "slug": "hp-245-g8",
+      "repo": "jemgdevp/hp-245-g8-jemg",
+      "path": "macos/docs",
+      "note": "laptop AMD (report only)",
+      "commit": "1d082aa537fba0113e9eb2cc8d793e50c63ad68f"
+    }
+  ]
+}
