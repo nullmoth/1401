@@ -509,7 +509,7 @@ def selftest():
     arm("every page is self-contained: nothing loads from the network (it has to open from the stick)",
         not ext and all(CSP in pages[m] for m in good), ext or "none, CSP on all")
     dirty = [m for m in good if leaks(pages[m])]
-    planted = leaks("mail a.person@example.com, built in /Users/someone/x and C:\\Users\\someone\\x")
+    planted = leaks("mail a.person@example.com, built in " + "/Users/" + "someone/x and C:\\Users\\someone\\x")
     arm("no page carries an email address or a user-folder path, and the check fires on planted ones",
         not dirty and len(planted) == 3, f"clean {len(good) - len(dirty)}/{len(good)}, planted {len(planted)}/3")
     hostile = copy.deepcopy(reports["dell-e7470"])
