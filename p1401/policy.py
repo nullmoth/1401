@@ -40,6 +40,10 @@ def _args(nv):
     return (nv.get("boot-args") or "").split()
 
 
+# AMD chipsets whose firmware needs SetupVirtualMap (pre-Zen 2 boards; Dortania AMD Zen/Bulldozer configs).
+AMD_SVM_ON = {"AM1", "A68H", "A75", "A78", "A85X", "A88X", "A320", "B350", "X370", "X399"}
+
+
 def apply(config_path, result, policy):
     """Mutates config.plist in place (atomic write). Returns the list of changes."""
     with open(config_path, "rb") as fh:
@@ -142,6 +146,20 @@ def apply(config_path, result, policy):
             cfg[section]["Add"][:] = kept   # in place: `kexts` above is this same list
             change("dedupe-add", ", ".join(dups), "one entry each",
                    f"{label} listed the same file twice; OpenCore's validator refuses that")
+
+    # 10-07 (stick logs NM-5WSVHVK1, NM-EQB69GYK, NM-V1W41NGH, NM-ZW53KZWZ + their configs): boot.efi stopped with
+    # EB.MM.AKM Err(0xE) / STOP 0x16 ("Couldn't allocate runtime area") on Ryzen boards with SetupVirtualMap on. The engine
+    # turns it off only for chipsets it can NAME (B450 X470 A520 B550 X570 TRX40), and Hardware Sniffer reads an AMD chipset
+    # only from the board's product name - every AM4/AM5 FCH has the same PCI ID - so most boards report plain "AMD" and
+    # AM5 (A620 B650 X670 X870) is not on the list at all. Dortania (AMD Zen config, Booter > Quirks): SetupVirtualMap off on
+    # those boards. Keep it on only for the chipsets known to need it.
+    cpu = (result.hardware or {}).get("CPU", {}) or {}
+    chipset = ((result.hardware or {}).get("Motherboard", {}) or {}).get("Chipset", "")
+    quirks = cfg.get("Booter", {}).get("Quirks", {})
+    if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_SVM_ON and quirks.get("SetupVirtualMap") is True:
+        quirks["SetupVirtualMap"] = False
+        change("amd-setupvirtualmap", "SetupVirtualMap=True", "SetupVirtualMap=False",
+               f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
 
     # 3. NullMoth driver: a GeForce RTX the engine kept (nullmoth.mark) gets the tested boot-args + SIP.
     driver = nullmoth.apply(cfg, result, change)

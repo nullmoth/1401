@@ -8,18 +8,22 @@ ocvalidate is tied to its OpenCore version (1.0.8's ocvalidate checks a 1.0.8 co
 release zip the engine used (URL + sha256 from the engine's download history) and take ocvalidate from it.
 """
 import hashlib
+import http.client
 import json
 import os
 import platform
 import plistlib
 import subprocess
+import time
 import urllib.request
 import zipfile
 from . import tls
 tls.install()   # downloads verify against the OS certificate store + certifi
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ENGINE_CACHE = os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files")
+def _engine_cache():
+    from .engine import OCK_CACHE  # noqa: PLC0415 - the engine decides where its downloads live
+    return OCK_CACHE
 CACHE = os.path.join(os.path.expanduser("~"), ".cache", "1401")
 TIMEOUT = 120  # seconds
 
@@ -35,7 +39,7 @@ class ValidatorUnavailable(RuntimeError):
 
 
 def _opencore_release():
-    with open(os.path.join(ENGINE_CACHE, "history.json")) as fh:
+    with open(os.path.join(_engine_cache(), "history.json")) as fh:
         for x in json.load(fh):
             if x["product_name"] == "OpenCorePkg":
                 return x["url"], x["sha256"]
@@ -51,8 +55,18 @@ def ocvalidate_path():
     if not os.path.exists(zpath) or _sha256(zpath) != sha:
         tmp = zpath + ".tmp"
         req = urllib.request.Request(url, headers={"User-Agent": "1401"})
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r, open(tmp, "wb") as fh:
-            fh.write(r.read())
+        # 10-07 (NM-KHVZNES3): IncompleteRead mid-file failed the build. Normally the engine's own checked copy is
+        # already here (engine.download_and_save_file keeps it); this is the fallback, retried like the engine's.
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as r, open(tmp, "wb") as fh:
+                    fh.write(r.read())
+                break
+            except (OSError, http.client.HTTPException) as e:
+                if attempt == 3:
+                    from .engine import network_help  # noqa: PLC0415
+                    raise ValidatorUnavailable(f"{type(e).__name__}: {e}. " + network_help(url)) from e
+                time.sleep(2 ** (attempt + 1))
         got = _sha256(tmp)
         if got != sha:
             os.remove(tmp)

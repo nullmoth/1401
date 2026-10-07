@@ -15,6 +15,7 @@ import io
 import os
 import stat
 import time
+import urllib.parse
 import re
 import shutil
 import sys
@@ -53,6 +54,24 @@ def _macos_answer(prompt, ctx, pol):
         return ""
     nums = [n for n, _ in offered]
     return "24" if "24" in nums else max(nums, key=int)
+
+
+# 10-07 (NM-CHW0YW6F): the reason ("Intel VMD controllers are not supported ... disable Intel VMD in the BIOS") sat at
+# the bottom of 40 lines of compatibility output. A stop the user can fix gets its fix as the first line.
+STOP_LEADS = (
+    ("Intel VMD", "Turn off Intel VMD in the BIOS (look under Storage for \"VMD controller\" or \"Intel Rapid Storage\"), then run "
+                  "Check this PC again. If Windows is on that drive, switch Windows to AHCI first as 1401's BIOS steps page "
+                  "shows (Safe Mode once), or Windows will not start."),
+    ("without a supported GPU", "macOS has no driver for this PC's graphics, so 1401 cannot build for it. Supported: most AMD "
+                                "Radeon desktop cards up to RX 6000, Intel UHD/Iris integrated graphics up to 10th gen, and "
+                                "NVIDIA GeForce RTX cards through the NullMoth driver."),
+)
+
+
+def stop_message(parts):
+    said = ("\n".join(x for x in parts if x).strip() or "(nothing)")[-3000:]
+    lead = next((fix for key, fix in STOP_LEADS if key in said), "")
+    return (lead + "\n\n" if lead else "") + "OpenCore-Simplify stopped. It said:\n" + said
 
 
 class EngineExit(RuntimeError):
@@ -200,9 +219,7 @@ class Headless:
             "open_folder": lambda s, *a, **k: None,
             # OpenCore-Simplify prints why before it quits (no supported GPU, missing SSE4, no storage ...); keep that text.
             # (10-07: a laptop user saw only "engine asked to exit".)
-            "exit_program": lambda s, *a, **k: (_ for _ in ()).throw(
-                EngineExit("OpenCore-Simplify stopped. It said:\n" +
-                           ("\n".join(x for x in h.notices[-3:] + [h._context()] if x).strip() or "(nothing)")[-3000:])),
+            "exit_program": lambda s, *a, **k: (_ for _ in ()).throw(EngineExit(stop_message(h.notices[-3:] + [h._context()]))),
             "progress_bar": lambda s, title, steps, i, done=False: print(
                 f"[{title}] {'done' if done else steps[i] if i < len(steps) else ''}"),
         }
@@ -265,6 +282,29 @@ def _dsdt_signature_fix():
     cls._1401_sig = True
 
 
+def network_help(url):
+    host = urllib.parse.urlsplit(url).hostname or url
+    return (f"1401 could not reach {host} (tried several times). The build downloads OpenCore and its drivers from GitHub, "
+            "and this network blocks or resets those connections - common in mainland China and on some school or work "
+            "networks. Turn on a VPN, or a proxy set in Windows (Settings > Network & internet > Proxy - 1401 uses it), "
+            "then build again.")
+
+
+# 10-07 (NM-EWTXNCET PermissionError in ...\Downloads\Compressed\1401\...\OCK_Files, NM-QT5R4QQQ missing
+# efi\manifest.json): the engine keeps its downloads in OCK_Files beside its own code, so it rewrote files inside the
+# folder the user unpacked - which can be read-only or watched by antivirus - and 1.0.0-1.0.6 even shipped a stale copy of
+# that cache. On Windows it now lives in the user's writable app-data folder; the zip ships none.
+OCK_CACHE = (os.path.join(os.environ["LOCALAPPDATA"], "NullMoth", "1401", "OCK_Files") if os.environ.get("LOCALAPPDATA")
+             else os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files"))
+
+
+def _use_ock_cache(o):
+    os.makedirs(OCK_CACHE, exist_ok=True)
+    o.o.ock_files_dir = OCK_CACHE
+    o.o.download_history_file = os.path.join(OCK_CACHE, "history.json")
+    o.k.ock_files_dir = OCK_CACHE
+
+
 def _patient_downloads():
     """10-07 (uploaded log NM-55QXD0J7): a build died on "Failed to fetch content from .../itlwm/releases" after three
     10-second timeouts in a row. The engine gives each GitHub request 10 s and retries at once, three times; a slow or
@@ -301,8 +341,32 @@ def _patient_downloads():
                     print(f"Download stalled ({a[0] if a else ''}); retrying in {2 ** (attempt + 1)} s...")
                     time.sleep(2 ** (attempt + 1))
         return run
-    cls.download_and_save_file = _retry(cls.download_and_save_file)
-    cls.fetch_and_parse_content = _retry(cls.fetch_and_parse_content)
+    dl = _retry(cls.download_and_save_file)
+
+    def download_and_save_file(self, resource_url, destination_path, sha256_hash=None):
+        ok = dl(self, resource_url, destination_path, sha256_hash)
+        # 10-07 (NM-KHVZNES3, NM-0CEPWXM0, NM-TS458ASW): the validator downloaded OpenCorePkg a SECOND time after the
+        # engine had just fetched and checked it, and on slow or filtered networks that second download is what failed.
+        # Keep the engine's checked zip where the validator looks (it re-checks the SHA-256 before using it).
+        if ok and sha256_hash and os.path.basename(resource_url).startswith("OpenCore-") and resource_url.endswith(".zip"):
+            from . import validate  # noqa: PLC0415
+            try:
+                os.makedirs(validate.CACHE, exist_ok=True)
+                shutil.copyfile(destination_path, os.path.join(validate.CACHE, os.path.basename(resource_url)))
+            except OSError as e:
+                print(f"(could not keep {os.path.basename(resource_url)} for the validator: {e})")
+        return ok
+    cls.download_and_save_file = download_and_save_file
+    fetch = _retry(cls.fetch_and_parse_content)
+
+    def fetch_and_parse_content(self, resource_url, content_type=None):
+        got = fetch(self, resource_url, content_type)
+        # 10-07 (NM-CG2NRMES, NM-Y0CFTWRR): raw.githubusercontent.com reset every connection (WinError 10054/10060,
+        # mainland China); the engine got None back and died on "argument of type 'NoneType' is not iterable".
+        if got is None:
+            raise RuntimeError(network_help(resource_url))
+        return got
+    cls.fetch_and_parse_content = fetch_and_parse_content
     cls._1401_patient = True
 
 
@@ -394,6 +458,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
         with h:
             o = mod.OCPE()
             o.result_dir = out_dir
+            _use_ock_cache(o)
             rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch)
             h.notices += norm_notes
             valid, errors, warnings, report = o.v.validate_report(rpath)

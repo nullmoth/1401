@@ -132,6 +132,16 @@ def main():
     ch = policy.apply(_cfg(d), old, engine.Policy())
     with open(_cfg(d), "rb") as fh:
         paths = [a["Path"] for a in plistlib.load(fh)["ACPI"]["Add"]]
+    for chip, want in (("AMD", False), ("B650", False), ("A320", True)):
+        d = _copy(FIXTURE)
+        _edit(d, lambda c: c["Booter"]["Quirks"].__setitem__("SetupVirtualMap", True))
+        amd = engine.BuildResult(ok=True, out_dir=d, macos_version="24.99.99", decisions=[],
+                                 hardware={"GPU": {}, "CPU": {"Manufacturer": "AMD"}, "Motherboard": {"Chipset": chip}})
+        policy.apply(_cfg(d), amd, engine.Policy())
+        with open(_cfg(d), "rb") as fh:
+            svm = plistlib.load(fh)["Booter"]["Quirks"]["SetupVirtualMap"]
+        arm(f"Ryzen board reported as {chip!r}: SetupVirtualMap {want} (STOP 0x16 sticks, NM-5WSVHVK1)", svm is want, svm)
+
     arm("a table listed twice in ACPI > Add is kept once and the EFI validates (NM-MH8TV0NW)",
         len(paths) == len(set(paths)) and "dedupe-add" in [x["rule"] for x in ch] and validate.validate(d)["ok"], paths[:3])
 
@@ -157,6 +167,43 @@ def main():
     finally:
         engine.time.sleep = real_sleep
     arm("a download that stalls mid-read twice is retried and lands (NM-DTC05X6Y)", got is True and len(tries) == 3, (got, len(tries)))
+
+    class Blocked(rf.ResourceFetcher):
+        def _make_request(self, url, timeout=30):
+            return None
+    try:
+        Blocked().fetch_and_parse_content("https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json", "json")
+        blocked = "returned"
+    except RuntimeError as e:
+        blocked = str(e)
+    arm("a fetch GitHub never answers says VPN/proxy, not 'NoneType is not iterable' (NM-CG2NRMES)",
+        "raw.githubusercontent.com" in blocked and "VPN" in blocked, blocked[:70])
+
+    from . import validate as validate_mod  # noqa: PLC0415
+    real_cache, validate_mod.CACHE = validate_mod.CACHE, tempfile.mkdtemp(prefix="1401-selftest-")
+    try:
+        tries.clear(); tries.extend([1, 1])
+        dest = os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "OpenCorePkg.zip")
+        Stall().download_and_save_file("https://example.invalid/x/OpenCore-1.0.9-RELEASE.zip", dest, None)
+        unkept = os.path.exists(os.path.join(validate_mod.CACHE, "OpenCore-1.0.9-RELEASE.zip"))
+        tries.clear(); tries.extend([1, 1])
+        import hashlib  # noqa: PLC0415
+        Stall().download_and_save_file("https://example.invalid/x/OpenCore-1.0.9-RELEASE.zip", dest, hashlib.sha256(b"ok").hexdigest())
+        kept = os.path.exists(os.path.join(validate_mod.CACHE, "OpenCore-1.0.9-RELEASE.zip"))
+    finally:
+        validate_mod.CACHE = real_cache
+    arm("an unverified OpenCore zip is NOT handed to the validator", not unkept, unkept)
+    arm("the engine's checked OpenCore zip is kept for the validator (no second download, NM-KHVZNES3)", kept, kept)
+
+    vmd = engine.stop_message(["5. Storage Controllers:", "Intel VMD controllers are not supported in macOS.\nPlease disable Intel VMD"])
+    arm("a VMD stop leads with 'Turn off Intel VMD' (NM-CHW0YW6F)", vmd.startswith("Turn off Intel VMD"), vmd[:40])
+    plain = engine.stop_message(["something else"])
+    arm("a stop with no known fix keeps the engine's words first", plain.startswith("OpenCore-Simplify stopped"), plain[:30])
+
+    o = type("O", (), {})(); o.o = type("G", (), {})(); o.k = type("K", (), {})()
+    engine._use_ock_cache(o)
+    arm("the engine's download cache is OCK_CACHE for both gatherer and kext picker",
+        o.o.ock_files_dir == o.k.ock_files_dir == engine.OCK_CACHE and o.o.download_history_file.startswith(engine.OCK_CACHE), engine.OCK_CACHE)
 
     # --- engine guards
     class FakeUtils:

@@ -432,9 +432,10 @@ namespace A1401
         // The Mac identity OpenCore gives this PC (serial, board serial, UUID, ROM) is the only personal part of a config.
         static string RedactConfig(string xml)
         {
-            return System.Text.RegularExpressions.Regex.Replace(xml,
-                @"(<key>(SystemSerialNumber|MLB|BoardSerialNumber|ChassisSerialNumber|SystemUUID|ROM|SerialNumber)</key>\s*<(string|data)>)[^<]*(</\3>)",
-                "${1}REMOVED${4}");
+            // <data> must stay valid base64 or the uploaded config no longer parses as a plist (10-07: every 1.0.5 copy)
+            const string keys = @"(<key>(SystemSerialNumber|MLB|BoardSerialNumber|ChassisSerialNumber|SystemUUID|ROM|SerialNumber)</key>\s*";
+            xml = System.Text.RegularExpressions.Regex.Replace(xml, keys + @"<string>)[^<]*(</string>)", "${1}REMOVED${3}");
+            return System.Text.RegularExpressions.Regex.Replace(xml, keys + @"<data>)[^<]*(</data>)", "${1}AAAAAAAA${3}");
         }
 
         static string MacName(string d)
