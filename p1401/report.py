@@ -26,6 +26,15 @@ def normalize(report):
     if not isinstance(report.get("Input"), dict):
         report["Input"] = {}
         notes.append("Input: the report lists no keyboard/trackpad section - treated as none (no PS/2 or I2C input kexts)")
+    # 10-07 (NM-WJBMSV8B): Hardware Sniffer asks PowerShell for $env:firmware_type, and a PowerShell profile that prints
+    # a banner lands in the value ("Linux Rice loaded!\nUEFI"), so the schema rejected the whole report. Keep the real word.
+    bios = report.get("BIOS") if isinstance(report.get("BIOS"), dict) else None
+    ft = (bios or {}).get("Firmware Type")
+    if isinstance(ft, str) and ft not in ("UEFI", "BIOS"):
+        word = "UEFI" if "UEFI" in ft.upper() else "BIOS" if ("BIOS" in ft.upper() or "LEGACY" in ft.upper()) else None
+        if word:
+            bios["Firmware Type"] = word
+            notes.append(f"BIOS: firmware type read as {ft!r} (extra text from PowerShell) - taken as {word}")
     # 10-07 (NM-S9BPDPZQ): a card Windows has no driver for shows up as "Microsoft Basic Display Adapter" with
     # Manufacturer 'Unknown', and the engine's schema rejects the whole report. The PCI vendor in its Device ID still
     # names the maker, so take it from there; a card with no usable ID is dropped if another GPU remains.

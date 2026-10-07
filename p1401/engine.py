@@ -502,6 +502,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.ok = True
     except Exception as e:  # reported to the caller in res.error
         res.error = f"{type(e).__name__}: {e}"
+        # 10-07 (NM-Z3WKQAFQ): after every retry the engine said only "Could not download RTL812xLucy at this time".
+        m = re.match(r"Could not download (\S+)", str(e))
+        if m:
+            res.error += "\n" + network_help(f"github.com ({m.group(1)})")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     res.decisions, res.notices = h.decisions, h.notices

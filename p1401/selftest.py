@@ -265,6 +265,11 @@ def main():
     arm("a Sonoma default with only Sequoia listed answers 24 (NM-3183CSDD)", a4 == "24", a4)
     nores = engine.build(os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "Report.json"), tempfile.mkdtemp(prefix="1401-selftest-"),
                          tempfile.mkdtemp(prefix="1401-selftest-"), download=False)
+    rf_ = report_mod.normalize({"Input": {}, "GPU": {}, "BIOS": {"Firmware Type": "Linux Rice loaded!\nUEFI"}})
+    arm("a PowerShell banner in the firmware type is dropped, UEFI kept (NM-WJBMSV8B)",
+        rf_[0]["BIOS"]["Firmware Type"] == "UEFI" and rf_[1], rf_[0]["BIOS"]["Firmware Type"])
+    rl_ = report_mod.normalize({"Input": {}, "GPU": {}, "BIOS": {"Firmware Type": "Legacy"}})
+    arm("a Legacy firmware type reads as BIOS", rl_[0]["BIOS"]["Firmware Type"] == "BIOS", rl_[0]["BIOS"]["Firmware Type"])
     arm("Build with no Report.json says 'Run Check this PC first' (NM-EMCW2SYV)", "Check this PC first" in (nores.error or ""), (nores.error or "")[:60])
 
     busy = tempfile.mkdtemp(prefix="1401-selftest-")
