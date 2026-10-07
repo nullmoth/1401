@@ -154,6 +154,13 @@ class Headless:
         ctx = self._context()
         self._repeat = self._repeat + 1 if p == self._last else 1
         self._last = p
+        if re.search(r"drag and drop ACPI Tables", p):
+            # OpenCore-Simplify reached this only because it could not read the dump we passed (no table passed its check,
+            # two tables carry a DSDT signature, or iasl could not disassemble the DSDT). It printed the reason before a
+            # bare "press Enter" we already answered, so that text is in the notices, not in ctx. (10-07: users saw only
+            # "The engine had just printed: ...".)
+            why = "\n".join(n for n in self.notices[-3:] + [ctx] if n).strip() or "(it printed nothing)"
+            raise RuntimeError("OpenCore-Simplify could not read this PC's ACPI tables. It said:\n" + why[-3000:])
         if self._repeat >= 3:
             raise EngineLoop(f"engine re-asked {p!r} {self._repeat}x - our answer was rejected.\n{ctx}")
         for pat, ans in PROMPT_RULES:

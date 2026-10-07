@@ -23,6 +23,7 @@ namespace A1401
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
+        readonly LinkLabel logLink = new LinkLabel();
         readonly ListView facts = new ListView();
         bool busy, scanned, built, written;
         string scanDir, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
@@ -35,6 +36,7 @@ namespace A1401
             FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false;
             BackColor = Theme.Bg; ForeColor = Theme.Text; Font = Theme.Body;
             StartPosition = FormStartPosition.CenterScreen;
+            Shown += (o, e) => OfferStickLogs(false);
 
             var head = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Panel };
             var mark = new PictureBox { Image = Theme.Mark(), SizeMode = PictureBoxSizeMode.Zoom, Bounds = new Rectangle(14, 9, 56, 56) };
@@ -73,7 +75,10 @@ namespace A1401
             ocLink.Text = "OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"; ocLink.AutoSize = true;
             ocLink.Location = new Point(24, 300); ocLink.LinkColor = Theme.Cyan; ocLink.Font = new Font("Verdana", 9.5f);
             ocLink.LinkClicked += (s, e) => System.Diagnostics.Process.Start("https://dortania.github.io/OpenCore-Install-Guide/");
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink });
+            logLink.Text = "Something went wrong? Scan for logs and send them"; logLink.AutoSize = true;
+            logLink.Location = new Point(24, 330); logLink.LinkColor = Theme.Cyan; logLink.Font = new Font("Verdana", 9.5f);
+            logLink.LinkClicked += (s, e) => OfferStickLogs(true);
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             Go(0);
@@ -88,7 +93,7 @@ namespace A1401
 
         void Show(params Control[] on)
         {
-            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink }) c.Visible = on.Contains(c);
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
         }
 
         void Go(int p)
@@ -110,7 +115,7 @@ namespace A1401
                         "You need: an internet connection and a USB stick of 16 GB or more that can be erased.\r\n\r\n" +
                         "1401 is new and may not work on every PC. If it does not work on yours, set up OpenCore by hand with the guide below; " +
                         "the NullMoth app works on any OpenCore setup.";
-                    Show(ocLink); var miss = Engine.Missing(); if (miss != null) { note.Text = miss; next.Enabled = false; } else next.Enabled = true;
+                    Show(ocLink, logLink); var miss = Engine.Missing(); if (miss != null) { note.Text = miss; next.Enabled = false; } else next.Enabled = true;
                     break;
                 case 1:
                     note.Text = scanned ? "This PC was checked. Continue, or check again." : "1401 reads this PC's hardware (processor, board, graphics, network, storage) and its ACPI tables. This takes about a minute.";
@@ -162,7 +167,20 @@ namespace A1401
                 try
                 {
                     var r = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(json);
-                    if (!(r["ok"] is bool) || !(bool)r["ok"]) { Say("The build stopped: " + r["error"]); return; }
+                    if (!(r["ok"] is bool) || !(bool)r["ok"])
+                    {
+                        Say("The build stopped: " + r["error"]);
+                        // the whole engine output, so a user can post it in a bug report
+                        var logFile = Path.Combine(Engine.Work, "build-log.txt");
+                        try
+                        {
+                            var all = new List<string>(lines);
+                            if (r.ContainsKey("transcript")) { all.Add(""); all.Add("---- engine output ----"); all.AddRange(("" + r["transcript"]).Split('\n')); }
+                            File.WriteAllLines(logFile, Redact(all, "" + r["error"])); Say("The full log is in " + logFile + ".");
+                        } catch (Exception) { }
+                        OfferLog(logFile, "build");
+                        return;
+                    }
                     var mv = "" + r["macos_version"]; macosFull = mv; darwin = mv.Split('.')[0];
                     var notices = r["notices"] as System.Collections.ArrayList;
                     summary = "macOS " + MacName(darwin) + " for this PC, as a " + r["smbios"] + ". The startup files passed OpenCore's own check.";
@@ -250,6 +268,113 @@ namespace A1401
             catch (Exception e) { Say("Could not list USB sticks: " + e.Message); }
             if (disks.Items.Count > 0) disks.SelectedIndex = 0;
             else Say("No USB stick found. Plug one in (16 GB or more, not the stick 1401 runs from) and press Refresh.");
+        }
+
+        // A failed build sends its log to nullmothsystems.com (the same /api/upload the site's report form uses), but only
+        // after the user sees what it is and clicks Send. The Windows user name and PC name are removed first.
+        static List<string> Redact(List<string> lines, string error)
+        {
+            var user = Environment.UserName ?? ""; var pc = Environment.MachineName ?? "";
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) ?? "";
+            Func<string, string> clean = t =>
+            {
+                if (home.Length > 3) t = t.Replace(home, "%USERPROFILE%");
+                if (user.Length > 2) t = t.Replace(user, "user");
+                if (pc.Length > 2) t = t.Replace(pc, "this-pc");
+                return t;
+            };
+            var o = new List<string> { "1401 " + Application.ProductVersion + " build log", "error: " + clean(error), "" };
+            o.AddRange(lines.Select(clean));
+            return o;
+        }
+
+        void OfferLog(string file, string kind)
+        {
+            var ask = MessageBox.Show(this,
+                "The " + kind + " failed.\r\n\r\n1401 is sending this log to nullmothsystems.com so the bug can be found and fixed. " +
+                "It holds this PC's hardware list and what the build printed. Your Windows user name and PC name are removed first. " +
+                "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.",
+                "1401 - sending the log", MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+            if (ask != DialogResult.OK) { Say("The log was not sent. It stays in " + file + "."); return; }
+            var id = Send(file, "1401-" + kind + "-log.txt", kind + " failed");
+            Say(id != null ? "Log sent. Report ID " + id + " - mention it in the NullMoth Discord if you ask for help."
+                           : "Could not send the log. It stays in " + file + ".");
+        }
+
+        // POST one text file to the site's upload endpoint; returns the report ID, or null when it could not be sent.
+        string Send(string file, string sendName, string what)
+        {
+            try
+            {
+                System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+                var body = File.ReadAllBytes(file);
+                var meta = "{\"consent\": true, \"notes\": \"1401 " + Application.ProductVersion + " " + what + " (sent from the app)\", \"batch\": \"1401-app\"}";
+                var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(meta)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+                var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://nullmothsystems.com/api/upload");
+                req.Method = "POST"; req.ContentType = "application/octet-stream"; req.Timeout = 30000;
+                req.Headers.Add("X-File-Name", Uri.EscapeDataString(sendName));
+                req.Headers.Add("X-Meta", b64);
+                using (var st = req.GetRequestStream()) st.Write(body, 0, body.Length);
+                using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
+                using (var rd = new StreamReader(resp.GetResponseStream()))
+                {
+                    var j = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(rd.ReadToEnd());
+                    return j.ContainsKey("id") ? "" + j["id"] : "?";
+                }
+            }
+            catch (Exception) { return null; }
+        }
+
+        // A PC that never reaches macOS leaves its story on the stick: OpenCore's opencore-*.txt (with Apple's boot log)
+        // and macOS panic-*.txt, written by the 1401 build's Misc > Debug settings. When 1401 opens with such a stick in,
+        // it sends the newest ones (after the same notice) and moves them into NullMoth\sent-logs so they go only once.
+        void OfferStickLogs(bool asked)
+        {
+            var found = new List<string>();
+            // asked from the link: the last failed build's log on this PC goes too
+            var bl = Path.Combine(Engine.Work, "build-log.txt");
+            if (asked && File.Exists(bl)) found.Add(bl);
+            foreach (var d in DriveInfo.GetDrives())
+            {
+                try
+                {
+                    if (d.DriveType != DriveType.Removable || !d.IsReady) continue;
+                    found.AddRange(Directory.GetFiles(d.RootDirectory.FullName, "panic-*.txt"));
+                    found.AddRange(Directory.GetFiles(d.RootDirectory.FullName, "opencore-*.txt").OrderByDescending(f => f).Take(3));
+                }
+                catch (Exception) { }
+            }
+            if (found.Count == 0)
+            {
+                if (asked) MessageBox.Show(this, "No logs were found. Plug in the USB stick 1401 made (the one you started macOS from) and try again.",
+                                           "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            found = found.Take(6).ToList();   // the site takes 30 uploads per hour from one address
+            var ask = MessageBox.Show(this,
+                "1401 found " + found.Count + " log file" + (found.Count == 1 ? "" : "s") + " (from a macOS start on your USB stick" + (found.Contains(bl) ? ", and the last build" : "") + ").\r\n\r\n" +
+                "If macOS did not start, these show why. 1401 is sending them to nullmothsystems.com so the bug can be found and fixed. " +
+                "They hold what OpenCore and macOS printed while starting. Nothing else on this PC is sent.\r\n\r\n" +
+                "Click OK to send them now, or Cancel to leave them on the stick.",
+                "1401 - sending the startup logs", MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+            if (ask != DialogResult.OK) return;
+            var ids = new List<string>();
+            foreach (var f in found)
+            {
+                var id = Send(f, Path.GetFileName(f), "startup log from the stick");
+                if (id == null) continue;
+                ids.Add(id);
+                try
+                {
+                    if (f == bl) continue;
+                    var sent = Path.Combine(Path.GetPathRoot(f), "NullMoth", "sent-logs"); Directory.CreateDirectory(sent);
+                    File.Move(f, Path.Combine(sent, Path.GetFileName(f)));
+                }
+                catch (Exception) { }
+            }
+            MessageBox.Show(this, ids.Count > 0 ? "Sent " + ids.Count + " log(s). Report ID " + string.Join(", ", ids) + " - mention it in the NullMoth Discord if you ask for help."
+                                                : "The logs could not be sent (no internet?). They are still on the stick.",
+                            "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         static string MacName(string d)

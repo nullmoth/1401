@@ -114,6 +114,18 @@ def apply(config_path, result, policy):
         dl.remove("boot-args")
         change("keep-boot-args", "Delete boot-args", "keep existing boot-args", "never overwrite an installed system's boot flags")
 
+    # 2d. Logs onto the stick: when macOS hangs or panics before it reaches a desktop, the only record is the screen.
+    # OpenCore writes its log as a file on the partition it started from (Target bit 0x40, with 0x01 = logging on),
+    # AppleDebug adds Apple's boot.efi log to it, and ApplePanic saves a macOS kernel panic there as panic-*.txt. The
+    # Windows app finds those files on the stick and sends them, so a PC that never reaches macOS still reports why.
+    dbg = cfg.setdefault("Misc", {}).setdefault("Debug", {})
+    want = int(dbg.get("Target", 0) or 0) | 0x41
+    if int(dbg.get("Target", 0) or 0) != want or dbg.get("AppleDebug") is not True or dbg.get("ApplePanic") is not True:
+        before = f"Target {dbg.get('Target', 0)}, AppleDebug {dbg.get('AppleDebug')}, ApplePanic {dbg.get('ApplePanic')}"
+        dbg["Target"] = want; dbg["AppleDebug"] = True; dbg["ApplePanic"] = True
+        change("boot-logs-on-stick", before, f"Target {want}, AppleDebug, ApplePanic",
+               "boot and panic logs are written to the stick, so a failed start can be reported from Windows")
+
     # 3. NullMoth driver: a GeForce RTX the engine kept (nullmoth.mark) gets the tested boot-args + SIP.
     driver = nullmoth.apply(cfg, result, change)
     # , measured on an RTX 5060 with Resizable BAR on: with the full BAR the installer's screen froze right after

@@ -67,13 +67,22 @@ Reads the report and the built config and writes an HTML page with this board's 
 4. **Startup files**: copies the built `EFI` folder.
 5. **NVIDIA**: copies the driver package and the 1401 Mac app to `NullMoth\` on the stick.
 
-## 6. After macOS is installed
+## 6. When something fails
+
+If a build fails, 1401 shows the reason and saves `%LOCALAPPDATA%\NullMoth\1401\build-log.txt`. It then tells you it is
+sending that log to nullmothsystems.com (the Windows user name and PC name are removed first) and sends it when you click
+OK; Cancel keeps it on the PC only. A stick made by 1401 also has OpenCore write its own log, Apple's boot log and any macOS
+panic onto the stick. If macOS does not start, boot back into Windows and open 1401: it finds those files on the stick and,
+after the same notice, sends them and moves them to `NullMoth\sent-logs` on the stick. Each upload gets a report ID to
+quote when asking for help.
+
+## 7. After macOS is installed
 
 The 1401 Mac app (in the driver repo, `app/`) installs the NVIDIA driver. It finds the OpenCore that started the Mac,
 shows every change before making it, backs the config up, and sets the driver's settings, including the card's full BAR
 (8 GB on an RTX 5060). See the driver repo's `docs/HOW-IT-WORKS.md`.
 
-## 7. Not used by the app
+## 8. Not used by the app
 
 `loader/` is an experimental UEFI boot layer written in Rust, tested in QEMU only. Sticks made by 1401 boot with
 OpenCore.

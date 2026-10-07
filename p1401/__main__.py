@@ -12,7 +12,9 @@ from . import engine
 
 def _result_json(r):
     d = dict(r.__dict__)
-    d.pop("transcript", None)
+    t = d.pop("transcript", None)
+    if not r.ok and t:   # a failed build carries the engine's own printout, so the uploaded log shows what really went wrong
+        d["transcript"] = t[-30000:]
     d.pop("hardware", None)
     d["decisions"] = [x.__dict__ for x in r.decisions]
     return d
