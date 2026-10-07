@@ -126,6 +126,23 @@ def apply(config_path, result, policy):
         change("boot-logs-on-stick", before, f"Target {want}, AppleDebug, ApplePanic",
                "boot and panic logs are written to the stick, so a failed start can be reported from Windows")
 
+    # 10-07 (NM-MH8TV0NW): the engine listed SSDT-Disable_Network_GPP7.aml twice in ACPI > Add (two network cards
+    # behind the same bridge), and ocvalidate refuses a duplicated entry, so the whole build failed. OpenCore would load
+    # the same table twice; the second copy does nothing. Keep the first of each Path (and each kext BundlePath).
+    for section, key, label in (("ACPI", "Path", "ACPI > Add"), ("Kernel", "BundlePath", "Kernel > Add")):
+        seen, kept, dups = set(), [], []
+        for e in cfg.get(section, {}).get("Add", []):
+            k = e.get(key) if isinstance(e, dict) else None
+            if k and k in seen:
+                dups.append(k)
+                continue
+            seen.add(k)
+            kept.append(e)
+        if dups:
+            cfg[section]["Add"][:] = kept   # in place: `kexts` above is this same list
+            change("dedupe-add", ", ".join(dups), "one entry each",
+                   f"{label} listed the same file twice; OpenCore's validator refuses that")
+
     # 3. NullMoth driver: a GeForce RTX the engine kept (nullmoth.mark) gets the tested boot-args + SIP.
     driver = nullmoth.apply(cfg, result, change)
     # , measured on an RTX 5060 with Resizable BAR on: with the full BAR the installer's screen froze right after

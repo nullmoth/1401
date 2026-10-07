@@ -127,6 +127,37 @@ def main():
         csr = plistlib.load(fh)["NVRAM"]["Add"][policy.BOOT]["csr-active-config"]
     arm("machine that needs nothing gets SIP fully on (engine's 0x0A03 undone)", csr == bytes(4), csr.hex())
 
+    d = _copy(FIXTURE)
+    _edit(d, lambda c: c["ACPI"]["Add"].insert(1, dict(c["ACPI"]["Add"][0])))
+    ch = policy.apply(_cfg(d), old, engine.Policy())
+    with open(_cfg(d), "rb") as fh:
+        paths = [a["Path"] for a in plistlib.load(fh)["ACPI"]["Add"]]
+    arm("a table listed twice in ACPI > Add is kept once and the EFI validates (NM-MH8TV0NW)",
+        len(paths) == len(set(paths)) and "dedupe-add" in [x["rule"] for x in ch] and validate.validate(d)["ok"], paths[:3])
+
+    engine._load_engine()
+    from Scripts import resource_fetcher as rf  # noqa: PLC0415
+    tries = []
+
+    class Stall(rf.ResourceFetcher):
+        def _make_request(self, url, timeout=30):
+            return object()
+
+        def _download_with_progress(self, response, fh):
+            tries.append(1)
+            if len(tries) < 3:
+                raise TimeoutError("The read operation timed out")
+            fh.write(b"ok")
+    real_sleep, engine.time.sleep = engine.time.sleep, lambda s: None
+    try:
+        dest = os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "f")
+        got = Stall().download_and_save_file("https://example.invalid/f", dest)
+    except TimeoutError as e:
+        got = e
+    finally:
+        engine.time.sleep = real_sleep
+    arm("a download that stalls mid-read twice is retried and lands (NM-DTC05X6Y)", got is True and len(tries) == 3, (got, len(tries)))
+
     # --- engine guards
     class FakeUtils:
         def request_input(self, prompt=""):
@@ -171,6 +202,9 @@ def main():
     arm("a default missing from the menu answers Sequoia 24 (Turing + Broadcom, NM-036E35M9)", a1 == "24", a1)
     arm("a default that IS on the menu keeps the engine's default", a2 == "", repr(a2))
     arm("no Sequoia on the menu takes the newest listed", a3 == "25", a3)
+    a4 = engine._macos_answer("Please enter the macOS version you want to use (default: macOS Sonoma 14):",
+                              "Available macOS versions:\n\n   24. macOS Sequoia 15\n\nNote:\nQ. Quit", engine.Policy())
+    arm("a Sonoma default with only Sequoia listed answers 24 (NM-3183CSDD)", a4 == "24", a4)
 
     busy = tempfile.mkdtemp(prefix="1401-selftest-")
     open(os.path.join(busy, "precious.txt"), "w").write("do not wipe")

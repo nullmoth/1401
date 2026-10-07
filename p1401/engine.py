@@ -285,6 +285,24 @@ def _patient_downloads():
                 time.sleep(min(2 ** (attempt + 1), 30))
         return None
     cls._make_request = make_request
+    # 10-07 (NM-DTC05X6Y, NM-GP91G90X): "TimeoutError: The read operation timed out" while gathering OpenCore and
+    # kexts. The connection opened; the stall came mid-body in response.read(), which the engine never retries, so one
+    # slow chunk killed the build. Each whole download/fetch now gets 4 tries with the same growing pause.
+    import http.client, socket, urllib.error  # noqa: E401,PLC0415
+
+    def _retry(fn):
+        def run(self, *a, **kw):
+            for attempt in range(4):
+                try:
+                    return fn(self, *a, **kw)
+                except (TimeoutError, socket.timeout, ConnectionError, http.client.IncompleteRead, urllib.error.URLError):
+                    if attempt == 3:
+                        raise
+                    print(f"Download stalled ({a[0] if a else ''}); retrying in {2 ** (attempt + 1)} s...")
+                    time.sleep(2 ** (attempt + 1))
+        return run
+    cls.download_and_save_file = _retry(cls.download_and_save_file)
+    cls.fetch_and_parse_content = _retry(cls.fetch_and_parse_content)
     cls._1401_patient = True
 
 
