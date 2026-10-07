@@ -149,9 +149,23 @@ namespace A1401
                 busy = true; next.Enabled = false; log.Clear();
                 scanDir = Path.Combine(Engine.Work, "scan"); Wipe(scanDir);
                 Say("Checking this PC...");
-                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir), Say);
+                var scanLines = new List<string>();
+                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir), l => { scanLines.Add(l); Say(l); });
                 busy = false; next.Enabled = true;
-                if (rc != 0) { Say("The check failed. The lines above say why."); return; }
+                if (rc != 0)
+                {
+                    Say("The check failed. The lines above say why.");
+                    var logFile = Path.Combine(Engine.Work, "scan-log.txt");
+                    try
+                    {
+                        var all = new List<string>(scanLines);
+                        var acpiDir = Path.Combine(scanDir, "ACPI");   // which tables were dumped, by name and size
+                        if (Directory.Exists(acpiDir)) { all.Add(""); all.Add("---- ACPI dump ----"); all.AddRange(Directory.GetFiles(acpiDir).Select(f => Path.GetFileName(f) + "  " + new FileInfo(f).Length)); }
+                        File.WriteAllLines(logFile, Redact(all, "scan failed"));
+                    } catch (Exception) { }
+                    OfferLog(logFile, "check");
+                    return;
+                }
                 scanned = true; LoadFacts(); Say("Done."); Go(1); return;
             }
             if (page == 2 && !built)

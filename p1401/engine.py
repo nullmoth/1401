@@ -182,7 +182,11 @@ class Headless:
             "head": lambda s, text=None, width=68, resize=True: print(f"\n== {text or ''}"),
             "adjust_window_size": lambda s, *a, **k: None,
             "open_folder": lambda s, *a, **k: None,
-            "exit_program": lambda s, *a, **k: (_ for _ in ()).throw(EngineExit("engine asked to exit")),
+            # OpenCore-Simplify prints why before it quits (no supported GPU, missing SSE4, no storage ...); keep that text.
+            # (10-07: a laptop user saw only "engine asked to exit".)
+            "exit_program": lambda s, *a, **k: (_ for _ in ()).throw(
+                EngineExit("OpenCore-Simplify stopped. It said:\n" +
+                           ("\n".join(x for x in h.notices[-3:] + [h._context()] if x).strip() or "(nothing)")[-3000:])),
             "progress_bar": lambda s, title, steps, i, done=False: print(
                 f"[{title}] {'done' if done else steps[i] if i < len(steps) else ''}"),
         }

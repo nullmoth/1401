@@ -7,7 +7,7 @@ Made by **NullMoth Systems**. Support the work: https://buymeacoffee.com/nullmot
 
 | Download (Releases) | What it is |
 |---|---|
-| `1401-Windows-1.0.2.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
+| `1401-Windows-1.0.3.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
 | `1401-Mac-1.0.0.dmg` (in the [driver repo](https://github.com/nullmoth/nvidia-macos-driver) releases) | the Mac installer for the NVIDIA driver: open it and run **1401**; the driver is inside |
 
 > **1401 is new and may not work on every PC.** It has been tested end to end on one PC (Intel Core Ultra 5 225F,
@@ -20,7 +20,7 @@ How the code works, step by step: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md)
 
 ## Using it
 
-1. Unzip `1401-Windows-1.0.2.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
+1. Unzip `1401-Windows-1.0.3.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
    rights: it reads the hardware and writes the stick).
 2. **Check this PC**, **Build the Mac setup**, read **Your BIOS steps**, then **Create the macOS stick** on a USB stick of
    16 GB or more that can be erased. You need internet.

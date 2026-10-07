@@ -71,10 +71,93 @@ def check(out_dir):
     except (OSError, ValueError) as e:
         fails.append(f"Report.json unreadable: {type(e).__name__}: {e}")
     acpi = os.path.join(out_dir, "ACPI")
-    tables = [f.upper() for f in os.listdir(acpi)] if os.path.isdir(acpi) else []
-    if "DSDT.AML" not in tables:
-        fails.append(f"no DSDT.aml in the ACPI dump ({len(tables)} tables)")
+    tables = os.listdir(acpi) if os.path.isdir(acpi) else []
+    if not dsdt_in(acpi):
+        fails.append(f"no DSDT in the ACPI dump ({len(tables)} tables)")
     return fails
+
+
+def dsdt_in(acpi):
+    """The DSDT, found by its signature (the first 4 bytes), whatever acpidump named the file."""
+    for f in (os.listdir(acpi) if os.path.isdir(acpi) else []):
+        try:
+            with open(os.path.join(acpi, f), "rb") as fh:
+                if fh.read(4) == b"DSDT":
+                    return f
+        except OSError:
+            pass
+    return None
+
+
+def windows_tables(acpi):
+    """Fill in any ACPI table acpidump missed, read straight from Windows. Returns notes for the log.
+
+    EnumSystemFirmwareTables lists the table signatures Windows exposes; each one acpidump did not write is fetched with
+    GetSystemFirmwareTable and saved as <sig>.aml. Several tables share a signature (SSDT): Windows hands out only the
+    first of those, so they are added only when acpidump wrote none at all, never on top of its numbered copies."""
+    import ctypes  # noqa: PLC0415 - Windows only
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.EnumSystemFirmwareTables.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
+    k32.EnumSystemFirmwareTables.restype = ctypes.c_uint32
+    k32.GetSystemFirmwareTable.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
+    k32.GetSystemFirmwareTable.restype = ctypes.c_uint32
+    provider = int.from_bytes(b"ACPI", "big")
+    n = k32.EnumSystemFirmwareTables(provider, None, 0)
+    if not n:
+        return [f"Windows lists no ACPI tables (error {ctypes.get_last_error()})"]
+    ids = ctypes.create_string_buffer(n)
+    n = k32.EnumSystemFirmwareTables(provider, ids, n)
+    have = set()
+    for f in (os.listdir(acpi) if os.path.isdir(acpi) else []):
+        try:
+            with open(os.path.join(acpi, f), "rb") as fh:
+                have.add(fh.read(4))
+        except OSError:
+            pass
+    notes = []
+    os.makedirs(acpi, exist_ok=True)
+    for i in range(0, n - n % 4, 4):
+        sig = ids.raw[i:i + 4]
+        if sig in have or not sig.isalnum():
+            continue
+        tid = int.from_bytes(sig, "little")
+        size = k32.GetSystemFirmwareTable(provider, tid, None, 0)
+        if not size:
+            continue
+        buf = ctypes.create_string_buffer(size)
+        got = k32.GetSystemFirmwareTable(provider, tid, buf, size)
+        if got >= 36 and buf.raw[:4] == sig:
+            name = sig.decode("ascii", "replace") + ".aml"
+            with open(os.path.join(acpi, name), "wb") as fh:
+                fh.write(buf.raw[:got])
+            have.add(sig); notes.append(f"{name} read from Windows directly ({got} bytes) - acpidump did not write it")
+    return notes
+
+
+def windows_dsdt(acpi):
+    """Read the DSDT straight from Windows and write ACPI/DSDT.aml. Returns a note for the log.
+
+    10-07: a user's scan dumped 44 tables and no DSDT. Windows lists the tables the XSDT points to, but the DSDT hangs
+    off the FADT instead, so acpidump fetches it on a separate path that can come back empty. GetSystemFirmwareTable
+    hands the DSDT out directly: provider 'ACPI', table id 'DSDT' passed byte-reversed as the API documents."""
+    import ctypes  # noqa: PLC0415 - Windows only
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.GetSystemFirmwareTable.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32]
+    k32.GetSystemFirmwareTable.restype = ctypes.c_uint32
+    provider = int.from_bytes(b"ACPI", "big")
+    table = int.from_bytes(b"DSDT", "little")
+    size = k32.GetSystemFirmwareTable(provider, table, None, 0)
+    if not size:
+        return f"Windows has no DSDT to give (GetSystemFirmwareTable error {ctypes.get_last_error()})"
+    buf = ctypes.create_string_buffer(size)
+    got = k32.GetSystemFirmwareTable(provider, table, buf, size)
+    data = buf.raw[:got]
+    if got < 36 or data[:4] != b"DSDT":
+        return f"Windows returned {got} bytes that are not a DSDT"
+    os.makedirs(acpi, exist_ok=True)
+    with open(os.path.join(acpi, "DSDT.aml"), "wb") as fh:
+        fh.write(data)
+    return f"DSDT read from Windows directly ({got} bytes) - acpidump did not write one"
 
 
 def scan(out_dir):
@@ -99,6 +182,16 @@ def _child(out_dir):
     h.hardware_info.hardware_collector()
     h.export_hardware_report()
     h.dump_acpi_tables()
+    acpi = os.path.join(out_dir, "ACPI")
+    if platform.system() == "Windows":
+        for note in windows_tables(acpi):   # anything acpidump missed (FACP, MCFG, ...), straight from Windows
+            print(note)
+        if not dsdt_in(acpi):               # the DSDT is not in Windows' list of tables; it is fetched by name
+            print(windows_dsdt(acpi))
+    found = dsdt_in(acpi)
+    if found and found.upper() != "DSDT.AML":   # the builder looks for the DSDT by name in places; give it the usual one
+        os.replace(os.path.join(acpi, found), os.path.join(acpi, "DSDT.aml"))
+        print(f"DSDT was saved as {found}; renamed to DSDT.aml")
     fails = check(out_dir)
     if fails:
         print("\n".join(fails), file=sys.stderr)
