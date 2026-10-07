@@ -18,6 +18,8 @@ import os
 import platform
 import subprocess
 import sys
+from . import tls
+tls.install()   # downloads verify against the OS certificate store + certifi
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SNIFFER = os.path.join(REPO, "upstream", "Hardware-Sniffer")

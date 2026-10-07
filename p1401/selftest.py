@@ -151,6 +151,27 @@ def main():
             looped = True
     arm("same prompt 3x in a row stops the build", looped, "EngineLoop" if looped else "spun")
 
+    menu_oclp = ("Available macOS versions:\n   23. macOS Sonoma 14 (Requires OpenCore Legacy Patcher)\n"
+                 "   24. macOS Sequoia 15 (Requires OpenCore Legacy Patcher)\n   25. macOS Tahoe 26 (Requires OpenCore Legacy Patcher)\nQ. Quit")
+    menu_ok = "Available macOS versions:\n   22. macOS Ventura 13\n   23. macOS Sonoma 14\nQ. Quit"
+    q = "Please enter the macOS version you want to use (default: macOS Ventura 13):"
+    a1 = engine._macos_answer(q, menu_oclp, engine.Policy())
+    a2 = engine._macos_answer(q, menu_ok, engine.Policy())
+    a3 = engine._macos_answer(q, menu_oclp.replace("   24. macOS Sequoia 15 (Requires OpenCore Legacy Patcher)\n", ""), engine.Policy())
+    from . import report as report_mod
+    rb, nb = report_mod.normalize({"Input": {}, "GPU": {"Microsoft Basic Display Adapter": {"Manufacturer": "Unknown", "Device ID": "10DE-1F08"}}})
+    arm("a driverless card (Basic Display Adapter) gets its maker from the PCI ID (NM-S9BPDPZQ)",
+        rb["GPU"]["Microsoft Basic Display Adapter"]["Manufacturer"] == "NVIDIA" and nb, nb)
+    try:
+        report_mod.normalize({"Input": {}, "GPU": {"Microsoft Basic Display Adapter": {"Manufacturer": "Unknown"}}})
+        lone = "accepted"
+    except RuntimeError as e:
+        lone = str(e)
+    arm("a lone driverless card with no PCI ID stops with 'install your graphics driver'", "driver" in lone and lone != "accepted", lone[:60])
+    arm("a default missing from the menu answers Sequoia 24 (Turing + Broadcom, NM-036E35M9)", a1 == "24", a1)
+    arm("a default that IS on the menu keeps the engine's default", a2 == "", repr(a2))
+    arm("no Sequoia on the menu takes the newest listed", a3 == "25", a3)
+
     busy = tempfile.mkdtemp(prefix="1401-selftest-")
     open(os.path.join(busy, "precious.txt"), "w").write("do not wipe")
     try:

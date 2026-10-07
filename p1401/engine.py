@@ -40,6 +40,21 @@ class EngineLoop(RuntimeError):
     pass
 
 
+def _macos_answer(prompt, ctx, pol):
+    """The version menu. "" takes the engine's default, but the default is not always on the menu.
+    10-07 (NM-036E35M9, NM-0ZH4CA2A): a Broadcom card that tops out at Ventura plus a GeForce marked Sequoia-only
+    left no native version; the menu offered only 23-25 (OCLP) while the default stayed "macOS Ventura 13", so the
+    blank answer was refused three times. Then: Sequoia (24, the NullMoth driver's target) if listed, else the newest."""
+    if pol.macos:
+        return pol.macos
+    offered = re.findall(r"^\s*(\d+)\.\s+macOS (.+?)(?:\s+\(|$)", ctx, re.M)
+    m = re.search(r"\(default: macOS (.+?)\)", prompt)
+    if not offered or (m and any(name.strip() == m.group(1).strip() for _, name in offered)):
+        return ""
+    nums = [n for n, _ in offered]
+    return "24" if "24" in nums else max(nums, key=int)
+
+
 class EngineExit(RuntimeError):
     pass
 
@@ -110,7 +125,7 @@ def _choose_device(prompt, ctx, policy):
 PROMPT_RULES = [
     (r"^Press Enter", ""),
     (r"^Build EFI for UEFI\?", "yes"),
-    (r"^Please enter the macOS version", lambda p, c, pol: pol.macos),
+    (r"^Please enter the macOS version", lambda p, c, pol: _macos_answer(p, c, pol)),
     (r"^Select audio kext for your system", lambda p, c, pol: "1" if pol.tahoe_audio == "applealc" else "2"),
     (r"^Select kext for your AMD .* GPU \(default", ""),
     (r"^Select kext for your Intel WiFi device \(default", ""),
@@ -215,6 +230,8 @@ def _load_engine():
     spec.loader.exec_module(mod)
     _patient_downloads()
     _dsdt_signature_fix()
+    from . import tls  # noqa: PLC0415
+    tls.install()   # verify against the Windows store + certifi, not certifi alone
     return mod, utils_mod
 
 

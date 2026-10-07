@@ -15,6 +15,8 @@ import plistlib
 import subprocess
 import urllib.request
 import zipfile
+from . import tls
+tls.install()   # downloads verify against the OS certificate store + certifi
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENGINE_CACHE = os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files")

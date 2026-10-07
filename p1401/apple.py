@@ -24,6 +24,8 @@ import struct
 import sys
 import urllib.request
 from urllib.parse import urlparse
+from . import tls
+tls.install()   # downloads verify against the OS certificate store + certifi
 
 TIMEOUT = 60  # seconds per request
 MLB_ZERO = "00000000000000000"  # the generic MLB: Apple serves that board's newest recovery image

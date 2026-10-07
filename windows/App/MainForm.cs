@@ -370,6 +370,7 @@ namespace A1401
         void OfferStickLogs(bool asked)
         {
             var found = new List<string>();
+            var configs = new List<string>();
             // asked from the link: the last failed build's log on this PC goes too
             var bl = Path.Combine(Engine.Work, "build-log.txt");
             if (asked && File.Exists(bl)) found.Add(bl);
@@ -382,6 +383,15 @@ namespace A1401
                     if (d.DriveType != DriveType.Removable || !d.IsReady) continue;
                     found.AddRange(Directory.GetFiles(d.RootDirectory.FullName, "panic-*.txt"));
                     found.AddRange(Directory.GetFiles(d.RootDirectory.FullName, "opencore-*.txt").OrderByDescending(f => f).Take(3));
+                    // 10-07: four stick logs (NM-DXKP8FQ7 ...) ended at Apple's hand-off to the kernel and named no hardware
+                    // or settings, so nothing in them could be fixed. The config that booted goes with them, serials removed.
+                    var cfg = Path.Combine(d.RootDirectory.FullName, "EFI", "OC", "config.plist");
+                    if (found.Any(f => Path.GetPathRoot(f) == d.RootDirectory.FullName) && File.Exists(cfg))
+                    {
+                        var safe = Path.Combine(Engine.Work, "stick-config-" + d.Name.TrimEnd('\\', ':') + ".txt");
+                        File.WriteAllText(safe, RedactConfig(File.ReadAllText(cfg)));
+                        configs.Add(safe);
+                    }
                 }
                 catch (Exception) { }
             }
@@ -391,7 +401,7 @@ namespace A1401
                                            "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            found = found.Take(6).ToList();   // the site takes 30 uploads per hour from one address
+            found = configs.Concat(found).Take(6).ToList();   // the site takes 30 uploads per hour from one address
             var ask = MessageBox.Show(this,
                 "1401 found " + found.Count + " log file" + (found.Count == 1 ? "" : "s") + " (from a macOS start on your USB stick" + (found.Contains(bl) ? ", and the last build" : "") + ").\r\n\r\n" +
                 "If macOS did not start, these show why. 1401 is sending them to nullmothsystems.com so the bug can be found and fixed. " +
@@ -407,7 +417,7 @@ namespace A1401
                 ids.Add(id);
                 try
                 {
-                    if (f == bl) continue;
+                    if (f == bl || configs.Contains(f)) continue;
                     if (f == crash) { File.Move(crash, crash + ".sent-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")); continue; }
                     var sent = Path.Combine(Path.GetPathRoot(f), "NullMoth", "sent-logs"); Directory.CreateDirectory(sent);
                     File.Move(f, Path.Combine(sent, Path.GetFileName(f)));
@@ -417,6 +427,14 @@ namespace A1401
             MessageBox.Show(this, ids.Count > 0 ? "Sent " + ids.Count + " log(s). Report ID " + string.Join(", ", ids) + " - mention it in the NullMoth Discord if you ask for help."
                                                 : "The logs could not be sent: " + lastSendError + "\r\nThey are still where they were; try again with Scan for logs and send them.",
                             "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        // The Mac identity OpenCore gives this PC (serial, board serial, UUID, ROM) is the only personal part of a config.
+        static string RedactConfig(string xml)
+        {
+            return System.Text.RegularExpressions.Regex.Replace(xml,
+                @"(<key>(SystemSerialNumber|MLB|BoardSerialNumber|ChassisSerialNumber|SystemUUID|ROM|SerialNumber)</key>\s*<(string|data)>)[^<]*(</\3>)",
+                "${1}REMOVED${4}");
         }
 
         static string MacName(string d)

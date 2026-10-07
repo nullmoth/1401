@@ -14,6 +14,9 @@ DROPPABLE = {
 }
 
 
+PCI_VENDORS = {"10DE": "NVIDIA", "1002": "AMD", "8086": "Intel"}
+
+
 def normalize(report):
     """Mutates and returns (report, notes). Each note names what was dropped and why."""
     notes = []
@@ -23,6 +26,25 @@ def normalize(report):
     if not isinstance(report.get("Input"), dict):
         report["Input"] = {}
         notes.append("Input: the report lists no keyboard/trackpad section - treated as none (no PS/2 or I2C input kexts)")
+    # 10-07 (NM-S9BPDPZQ): a card Windows has no driver for shows up as "Microsoft Basic Display Adapter" with
+    # Manufacturer 'Unknown', and the engine's schema rejects the whole report. The PCI vendor in its Device ID still
+    # names the maker, so take it from there; a card with no usable ID is dropped if another GPU remains.
+    gpus = report.get("GPU") or {}
+    for name, props in list(gpus.items()):
+        if not isinstance(props, dict) or props.get("Manufacturer") in PCI_VENDORS.values():
+            continue
+        vendor = PCI_VENDORS.get((props.get("Device ID") or "")[:4].upper())
+        if vendor:
+            props["Manufacturer"] = vendor
+            notes.append(f"GPU: {name!r} has no Windows driver (maker read from its PCI ID {props['Device ID']}: {vendor}). "
+                         "Installing the card's driver in Windows and scanning again gives a fuller report.")
+        elif len(gpus) > 1:
+            del gpus[name]
+            notes.append(f"GPU: {name!r} names no maker and no PCI ID - left out; the other graphics card is used")
+        else:
+            raise RuntimeError(f"The only graphics card Windows reports is {name!r}, with no maker or PCI ID: Windows has no "
+                               "driver for it. Install your graphics card's driver in Windows (from NVIDIA, AMD or Intel), "
+                               "restart, and run Check this PC again.")
     for section, may_drop in DROPPABLE.items():
         for name, props in list((report.get(section) or {}).items()):
             if isinstance(props, dict) and "Device ID" not in props and may_drop(props):
