@@ -141,6 +141,15 @@ def main():
         with open(_cfg(d), "rb") as fh:
             svm = plistlib.load(fh)["Booter"]["Quirks"]["SetupVirtualMap"]
         arm(f"Ryzen board reported as {chip!r}: SetupVirtualMap {want} (STOP 0x16 sticks, NM-5WSVHVK1)", svm is want, svm)
+    for chip, want in (("B550", False), ("AMD", False), ("TRX40", True)):
+        d = _copy(FIXTURE)
+        _edit(d, lambda c: c["Booter"]["Quirks"].__setitem__("DevirtualiseMmio", True))
+        amd = engine.BuildResult(ok=True, out_dir=d, macos_version="24.99.99", decisions=[],
+                                 hardware={"GPU": {}, "CPU": {"Manufacturer": "AMD"}, "Motherboard": {"Chipset": chip}})
+        policy.apply(_cfg(d), amd, engine.Policy())
+        with open(_cfg(d), "rb") as fh:
+            dm = plistlib.load(fh)["Booter"]["Quirks"]["DevirtualiseMmio"]
+        arm(f"Ryzen board reported as {chip!r}: DevirtualiseMmio {want} (NM-Z1VR8TR9)", dm is want, dm)
 
     arm("a table listed twice in ACPI > Add is kept once and the EFI validates (NM-MH8TV0NW)",
         len(paths) == len(set(paths)) and "dedupe-add" in [x["rule"] for x in ch] and validate.validate(d)["ok"], paths[:3])

@@ -41,6 +41,8 @@ def _args(nv):
 
 
 # AMD chipsets whose firmware needs SetupVirtualMap (pre-Zen 2 boards; Dortania AMD Zen/Bulldozer configs).
+# AMD platforms whose MMIO layout needs DevirtualiseMmio (Dortania: TRx40); everything else boots with it off.
+AMD_DEVMMIO_ON = {"TRX40", "TRX50"}
 AMD_SVM_ON = {"AM1", "A68H", "A75", "A78", "A85X", "A88X", "A320", "B350", "X370", "X399"}
 
 
@@ -159,6 +161,14 @@ def apply(config_path, result, policy):
     if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_SVM_ON and quirks.get("SetupVirtualMap") is True:
         quirks["SetupVirtualMap"] = False
         change("amd-setupvirtualmap", "SetupVirtualMap=True", "SetupVirtualMap=False",
+               f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
+    # 10-07 (stick log NM-Z1VR8TR9 + config NM-EPAV1SHF, 1401 1.0.14): a Ryzen board with SetupVirtualMap already off
+    # still stopped at EB.MM.AKM / STOP 0x16 - with DevirtualiseMmio on (and a 2-entry MmioWhitelist). Every Ryzen stick
+    # that passed boot.efi had it off (NM-9D6C0VP7, NM-7QZKR9WS). Dortania AMD Zen config: DevirtualiseMmio NO, YES only on
+    # TRx40 (whose MMIO layout needs it).
+    if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_DEVMMIO_ON and quirks.get("DevirtualiseMmio") is True:
+        quirks["DevirtualiseMmio"] = False
+        change("amd-devirtualisemmio", "DevirtualiseMmio=True", "DevirtualiseMmio=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
 
     # 10-07 (NM-MMXGZ2XV): two fetched AMD kernel patches set Replace bits where ReplaceMask is 0, and ocvalidate refuses
