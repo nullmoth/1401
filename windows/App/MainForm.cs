@@ -312,31 +312,56 @@ namespace A1401
             if (ask != DialogResult.OK) { Say("The log was not sent. It stays in " + file + "."); return; }
             var id = Send(file, "1401-" + kind + "-log.txt", kind + " failed");
             Say(id != null ? "Log sent. Report ID " + id + " - mention it in the NullMoth Discord if you ask for help."
-                           : "Could not send the log. It stays in " + file + ".");
+                           : "Could not send the log (" + lastSendError + "). It stays in " + file + ".");
         }
 
         // POST one text file to the site's upload endpoint; returns the report ID, or null when it could not be sent.
+        string lastSendError = "";
+
+        // POST one text file to the site's upload endpoint; returns the report ID, or null (reason in lastSendError).
         string Send(string file, string sendName, string what)
         {
+            lastSendError = "";
             try
             {
                 System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
                 var body = File.ReadAllBytes(file);
+                // the site refuses a "text log" with NUL bytes; OpenCore's file log can carry padding NULs at the end
+                if (sendName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)) body = body.Where(b => b != 0).ToArray();
+                string sha;
+                using (var h = System.Security.Cryptography.SHA256.Create())
+                    sha = BitConverter.ToString(h.ComputeHash(body)).Replace("-", "").ToLowerInvariant();
                 var meta = "{\"consent\": true, \"notes\": \"1401 " + Application.ProductVersion + " " + what + " (sent from the app)\", \"batch\": \"1401-app\"}";
                 var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(meta)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
                 var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://nullmothsystems.com/api/upload");
                 req.Method = "POST"; req.ContentType = "application/octet-stream"; req.Timeout = 30000;
                 req.Headers.Add("X-File-Name", Uri.EscapeDataString(sendName));
                 req.Headers.Add("X-Meta", b64);
+                req.Headers.Add("X-Content-SHA256", sha);   // the server refuses the upload if the bytes it got differ
                 using (var st = req.GetRequestStream()) st.Write(body, 0, body.Length);
                 using (var resp = (System.Net.HttpWebResponse)req.GetResponse())
                 using (var rd = new StreamReader(resp.GetResponseStream()))
                 {
                     var j = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(rd.ReadToEnd());
+                    if (j.ContainsKey("sha256") && ("" + j["sha256"]) != sha) { lastSendError = "the server stored different bytes"; return null; }
                     return j.ContainsKey("id") ? "" + j["id"] : "?";
                 }
             }
-            catch (Exception) { return null; }
+            catch (System.Net.WebException we)
+            {
+                lastSendError = we.Message;
+                try
+                {
+                    using (var rd = new StreamReader(we.Response.GetResponseStream()))
+                    {
+                        var j = new JavaScriptSerializer().Deserialize<Dictionary<string, object>>(rd.ReadToEnd());
+                        if (j.ContainsKey("error")) lastSendError = "" + j["error"];
+                    }
+                }
+                catch (Exception) { }
+                return null;
+            }
+            catch (Exception e) { lastSendError = e.Message; return null; }
         }
 
         // A PC that never reaches macOS leaves its story on the stick: OpenCore's opencore-*.txt (with Apple's boot log)
@@ -348,6 +373,8 @@ namespace A1401
             // asked from the link: the last failed build's log on this PC goes too
             var bl = Path.Combine(Engine.Work, "build-log.txt");
             if (asked && File.Exists(bl)) found.Add(bl);
+            var crash = Path.Combine(Engine.Work, "crash-log.txt");   // written by Program.cs when 1401 itself crashed
+            if (File.Exists(crash)) found.Add(crash);
             foreach (var d in DriveInfo.GetDrives())
             {
                 try
@@ -381,13 +408,14 @@ namespace A1401
                 try
                 {
                     if (f == bl) continue;
+                    if (f == crash) { File.Move(crash, crash + ".sent-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")); continue; }
                     var sent = Path.Combine(Path.GetPathRoot(f), "NullMoth", "sent-logs"); Directory.CreateDirectory(sent);
                     File.Move(f, Path.Combine(sent, Path.GetFileName(f)));
                 }
                 catch (Exception) { }
             }
             MessageBox.Show(this, ids.Count > 0 ? "Sent " + ids.Count + " log(s). Report ID " + string.Join(", ", ids) + " - mention it in the NullMoth Discord if you ask for help."
-                                                : "The logs could not be sent (no internet?). They are still on the stick.",
+                                                : "The logs could not be sent: " + lastSendError + "\r\nThey are still where they were; try again with Scan for logs and send them.",
                             "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

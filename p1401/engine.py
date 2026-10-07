@@ -14,6 +14,7 @@ import importlib.util
 import io
 import os
 import stat
+import time
 import re
 import shutil
 import sys
@@ -212,7 +213,62 @@ def _load_engine():
     spec = importlib.util.spec_from_file_location("ocs_main", os.path.join(UPSTREAM, "OpCore-Simplify.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    _patient_downloads()
+    _dsdt_signature_fix()
     return mod, utils_mod
+
+
+class _Sig(bytes):
+    """Bytes that also equal the same text: b"DSDT" == "DSDT" is True for this type."""
+    def __eq__(self, other):
+        return bytes.__eq__(self, other.encode("latin-1")) if isinstance(other, str) else bytes.__eq__(self, other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    __hash__ = bytes.__hash__
+
+
+def _dsdt_signature_fix():
+    """10-07 (uploaded log NM-DY0PA8ZT: "Failed to load tables ... - dsdt.aml"): the engine reads a table's signature
+    as bytes (b"DSDT") but acpi_guru compares it to the str "DSDT", which is never equal in Python 3. So it never finds
+    the DSDT up front and its pre-patch path - the known patches that let iasl disassemble a DSDT it chokes on - never
+    runs; the DSDT then fails in the bulk load and the build stops at "drag and drop ACPI Tables". Returning a bytes
+    value that also equals the str restores the engine's intended path without changing any other comparison."""
+    from Scripts import dsdt  # noqa: PLC0415 - upstream module
+    cls = dsdt.DSDT
+    if getattr(cls, "_1401_sig", False):
+        return
+    orig = cls._table_signature
+
+    def table_signature(self, table_path, table_name=None):
+        sig = orig(self, table_path, table_name=table_name)
+        return _Sig(sig) if isinstance(sig, bytes) else sig
+    cls._table_signature = table_signature
+    cls._1401_sig = True
+
+
+def _patient_downloads():
+    """10-07 (uploaded log NM-55QXD0J7): a build died on "Failed to fetch content from .../itlwm/releases" after three
+    10-second timeouts in a row. The engine gives each GitHub request 10 s and retries at once, three times; a slow or
+    busy connection loses. Here each request gets 30 s and six tries with a growing pause (2, 4, 8 ... s). Same URLs,
+    same files - only more patience."""
+    from Scripts import resource_fetcher as rf  # noqa: PLC0415 - upstream module, importable once UPSTREAM is on sys.path
+    cls = rf.ResourceFetcher
+    if getattr(cls, "_1401_patient", False):
+        return
+    orig = cls._make_request
+
+    def make_request(self, resource_url, timeout=30):
+        for attempt in range(6):
+            r = orig(self, resource_url, timeout=max(timeout, 30))
+            if r is not None:
+                return r
+            if attempt < 5:
+                time.sleep(min(2 ** (attempt + 1), 30))
+        return None
+    cls._make_request = make_request
+    cls._1401_patient = True
 
 
 def _prepare_out(out_dir):
@@ -276,6 +332,9 @@ def _nullmoth_gpu_pass(checker, h):
             exited = e
         hit = nullmoth.mark(checker.hardware_report)
         if not hit:
+            mux = nullmoth.mux_help(checker.hardware_report)
+            if exited and mux:
+                raise EngineExit(mux)
             if exited:
                 raise exited
             return

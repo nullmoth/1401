@@ -17,6 +17,12 @@ DROPPABLE = {
 def normalize(report):
     """Mutates and returns (report, notes). Each note names what was dropped and why."""
     notes = []
+    # 10-07 (uploaded log NM-NX36531A): a Sniffer report with no "Input" section at all was rejected ("Root: Missing
+    # required key 'Input'"). Input lists PS/2 and I2C keyboards/trackpads; the engine only uses it to pick their kexts and
+    # reads a missing one as empty, so an empty section is the same build the engine would make - it just passes the check.
+    if not isinstance(report.get("Input"), dict):
+        report["Input"] = {}
+        notes.append("Input: the report lists no keyboard/trackpad section - treated as none (no PS/2 or I2C input kexts)")
     for section, may_drop in DROPPABLE.items():
         for name, props in list((report.get(section) or {}).items()):
             if isinstance(props, dict) and "Device ID" not in props and may_drop(props):

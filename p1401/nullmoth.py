@@ -47,16 +47,44 @@ def cards(report):
 def mark(report):
     """Gives each supported card macOS 15 compatibility. Returns the names marked. A card that drives a laptop's
     internal panel through another GPU is left alone (the engine rule for that case stands)."""
-    internal = [m for m in (report.get("Monitor") or {}).values() if m.get("Connector Type") == "Internal"]
+    monitors = list((report.get("Monitor") or {}).values())
+    internal = [m for m in monitors if m.get("Connector Type") == "Internal"]
     hit = []
     for n, g in cards(report).items():
-        if any(m.get("Connected GPU", n) != n for m in internal):
+        # A laptop whose built-in panel runs on the integrated GPU can still use the NVIDIA card for a monitor plugged into
+        # a port wired to it (10-07, NM-K8HCTWCW: RTX 5060 Laptop + Radeon 610M panel + a DP monitor). Without such a
+        # monitor the card has nothing to show a picture on, and the engine rule stands.
+        external_on_card = any(m.get("Connector Type") != "Internal" and m.get("Connected GPU") == n for m in monitors)
+        if any(m.get("Connected GPU", n) != n for m in internal) and not external_on_card:
             continue
         g["Compatibility"] = SEQUOIA
         g.pop("OCLP Compatibility", None)
         g["Codename"] = g.get("Codename") if g.get("Codename") not in (None, "", "Unknown") else "NullMoth driver"
         hit.append(n)
     return hit
+
+
+MUX_HELP = (
+    "This laptop's built-in screen is connected to its integrated graphics ({igpu}), which macOS cannot drive, so the "
+    "{card} has no screen to show macOS on.\n\n"
+    "Most gaming laptops can connect the built-in screen straight to the NVIDIA card (a MUX switch):\n"
+    "  - ASUS: Armoury Crate > GPU Mode > Ultimate (or dGPU / Discrete)\n"
+    "  - Lenovo Legion: Lenovo Vantage > Hybrid Mode off, or BIOS > Graphic Device > Discrete Graphics\n"
+    "  - MSI: MSI Center > MUX switch / Discrete Graphics Mode\n"
+    "  - Others: look for 'MUX', 'Discrete GPU' or 'dGPU only' in the vendor app or the BIOS\n"
+    "Switch it, restart Windows, then run Check this PC and Build again.\n"
+    "An external monitor plugged into a port wired to the NVIDIA card (often HDMI or the dGPU-side USB-C/DP) also works.")
+
+
+def mux_help(report):
+    """When a supported card was skipped only because the built-in panel runs on another GPU: the advice to give.
+    (10-07: five uploaded logs in one night were RTX 4060/5060/5070 Ti laptops in Optimus mode.)"""
+    mons = list((report.get("Monitor") or {}).values())
+    for n, g in cards(report).items():
+        panel = [m for m in mons if m.get("Connector Type") == "Internal" and m.get("Connected GPU", n) != n]
+        if panel:
+            return MUX_HELP.format(igpu=panel[0].get("Connected GPU") or "integrated GPU", card=n)
+    return None
 
 
 def tested(report):

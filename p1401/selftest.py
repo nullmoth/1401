@@ -178,10 +178,13 @@ def main():
     still = engine._oclp_still_needed({"GPU": {"GTX 970": {"OCLP Compatibility": ("25.99.99", "23.0.0")}}}, True, hh)
     arm("OCLP flag stays when an enabled device still needs it", still is True, still)
     from . import report  # noqa: PLC0415
-    r, notes = report.normalize({"Sound": {"Focusrite USB Audio": {"Bus Type": "FOCUSRITEUSB"},
+    r, notes = report.normalize({"Input": {}, "Sound": {"Focusrite USB Audio": {"Bus Type": "FOCUSRITEUSB"},
                                            "Realtek(R) Audio": {"Bus Type": "HDAUDIO"}}})
     arm("a USB audio interface without a Device ID is dropped (class-compliant; never in the EFI)",
         "Focusrite USB Audio" not in r["Sound"] and len(notes) == 1, notes[:1])
+    r2, n2 = report.normalize({"Sound": {}})
+    arm("a report with no Input section gets an empty one (NM-NX36531A was rejected for it), and says so",
+        r2.get("Input") == {} and any(n.startswith("Input:") for n in n2), n2)
     arm("HDA codec without a Device ID is kept, so the engine's validator still rejects it",
         "Realtek(R) Audio" in r["Sound"], list(r["Sound"]))
 
