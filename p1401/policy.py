@@ -170,6 +170,16 @@ def apply(config_path, result, policy):
         quirks["DevirtualiseMmio"] = False
         change("amd-devirtualisemmio", "DevirtualiseMmio=True", "DevirtualiseMmio=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
+        # 10-07 (NM-KYT0Q2KS, NM-Y7891C9Z, NM-ZCSP67EX, NM-ADB3TNN9; 1401 1.0.15, B650): the engine also adds
+        # Booter > MmioWhitelist entries, which only mean anything with DevirtualiseMmio on - ocvalidate refuses enabled
+        # entries without it ("There are enabled entries under Booter->MmioWhitelist, but DevirtualiseMmio is not
+        # enabled!") and every Ryzen build stopped. They go off together.
+        wl = [w for w in cfg.get("Booter", {}).get("MmioWhitelist", []) if isinstance(w, dict) and w.get("Enabled")]
+        for w in wl:
+            w["Enabled"] = False
+        if wl:
+            change("amd-mmiowhitelist", f"{len(wl)} MmioWhitelist entr{'y' if len(wl) == 1 else 'ies'} enabled",
+                   "disabled", "they only apply with DevirtualiseMmio on, and ocvalidate refuses them without it")
 
     # 10-07 (NM-MMXGZ2XV): two fetched AMD kernel patches set Replace bits where ReplaceMask is 0, and ocvalidate refuses
     # that ("Replace requires ReplaceMask to be active for corresponding bits"). OpenCore writes (orig & ~mask) | (replace &
