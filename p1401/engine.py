@@ -459,6 +459,12 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             o = mod.OCPE()
             o.result_dir = out_dir
             _use_ock_cache(o)
+            # 10-07 (NM-EMCW2SYV): Build ran with no Report.json and failed with a bare FileNotFoundError.
+            if not os.path.isfile(report_path):
+                raise RuntimeError("This PC has not been checked yet (no hardware report). Run Check this PC first and wait for it "
+                                   "to finish; if it stops with an error, send that log instead.")
+            if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
+                raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
             rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch)
             h.notices += norm_notes
             valid, errors, warnings, report = o.v.validate_report(rpath)

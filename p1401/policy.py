@@ -161,6 +161,21 @@ def apply(config_path, result, policy):
         change("amd-setupvirtualmap", "SetupVirtualMap=True", "SetupVirtualMap=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
 
+    # 10-07 (NM-MMXGZ2XV): two fetched AMD kernel patches set Replace bits where ReplaceMask is 0, and ocvalidate refuses
+    # that ("Replace requires ReplaceMask to be active for corresponding bits"). OpenCore writes (orig & ~mask) | (replace &
+    # mask), so clearing those bits changes nothing it writes - it only makes the patch say what it does.
+    fixed = []
+    for i, pt in enumerate(cfg.get("Kernel", {}).get("Patch", [])):
+        rep, msk = pt.get("Replace"), pt.get("ReplaceMask")
+        if isinstance(rep, bytes) and isinstance(msk, bytes) and msk and len(rep) == len(msk):
+            clean = bytes(r & m for r, m in zip(rep, msk))
+            if clean != rep:
+                pt["Replace"] = clean
+                fixed.append(f"{i} ({pt.get('Comment') or pt.get('Identifier') or '?'})")
+    if fixed:
+        change("replace-under-mask", ", ".join(fixed), "Replace & ReplaceMask",
+               "patch bits outside ReplaceMask are never written; ocvalidate refuses them")
+
     # 3. NullMoth driver: a GeForce RTX the engine kept (nullmoth.mark) gets the tested boot-args + SIP.
     driver = nullmoth.apply(cfg, result, change)
     # , measured on an RTX 5060 with Resizable BAR on: with the full BAR the installer's screen froze right after

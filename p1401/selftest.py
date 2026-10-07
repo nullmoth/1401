@@ -145,6 +145,17 @@ def main():
     arm("a table listed twice in ACPI > Add is kept once and the EFI validates (NM-MH8TV0NW)",
         len(paths) == len(set(paths)) and "dedupe-add" in [x["rule"] for x in ch] and validate.validate(d)["ok"], paths[:3])
 
+    d = _copy(FIXTURE)
+    _edit(d, lambda c: c["Kernel"]["Patch"].append({"Arch": "x86_64", "Base": "", "Comment": "1401 selftest mask", "Count": 1,
+          "Enabled": True, "Find": bytes.fromhex("b800000000"), "Identifier": "kernel", "Limit": 0, "Mask": b"",
+          "MaxKernel": "", "MinKernel": "", "Replace": bytes.fromhex("b8ffffffff"), "ReplaceMask": bytes.fromhex("ff0f000000"),
+          "Skip": 0}))
+    ch = policy.apply(_cfg(d), old, engine.Policy())
+    with open(_cfg(d), "rb") as fh:
+        rp = [p["Replace"] for p in plistlib.load(fh)["Kernel"]["Patch"] if p.get("Comment") == "1401 selftest mask"]
+    arm("Replace bits outside ReplaceMask are cleared and the EFI validates (NM-MMXGZ2XV)",
+        rp == [bytes.fromhex("b80f000000")] and validate.validate(d)["ok"], (rp[0].hex() if rp else None, [x["rule"] for x in ch]))
+
     engine._load_engine()
     from Scripts import resource_fetcher as rf  # noqa: PLC0415
     tries = []
@@ -252,6 +263,9 @@ def main():
     a4 = engine._macos_answer("Please enter the macOS version you want to use (default: macOS Sonoma 14):",
                               "Available macOS versions:\n\n   24. macOS Sequoia 15\n\nNote:\nQ. Quit", engine.Policy())
     arm("a Sonoma default with only Sequoia listed answers 24 (NM-3183CSDD)", a4 == "24", a4)
+    nores = engine.build(os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "Report.json"), tempfile.mkdtemp(prefix="1401-selftest-"),
+                         tempfile.mkdtemp(prefix="1401-selftest-"), download=False)
+    arm("Build with no Report.json says 'Run Check this PC first' (NM-EMCW2SYV)", "Check this PC first" in (nores.error or ""), (nores.error or "")[:60])
 
     busy = tempfile.mkdtemp(prefix="1401-selftest-")
     open(os.path.join(busy, "precious.txt"), "w").write("do not wipe")

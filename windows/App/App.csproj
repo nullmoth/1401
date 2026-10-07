@@ -8,7 +8,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.8</Version>
+    <Version>1.0.9</Version>
     <Company>NullMoth Systems</Company>
     <Authors>NullMoth Systems</Authors>
     <Copyright>© 2026 NullMoth Systems</Copyright>
