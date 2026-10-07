@@ -124,7 +124,16 @@ def bios_settings(report, config):
     s.append(Setting("Fast Boot (in the BIOS, not Windows)", "Off", False,
                      "Fast Boot can skip USB setup, so the PC never sees the stick."))
     a4g = bios.get("Above 4G Decoding", "")
-    if "npci=" in boot_args:
+    # A GeForce RTX build carries the NullMoth driver's boot arguments. That driver needs the card's large memory window:
+    # it moves BAR1 above 4 GB and arms the display only when BAR1 is 4 GB or more. With Above 4G or Resizable BAR off,
+    # macOS installs fine but, once the driver is in, the screen stays on the startup text (measured 10-07, RTX 5060).
+    nv = "nvfb=1" in boot_args.split()
+    if nv:
+        s.append(Setting("Above 4G Decoding", "On", True,
+                         "Required by the NVIDIA driver: it maps the card's full memory above 4 GB.",
+                         now=f"currently {a4g} - turn it On" if a4g == "Disabled" else (f"currently {a4g}" if a4g else ""),
+                         if_missing="Every board with a GeForce RTX slot has it, sometimes under PCI or Advanced settings."))
+    elif "npci=" in boot_args:
         s.append(Setting("Above 4G Decoding", "On if you have it", False,
                          "Lets the GPU map its full memory. Your EFI already carries the workaround if it's missing.",
                          now=f"currently {a4g}" if a4g else ""))
@@ -136,7 +145,12 @@ def bios_settings(report, config):
                          if (report.get("Motherboard") or {}).get("Platform") == "Laptop" else
                          "If your BIOS doesn't have it, skip it."))
     rebar = sorted({g.get("Resizable BAR") for g in gpus.values() if g.get("Resizable BAR") in ("Enabled", "Disabled")})
-    if dgpu and rebar:
+    if nv:
+        s.append(Setting("Resizable BAR / Re-Size BAR", "On", True,
+                         "Required by the NVIDIA driver: without it the screen stays on the startup text once the driver is in.",
+                         now=f"currently {'/'.join(rebar)}" + (" - turn it On" if "Disabled" in rebar else "") if rebar else "",
+                         if_missing="On some boards it appears only after Above 4G Decoding is On, or after CSM is Off."))
+    elif dgpu and rebar:
         s.append(Setting("Resizable BAR / Re-Size BAR", f"Leave it {rebar[0]}", True,
                          "Your EFI was built for this exact setting. If you change it, rebuild it in the app.",
                          now=f"currently {'/'.join(rebar)}", if_missing=""))
