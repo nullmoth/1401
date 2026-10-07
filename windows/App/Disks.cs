@@ -33,7 +33,15 @@ namespace A1401
         public const string Label = "PROBE1401";
         const ushort BusTypeUsb = 7;
 
-        public static List<UsbDisk> ListUsb()
+        // MSFT_Disk BusType numbers, so a disk that was left out can be named in words
+        static string BusName(ushort b)
+        {
+            switch (b) { case 1: return "SCSI"; case 3: return "ATA"; case 7: return "USB"; case 8: return "RAID"; case 11: return "SATA";
+                case 12: return "SD card"; case 13: return "MMC card"; case 17: return "NVMe"; default: return "bus " + b; }
+        }
+
+        /// <summary>`skipped`, when given, gets one line per disk that was left out and why, so "no stick found" can say what it saw.</summary>
+        public static List<UsbDisk> ListUsb(List<string> skipped = null)
         {
             var list = new List<UsbDisk>();
             var scope = new ManagementScope(StorageNs);
@@ -42,8 +50,10 @@ namespace A1401
             {
                 foreach (ManagementObject o in q.Get())
                 {
-                    if (Convert.ToUInt16(o["BusType"]) != BusTypeUsb) continue;
-                    if (Convert.ToBoolean(o["IsSystem"]) || Convert.ToBoolean(o["IsBoot"])) continue;
+                    var bus = Convert.ToUInt16(o["BusType"]);
+                    var what = "Disk " + o["Number"] + " " + ("" + o["FriendlyName"]).Trim() + string.Format(" ({0:0.#} GB)", Convert.ToUInt64(o["Size"]) / 1e9);
+                    if (bus != BusTypeUsb) { if (skipped != null) skipped.Add(what + ": connected by " + BusName(bus) + ", not USB"); continue; }
+                    if (Convert.ToBoolean(o["IsSystem"]) || Convert.ToBoolean(o["IsBoot"])) { if (skipped != null) skipped.Add(what + ": Windows runs from it"); continue; }
                     var d = new UsbDisk
                     {
                         Number = Convert.ToUInt32(o["Number"]),

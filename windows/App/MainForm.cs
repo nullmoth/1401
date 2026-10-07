@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
@@ -26,7 +27,7 @@ namespace A1401
         readonly LinkLabel logLink = new LinkLabel();
         readonly LinkLabel drvLink = new LinkLabel();
         readonly ListView facts = new ListView();
-        bool busy, scanned, built, written;
+        bool busy, scanned, built, written, listing;
         string scanDir, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
 
         public MainForm()
@@ -137,7 +138,7 @@ namespace A1401
                     note.Text = "The 1401 Assistant helps you install macOS on this PC, the way Boot Camp put Windows on a Mac.\r\n\r\n" +
                         "It checks this PC, builds the startup files macOS needs for your exact hardware, shows the BIOS settings to change on your board, " +
                         "and makes a macOS install stick. Windows stays as it is. Nothing about this PC is sent anywhere.\r\n\r\n" +
-                        "You need: an internet connection and a USB stick of 16 GB or more that can be erased.\r\n\r\n" +
+                        "You need: an internet connection and a USB stick of 4 GB or more that can be erased.\r\n\r\n" +
                         "1401 is new and may not work on every PC. If it does not work on yours, set up OpenCore by hand with the guide below; " +
                         "the NullMoth app works on any OpenCore setup.";
                     Show(ocLink, logLink); var miss = Engine.Missing(); if (miss != null) { note.Text = miss; next.Enabled = false; } else next.Enabled = true;
@@ -156,7 +157,7 @@ namespace A1401
                 case 4:
                     note.Text = "Plug in the USB stick that will become the macOS installer. EVERYTHING on it is erased.\r\n" +
                         "1401 downloads macOS from Apple onto it and adds the startup files" + (summary.Contains("NVIDIA") ? " and the NullMoth NVIDIA driver." : ".");
-                    next.Text = written ? "Continue >" : "Erase and create"; Show(disks, refresh, bar, log); FillDisks(); next.Enabled = true; break;
+                    next.Text = written ? "Continue >" : "Erase and create"; Show(disks, refresh, bar, log); next.Enabled = true; FillDisks(); break;
                 case 5:
                     note.Text = "The macOS stick is ready.\r\n\r\n1. Restart and open your board's boot menu (the key is in your BIOS steps), then choose the stick.\r\n" +
                         "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer.\r\n" +
@@ -293,22 +294,39 @@ namespace A1401
             return root.Length >= 2 ? root.Substring(0, 2).ToUpperInvariant() : "";
         }
 
-        void FillDisks()
+        // WAS synchronous on the UI thread: Windows' storage WMI provider can take tens of seconds (card readers, sleeping
+        // drives), and the whole page froze with a busy cursor ("I can't do anything on that page", 10-07). It now runs on a
+        // worker with a 30 s bound. It also hid every stick under 15 GB while the writer needs 2 GiB (1401 writes Apple's ~1 GB
+        // recovery image, not the full installer), so 8 GB sticks read as "not detected". The floor now matches usbwriter.MIN_DISK.
+        const ulong MinStick = 2UL * 1024 * 1024 * 1024;
+
+        async void FillDisks()
         {
-            disks.Items.Clear();
-            try
+            if (listing) return;
+            listing = true; disks.Items.Clear(); refresh.Enabled = false; bool nextWas = next.Enabled; next.Enabled = false;
+            Say("Looking for USB sticks...");
+            var skipped = new List<string>(); List<UsbDisk> found = null; string err = null;
+            var self = Self();
+            var t = Task.Run(() => Disks.ListUsb(skipped));
+            if (await Task.WhenAny(t, Task.Delay(30000)) != t)
+                err = "Windows did not answer the USB disk list within 30 seconds. Unplug card readers and other USB drives, then press Refresh.";
+            else if (t.IsFaulted) err = "Could not list USB sticks: " + t.Exception.GetBaseException().Message;
+            else found = t.Result;
+            var why = new List<string>(t.IsCompleted && !t.IsFaulted ? skipped : new List<string>());
+            foreach (var d in found ?? new List<UsbDisk>())
             {
-                var self = Self();
-                foreach (var d in Disks.ListUsb())
-                {
-                    if (self.Length == 2 && d.Letters.ToUpperInvariant().Contains(self)) continue;
-                    if (d.Size < 15UL * 1000 * 1000 * 1000) continue;
-                    disks.Items.Add(d);
-                }
+                if (self.Length == 2 && d.Letters.ToUpperInvariant().Contains(self)) { why.Add(d + ": 1401 is running from it"); continue; }
+                if (d.Size < MinStick) { why.Add(d + ": too small, 1401 needs 2 GB"); continue; }
+                disks.Items.Add(d);
             }
-            catch (Exception e) { Say("Could not list USB sticks: " + e.Message); }
-            if (disks.Items.Count > 0) disks.SelectedIndex = 0;
-            else Say("No USB stick found. Plug one in (16 GB or more, not the stick 1401 runs from) and press Refresh.");
+            if (err != null) Say(err);
+            if (disks.Items.Count > 0) { disks.SelectedIndex = 0; Say("Found " + disks.Items.Count + " USB stick(s)."); }
+            else if (err == null)
+            {
+                Say("No USB stick found. Plug one in (4 GB or more, not the stick 1401 runs from) and press Refresh.");
+                if (why.Count > 0) { Say("Disks 1401 saw and left out:"); foreach (var w in why) Say("  " + w); }
+            }
+            listing = false; refresh.Enabled = !busy; if (page == 4) next.Enabled = nextWas && !busy;
         }
 
         // A failed build sends its log to nullmothsystems.com (the same /api/upload the site's report form uses), but only

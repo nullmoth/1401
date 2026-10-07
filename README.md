@@ -23,7 +23,7 @@ How the code works, step by step: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md)
 1. Unzip `1401-Windows-1.0.17.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
    rights: it reads the hardware and writes the stick).
 2. **Check this PC**, **Build the Mac setup**, read **Your BIOS steps**, then **Create the macOS stick** on a USB stick of
-   16 GB or more that can be erased. You need internet.
+   4 GB or more that can be erased. You need internet.
 3. Restart, change the BIOS settings 1401 showed you, boot the stick, and pick the macOS installer in the OpenCore menu.
    In the installer, erase the target drive as APFS with Disk Utility, then choose Reinstall macOS. The installer
    downloads the rest of macOS from Apple.
