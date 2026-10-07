@@ -24,6 +24,7 @@ namespace A1401
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
         readonly LinkLabel logLink = new LinkLabel();
+        readonly LinkLabel drvLink = new LinkLabel();
         readonly ListView facts = new ListView();
         bool busy, scanned, built, written;
         string scanDir, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
@@ -78,10 +79,33 @@ namespace A1401
             logLink.Text = "Something went wrong? Scan for logs and send them"; logLink.AutoSize = true;
             logLink.Location = new Point(24, 330); logLink.LinkColor = Theme.Cyan; logLink.Font = new Font("Verdana", 9.5f);
             logLink.LinkClicked += (s, e) => OfferStickLogs(true);
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink });
+            drvLink.Text = "Update the NVIDIA driver (newest release, here and on your 1401 stick)"; drvLink.AutoSize = true;
+            drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = new Font("Verdana", 9.5f);
+            drvLink.LinkClicked += (s, e) => UpdateDriver();
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             Go(0);
+        }
+
+        // "Update driver": the newest driver release and 1401 Mac app, verified against the release's SHA256SUMS.txt, into
+        // this app's NullMoth folder (what the next stick gets) and onto any plugged-in 1401 stick (what the Mac installs).
+        async void UpdateDriver()
+        {
+            if (busy) return;
+            busy = true; drvLink.Enabled = false;
+            var dirs = new List<string> { Engine.NullMothDir };
+            foreach (var drv in System.IO.DriveInfo.GetDrives())
+            {
+                try { if (drv.IsReady && drv.DriveType == System.IO.DriveType.Removable && Directory.Exists(Path.Combine(drv.RootDirectory.FullName, "NullMoth"))) dirs.Add(Path.Combine(drv.RootDirectory.FullName, "NullMoth")); }
+                catch (Exception) { }
+            }
+            var lines = new List<string>();
+            int rc = await Engine.Run("p1401.nullmoth update " + string.Join(" ", dirs.Select(Engine.Q)), l => { lock (lines) lines.Add(l); });
+            busy = false; drvLink.Enabled = true;
+            var text = string.Join("\r\n", lines.Where(l => !l.StartsWith("PROGRESS ")));
+            MessageBox.Show(this, rc == 0 ? "The NVIDIA driver is up to date.\r\n\r\n" + text + (dirs.Count > 1 ? "" : "\r\n\r\nNo 1401 stick was plugged in; plug it in and run this again to update it too.")
+                                          : "The driver could not be updated:\r\n\r\n" + text, "1401 - Update driver");
         }
 
         void Say(string s)
@@ -94,6 +118,7 @@ namespace A1401
         void Show(params Control[] on)
         {
             foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
+            drvLink.Visible = logLink.Visible;
         }
 
         void Go(int p)

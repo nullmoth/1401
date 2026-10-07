@@ -12,6 +12,7 @@ other GPU ("You cannot install macOS without a supported GPU"). The NullMoth dri
 Every number here is the tested configuration, not a guessed minimum. A smaller SIP value is untested.
 """
 import json
+import re
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -153,6 +154,86 @@ def stage(usb_root, cache_dir, fetch=None):
     return dst
 
 
+RELEASE_API = "https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/latest"
+_PKG_RE = re.compile(r"^nullmoth-nvidia-(\d+\.\d+\.\d+)\.tar\.gz$")
+_MAC_RE = re.compile(r"^1401-Mac-(\d+\.\d+\.\d+)\.zip$")
+
+
+def _vkey(v):
+    return tuple(int(x) for x in v.split("."))
+
+
+def latest_release(get_json, get_text):
+    """The newest driver release: {"driver": (name, url, sha256), "mac": (name, url, sha256) or None}. Hashes come from
+    the SHA256SUMS.txt published in the same release; a package it does not list is refused."""
+    rel = get_json(RELEASE_API)
+    assets = {a.get("name"): a.get("browser_download_url") for a in rel.get("assets", []) if isinstance(a, dict)}
+    sums_url = assets.get("SHA256SUMS.txt")
+    if not sums_url:
+        raise RuntimeError("the latest driver release has no SHA256SUMS.txt")
+    sums = {}
+    for line in get_text(sums_url).splitlines():
+        f = line.split()
+        if len(f) >= 2 and re.fullmatch(r"[0-9a-fA-F]{64}", f[0]):
+            sums[f[-1]] = f[0].lower()
+    out = {"driver": None, "mac": None}
+    for name, url in assets.items():
+        for key, rx in (("driver", _PKG_RE), ("mac", _MAC_RE)):
+            m = rx.match(name or "")
+            if m and url and url.startswith("https://") and name in sums:
+                if out[key] is None or _vkey(m.group(1)) > _vkey(rx.match(out[key][0]).group(1)):
+                    out[key] = (name, url, sums[name])
+    if out["driver"] is None:
+        raise RuntimeError("the latest release has no driver package listed in SHA256SUMS.txt")
+    return out
+
+
+def update(dirs, rel, fetch):
+    """Puts the newest driver package (and 1401 Mac app) from `rel` into every folder in `dirs` (the app's NullMoth
+    folder, then any 1401 stick's NullMoth folder), verified by SHA-256, and removes older copies there - the stick
+    writer takes the first package it finds. Downloads once, into dirs[0]. Returns the lines to show."""
+    import hashlib  # noqa: PLC0415
+    import shutil  # noqa: PLC0415
+
+    def sha(p):
+        h = hashlib.sha256()
+        with open(p, "rb") as fh:
+            for b in iter(lambda: fh.read(1 << 20), b""):
+                h.update(b)
+        return h.hexdigest()
+
+    lines = []
+    for key, rx in (("driver", _PKG_RE), ("mac", _MAC_RE)):
+        item = rel.get(key)
+        if not item:
+            continue
+        name, url, want = item
+        os.makedirs(dirs[0], exist_ok=True)
+        src = os.path.join(dirs[0], name)
+        if not (os.path.exists(src) and sha(src) == want):
+            fetch(url, src + ".part")
+            if sha(src + ".part") != want:
+                os.remove(src + ".part")
+                raise RuntimeError(f"{name} does not match the SHA-256 published with it - nothing was replaced")
+            os.replace(src + ".part", src)
+            lines.append(f"downloaded {name}")
+        for d in dirs:
+            os.makedirs(d, exist_ok=True)
+            dst = os.path.join(d, name)
+            if d != dirs[0] and not (os.path.exists(dst) and sha(dst) == want):
+                shutil.copyfile(src, dst + ".part")
+                if sha(dst + ".part") != want:
+                    os.remove(dst + ".part")
+                    raise RuntimeError(f"{name} changed while copying to {d}")
+                os.replace(dst + ".part", dst)
+                lines.append(f"{name} -> {d}")
+            for old in os.listdir(d):
+                if old != name and rx.match(old):
+                    os.remove(os.path.join(d, old))
+                    lines.append(f"removed older {old} from {d}")
+    return lines
+
+
 def selftest():
     res = []
 
@@ -207,9 +288,73 @@ def selftest():
     arm("a package whose SHA-256 is wrong never reaches the stick", "SHA-256" in bad and not os.path.exists(os.path.join(usb, "NullMoth", PACKAGE["name"])), bad)
     import shutil  # noqa: PLC0415
     shutil.rmtree(t, ignore_errors=True)
+    # --- Update driver (newest release, verified by its own SHA256SUMS.txt) - no network: fake release + fetch
+    import hashlib  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+    blob = {"https://x/nullmoth-nvidia-1.0.7.tar.gz": b"driver 1.0.7", "https://x/1401-Mac-1.0.10.zip": b"mac 1.0.10"}
+    hx = {k.rsplit("/", 1)[1]: hashlib.sha256(v).hexdigest() for k, v in blob.items()}
+    sums = "".join(f"{h}  {n}\n" for n, h in hx.items())
+    api = {"assets": [{"name": n, "browser_download_url": "https://x/" + n} for n in hx] +
+           [{"name": "nullmoth-nvidia-9.9.9.tar.gz", "browser_download_url": "https://x/unlisted"},
+            {"name": "SHA256SUMS.txt", "browser_download_url": "https://x/sums"}]}
+    rel = latest_release(lambda u: api, lambda u: sums)
+    arm("the newest release's driver and Mac app are picked, each with its published SHA-256",
+        rel["driver"][0] == "nullmoth-nvidia-1.0.7.tar.gz" and rel["mac"][0] == "1401-Mac-1.0.10.zip"
+        and rel["driver"][2] == hx["nullmoth-nvidia-1.0.7.tar.gz"], (rel["driver"][0], rel["mac"] and rel["mac"][0]))
+    arm("a package missing from SHA256SUMS.txt is never picked", "9.9.9" not in rel["driver"][0], rel["driver"][0])
+    app, stick = tempfile.mkdtemp(prefix="1401-selftest-"), tempfile.mkdtemp(prefix="1401-selftest-")
+    for d in (app, stick):
+        open(os.path.join(d, "nullmoth-nvidia-1.0.6.tar.gz"), "wb").write(b"old")
+        open(os.path.join(d, "1401-Mac-1.0.9.zip"), "wb").write(b"old")
+    got = []
+    lines = update([app, stick], rel, lambda u, p: (got.append(u), open(p, "wb").write(blob[u])))
+    arm("Update driver downloads each file once, puts both in the app folder and on the stick, removes the old copies",
+        len(got) == 2 and sorted(os.listdir(app)) == sorted(os.listdir(stick)) == ["1401-Mac-1.0.10.zip", "nullmoth-nvidia-1.0.7.tar.gz"],
+        (len(got), sorted(os.listdir(stick))))
+    bad = tempfile.mkdtemp(prefix="1401-selftest-")
+    open(os.path.join(bad, "nullmoth-nvidia-1.0.6.tar.gz"), "wb").write(b"old")
+    try:
+        update([bad], {"driver": rel["driver"], "mac": None}, lambda u, p: open(p, "wb").write(b"tampered"))
+        refused = False
+    except RuntimeError:
+        refused = True
+    arm("a download that does not match its published SHA-256 is refused and the old package stays",
+        refused and os.listdir(bad) == ["nullmoth-nvidia-1.0.6.tar.gz"], os.listdir(bad))
     print(f"{sum(res)}/{len(res)} passed")
     return 0 if all(res) else 1
 
 
+def _cli_update(dirs):
+    """python -m p1401.nullmoth update <app NullMoth dir> [<stick root>/NullMoth ...]: newest driver + Mac app."""
+    import shutil  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+    from p1401 import tls  # noqa: PLC0415
+    tls.install()
+
+    def get(url):
+        rq = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "1401"})
+        with urllib.request.urlopen(rq, timeout=60) as r:
+            return r.read()
+
+    def fetch(url, path):
+        rq = urllib.request.Request(url, headers={"User-Agent": "1401"})
+        with urllib.request.urlopen(rq, timeout=120) as r, open(path, "wb") as fh:
+            shutil.copyfileobj(r, fh, 1 << 20)
+
+    try:
+        rel = latest_release(lambda u: json.loads(get(u)), lambda u: get(u).decode("utf-8", "replace"))
+        print(f"newest driver: {rel['driver'][0]}" + (f", Mac app: {rel['mac'][0]}" if rel["mac"] else ""))
+        for line in update(dirs, rel, fetch):
+            print(line)
+        print("RESULT ok")
+        return 0
+    except Exception as e:  # noqa: BLE001 - the reason is what the user sees
+        print(f"RESULT stop: {e}")
+        return 1
+
+
 if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 2 and sys.argv[1] == "update":
+        raise SystemExit(_cli_update(sys.argv[2:]))
     raise SystemExit(selftest())
