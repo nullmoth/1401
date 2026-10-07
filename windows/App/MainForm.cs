@@ -331,7 +331,11 @@ namespace A1401
                 string sha;
                 using (var h = System.Security.Cryptography.SHA256.Create())
                     sha = BitConverter.ToString(h.ComputeHash(body)).Replace("-", "").ToLowerInvariant();
-                var meta = "{\"consent\": true, \"notes\": \"1401 " + Application.ProductVersion + " " + what + " (sent from the app)\", \"batch\": \"1401-app\"}";
+                // serialized, not concatenated: the notes can now carry what the user typed (quotes, backslashes)
+                var notes = "1401 " + Application.ProductVersion + " " + what + " (sent from the app)";
+                if (notes.Length > 3900) notes = notes.Substring(0, 3900);
+                var meta = new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
+                    { "consent", true }, { "notes", notes }, { "batch", "1401-app" } });
                 var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(meta)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
                 var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://nullmothsystems.com/api/upload");
                 req.Method = "POST"; req.ContentType = "application/octet-stream"; req.Timeout = 30000;
@@ -402,17 +406,21 @@ namespace A1401
                 return;
             }
             found = configs.Concat(found).Take(6).ToList();   // the site takes 30 uploads per hour from one address
-            var ask = MessageBox.Show(this,
+            // 10-07: most sticks now reach the macOS kernel and then stop with nothing written (a hang leaves no panic
+            // file), so the line the screen stopped on is the one fact the logs cannot hold. Optional; same two clicks.
+            string screen;
+            var ask = AskSend(
                 "1401 found " + found.Count + " log file" + (found.Count == 1 ? "" : "s") + " (from a macOS start on your USB stick" + (found.Contains(bl) ? ", and the last build" : "") + ").\r\n\r\n" +
                 "If macOS did not start, these show why. 1401 is sending them to nullmothsystems.com so the bug can be found and fixed. " +
-                "They hold what OpenCore and macOS printed while starting. Nothing else on this PC is sent.\r\n\r\n" +
-                "Click OK to send them now, or Cancel to leave them on the stick.",
-                "1401 - sending the startup logs", MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                "They hold what OpenCore and macOS printed while starting, and the stick's OpenCore settings with serial numbers removed. " +
+                "Nothing else on this PC is sent.\r\n\r\nClick Send to send them now, or Cancel to leave them on the stick.",
+                out screen);
             if (ask != DialogResult.OK) return;
+            var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "");
             var ids = new List<string>();
             foreach (var f in found)
             {
-                var id = Send(f, Path.GetFileName(f), "startup log from the stick");
+                var id = Send(f, Path.GetFileName(f), what);
                 if (id == null) continue;
                 ids.Add(id);
                 try
@@ -436,6 +444,26 @@ namespace A1401
             const string keys = @"(<key>(SystemSerialNumber|MLB|BoardSerialNumber|ChassisSerialNumber|SystemUUID|ROM|SerialNumber)</key>\s*";
             xml = System.Text.RegularExpressions.Regex.Replace(xml, keys + @"<string>)[^<]*(</string>)", "${1}REMOVED${3}");
             return System.Text.RegularExpressions.Regex.Replace(xml, keys + @"<data>)[^<]*(</data>)", "${1}AAAAAAAA${3}");
+        }
+
+        DialogResult AskSend(string text, out string screen)
+        {
+            using (var f = new Form { Text = "1401 - sending the startup logs", FormBorderStyle = FormBorderStyle.FixedDialog,
+                                      MaximizeBox = false, MinimizeBox = false, StartPosition = FormStartPosition.CenterParent,
+                                      ClientSize = new Size(520, 300), Font = Font })
+            {
+                var msg = new Label { Text = text, Left = 14, Top = 12, Width = 492, Height = 150 };
+                var q = new Label { Text = "Optional: the last line on the screen when it stopped (for example \"PCI configuration begin\"):",
+                                    Left = 14, Top = 168, Width = 492, Height = 34 };
+                var box = new TextBox { Left = 14, Top = 204, Width = 492, MaxLength = 300 };
+                var send = new Button { Text = "Send", DialogResult = DialogResult.OK, Left = 330, Top = 252, Width = 84 };
+                var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 422, Top = 252, Width = 84 };
+                f.Controls.AddRange(new Control[] { msg, q, box, send, cancel });
+                f.AcceptButton = send; f.CancelButton = cancel;
+                var r = f.ShowDialog(this);
+                screen = (box.Text ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
+                return r;
+            }
         }
 
         static string MacName(string d)
