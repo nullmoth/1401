@@ -1,4 +1,4 @@
-"""NullMoth NVIDIA driver support: lets 1401 build for a PC whose graphics card is a GeForce RTX.
+"""NullMoth NVIDIA driver support: lets 1401 build for a PC whose graphics card is a supported Turing-or-later NVIDIA card.
 
 The engine underneath marks every NVIDIA card after Kepler unsupported, disables it, and refuses a machine that has no
 other GPU ("You cannot install macOS without a supported GPU"). The NullMoth driver runs these cards on macOS 15, so:
@@ -22,9 +22,9 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 # takeover is off on the tested machine. The two AMFI args let WindowServer load a GPU bundle Apple did not sign.
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-1.0.2.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.3/nullmoth-nvidia-1.0.2.tar.gz",
-           "sha256": "90622d16c9c85b75ff478b8a33e9dd5cece02ec68f074795c0a29ce23c6302de"}
+PACKAGE = {"name": "nullmoth-nvidia-1.0.3.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.5/nullmoth-nvidia-1.0.3.tar.gz",
+           "sha256": "36c8544f646852dcd6d73a30c893c6b7bb56436ce1179445bdabf0ed5ad8a585"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
@@ -167,6 +167,8 @@ def selftest():
     arm("a GeForce RTX 5060 (10de:2d05) is marked macOS 15", hit == ["RTX 5060"] and rep["GPU"]["RTX 5060"]["Compatibility"] == SEQUOIA, hit)
     arm("a GTX 1080 (Pascal, no GSP) is NOT marked", "Compatibility" not in rep["GPU"]["GTX 1080"], rep["GPU"]["GTX 1080"])
     arm("an RTX 3090 (10de:2204) is in NVIDIA's table", supported(dict(rtx, **{"Device ID": "10DE-2204"})), TABLE["ids"].get("2204"))
+    coverage = all(supported(dict(rtx, **{"Device ID": "10DE-" + pid})) for pid in TABLE["ids"])
+    arm("all 235 display-card IDs are accepted across GTX, RTX, Quadro and workstation families", len(TABLE["ids"]) == 235 and coverage, len(TABLE["ids"]))
     arm("an AMD card with the same product id is NOT marked", not supported(dict(rtx, Manufacturer="AMD")), "AMD")
     lap = {"GPU": {"RTX": dict(rtx), "iGPU": {"Manufacturer": "Intel", "Device Type": "Integrated GPU"}},
            "Monitor": {"panel": {"Connector Type": "Internal", "Connected GPU": "iGPU"}}}
