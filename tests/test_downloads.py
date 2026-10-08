@@ -8,12 +8,19 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+import zipfile
 from unittest.mock import patch
 from p1401 import downloads, engine
 
 sys.path.insert(0, engine.UPSTREAM)
 from Scripts.resource_fetcher import ResourceFetcher
 RAW = 'https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json'
+
+def archive_payload():
+    body = io.BytesIO()
+    with zipfile.ZipFile(body, 'w') as archive:
+        archive.writestr('dependency.txt', 'verified fixture')
+    return body.getvalue()
 
 class Response(io.BytesIO):
     def getcode(self): return 200
@@ -52,7 +59,7 @@ class Downloads(unittest.TestCase):
     def test_release_asset_uses_exact_official_api_and_retains_checksum(self):
         url = 'https://github.com/Mieze/RTL812xLucy/releases/download/v1.1.1/RTL812xLucy-V1.1.1.zip'
         metadata = {'tag_name': 'v1.1.1', 'assets': [{'name': 'RTL812xLucy-V1.1.1.zip', 'state': 'uploaded', 'id': 42}]}
-        payload = b'PK verified dependency'
+        payload = archive_payload()
         with tempfile.TemporaryDirectory() as temp, patch('urllib.request.urlopen', side_effect=[urllib.error.URLError('reset'), Response(json.dumps(metadata).encode()), Response(payload)]) as op:
             target = os.path.join(temp, 'dependency.zip')
             self.assertTrue(self.fetcher.download_and_save_file(url, target, hashlib.sha256(payload).hexdigest()))
@@ -119,13 +126,14 @@ class Downloads(unittest.TestCase):
             self.assertEqual(op.call_count, 1)
 
     def test_checksum_still_required(self):
-        payload = b'dependency contents'
+        payload = archive_payload()
         with tempfile.TemporaryDirectory() as temp, patch('urllib.request.urlopen', side_effect=lambda *a, **k: Response(payload)):
             dest = os.path.join(temp, 'dependency.zip')
             self.assertTrue(self.fetcher.download_and_save_file('https://github.com/example/file.zip', dest, hashlib.sha256(payload).hexdigest()))
             with open(dest, 'rb') as stream: self.assertEqual(stream.read(), payload)
             self.assertFalse(self.fetcher.download_and_save_file('https://github.com/example/file.zip', dest, '0' * 64))
-            self.assertFalse(os.path.exists(dest))
+            self.assertTrue(os.path.exists(dest))
+            with open(dest, 'rb') as stream: self.assertEqual(stream.read(), payload)
 
     def test_rejects_credentials_and_http(self):
         with patch('urllib.request.urlopen') as op:

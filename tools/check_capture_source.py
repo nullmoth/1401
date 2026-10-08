@@ -37,6 +37,13 @@ def main():
         step = 'native Windows ABI and OS APIs'
         result['native_capture'] = {}
         verify_capture_native(repo, args.output, result['native_capture'])
+        step = 'production local-report lifecycle'
+        report_check = subprocess.run([sys.executable, '-B', str(repo / 'tools/check_report_reliability.py'),
+                                       '--output', str(Path(args.output).parent / 'local-report-verification.json')],
+                                      capture_output=True, timeout=60)
+        result['local_reports'] = json.loads((Path(args.output).parent / 'local-report-verification.json').read_text())
+        if report_check.returncode or result['local_reports'].get('ok') is not True:
+            raise RuntimeError('Production local-report verification failed.')
         step = 'pinned dependency test fixture'
         from windows_release import download
         inputs = json.loads((repo / 'windows/release-inputs.json').read_text())
@@ -47,7 +54,7 @@ def main():
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             'tests.test_hwcapture', 'tests.test_capture_safety', 'tests.test_capture_completeness',
             'tests.test_devicemap', 'tests.test_devicemap_native', 'tests.test_scan_evidence', 'tests.test_fwres', 'tests.test_cpu_core', 'tests.test_cpunative', 'tests.test_peripherals',
-            'tests.test_downloads', 'tests.test_downloads_diagnostics', 'tests.test_dependency_cache', 'tests.test_panel_routing_guard', 'tests.test_firmware_guide', 'tests.test_firmware_gui_gate', 'tests.test_validator_provenance', 'tests.test_planned_report_binding'])
+            'tests.test_archive_download', 'tests.test_early_build_failure', 'tests.test_acpi_diagnostics', 'tests.test_downloads', 'tests.test_downloads_diagnostics', 'tests.test_dependency_cache', 'tests.test_panel_routing_guard', 'tests.test_firmware_guide', 'tests.test_firmware_gui_gate', 'tests.test_validator_provenance', 'tests.test_planned_report_binding'])
         log = io.StringIO()
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             checked = unittest.TextTestRunner(stream=log, verbosity=1).run(suite)

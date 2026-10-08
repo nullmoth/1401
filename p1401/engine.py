@@ -118,6 +118,7 @@ class BuildResult:
     decisions: list = field(default_factory=list)
     notices: list = field(default_factory=list)
     error: str = ""
+    failure_frames: list = field(default_factory=list)
     transcript: str = ""
     hardware: dict = field(default_factory=dict)
     # The scan exactly as Check this PC wrote it, kept apart from `hardware`, which the compatibility pass replaces
@@ -350,7 +351,8 @@ def _patient_downloads():
                     print(f"Download stalled ({a[0] if a else ''}); retrying in {2 ** (attempt + 1)} s...")
                     time.sleep(2 ** (attempt + 1))
         return run
-    dl = _retry(cls.download_and_save_file)
+    from . import archive_download
+    dl = _retry(archive_download.harden(cls.download_and_save_file))
 
     def download_and_save_file(self, resource_url, destination_path, sha256_hash=None):
         ok = dl(self, resource_url, destination_path, sha256_hash)
@@ -544,6 +546,16 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.ok = True
     except Exception as e:  # reported to the caller in res.error
         res.error = f"{type(e).__name__}: {e}"
+        trace = e.__traceback__
+        while trace is not None and len(res.failure_frames) < 24:
+            filename = os.path.abspath(trace.tb_frame.f_code.co_filename)
+            relative = os.path.relpath(filename, REPO)
+            source = relative.replace(os.sep, '/') if not relative.startswith('..' + os.sep) and relative != '..' else 'external'
+            if not re.fullmatch(r'[A-Za-z0-9_./-]{1,200}', source): source = 'external'
+            function = trace.tb_frame.f_code.co_name
+            if not re.fullmatch(r'[A-Za-z0-9_<>]{1,64}', function): function = 'unknown'
+            res.failure_frames.append({'source': source, 'line': trace.tb_lineno, 'function': function})
+            trace = trace.tb_next
         # 10-07 (NM-Z3WKQAFQ): after every retry the engine said only "Could not download RTL812xLucy at this time".
         m = re.match(r"Could not download (\S+)", str(e))
         if m:

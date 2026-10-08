@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - support/hardware-capture-validation
-      - support/1.0.23-candidate
+      - support/1.0.24-candidate
 
 permissions:
   contents: read
