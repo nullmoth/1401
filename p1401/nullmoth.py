@@ -24,7 +24,7 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
 PACKAGE = {"name": "nullmoth-nvidia-1.0.11.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.17/nullmoth-nvidia-1.0.11.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.18/nullmoth-nvidia-1.0.11.tar.gz",
            "sha256": "75869a4c74e5b1ffd27f7193dd0f5b86c6033903dd52d4ba1d268990dc003ff3"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
