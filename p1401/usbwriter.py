@@ -279,7 +279,8 @@ def selftest():
     except UsbError as e:
         ran = "Windows only" in str(e)
     arm("refuses to run when not on Windows", ran, platform.system())
-    print(f"\n{sum(res)}/{len(res)} passed (not run on real Windows yet)")
+    scope = "read-only Windows disk discovery; no disk writes" if platform.system() == "Windows" else "logic checks; Windows disk discovery not exercised"
+    print(f"\n{sum(res)}/{len(res)} passed ({scope})")
     return all(res)
 
 

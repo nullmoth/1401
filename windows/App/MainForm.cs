@@ -30,7 +30,7 @@ namespace A1401
         bool busy, scanned, built, written, listing;
         string scanDir, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
 
-        public MainForm()
+        public MainForm(bool verificationMode = false)
         {
             Text = "1401 Assistant";
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
@@ -38,7 +38,7 @@ namespace A1401
             FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false;
             BackColor = Theme.Bg; ForeColor = Theme.Text; Font = Theme.Body;
             StartPosition = FormStartPosition.CenterScreen;
-            Shown += (o, e) => OfferStickLogs(false);
+            if (!verificationMode) Shown += (o, e) => OfferStickLogs(false);
 
             var head = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Panel };
             var mark = new PictureBox { Image = Theme.Mark(), SizeMode = PictureBoxSizeMode.Zoom, Bounds = new Rectangle(14, 9, 56, 56) };

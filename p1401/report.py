@@ -17,6 +17,37 @@ DROPPABLE = {
 PCI_VENDORS = {"10DE": "NVIDIA", "1002": "AMD", "8086": "Intel"}
 
 
+def diagnostic_hardware(report):
+    """Keep device identity in failed-build logs without exporting the complete scan."""
+    fields = {
+        "CPU": ("Manufacturer", "Processor Name", "Codename", "Core Count", "Thread Count"),
+        "Motherboard": ("Name", "Manufacturer", "Chipset", "Platform"),
+        "BIOS": ("Firmware Type", "Version"),
+        "GPU": ("Manufacturer", "Device ID", "Subsystem ID", "Device Type", "Codename", "PCI Path"),
+        "Network": ("Device ID", "Subsystem ID", "Bus Type", "PCI Path"),
+        "USB Controllers": ("Device ID", "Subsystem ID", "PCI Path"),
+        "Monitor": ("Connected GPU", "Connector Type"),
+    }
+
+    def select(props, allowed):
+        return {key: value for key, value in props.items()
+                if key in allowed and isinstance(value, (str, int, bool))}
+
+    result = {}
+    if not isinstance(report, dict):
+        return result
+    for section, allowed in fields.items():
+        value = report.get(section)
+        if not isinstance(value, dict):
+            continue
+        if section in ("CPU", "Motherboard", "BIOS"):
+            result[section] = select(value, allowed)
+        else:
+            result[section] = [{"name": name, **select(props, allowed)} for name, props in value.items()
+                               if isinstance(props, dict)]
+    return result
+
+
 def normalize(report):
     """Mutates and returns (report, notes). Each note names what was dropped and why."""
     notes = []

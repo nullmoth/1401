@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 
-from . import engine
+from . import engine, report
 
 
 def _result_json(r):
@@ -15,7 +15,7 @@ def _result_json(r):
     t = d.pop("transcript", None)
     if not r.ok and t:   # a failed build carries the engine's own printout, so the uploaded log shows what really went wrong
         d["transcript"] = t[-30000:]
-    d.pop("hardware", None)
+    d["hardware_summary"] = report.diagnostic_hardware(d.pop("hardware", None))
     d["decisions"] = [x.__dict__ for x in r.decisions]
     return d
 

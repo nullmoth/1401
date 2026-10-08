@@ -1,0 +1,77 @@
+name: Windows candidate build and verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - support/verified-1.0.x
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONIOENCODING: utf-8
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up the pinned SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: 8.0.425
+      - name: Build the versioned Windows executable
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet build windows/App/App.csproj --configuration Release --output "$env:RUNNER_TEMP/1401-compiled" -p:ContinuousIntegrationBuild=true
+          if ($LASTEXITCODE -ne 0) { throw 'The Windows executable build failed.' }
+          $expected = ([xml](Get-Content windows/App/App.csproj)).Project.PropertyGroup.Version
+          $actual = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:RUNNER_TEMP/1401-compiled/1401.exe")
+          if ($actual.FileVersion -ne "$expected.0") { throw 'Compiled executable file version differs.' }
+      - name: Prepare the exact candidate package
+        shell: pwsh
+        run: |
+          python -B tools/windows_release.py prepare --stage "$env:RUNNER_TEMP/1401-stage" --cache "$env:RUNNER_TEMP/1401-cache" --compiled "$env:RUNNER_TEMP/1401-compiled/1401.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate preparation failed.' }
+      - name: Verify packaged startup and engine behavior on Windows
+        shell: pwsh
+        run: |
+          & "$env:RUNNER_TEMP/1401-stage/1401/engine/python/python.exe" -B tools/check_windows_package.py --stage "$env:RUNNER_TEMP/1401-stage" --repo "$env:GITHUB_WORKSPACE" --cache "$env:RUNNER_TEMP/1401-cache" --output "$env:RUNNER_TEMP/windows-verification.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaged verification failed.' }
+      - name: Create the deterministic candidate archive
+        shell: pwsh
+        run: |
+          & "$env:RUNNER_TEMP/1401-stage/1401/engine/python/python.exe" -B tools/windows_release.py package --stage "$env:RUNNER_TEMP/1401-stage" --evidence "$env:RUNNER_TEMP/windows-verification.json" --output "$env:RUNNER_TEMP/1401-artifact"
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate packaging failed.' }
+      - name: Retain the verified candidate for review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-candidate
+          path: ${{ runner.temp }}/1401-artifact/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+      - name: Record a sanitized failure summary
+        if: failure()
+        shell: pwsh
+        run: |
+          $record = [ordered]@{ workflow_status = 'failure'; scope = 'Windows candidate build and verification'; packaged_verification = $null }
+          $proof = "$env:RUNNER_TEMP/windows-verification.json"
+          if (Test-Path $proof) { $record.packaged_verification = Get-Content $proof -Raw | ConvertFrom-Json }
+          $record | ConvertTo-Json -Depth 30 | Set-Content "$env:RUNNER_TEMP/windows-failure.json" -Encoding utf8
+      - name: Retain failure evidence for review
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: windows-candidate-failure
+          path: ${{ runner.temp }}/windows-failure.json
+          if-no-files-found: error
+          retention-days: 3

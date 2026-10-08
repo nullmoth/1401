@@ -12,6 +12,7 @@ import contextlib
 import dataclasses
 import importlib.util
 import io
+import json
 import os
 import stat
 import time
@@ -115,6 +116,7 @@ class BuildResult:
     error: str = ""
     transcript: str = ""
     hardware: dict = field(default_factory=dict)
+    acpi_diagnostics: list = field(default_factory=list)
     policy_changes: list = field(default_factory=list)
     validation: dict = field(default_factory=dict)
 
@@ -302,28 +304,20 @@ def _use_ock_cache(o):
     os.makedirs(OCK_CACHE, exist_ok=True)
     o.o.ock_files_dir = OCK_CACHE
     o.o.download_history_file = os.path.join(OCK_CACHE, "history.json")
+    if hasattr(o.o, 'integrity_checker'):
+        from . import dependency_cache
+        dependency_cache.harden(o.o.integrity_checker)
     o.k.ock_files_dir = OCK_CACHE
 
 
 def _patient_downloads():
-    """10-07 (uploaded log NM-55QXD0J7): a build died on "Failed to fetch content from .../itlwm/releases" after three
-    10-second timeouts in a row. The engine gives each GitHub request 10 s and retries at once, three times; a slow or
-    busy connection loses. Here each request gets 30 s and six tries with a growing pause (2, 4, 8 ... s). Same URLs,
-    same files - only more patience."""
-    from Scripts import resource_fetcher as rf  # noqa: PLC0415 - upstream module, importable once UPSTREAM is on sys.path
+    """Retry transient downloads without multiplying upstream retry loops."""
+    from Scripts import resource_fetcher as rf
+    from .downloads import make_request, verified_context
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
         return
-    orig = cls._make_request
-
-    def make_request(self, resource_url, timeout=30):
-        for attempt in range(6):
-            r = orig(self, resource_url, timeout=max(timeout, 30))
-            if r is not None:
-                return r
-            if attempt < 5:
-                time.sleep(min(2 ** (attempt + 1), 30))
-        return None
+    cls.create_ssl_context = verified_context
     cls._make_request = make_request
     # 10-07 (NM-DTC05X6Y, NM-GP91G90X): "TimeoutError: The read operation timed out" while gathering OpenCore and
     # kexts. The connection opened; the stall came mid-body in response.read(), which the engine never retries, so one
@@ -460,26 +454,34 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     out_dir = _prepare_out(out_dir)
     scratch = tempfile.mkdtemp(prefix="1401-report-")
     res = BuildResult(ok=False, out_dir=out_dir)
-    mod, utils_mod = _load_engine()
-    h = Headless(utils_mod, policy, echo)
+    h = None
     try:
+        mod, utils_mod = _load_engine()
+        h = Headless(utils_mod, policy, echo)
         with h:
-            o = mod.OCPE()
-            o.result_dir = out_dir
-            _use_ock_cache(o)
             # 10-07 (NM-EMCW2SYV): Build ran with no Report.json and failed with a bare FileNotFoundError.
             if not os.path.isfile(report_path):
                 raise RuntimeError("This PC has not been checked yet (no hardware report). Run Check this PC first and wait for it "
                                    "to finish; if it stops with an error, send that log instead.")
+            with open(report_path, encoding="utf-8") as report_file:
+                res.hardware = json.load(report_file)
+            if not isinstance(res.hardware, dict):
+                raise RuntimeError("The hardware report must contain a JSON object. Run Check this PC again.")
             if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
                 raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
             rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch)
             h.notices += norm_notes
+            o = mod.OCPE()
+            o.result_dir = out_dir
+            _use_ock_cache(o)
             valid, errors, warnings, report = o.v.validate_report(rpath)
             if not valid or errors:
                 raise RuntimeError(f"hardware report rejected: {errors}")
+            res.hardware = report
             o.ac.dsdt = o.ac.acpi.acpi_tables = None
-            o.ac.read_acpi_tables(os.path.abspath(acpi_dir))
+            from . import acpi_diagnostics
+            with acpi_diagnostics.capture(o.ac.acpi, res.acpi_diagnostics):
+                o.ac.read_acpi_tables(os.path.abspath(acpi_dir))
             if not o.ac.ensure_dsdt():
                 raise RuntimeError(f"no usable DSDT in {acpi_dir} - the ACPI dump is required")
             _nullmoth_gpu_pass(o.c, h)
@@ -497,7 +499,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.kexts = [k.name for k in o.k.kexts if k.checked]
             res.bios_requirements = o.check_bios_requirements(report, cust)
             if download:
-                o.o.gather_bootloader_kexts(o.k.kexts, mv)
+                if not o.o.gather_bootloader_kexts(o.k.kexts, mv):
+                    raise RuntimeError('Dependency gathering stopped before the EFI was ready. '
+                                       'Check the preceding download error and rebuild; no installable EFI was produced.')
                 o.build_opencore_efi(cust, disabled, smbios, mv, needs_oclp)
                 open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
                 res.decisions = h.decisions  # the policy pass reads what was decided
@@ -516,6 +520,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.error += "\n" + network_help(f"github.com ({m.group(1)})")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
-    res.decisions, res.notices = h.decisions, h.notices
+    if h is not None:
+        res.decisions, res.notices = h.decisions, h.notices
     res.transcript = h.tee.text() if hasattr(h, "tee") else ""
     return res

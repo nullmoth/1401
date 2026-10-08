@@ -170,15 +170,14 @@ def apply(config_path, result, policy):
         quirks["DevirtualiseMmio"] = False
         change("amd-devirtualisemmio", "DevirtualiseMmio=True", "DevirtualiseMmio=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
-        # 10-07 (NM-KYT0Q2KS, NM-Y7891C9Z, NM-ZCSP67EX, NM-ADB3TNN9; 1401 1.0.15, B650): the engine also adds
-        # Booter > MmioWhitelist entries, which only mean anything with DevirtualiseMmio on - ocvalidate refuses enabled
-        # entries without it ("There are enabled entries under Booter->MmioWhitelist, but DevirtualiseMmio is not
-        # enabled!") and every Ryzen build stopped. They go off together.
+    # Whitelist entries are inert whenever DevirtualiseMmio is off. This includes configurations whose quirk was
+    # already off before the policy pass; ocvalidate rejects enabled entries in either case.
+    if quirks.get("DevirtualiseMmio") is False:
         wl = [w for w in cfg.get("Booter", {}).get("MmioWhitelist", []) if isinstance(w, dict) and w.get("Enabled")]
         for w in wl:
             w["Enabled"] = False
         if wl:
-            change("amd-mmiowhitelist", f"{len(wl)} MmioWhitelist entr{'y' if len(wl) == 1 else 'ies'} enabled",
+            change("mmiowhitelist-without-quirk", f"{len(wl)} MmioWhitelist entr{'y' if len(wl) == 1 else 'ies'} enabled",
                    "disabled", "they only apply with DevirtualiseMmio on, and ocvalidate refuses them without it")
 
     # boot.efi stopped with STOP 0x16 (EB.MM.AKMr2: no room in low memory for the kernel) on 14 sticks, Intel and AMD,
