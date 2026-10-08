@@ -51,7 +51,7 @@ static void vendor_of(const nm_regs *r0, char v[13]) {
     static const char *known[] = {"GenuineIntel", "AuthenticAMD", "HygonGenuine", "CentaurHauls", "  Shanghai  ", "VIA VIA VIA "};
     int recognized = 0;
     for (unsigned i = 0; i < sizeof known / sizeof known[0]; i++) if (!memcmp(v, known[i], 12)) recognized = 1;
-    if (!recognized) strcpy(v, "unknown");
+    if (!recognized) { memset(v, 0, 13); memcpy(v, "unknown", sizeof "unknown" - 1); }
 }
 
 typedef struct { int use1f, use0b, has1a, has1e; } nm_caps;
