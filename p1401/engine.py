@@ -98,6 +98,8 @@ class Policy:
     prefer: dict = field(default_factory=dict)
     # The stick's opencore-*.txt from a failed boot: bootfix.py changes the next build from what it shows.
     boot_logs: list = field(default_factory=list)
+    # The line the screen stopped on, as the user typed or pasted it when sending logs (bootfix.after_handoff).
+    stopped_at: str = ""
 
 
 @dataclass

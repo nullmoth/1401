@@ -95,6 +95,92 @@ def apply(cfg, result, texts, change):
     return f
 
 
+
+# After OpenCore hands off (EXITBS:START), OpenCore writes nothing more. Two things still reach the next build:
+# a kernel panic, which macOS saves on the stick as panic-*.txt (policy.py turns Misc > Debug > ApplePanic on), and the
+# line the screen stopped on, which the user types or pastes when sending logs. These rules read both. A kext is only
+# switched off when it is optional for starting macOS; anything else is reported, never guessed at.
+OPTIONAL_KEXTS = {  # backtrace bundle id fragment -> kext file. All add features; none is needed to reach the desktop.
+    "RestrictEvents": "RestrictEvents.kext", "VoodooI2C": "VoodooI2C.kext", "VoodooI2CHID": "VoodooI2CHID.kext",
+    "itlwm": "itlwm.kext", "AirportItlwm": "AirportItlwm.kext", "BlueToolFixup": "BlueToolFixup.kext",
+    "IntelBluetoothFirmware": "IntelBluetoothFirmware.kext", "IntelBTPatcher": "IntelBTPatcher.kext",
+    "NVMeFix": "NVMeFix.kext", "CpuTopologyRebuild": "CpuTopologyRebuild.kext", "RadeonSensor": "RadeonSensor.kext",
+    "SMCRadeonGPU": "SMCRadeonGPU.kext", "AMDRyzenCPUPowerManagement": "AMDRyzenCPUPowerManagement.kext",
+    "SMCAMDProcessor": "SMCAMDProcessor.kext", "BrightnessKeys": "BrightnessKeys.kext", "ECEnabler": "ECEnabler.kext",
+    "HibernationFixup": "HibernationFixup.kext", "FeatureUnlock": "FeatureUnlock.kext", "RealtekCardReader": "RealtekCardReader.kext",
+    "Sinetek-rtsx": "Sinetek-rtsx.kext", "YogaSMC": "YogaSMC.kext", "AsusSMC": "AsusSMC.kext",
+}
+_BT = re.compile(r"Kernel Extensions in backtrace:(.*?)(?:\n\s*\n|Kernel Extensions in|BSD process name|$)", re.S)
+
+
+def after_handoff(texts, stopped_at=""):
+    """Findings from panic files and the user's stopped-at line: kexts to switch off, boot-args to add, and reports."""
+    out = {"disable": [], "args": [], "cfglock": False, "report": []}
+    joined = "\n".join(texts) + "\n" + (stopped_at or "")
+    for m in _BT.finditer(joined):
+        for frag, kext in OPTIONAL_KEXTS.items():
+            if re.search(r"[.\s]" + re.escape(frag) + r"\b", m.group(1)) and kext not in out["disable"]:
+                out["disable"].append(kext)
+        # Both panics saved so far (NM-EP57AX1N, NM-B8EZPY0E, 10-07, laptops): page fault in VoodooPS2Controller. Its
+        # own ps2rst=0 skips the controller reset some laptop firmware faults on; the panic file's "Boot args:" line
+        # says whether the last start already had it, and then the kext goes off (a USB keyboard and mouse still work).
+        if "PS2Controller" in m.group(1):
+            ran = re.search(r"Boot args:([^\n]*)", joined)
+            if ran and "ps2rst=0" in ran.group(1).split():
+                out["disable"] += [k for k in ("VoodooPS2Controller.kext",) if k not in out["disable"]]
+                out["report"].append("the laptop keyboard/trackpad driver crashed twice; it is off now - use a USB keyboard and mouse")
+            elif "ps2rst" not in out["args"]:
+                out["args"].append("ps2rst")
+        if re.search(r"com\.nullmoth\.", m.group(1)):
+            out["report"].append("the panic happened inside the NullMoth NVIDIA driver - send the logs; it is our bug")
+    # Dortania troubleshooting, "Stuck on [PCI configuration begin]": npci=0x2000, then npci=0x3000 (support chat 10-08:
+    # the second one is what some boards need). The user's stopped line names it.
+    if re.search(r"(?i)IOPCIConfigurator|PCI configuration (begin|PCI)", joined):
+        out["args"].append("npci")
+    if re.search(r"AppleIntelCPUPowerManagement", joined) and "panic" in joined.lower():
+        out["cfglock"] = True   # Dortania: CFG-locked firmware panics in AppleIntelCPUPowerManagement -> AppleCpuPmCfgLock
+    if re.search(r"(?i)busy timeout.{0,24}NVRM", joined):
+        out["report"].append("the NVIDIA card was still starting (small BAR1: up to 2 minutes). Enable Above 4G Decoding "
+                             "and Resizable BAR in the BIOS and it starts in about a second; otherwise wait it out.")
+    if re.search(r"(?i)GIOScreenLockState|IOConsoleUsers|Window ?Manager", joined):
+        out["report"].append("macOS started; the stop is at the login screen's graphics - send the logs from the Mac "
+                             "app (NullMoth) if it stays black")
+    if re.search(r"(?i)still waiting for root device", joined):
+        out["report"].append("macOS cannot see the disk it started from - map the USB ports (USBToolBox) or use another "
+                             "USB port (a USB 2 port often works)")
+    return out
+
+
+def apply_after_handoff(cfg, texts, stopped_at, change):
+    f = after_handoff(texts, stopped_at)
+    kexts = cfg.get("Kernel", {}).get("Add", [])
+    for name in f["disable"]:
+        for k in kexts:
+            if k.get("BundlePath", "").split("/")[-1] == name and k.get("Enabled"):
+                k["Enabled"] = False
+                change("bootlog-panic-kext-off", name, "Enabled=False", "the saved kernel panic names it in its backtrace; it is optional for starting macOS")
+    nv = cfg.setdefault("NVRAM", {}).setdefault("Add", {}).setdefault("7C436110-AB2A-4BBB-A880-FE41995C9F82", {})
+    args = (nv.get("boot-args") or "").split()
+    if "ps2rst" in f["args"] and "ps2rst=0" not in args:
+        args.append("ps2rst=0")
+        nv["boot-args"] = " ".join(args)
+        change("bootlog-ps2-panic", "", "ps2rst=0", "the saved panic is in the laptop keyboard driver (VoodooPS2Controller)")
+    if "npci" in f["args"]:
+        cur = next((a for a in args if a.startswith("npci=")), None)
+        nxt = "npci=0x2000" if cur is None else ("npci=0x3000" if cur == "npci=0x2000" else None)
+        if nxt:
+            args = [a for a in args if not a.startswith("npci=")] + [nxt]
+            nv["boot-args"] = " ".join(args)
+            change("bootlog-pci-config", cur or "", nxt, "the screen stopped at PCI configuration (Dortania troubleshooting)")
+        else:
+            f["report"].append("PCI configuration still stops with npci=0x3000: check Above 4G Decoding in the BIOS and send the logs")
+    if f["cfglock"]:
+        q = cfg.setdefault("Kernel", {}).setdefault("Quirks", {})
+        if q.get("AppleCpuPmCfgLock") is not True:
+            q["AppleCpuPmCfgLock"] = True
+            change("bootlog-cfg-lock", "AppleCpuPmCfgLock=False", "True", "the saved panic is AppleIntelCPUPowerManagement on CFG-locked firmware")
+    return f
+
 def selftest():
     from types import SimpleNamespace  # noqa: PLC0415
     res = []
@@ -133,6 +219,39 @@ def selftest():
     arm("negative control: a log with no failure changes nothing", not log and not c["Booter"]["Quirks"]["DevirtualiseMmio"])
     c, log = run(amd, "OC: Cannot use Secure Boot with Any DmgLoading!\n", {"Misc": {"Security": {"SecureBootModel": "Default"}}})
     arm("Secure Boot with DmgLoading Any: SecureBootModel Disabled", c["Misc"]["Security"]["SecureBootModel"] == "Disabled")
+    panic = ("panic(cpu 2 caller 0xffffff8001): Kernel trap at 0x..., type 14=page fault\n"
+             "      Kernel Extensions in backtrace:\n         com.xxxx.driver.RestrictEvents(1.1.5)[...]@0x1->0x2\n\n"
+             "BSD process name corresponding to current thread: kernel_task\n")
+    c = {"Kernel": {"Add": [{"BundlePath": "Lilu.kext", "Enabled": True}, {"BundlePath": "RestrictEvents.kext", "Enabled": True}]},
+         "NVRAM": {"Add": {}}}
+    log = []
+    apply_after_handoff(c, [panic], "", lambda *a: log.append(a[0]))
+    arm("a panic whose backtrace names an optional kext switches only that kext off",
+        [k["Enabled"] for k in c["Kernel"]["Add"]] == [True, False], log)
+    c = {"Kernel": {"Add": [{"BundlePath": "Lilu.kext", "Enabled": True}]}, "NVRAM": {"Add": {}}}
+    log = []
+    apply_after_handoff(c, [panic.replace("RestrictEvents", "Lilu")], "", lambda *a: log.append(a[0]))
+    arm("control: Lilu in a backtrace is never switched off (not optional)", c["Kernel"]["Add"][0]["Enabled"] and not log)
+    c = {"NVRAM": {"Add": {}}}
+    apply_after_handoff(c, [], "[IOPCIConfigurator::configure()] PCI configuration PCI0", lambda *a: None)
+    a1 = c["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
+    apply_after_handoff(c, [], "PCI configuration begin", lambda *a: None)
+    a2 = c["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"]
+    arm("stopped at PCI configuration: npci=0x2000, then npci=0x3000 on the next failure", (a1, a2) == ("npci=0x2000", "npci=0x3000"), (a1, a2))
+    f = after_handoff([], "busy timeout 60s for 'NVRM'".replace("timeout 60s", "timeout[0], (60s):").replace(" for 'NVRM'", " 'NVRM' (1e,1)"))
+    arm("the NVRM busy timeout is explained (BIOS fix), not treated as a hang", any("Resizable BAR" in r for r in f["report"]), f["report"])
+    ps2 = ("Kernel Extensions in backtrace:\n         as.acidanthera.voodoo.driver.PS2Controller(2.3.8)[X]@0x1->0x2\n\n"
+           "Boot args: -v keepsyms=1 nvfb=1\n")
+    c = {"Kernel": {"Add": [{"BundlePath": "VoodooPS2Controller.kext", "Enabled": True}]}, "NVRAM": {"Add": {}}}
+    apply_after_handoff(c, [ps2], "", lambda *a: None)
+    step1 = (c["NVRAM"]["Add"]["7C436110-AB2A-4BBB-A880-FE41995C9F82"]["boot-args"], c["Kernel"]["Add"][0]["Enabled"])
+    apply_after_handoff(c, [ps2.replace("nvfb=1", "nvfb=1 ps2rst=0")], "", lambda *a: None)
+    arm("VoodooPS2 panic: ps2rst=0 first, the kext off only after it panics again with ps2rst=0",
+        step1 == ("ps2rst=0", True) and c["Kernel"]["Add"][0]["Enabled"] is False, (step1, c["Kernel"]["Add"][0]["Enabled"]))
+    f = after_handoff([], "busy timeout 60s for 'NVRM'")
+    arm("the user's own wording of the NVRM busy timeout is recognised", any("Resizable BAR" in r for r in f["report"]))
+    f = after_handoff([], "the last line on the screen when it stopped")
+    arm("negative control: a stopped line that names nothing changes nothing", f == {"disable": [], "args": [], "cfglock": False, "report": []}, f)
     print(f"bootfix: {sum(res)}/{len(res)}")
     return all(res)
 
