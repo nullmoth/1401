@@ -578,6 +578,9 @@ def collect(backends, checkpoint=None):
     done("devices", dev_rec)
     path_rec, paths = _stage(backends["display_paths"], "QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)")
     done("display_paths", path_rec)
+    if 'cpu_native' in backends:
+        record, _ = _stage(backends['cpu_native'], 'nm_cpuinfo.exe documented read-only CPUID allow-list')
+        done('cpu_native', record)
     g_rec, adapters = _stage(backends["graphics"], "DXGI EnumAdapters1 + D3D12 CheckFeatureSupport")
     if adapters is not None:
         nodes = (dev_rec.get("value") or {}).get("nodes") or []

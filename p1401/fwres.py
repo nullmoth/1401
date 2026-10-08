@@ -307,44 +307,12 @@ def rows_from(vendor, objs, name_prop, value_prop):
 
 
 def _bounded_process(command, environment, timeout):
-    """Pipe readers retain a bounded prefix; overflow terminates the contained subprocess."""
     from . import job_guard
-    if not job_guard.ready():
-        return None, "subprocess containment unavailable; BIOS query not started"
-    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                               env=environment, creationflags=0x08000000)
-    if not job_guard.contains(process._handle):
-        process.kill(); process.wait(timeout=1)
-        return None, "subprocess job membership not verified; query stopped"
-    buffers, oversized = [bytearray(), bytearray()], threading.Event()
-    def reader(stream, target):
-        try:
-            while True:
-                chunk = stream.read(8192)
-                if not chunk: break
-                room = 2 * 1024 * 1024 - len(target)
-                target.extend(chunk[:max(0, room)])
-                if len(chunk) > room:
-                    oversized.set(); break
-        finally: stream.close()
-    threads = [threading.Thread(target=reader, args=(stream, buffers[i]), daemon=True)
-               for i, stream in enumerate((process.stdout, process.stderr))]
-    for thread in threads: thread.start()
-    deadline = time.monotonic() + min(max(timeout, 0.1), PS_TIMEOUT)
-    reason = None
-    while process.poll() is None:
-        if oversized.is_set(): reason = "BIOS query output exceeded its bounded size"; break
-        if time.monotonic() >= deadline: reason = "BIOS query timed out"; break
-        time.sleep(0.01)
-    if reason:
-        process.kill(); process.wait(timeout=1)
-    for thread in threads: thread.join(timeout=0.2)
-    if oversized.is_set(): return None, "BIOS query output exceeded its bounded size"
+    data, code, reason = job_guard.run_bounded(command, environment, min(timeout, PS_TIMEOUT))
     if reason: return None, reason
-    if any(thread.is_alive() for thread in threads): return None, "BIOS query output did not close"
-    if process.returncode: return None, "BIOS query process failed (exit %d)" % process.returncode
+    if code: return None, "BIOS query process failed (exit %d)" % code
     try:
-        payload = json.loads(bytes(buffers[0]).decode("utf-8-sig"))
+        payload = json.loads(data.decode("utf-8-sig"))
     except (ValueError, UnicodeError): return None, "BIOS query output invalid"
     if not isinstance(payload, dict): return None, "BIOS query output invalid"
     status = payload.get("status")
@@ -398,11 +366,18 @@ def powershell_cim(namespace, cls, props, timeout=PS_TIMEOUT):
         return None, "BIOS query unavailable (%s)" % type(error).__name__
 
 
-def bios_settings(query=powershell_cim):
+def bios_settings(query=powershell_cim, remaining=None):
     """(value, errors). value = {"providers": {vendor: status}, "settings": [...]}; unavailable when no provider exists."""
     providers, settings, errors = {}, [], []
     for vendor, ns, cls, name_prop, value_prop in PROVIDERS:
-        objs, err = query(ns, cls, [name_prop] + ([value_prop] if value_prop else []))
+        if remaining is not None and remaining() < 0.15:
+            providers[vendor] = 'worker time budget exhausted; query not started'
+            errors.append(vendor + ': worker time budget exhausted; query not started')
+            continue
+        if remaining is None:
+            objs, err = query(ns, cls, [name_prop] + ([value_prop] if value_prop else []))
+        else:
+            objs, err = query(ns, cls, [name_prop] + ([value_prop] if value_prop else []), timeout=min(PS_TIMEOUT, remaining()))
         if err:
             providers[vendor] = err
             if err != "provider not present": errors.append(f"{vendor}: {err}")
@@ -559,7 +534,7 @@ def nvidia_detail(nvml=None):
 
 
 # worker wiring
-EXTRA_STAGES = ("pci_resources", "bios_settings", "nvidia_detail")   # run in this order, after devicemap's four
+EXTRA_STAGES = ("pci_resources", "nvidia_detail", "bios_settings")   # run in this order, after devicemap's four
 EXTRA_SOURCES = {"pci_resources": "CfgMgr32 allocated logical configuration (ALLOC_LOG_CONF)",
                  "bios_settings": "vendor WMI BIOS provider (read-only CIM query)",
                  "nvidia_detail": "NVML (system nvml.dll)"}

@@ -36,11 +36,6 @@ jobs:
           $expected = ([xml](Get-Content windows/App/App.csproj)).Project.PropertyGroup.Version
           $actual = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:RUNNER_TEMP/1401-compiled/1401.exe")
           if ($actual.FileVersion -ne "$expected.0") { throw 'Compiled executable file version differs.' }
-      - name: Prepare the exact candidate package
-        shell: pwsh
-        run: |
-          python -B tools/windows_release.py prepare --stage "$env:RUNNER_TEMP/1401-stage" --cache "$env:RUNNER_TEMP/1401-cache" --compiled "$env:RUNNER_TEMP/1401-compiled/1401.exe"
-          if ($LASTEXITCODE -ne 0) { throw 'Candidate preparation failed.' }
       - name: Select the installed native Windows compiler
         shell: pwsh
         run: |
@@ -57,6 +52,11 @@ jobs:
               "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             }
           }
+      - name: Prepare the exact candidate package
+        shell: pwsh
+        run: |
+          python -B tools/windows_release.py prepare --stage "$env:RUNNER_TEMP/1401-stage" --cache "$env:RUNNER_TEMP/1401-cache" --compiled "$env:RUNNER_TEMP/1401-compiled/1401.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate preparation failed.' }
       - name: Verify packaged startup and engine behavior on Windows
         shell: pwsh
         run: |
