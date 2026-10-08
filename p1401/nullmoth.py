@@ -66,8 +66,8 @@ MUX_HELP = (
     "Check the exact model's connector wiring and whether a hardware MUX provides a Discrete GPU mode. "
     "Some laptops have no MUX; a config change cannot create one. If a supported Discrete GPU mode is available, "
     "enable it, restart Windows, then run Check this PC and Build again (a scan taken before the switch still shows the "
-    "old wiring). Without a MUX, a monitor on a port wired to the NVIDIA GPU (often HDMI or a USB-C/Thunderbolt port) "
-    "works; the built-in screen stays dark in macOS.")
+    "old wiring). Without a MUX, a monitor on a port wired to the NVIDIA GPU works; the built-in screen stays dark "
+    "in macOS.")
 
 
 def mux_help(report):

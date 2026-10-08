@@ -26,6 +26,7 @@ namespace A1401
         readonly LinkLabel ocLink = new LinkLabel();
         readonly LinkLabel logLink = new LinkLabel();
         readonly LinkLabel drvLink = new LinkLabel();
+        readonly LinkLabel doctorLink = new LinkLabel();
         readonly LinkLabel firmwareLink = new LinkLabel();
         readonly ListView facts = new ListView();
         bool busy, scanned, built, written, listing, showingPrerequisites;
@@ -94,13 +95,16 @@ namespace A1401
             drvLink.Text = "Update the NVIDIA driver (newest release, here and on your 1401 stick)"; drvLink.AutoSize = true;
             drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = new Font("Verdana", 9.5f);
             drvLink.LinkClicked += (s, e) => UpdateDriver();
+            doctorLink.Text = "Built your own EFI? Check it (and fix it) with the same rules 1401 uses"; doctorLink.AutoSize = true;
+            doctorLink.Location = new Point(24, 380); doctorLink.LinkColor = Theme.Cyan; doctorLink.Font = new Font("Verdana", 9.5f);
+            doctorLink.LinkClicked += (s, e) => CheckOwnEfi();
             firmwareLink.Text = "Review firmware prerequisites"; firmwareLink.AutoSize = true;
             firmwareLink.Location = new Point(24, 300); firmwareLink.LinkColor = Theme.Cyan; firmwareLink.Font = new Font("Verdana", 9.5f);
             firmwareLink.LinkClicked += (s, e) => {
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             ResumeLayout(false); PerformLayout();
@@ -142,6 +146,7 @@ namespace A1401
         {
             foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
+            doctorLink.Visible = logLink.Visible;
             firmwareLink.Visible = (page == 1 || page == 2) && firmwareGuideFile != null && File.Exists(firmwareGuideFile);
             firmwareLink.Enabled = !busy;
         }
@@ -254,7 +259,20 @@ namespace A1401
                 var rep = Path.Combine(scanDir, "Report.json"); var acpi = Path.Combine(scanDir, "ACPI");
                 var lines = new List<string>();
                 Say("Building the startup files for this PC...");
-                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json", l => { lines.Add(l); });
+                // A stick that already failed to boot says why in its newest OpenCore log; the build reads it (bootfix.py).
+                var bootLogs = "";
+                foreach (var d in DriveInfo.GetDrives())
+                {
+                    try
+                    {
+                        if (d.DriveType != DriveType.Removable || !d.IsReady) continue;
+                        var newest = Directory.GetFiles(d.RootDirectory.FullName, "opencore-*.txt").OrderByDescending(f => f).FirstOrDefault();
+                        if (newest != null) bootLogs += " --boot-log " + Engine.Q(newest);
+                    }
+                    catch (Exception) { }
+                }
+                if (bootLogs.Length > 0) Say("Using the last startup log on the stick to adjust this build.");
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json" + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
@@ -609,6 +627,45 @@ namespace A1401
             var method = typeof(LinkLabel).GetMethod("OnLinkClicked", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             if (method == null || firmwareLink.Links.Count == 0) throw new InvalidOperationException("Link activation is unavailable.");
             method.Invoke(firmwareLink, new object[] { new LinkLabelLinkClickedEventArgs(firmwareLink.Links[0]) });
+        }
+
+        // People also boot EFIs they assembled themselves (or with other tools). The engine's efidoctor runs 1401's own
+        // rules on that config: missing files, kext order, the NVIDIA driver's settings, the laptop GPU fix, and what the
+        // stick's last failed boot log says. It shows what it would change and writes only after the user agrees, keeping
+        // a backup of the old config next to it.
+        async void CheckOwnEfi()
+        {
+            if (busy) return;
+            string root;
+            using (var pick = new FolderBrowserDialog { Description = "Select the drive or folder that holds your EFI folder" })
+            {
+                if (pick.ShowDialog(this) != DialogResult.OK) return;
+                root = pick.SelectedPath;
+            }
+            var args = "p1401.efidoctor " + Engine.Q(root);
+            var rep = scanDir == null ? null : Path.Combine(scanDir, "Report.json");
+            if (rep != null && File.Exists(rep)) args += " --report " + Engine.Q(rep);
+            try
+            {
+                var newest = Directory.GetFiles(Path.GetPathRoot(root), "opencore-*.txt").OrderByDescending(f => f).FirstOrDefault();
+                if (newest != null) args += " --boot-log " + Engine.Q(newest);
+            }
+            catch (Exception) { }
+            busy = true;
+            var lines = new List<string>();
+            int rc = await Engine.Run(args, l => { lock (lines) lines.Add(l); });
+            busy = false;
+            var text = string.Join("\r\n", lines.Where(l => l.StartsWith("  ")));
+            if (rc == 0) { MessageBox.Show(this, "Your EFI passed every check 1401 makes.\r\n\r\n" + text, "1401", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            bool fixable = lines.Any(l => l.StartsWith("  needs fixing"));
+            if (!fixable) { MessageBox.Show(this, "1401 found problems it cannot fix by itself:\r\n\r\n" + text, "1401", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+            if (MessageBox.Show(this, text + "\r\n\r\nFix these in your config.plist now? The current one is kept as a backup next to it.",
+                                "1401", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            busy = true; lines.Clear();
+            rc = await Engine.Run(args + " --fix", l => { lock (lines) lines.Add(l); });
+            busy = false;
+            MessageBox.Show(this, string.Join("\r\n", lines.Where(l => l.StartsWith("  "))), "1401",
+                            MessageBoxButtons.OK, rc == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
         }
 
         internal void OfferStickLogs(bool asked)

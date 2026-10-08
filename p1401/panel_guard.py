@@ -48,6 +48,6 @@ def active_panel_notice(disabled, capture):
                     panel.get('routing_source') == 'QueryDisplayConfig targetInfo.adapterId'):
                 return ('The built-in screen runs on the Intel graphics (' + device.upper() + '), which macOS cannot use on '
                         'this system, so it will stay dark in macOS. Use a monitor on a port wired to the NVIDIA card '
-                        '(often HDMI or a USB-C/Thunderbolt port), or switch the display mode to discrete/dGPU in the '
+                        '(the laptop maker documents which ports those are), or switch the display mode to discrete/dGPU in the '
                         'firmware if it offers one and scan again.')
     return None

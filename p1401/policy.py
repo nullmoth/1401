@@ -228,6 +228,11 @@ def apply(config_path, result, policy):
         change("sip-minimal", (nv.get("csr-active-config") or b"").hex(), want.hex(), why)
         nv["csr-active-config"] = want
 
+    # 5. A failed boot's own log (the stick's opencore-*.txt), when the app passed one: see bootfix.py.
+    if getattr(policy, "boot_logs", None):
+        from . import bootfix  # noqa: PLC0415
+        bootfix.apply(cfg, result, bootfix.read_logs(policy.boot_logs), change)
+
     tmp = config_path + ".tmp"
     with open(tmp, "wb") as fh:
         plistlib.dump(cfg, fh)
