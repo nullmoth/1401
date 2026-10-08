@@ -88,10 +88,11 @@ def apply(cfg, result, texts, change):
                    "every memory-map step the log allows has failed on this board; send the logs so it can be looked at")
     if f["secureboot_dmg"]:
         sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
-        if sec.get("SecureBootModel") != "Disabled":
-            change("bootlog-secureboot-dmg", str(sec.get("SecureBootModel")), "Disabled",
-                   "the stick's last boot stopped at 'Cannot use Secure Boot with Any DmgLoading'")
-            sec["SecureBootModel"] = "Disabled"
+        if sec.get("SecureBootModel") != "Disabled" and sec.get("DmgLoading") != "Signed":
+            change("bootlog-secureboot-dmg", str(sec.get("DmgLoading")), "Signed",
+                   "the stick's last boot stopped at 'Cannot use Secure Boot with Any DmgLoading'; "
+                   "require an Apple-signed recovery image while preserving the configured Secure Boot model")
+            sec["DmgLoading"] = "Signed"
     return f
 
 
@@ -218,7 +219,7 @@ def selftest():
     c, log = run(amd, "OCB: Saved mode 0/0/0 - Success\nAAPL: #[EB|LOG:EXITBS:START]\n")
     arm("negative control: a log with no failure changes nothing", not log and not c["Booter"]["Quirks"]["DevirtualiseMmio"])
     c, log = run(amd, "OC: Cannot use Secure Boot with Any DmgLoading!\n", {"Misc": {"Security": {"SecureBootModel": "Default"}}})
-    arm("Secure Boot with DmgLoading Any: SecureBootModel Disabled", c["Misc"]["Security"]["SecureBootModel"] == "Disabled")
+    arm("Secure Boot recovery requires Signed without disabling its model", c["Misc"]["Security"]["DmgLoading"] == "Signed" and c["Misc"]["Security"]["SecureBootModel"] == "Default")
     panic = ("panic(cpu 2 caller 0xffffff8001): Kernel trap at 0x..., type 14=page fault\n"
              "      Kernel Extensions in backtrace:\n         com.xxxx.driver.RestrictEvents(1.1.5)[...]@0x1->0x2\n\n"
              "BSD process name corresponding to current thread: kernel_task\n")
