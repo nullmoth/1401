@@ -7,20 +7,19 @@ Made by **NullMoth Systems**. Support the work: https://buymeacoffee.com/nullmot
 
 | Download (Releases) | What it is |
 |---|---|
-| `1401-Windows-1.1.0.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
+| `1401-Windows-1.0.20.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
 | `1401-Mac-1.0.13.dmg` (in the [driver repo](https://github.com/nullmoth/nvidia-macos-driver) releases) | the Mac installer for the NVIDIA driver: open it and run **1401**; the driver is inside |
 
 > **1401 is new and may not work on every PC.** It has been tested end to end on one PC (Intel Core Ultra 5 225F,
 > B860 board, GeForce RTX 5060). If it does not work on yours, set up OpenCore by hand with the
 > [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/)
-> ([OpenCore releases](https://github.com/acidanthera/OpenCorePkg/releases)). The 1401 Mac app and the NVIDIA driver
-> work on any OpenCore setup running macOS 15.
+> ([OpenCore releases](https://github.com/acidanthera/OpenCorePkg/releases)). The Mac installer targets macOS 15 on OpenCore; individual GPU, display and application support requires validation.
 
 How the code works, step by step: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md).
 
 ## Using it
 
-1. Unzip `1401-Windows-1.1.0.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
+1. Unzip `1401-Windows-1.0.20.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
    rights: it reads the hardware and writes the stick).
 2. **Check this PC**, **Build the Mac setup**, read **Your BIOS steps**, then **Create the macOS stick** on a USB stick of
    4 GB or more that can be erased. You need internet.

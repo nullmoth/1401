@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - support/1.1-candidate
+      - support/1.0.20-maintenance
 
 permissions:
   contents: read
