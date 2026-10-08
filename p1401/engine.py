@@ -62,9 +62,11 @@ def _macos_answer(prompt, ctx, pol):
 # 10-07 (NM-CHW0YW6F): the reason ("Intel VMD controllers are not supported ... disable Intel VMD in the BIOS") sat at
 # the bottom of 40 lines of compatibility output. A stop the user can fix gets its fix as the first line.
 STOP_LEADS = (
-    ("Intel VMD", "Turn off Intel VMD in the BIOS (look under Storage for \"VMD controller\" or \"Intel Rapid Storage\"), then run "
-                  "Check this PC again. If Windows is on that drive, switch Windows to AHCI first as 1401's BIOS steps page "
-                  "shows (Safe Mode once), or Windows will not start."),
+    ("Intel VMD", "This builder cannot continue with the reported Intel VMD controller. Open Review firmware prerequisites "
+                  "on Check this PC or Build; no EFI is required. Before changing storage, back up files, save the Windows "
+                  "encryption recovery key and follow the exact system vendor's storage migration procedure. Changing "
+                  "mode without preparing Windows can prevent it from booting or make RAID/Optane data inaccessible. "
+                  "If no safe migration is documented, stop. After migration and a normal Windows boot, run Check this PC again."),
     ("without a supported GPU", "macOS has no driver for this PC's graphics, so 1401 cannot build for it. Supported: most AMD "
                                 "Radeon desktop cards up to RX 6000, Intel UHD/Iris integrated graphics up to 10th gen, and "
                                 "NVIDIA GeForce RTX cards through the NullMoth driver."),
@@ -464,7 +466,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     """Report.json + ACPI dump -> OpenCore EFI in out_dir. download=False stops after planning (no network)."""
     policy = policy or Policy()
     policy = dataclasses.replace(policy, prefer=dict(policy.prefer))  # the Wi-Fi pre-pass writes to prefer
-    out_dir = _prepare_out(out_dir)
+    out_dir = os.path.abspath(out_dir)
+    if os.path.exists(out_dir) and os.listdir(out_dir) and not os.path.exists(os.path.join(out_dir, MARKER)):
+        raise RuntimeError("refusing to build into an unowned nonempty folder")
     scratch = tempfile.mkdtemp(prefix="1401-report-")
     res = BuildResult(ok=False, out_dir=out_dir)
     h = None
@@ -506,6 +510,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.hardware = hw
             mv = o.select_macos_version(_wifi_prepass(hw, policy, h, o), native, oclp_versions)
             cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
+            from . import panel_guard, scan_evidence
+            panel_guard.refuse_active_panel_disable(disabled, scan_evidence.load_for_report(report_path, res.raw_hardware))
+            _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
             needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
             smbios = o.s.select_smbios_model(cust, mv)
             o.ac.select_acpi_patches(cust, disabled)

@@ -3,7 +3,7 @@
   "baseline_sha256": "2b42a8be7db8b9fd3a85ee4093d21e5c6aa1ea98592fc212d3ffcd52544e5a37",
   "driver_release": "v1.0.15",
   "mac_asset": "1401-Mac-1.0.15.zip",
-  "mac_sha256": null,
+  "mac_sha256": "74733342a539d63da88254d6d51557eb81c0f2d103f9a095bd9f06b6b33ba71e",
   "opencore_url": "https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip",
   "opencore_sha256": "2011e8b7216ecb2645d97ea710df965947edd406846e92050b9bc4190be6d27b",
   "fixture_slug": "optiplex-5050-micro",

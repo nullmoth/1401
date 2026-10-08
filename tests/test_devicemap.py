@@ -14,8 +14,8 @@ ADAPTERS = [
     {"description": "Intel(R) UHD Graphics 770", "vendor_id": INTEL, "device_id": 0x4680, "subsys_id": 0x7D251462, "luid": (0, 0x4004), "flags": 0, "rt_tier": 0},
     {"description": "Microsoft Basic Render Driver", "vendor_id": 0x1414, "device_id": 0x008C, "subsys_id": 0, "luid": (0, 0x5005), "flags": 2},
     {"description": "Google virtual display", "vendor_id": 0x1AE0, "device_id": 0xA001, "subsys_id": 0x00011AE0, "luid": (0, 0x6006), "flags": 0}]
-PATHS = [{"source_luid": (0, 0x4004), "target_index": 0, "output_technology": -2147483648, "target_available": True},
-         {"source_luid": (0, 0x2002), "target_index": 1, "output_technology": 5, "target_available": True}]
+PATHS = [{"source_luid": (0, 0x4004), "target_luid": (0, 0x4004), "active": True, "target_index": 0, "output_technology": -2147483648, "target_available": True},
+         {"source_luid": (0, 0x2002), "target_luid": (0, 0x2002), "active": True, "target_index": 1, "output_technology": 5, "target_available": True}]
 SECRETS = ["4C530001234567", "D8A35C1B2E4F", "D8:A3:5C:1B:2E:4F", "192.168.1.44", "Fixture Owner Endpoint", "MyHomeWiFi"]
 DEVICES = [
     {"instance_id": "PCI\\VEN_8086&DEV_7A4C&SUBSYS_7D251462&REV_11\\3&11583659&0&A8", "parent_instance_id": "ACPI_HAL\\PNP0C08\\0",

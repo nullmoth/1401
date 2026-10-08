@@ -26,8 +26,11 @@ namespace A1401
         readonly LinkLabel ocLink = new LinkLabel();
         readonly LinkLabel logLink = new LinkLabel();
         readonly LinkLabel drvLink = new LinkLabel();
+        readonly LinkLabel firmwareLink = new LinkLabel();
         readonly ListView facts = new ListView();
-        bool busy, scanned, built, written, listing;
+        bool busy, scanned, built, written, listing, showingPrerequisites;
+        int prerequisiteReturnPage = 1;
+        string firmwareGuideFile;
         string scanDir, scanRunId, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
 
         public MainForm(bool verificationMode = false)
@@ -56,7 +59,10 @@ namespace A1401
             var foot = new Panel { Dock = DockStyle.Bottom, Height = 56, BackColor = Theme.Panel };
             back.Text = "< Back"; back.Bounds = new Rectangle(560, 12, 150, 32); Theme.Style(back, false);
             next.Text = "Continue >"; next.Bounds = new Rectangle(720, 12, 160, 32); Theme.Style(next);
-            back.Click += (s, e) => Go(page - 1); next.Click += (s, e) => OnNext();
+            back.Click += (s, e) => {
+                if (page == 3 && showingPrerequisites) { showingPrerequisites = false; Go(prerequisiteReturnPage); }
+                else Go(page - 1);
+            }; next.Click += (s, e) => OnNext();
             foot.Controls.AddRange(new Control[] { back, next });
 
             body.Dock = DockStyle.Fill; body.Padding = new Padding(24, 18, 24, 12); body.BackColor = Theme.Bg;
@@ -83,7 +89,13 @@ namespace A1401
             drvLink.Text = "Update the NVIDIA driver (newest release, here and on your 1401 stick)"; drvLink.AutoSize = true;
             drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = new Font("Verdana", 9.5f);
             drvLink.LinkClicked += (s, e) => UpdateDriver();
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink });
+            firmwareLink.Text = "Review firmware prerequisites"; firmwareLink.AutoSize = true;
+            firmwareLink.Location = new Point(24, 300); firmwareLink.LinkColor = Theme.Cyan; firmwareLink.Font = new Font("Verdana", 9.5f);
+            firmwareLink.LinkClicked += (s, e) => {
+                if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
+                prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
+            };
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             Go(0);
@@ -120,6 +132,8 @@ namespace A1401
         {
             foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
+            firmwareLink.Visible = (page == 1 || page == 2) && firmwareGuideFile != null && File.Exists(firmwareGuideFile);
+            firmwareLink.Enabled = !busy;
         }
 
         void Go(int p)
@@ -152,9 +166,19 @@ namespace A1401
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
-                    note.Text = "These BIOS suggestions follow your scan and startup files. Check menu names in the exact board manual, then take a photo before restarting.";
-                    Show(guide); next.Enabled = true;
-                    if (guideFile != null && File.Exists(guideFile)) guide.Navigate(guideFile);
+                    if (showingPrerequisites)
+                    {
+                        title.Text = "Firmware prerequisites";
+                        note.Text = "Review storage requirements before building. No EFI or firmware changes are made by this page. Return to the check or build when finished.";
+                        Show(guide); next.Enabled = true; next.Text = "Return >";
+                        if (firmwareGuideFile != null && File.Exists(firmwareGuideFile)) guide.Navigate(firmwareGuideFile);
+                    }
+                    else
+                    {
+                        note.Text = "These BIOS suggestions follow your scan and startup files. Check menu names in the exact board manual, then take a photo before restarting.";
+                        Show(guide); next.Enabled = built;
+                        if (guideFile != null && File.Exists(guideFile)) guide.Navigate(guideFile);
+                    }
                     break;
                 case 4:
                     note.Text = "Plug in the USB stick that will become the macOS installer. EVERYTHING on it is erased.\r\n" +
@@ -168,9 +192,30 @@ namespace A1401
             }
         }
 
+        async Task PrepareFirmwareGuide()
+        {
+            firmwareGuideFile = null;
+            if (!scanned || scanDir == null || scanRunId == null) return;
+            var target = Path.Combine(Engine.Work, "Firmware-prerequisites-" + scanRunId + ".html");
+            busy = true; next.Enabled = false;
+            try
+            {
+                int rc = await Engine.Run("p1401.guide --bios-only " + Engine.Q(Path.Combine(scanDir, "Report.json")) +
+                    " --run-id " + scanRunId + " --html " + Engine.Q(target), Say);
+                if (rc == 0 && File.Exists(target)) firmwareGuideFile = target;
+                else Say("Firmware review could not be generated. No EFI or firmware was changed. The build refusal still includes storage preparation guidance.");
+            }
+            catch (Exception) { Say("Firmware review is unavailable. No EFI or firmware was changed; use the storage guidance in the build refusal."); }
+            finally { busy = false; next.Enabled = true; }
+        }
+
         async void OnNext()
         {
             if (busy) return;
+            if (page == 3 && showingPrerequisites)
+            {
+                showingPrerequisites = false; Go(prerequisiteReturnPage); return;
+            }
             if (page == 0) { Go(1); return; }
             if (page == 1 && !scanned)
             {
@@ -196,7 +241,7 @@ namespace A1401
                     OfferLog(logFile, "check");
                     return;
                 }
-                scanned = true; LoadFacts(); Say("Done."); Go(1); return;
+                scanned = true; LoadFacts(); await PrepareFirmwareGuide(); Say("Done."); Go(1); return;
             }
             if (page == 2 && !built)
             {
@@ -229,13 +274,14 @@ namespace A1401
                     var notices = r["notices"] as System.Collections.ArrayList;
                     summary = "macOS " + MacName(darwin) + " for this PC, as a " + r["smbios"] + ". The startup files passed OpenCore's own check.";
                     if (notices != null) foreach (var n in notices) if (IsSupportNotice("" + n)) summary += "\r\n" + n;
-                    built = true;
+                    built = true; showingPrerequisites = false;
                 }
                 catch (Exception e) { Say("Could not read the build result: " + e.Message); foreach (var l in lines.Take(40)) Say(l); return; }
                 guideFile = Path.Combine(Engine.Work, "BIOS-steps.html");
                 await Engine.Run("p1401.guide " + Engine.Q(rep) + " " + Engine.Q(Path.Combine(efiDir, "EFI", "OC", "config.plist")) + " --macos " + macosFull + " --html " + Engine.Q(guideFile), Say);
                 Say("Done."); Go(2); return;
             }
+            if (page == 4 && !built) { Go(2); return; }
             if (page == 4 && !written)
             {
                 var d = disks.SelectedItem as UsbDisk;
