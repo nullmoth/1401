@@ -35,7 +35,8 @@ class ReportReliability
             Require(DurableReport.CleanIdentity("User: APPLE\ncom.apple.driver.AppleIntelFramebuffer\nAppleIntelGraphics", "apple", "UnitHost", "") == "User: user\ncom.apple.driver.AppleIntelFramebuffer\nAppleIntelGraphics");
             Require(DurableReport.CleanIdentity("Manufacturer: NVIDIA\nGPU: NVIDIA GeForce RTX 4060\nuser NVIDIA\nhost NVIDIA", "NVIDIA", "NVIDIA", "") == "Manufacturer: NVIDIA\nGPU: NVIDIA GeForce RTX 4060\nuser user\nhost this-pc");
             Require(DurableReport.CleanIdentity("\"Manufacturer\": \"NVIDIA\"\n\"username\": \"NVIDIA\"", "NVIDIA", "UnitHost", "") == "\"Manufacturer\": \"NVIDIA\"\n\"username\": \"user\"");
-            Require(DurableReport.CleanIdentity("macOS machdep.cpu com.mac.driver user MAC", "mac", "UnitHost", "") == "macOS machdep.cpu com.mac.driver user user");
+            // An unknown namespace containing the account name is private; OS property names stay intact.
+            Require(DurableReport.CleanIdentity("macOS machdep.cpu com.mac.driver user MAC", "mac", "UnitHost", "") == "macOS machdep.cpu com.user.driver user user");
             Require(DurableReport.CleanIdentity("Vendor: Intel\nIntel(R) Core(TM) CPU\nAccount=INTEL\nerror Intel", "intel", "UnitHost", "") == "Vendor: Intel\nIntel(R) Core(TM) CPU\nAccount=user\nerror user");
             Require(DurableReport.CleanIdentity(@"\\UnitHost\share https://UNITHOST/path Hostname=UnitHost", "UnitAccount", "UnitHost", "") == @"\\this-pc\share https://this-pc/path Hostname=this-pc");
             Require(DurableReport.CleanIdentity("Username: ab\nHost: xy\nPCI 10DE-28E0 subsystem 17AA-3CF2", "ab", "xy", "") == "Username: user\nHost: this-pc\nPCI 10DE-28E0 subsystem 17AA-3CF2");
