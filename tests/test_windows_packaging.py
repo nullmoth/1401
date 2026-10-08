@@ -67,6 +67,43 @@ class Packaging(unittest.TestCase):
                 release.package(SimpleNamespace(stage=str(stage), evidence=str(evidence), output=str(output)))
             self.assertFalse(output.exists())
 
+    def test_verified_baseline_manifest_is_replaced_after_integrity_check(self):
+        import json
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            stage = Path(directory) / 'stage'
+            root = stage / '1401'
+            root.mkdir(parents=True)
+            (root / '1401.exe').write_bytes(b'MZ candidate')
+            (root / 'BUILD-MANIFEST.json').write_text(json.dumps({'version': '1.0.19'}))
+            evidence = Path(directory) / 'evidence.json'
+            evidence.write_text(json.dumps({'ok': True, 'version': release.version(),
+                                           'candidate_files': {p.name: release.sha(p) for p in root.iterdir()}}))
+            output = Path(directory) / 'output'
+            release.package(SimpleNamespace(stage=str(stage), evidence=str(evidence), output=str(output)))
+            archive = output / ('1401-Windows-' + release.version() + '.zip')
+            with zipfile.ZipFile(archive) as payload:
+                manifest = json.loads(payload.read('1401/BUILD-MANIFEST.json'))
+            self.assertEqual(manifest['version'], release.version())
+            self.assertEqual(manifest['verification_sha256'], release.sha(evidence))
+            self.assertNotIn('BUILD-MANIFEST.json', manifest['files'])
+
+    def test_prior_manifest_changed_after_verification_is_rejected(self):
+        import json
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            stage = Path(directory) / 'stage'
+            root = stage / '1401'
+            root.mkdir(parents=True)
+            manifest = root / 'BUILD-MANIFEST.json'
+            manifest.write_text('{"version":"1.0.19"}')
+            evidence = Path(directory) / 'evidence.json'
+            evidence.write_text(json.dumps({'ok': True, 'version': release.version(),
+                                           'candidate_files': {'BUILD-MANIFEST.json': release.sha(manifest)}}))
+            manifest.write_text('{"version":"changed"}')
+            with self.assertRaisesRegex(RuntimeError, 'changed after'):
+                release.package(SimpleNamespace(stage=str(stage), evidence=str(evidence), output=str(Path(directory) / 'output')))
+
 
 if __name__ == '__main__':
     unittest.main()

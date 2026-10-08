@@ -199,7 +199,7 @@ def package(args):
     if evidence.get('ok') is not True or evidence.get('version') != version():
         raise RuntimeError('Successful verification of this packaged version is required.')
     actual = {path.relative_to(root).as_posix(): sha(path) for path in sorted(root.rglob('*'))
-              if path.is_file() and path.name != 'BUILD-MANIFEST.json'}
+              if path.is_file()}
     if actual != evidence.get('candidate_files'):
         raise RuntimeError('The candidate files changed after packaged verification.')
     for generated in (root / 'engine/app/upstream/OpCore-Simplify/OCK_Files', root / 'engine/app/upstream/OpCore-Simplify/Results'):
