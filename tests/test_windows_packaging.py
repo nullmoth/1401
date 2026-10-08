@@ -10,6 +10,16 @@ release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
 
+class CompanionReview(unittest.TestCase):
+    def test_candidate_requires_exact_reviewed_published_tag(self):
+        inputs={'driver_release':'v1.1.0'}
+        for candidate in [{'tag_name':'v1.1.0','draft':True}, {'tag_name':'v1.1.1'}, {'tag_name':'v1.1.0','prerelease':True}]:
+            with self.assertRaises(RuntimeError): release.validate_companion_release(candidate,inputs)
+        for value in ['true',1,False,None]:
+            with self.assertRaises(RuntimeError):release.validate_companion_release({'tag_name':'v1.1.0','prerelease':True},dict(inputs,companion_prerelease_reviewed=value))
+        release.validate_companion_release({'tag_name':'v1.1.0','prerelease':True},dict(inputs,companion_prerelease_reviewed=True))
+        release.validate_companion_release({'tag_name':'v1.1.0'},inputs)
+
 class Packaging(unittest.TestCase):
     def test_archive_is_stable_across_source_order_and_timestamps(self):
         with tempfile.TemporaryDirectory() as directory:
