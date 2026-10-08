@@ -12,8 +12,10 @@ def verify_cpu_native(repo, directory, evidence=None):
     repo,directory=Path(repo).resolve(),Path(directory).resolve()
     app=directory/'cpu-app';app.mkdir(exist_ok=True)
     shutil.copytree(repo/'p1401',app/'p1401',ignore=shutil.ignore_patterns('__pycache__','*.pyc'),dirs_exist_ok=True)
-    from build_cpu_helper import build
-    pin=build(repo,app/'bin')
+    helper_spec = importlib.util.spec_from_file_location('cpu_helper_build', repo / 'tools/build_cpu_helper.py')
+    helper = importlib.util.module_from_spec(helper_spec)
+    helper_spec.loader.exec_module(helper)
+    pin=helper.build(repo,app/'bin')
     evidence.update({'helper_sha256':pin['sha256'],'static_dependencies':pin['dependencies']})
     groups=directory/'cpu-group-fixtures.exe'
     subprocess.run(['cl','/nologo','/std:c11','/MT','/W4','/WX','/DWIN32_LEAN_AND_MEAN','/D_WIN32_WINNT=0x0602',

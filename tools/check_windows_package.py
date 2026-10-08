@@ -78,11 +78,18 @@ def main():
         result['native_capture'] = {}
         native_check.verify_capture_native(repo, args.output, result['native_capture'])
         fixture = cache / 'fixtures' / inputs['fixture_slug']
-        suite = unittest.defaultTestLoader.discover(str(repo / 'tests'), pattern='test_*.py')
+        suite = unittest.defaultTestLoader.discover(str(repo / 'tests'), pattern='test_*.py', top_level_dir=str(repo))
         step = 'packaged regression tests'
         log = io.StringIO()
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             checks = unittest.TextTestRunner(stream=log, verbosity=1).run(suite)
+        # Tests import their sibling fixtures from the reviewed repository. The
+        # already loaded regular p1401 package must continue resolving to the stage.
+        for name, module in list(sys.modules.items()):
+            if name == 'p1401' or name.startswith('p1401.'):
+                filename = getattr(module, '__file__', None)
+                if filename and not Path(filename).resolve().is_relative_to(app.resolve()):
+                    raise RuntimeError('Regression imports left the packaged application boundary.')
         result['regression_tests'] = {'run': checks.testsRun, 'failures': len(checks.failures),
                                       'errors': len(checks.errors), 'skipped': len(checks.skipped)}
         result['test_failure_locations'] = [{'test_id': test.id(), 'kind': kind, 'frames': failure_frames(trace)}
