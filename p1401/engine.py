@@ -515,8 +515,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             mv = o.select_macos_version(_wifi_prepass(hw, policy, h, o), native, oclp_versions)
             cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
             from . import panel_guard, scan_evidence
-            panel_guard.refuse_active_panel_disable(disabled, scan_evidence.load_for_report(
+            panel = panel_guard.active_panel_notice(disabled, scan_evidence.load_for_report(
                 report_path, res.raw_hardware, expected_report_sha256=res.report_sha256))
+            if panel:
+                h.notices.append(panel)
             _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
             needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
             smbios = o.s.select_smbios_model(cust, mv)

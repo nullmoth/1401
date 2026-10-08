@@ -197,7 +197,7 @@ def _release_asset_response(fetcher, metadata, headers, timeout):
     return response
 
 
-def make_request(fetcher, url, timeout=20):
+def _direct(fetcher, url, timeout=20):
     """Use the official contents endpoint when the raw host is unreachable."""
     parts = urllib.parse.urlsplit(url)
     if parts.scheme != 'https' or not parts.hostname or parts.username or parts.password:
@@ -260,6 +260,33 @@ def make_request(fetcher, url, timeout=20):
         reasons.append(f'{request_host}: {reason}')
     raise DownloadError(f'Could not download from {"; then ".join(reasons)}. '
                         'Check the network or Windows proxy settings, then rebuild.')
+
+
+
+def make_request(fetcher, url, timeout=20):
+    """GitHub first; the content-addressed NullMoth mirror (mirror.py) when GitHub fails for a URL this build recorded.
+    Once the mirror has served a file GitHub could not, the rest of the build asks the mirror first."""
+    from . import mirror  # noqa: PLC0415
+    agent = dict(fetcher.request_headers).get('User-Agent', '1401')
+    if mirror.preferred() and mirror.has(url):
+        try:
+            return mirror.fetch(url, fetcher.ssl_context, timeout, agent)
+        except mirror.MirrorError as error:
+            print(f'NullMoth mirror failed for {urllib.parse.urlsplit(url).hostname} ({error}); trying GitHub.')
+    try:
+        return _direct(fetcher, url, timeout)
+    except DownloadError as error:
+        if not mirror.has(url):
+            raise
+        try:
+            response = mirror.fetch(url, fetcher.ssl_context, timeout, agent)
+        except mirror.MirrorError as again:
+            raise DownloadError(f'{error} The NullMoth mirror could not supply it either: {again}.') from None
+        if not mirror.preferred():
+            print('GitHub could not be reached for a build file; the verified NullMoth mirror supplied it. '
+                  'The rest of this build uses the mirror first.')
+        mirror.prefer()
+        return response
 
 
 def verified_context(self):
