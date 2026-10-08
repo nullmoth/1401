@@ -3,6 +3,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import platform
 import subprocess
@@ -36,6 +37,12 @@ def main():
         step = 'native Windows ABI and OS APIs'
         result['native_capture'] = {}
         verify_capture_native(repo, args.output, result['native_capture'])
+        step = 'pinned dependency test fixture'
+        from windows_release import download
+        inputs = json.loads((repo / 'windows/release-inputs.json').read_text())
+        fixture = download(inputs['opencore_url'], inputs['opencore_sha256'],
+                           Path(args.output).resolve().parent / 'pinned-test-inputs/OpenCore-1.0.8-RELEASE.zip')
+        os.environ['OPENCORE_TEST_ZIP'] = str(fixture)
         step = 'capture regression and real ctypes stand-in tests'
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             'tests.test_hwcapture', 'tests.test_capture_safety', 'tests.test_capture_completeness',
