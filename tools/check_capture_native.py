@@ -1,5 +1,6 @@
 """Windows SDK ABI and actual read-only OS API verification for the packaged collector."""
 import ctypes
+import base64
 import json
 import os
 from pathlib import Path
@@ -48,14 +49,18 @@ def verify_capture_native(repo, output, evidence=None):
         # OS diagnostics also recognize catalog signatures; CHOICE_FILE verifies embedded signatures only.
         # Labels and statuses are retained; file paths and certificate subject identities are omitted.
         environment = dict(os.environ, CAPTURE_SIGNATURE_FIXTURE=fixture)
-        script = "$s=Get-AuthenticodeSignature -LiteralPath $env:CAPTURE_SIGNATURE_FIXTURE; @{status=$s.Status.ToString();type=$s.SignatureType.ToString()} | ConvertTo-Json -Compress"
+        script = "$ErrorActionPreference='Stop'; try { $s=Microsoft.PowerShell.Security\\Get-AuthenticodeSignature -LiteralPath $env:CAPTURE_SIGNATURE_FIXTURE; $type='unavailable'; if ($s.PSObject.Properties.Name -contains 'SignatureType') {$type=[string]$s.SignatureType}; @{status=[string]$s.Status;type=$type} | ConvertTo-Json -Compress } catch {exit 9}"
+        encoded = base64.b64encode(script.encode('utf-16-le')).decode('ascii')
         try:
             info = json.loads(subprocess.check_output([os.path.join(buf.value, 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-                             '-NoProfile', '-NonInteractive', '-Command', script], env=environment, timeout=10))
+                             '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], env=environment,
+                             stderr=subprocess.DEVNULL, timeout=10))
             record['os_signature_status'] = str(info.get('status', 'unavailable'))[:48]
             record['os_signature_type'] = str(info.get('type', 'unavailable'))[:48]
         except Exception as error:
             record['os_signature_query'] = type(error).__name__
+            if isinstance(error, subprocess.CalledProcessError):
+                record['os_signature_query_exit'] = error.returncode
         evidence['trust_fixtures'].append(record)
         accepted = accepted or status == 0
     if not accepted: raise RuntimeError('No installed signed fixture passed actual embedded-signature verification.')

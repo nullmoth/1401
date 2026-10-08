@@ -69,7 +69,8 @@ def main():
         native_check = importlib.util.module_from_spec(native_spec)
         native_spec.loader.exec_module(native_check)
         step = 'Windows native capture ABI and isolated worker'
-        result['native_capture'] = native_check.verify_capture_native(repo, args.output)
+        result['native_capture'] = {}
+        native_check.verify_capture_native(repo, args.output, result['native_capture'])
         fixture = cache / 'fixtures' / inputs['fixture_slug']
         suite = unittest.defaultTestLoader.discover(str(repo / 'tests'), pattern='test_*.py')
         step = 'packaged regression tests'

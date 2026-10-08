@@ -34,6 +34,7 @@ class Capture(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
+        cls.libraries = []
         cls.fakes = Path(os.environ.get("FAKES", cls.temp.name))
         suffix = ".dll" if sys.platform == "win32" else ".dylib"
         for vendor in ("nvml", "cuda"):
@@ -48,11 +49,19 @@ class Capture(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        if sys.platform == "win32":
+            from _ctypes import FreeLibrary
+            # Each WinDLL construction increments the loader reference count, even when handles are identical.
+            # Release exactly those owned loads only after every fake binding test has finished.
+            for library in cls.libraries:
+                FreeLibrary(library._handle)
+        cls.libraries.clear()
         cls.temp.cleanup()
     def libs(self):
         suffix = ".dll" if sys.platform == "win32" else ".dylib"
         loader = ctypes.WinDLL if sys.platform == "win32" else ctypes.CDLL
         n = loader(str(self.fakes / ("libfake_nvml" + suffix))); c = loader(str(self.fakes / ("libfake_cuda" + suffix)))
+        self.libraries.extend((n, c))
         return n, c
 
     def test_absent_driver_is_a_status_and_raw_pci_stays(self):
