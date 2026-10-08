@@ -47,10 +47,8 @@ def cards(report):
 
 def mark(report):
     """Gives each supported card macOS 15 compatibility. Returns the names marked.
-    A laptop whose built-in panel runs on an integrated GPU macOS cannot drive (Iris Xe, 12th/13th-gen UHD, Radeon 680M/780M)
-    is marked too. Refusing it stopped every such laptop at Build (seven uploaded logs on 10-07). The macOS installer runs
-    on the built-in panel through the firmware's display, and the driver runs the NVIDIA card for Metal and for any monitor
-    on its ports; mux_help() says so, and how to put the panel on the NVIDIA card, in the build notes."""
+    A laptop with an unsupported integrated GPU is marked too. This permits building for its discrete GPU; it does not
+    establish that the internal panel or external connectors are wired to that GPU. mux_help() describes that limitation."""
     hit = []
     for n, g in cards(report).items():
         g["Compatibility"] = SEQUOIA
@@ -61,16 +59,13 @@ def mark(report):
 
 
 MUX_HELP = (
-    "Laptop note: the built-in screen is connected to the integrated graphics ({igpu}), which macOS cannot drive. "
-    "The macOS installer shows on the built-in screen through the firmware's display. Once macOS and the NullMoth driver "
-    "are installed, macOS shows on monitors plugged into ports wired to the {card} (often HDMI or a USB-C/DP port); "
-    "the built-in screen can stay dark.\n\n"
-    "To use the built-in screen, connect it straight to the NVIDIA card first (a MUX switch):\n"
-    "  - ASUS: Armoury Crate > GPU Mode > Ultimate (or dGPU / Discrete)\n"
-    "  - Lenovo Legion: Lenovo Vantage > Hybrid Mode off, or BIOS > Graphic Device > Discrete Graphics\n"
-    "  - MSI: MSI Center > MUX switch / Discrete Graphics Mode\n"
-    "  - Others: look for 'MUX', 'Discrete GPU' or 'dGPU only' in the vendor app or the BIOS\n"
-    "Switch it, restart Windows, then run Check this PC and Build again.")
+    "Laptop display note: the hardware report places the built-in screen on {igpu}. NVIDIA support does not add a "
+    "driver for that integrated GPU or reroute the screen to {card}. Firmware output may appear during boot, but "
+    "it does not establish that the installer or accelerated desktop will work on this panel.\n\n"
+    "A panel or external display needs a connection wired to the NVIDIA GPU for its display driver to use it. "
+    "Check the exact model's connector wiring and whether a hardware MUX provides a Discrete GPU mode. "
+    "Some laptops have no MUX; a config change cannot create one. If a supported Discrete GPU mode is available, "
+    "enable it, restart Windows, then run Check this PC and Build again. Display output still requires testing.")
 
 
 def mux_help(report):
@@ -80,6 +75,10 @@ def mux_help(report):
     for n, g in cards(report).items():
         panel = [m for m in mons if m.get("Connector Type") == "Internal" and m.get("Connected GPU", n) != n]
         if panel:
+            integrated = (report.get("GPU") or {}).get(panel[0].get("Connected GPU"), {})
+            compatibility = integrated.get("Compatibility")
+            if compatibility and any(compatibility):
+                continue
             return MUX_HELP.format(igpu=panel[0].get("Connected GPU") or "integrated GPU", card=n)
     return None
 

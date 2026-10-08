@@ -7,6 +7,7 @@ USB audio is class-compliant (macOS drives it without a kext), so it never ends 
 """
 import json
 import os
+import hashlib
 
 # section -> can an entry with no Device ID be dropped? (only where the EFI can't depend on it)
 DROPPABLE = {
@@ -15,6 +16,37 @@ DROPPABLE = {
 
 
 PCI_VENDORS = {"10DE": "NVIDIA", "1002": "AMD", "8086": "Intel"}
+
+
+def acpi_fingerprints(directory):
+    """Correlate a failed build with its probe without exporting ACPI contents or paths."""
+    found = []
+    try:
+        names = sorted(os.listdir(directory))[:128]
+    except OSError:
+        return found
+    for name in names:
+        if not name.lower().endswith(('.aml', '.dat')):
+            continue
+        path = os.path.join(directory, name)
+        if os.path.islink(path) or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, 'rb') as stream:
+                signature = stream.read(4)
+                if signature not in (b'DSDT', b'APIC'):
+                    continue
+                data = signature + stream.read(8 * 1024 * 1024)
+                if len(data) > 8 * 1024 * 1024:
+                    continue
+        except OSError:
+            continue
+        record = {'signature': signature.decode('ascii'), 'size': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+        if record not in found:
+            found.append(record)
+        if len(found) == 8:
+            break
+    return found
 
 
 def diagnostic_hardware(report):

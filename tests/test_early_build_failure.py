@@ -1,4 +1,5 @@
 import json
+import hashlib
 import os
 from pathlib import Path
 import tempfile
@@ -25,6 +26,7 @@ class EarlyFailure(unittest.TestCase):
         self.assertFalse(result.ok); self.assertIn('iasl download failed', result.error)
         self.assertEqual(data['hardware_summary']['GPU'][0]['Device ID'], '10DE-2B85')
         self.assertEqual(data['hardware_summary']['CPU']['Processor Name'], 'Fixture CPU')
+        self.assertEqual(data['acpi_fingerprints'][0]['sha256'], hashlib.sha256(b'DSDT').hexdigest())
         self.assertNotIn('private', json.dumps(data))
     def test_missing_inputs_do_not_start_downloads(self):
         for missing in ('report', 'acpi'):

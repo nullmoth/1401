@@ -49,7 +49,8 @@ def main():
     result = {'ok': False, 'scope': 'Windows packaged startup, dependency imports, regression tests and one public planning fixture; no disk writes or GPU qualification.'}
     step = 'packaged module and dependency imports'
     try:
-        modules = ['p1401.engine', 'p1401.acpi_diagnostics', 'p1401.dependency_cache', 'p1401.downloads', 'p1401.report']
+        modules = ['p1401.engine', 'p1401.acpi_diagnostics', 'p1401.dependency_cache', 'p1401.downloads',
+                   'p1401.kernel_patches', 'p1401.report']
         imported = []
         for name in modules:
             module = importlib.import_module(name)
@@ -104,6 +105,10 @@ def main():
         expected = (repo / 'windows/App/App.csproj').read_text().split('<Version>')[1].split('</Version>')[0]
         if process.returncode != 0 or gui.get('ok') is not True or gui.get('assembly_version') != expected:
             raise RuntimeError('The actual packaged application startup/version check failed.')
+        if gui.get('closed_form_log_collection_guard') is not True:
+            raise RuntimeError('Log collection on a closed application window was not safely skipped.')
+        if gui.get('support_notices_visible') is not True:
+            raise RuntimeError('Laptop display and controller qualification notices were not shown in the build summary.')
         if not (gui.get('product_version') or '').startswith(expected):
             raise RuntimeError('The packaged executable product version differs.')
         changed_runtime = []

@@ -19,6 +19,10 @@ namespace A1401
                 result["assembly_version"] = Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
                 result["product_version"] = Application.ProductVersion;
                 result["engine_complete"] = Engine.Missing() == null;
+                result["support_notices_visible"] = MainForm.IsSupportNotice("Laptop display note: unsupported panel") &&
+                                                    MainForm.IsSupportNotice("Intel I225-LM vP requires link testing") &&
+                                                    MainForm.IsSupportNotice("NullMoth driver selected") &&
+                                                    !MainForm.IsSupportNotice("ACPI loader transcript");
                 using (var form = new MainForm(true))
                 using (var timer = new Timer { Interval = 250 })
                 {
@@ -27,12 +31,17 @@ namespace A1401
                     {
                         timer.Stop();
                         shown = form.Visible && form.IsHandleCreated && form.Controls.Count > 0;
+                        result["support_notices_visible"] = (bool)result["support_notices_visible"] && form.VerifySupportNoticePresentation();
                         form.Close();
                     };
                     Application.Run(form);
+                    form.Dispose();
+                    form.OfferStickLogs(true);
+                    result["closed_form_log_collection_guard"] = form.IsDisposed;
                 }
                 result["window_shown_and_closed"] = shown;
-                result["ok"] = shown && (bool)result["engine_complete"];
+                result["ok"] = shown && (bool)result["engine_complete"] && (bool)result["closed_form_log_collection_guard"] &&
+                               (bool)result["support_notices_visible"];
             }
             catch (Exception error)
             {

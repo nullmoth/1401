@@ -184,6 +184,11 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None):
     ok, why = eligible(disk, allow_large)
     if not ok:
         raise UsbError("refusing: " + "; ".join(why))
+    from . import validate
+    checked = validate.validate(efi_build_dir)
+    if not checked.get('ok'):
+        reasons = checked.get('invariants') or [checked.get('error') or 'The OpenCore configuration did not pass validation.']
+        raise UsbError('The EFI must be rebuilt before erasing the stick: ' + '; '.join(reasons))
     _ps(check_script(disk))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
@@ -206,6 +211,7 @@ Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABE
         raise UsbError(f"diskpart finished but {root} did not appear")
     got = apple.download(recovery_info, root, progress)
     shutil.copytree(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"))
+    verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
     driver = None
     if needs_nullmoth(efi_build_dir):
         # The EFI was built for a GeForce RTX (nullmoth.apply): the stick carries the driver for the Mac companion.
@@ -214,6 +220,26 @@ Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABE
         os.makedirs(cache, exist_ok=True)
         driver = nullmoth.stage(root, cache, fetch=_fetch)
     return {"root": root, "nullmoth": driver, **got}
+
+
+def verify_efi_copy(source, destination):
+    """Read the written EFI files back before reporting a ready installer."""
+    import hashlib
+
+    def digest(path):
+        hasher = hashlib.sha256()
+        with open(path, 'rb') as stream:
+            for block in iter(lambda: stream.read(1 << 20), b''):
+                hasher.update(block)
+        return hasher.digest()
+
+    for folder, _, files in os.walk(source):
+        for name in files:
+            original = os.path.join(folder, name)
+            relative = os.path.relpath(original, source)
+            target = os.path.join(destination, relative)
+            if not os.path.isfile(target) or digest(original) != digest(target):
+                raise UsbError('The written EFI did not match the build: ' + relative + '. The stick is not ready.')
 
 
 def needs_nullmoth(efi_build_dir):

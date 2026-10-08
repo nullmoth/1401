@@ -147,8 +147,10 @@ namespace A1401
                     note.Text = scanned ? "This PC was checked. Continue, or check again." : "1401 reads this PC's hardware (processor, board, graphics, network, storage) and its ACPI tables. This takes about a minute.";
                     next.Text = scanned ? "Continue >" : "Check this PC"; Show(facts, log); next.Enabled = true; break;
                 case 2:
-                    note.Text = built ? summary : "1401 now picks the newest macOS your hardware runs and builds the startup files (OpenCore EFI) for it, then checks them with OpenCore's own validator. Downloads OpenCore and drivers.";
-                    next.Text = built ? "Continue >" : "Build"; Show(facts, log); next.Enabled = scanned; break;
+                    note.Text = built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "1401 now picks the newest macOS your hardware runs and builds the startup files (OpenCore EFI) for it, then checks them with OpenCore's own validator. Downloads OpenCore and drivers.";
+                    next.Text = built ? "Continue >" : "Build"; Show(facts, log); next.Enabled = scanned;
+                    if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
+                    break;
                 case 3:
                     note.Text = "These are the BIOS settings for your board. Take a photo of this page before restarting.";
                     Show(guide); next.Enabled = true;
@@ -224,7 +226,7 @@ namespace A1401
                     var mv = "" + r["macos_version"]; macosFull = mv; darwin = mv.Split('.')[0];
                     var notices = r["notices"] as System.Collections.ArrayList;
                     summary = "macOS " + MacName(darwin) + " for this PC, as a " + r["smbios"] + ". The startup files passed OpenCore's own check.";
-                    if (notices != null) foreach (var n in notices) if (("" + n).StartsWith("NullMoth")) summary += "\r\n" + n;
+                    if (notices != null) foreach (var n in notices) if (IsSupportNotice("" + n)) summary += "\r\n" + n;
                     built = true;
                 }
                 catch (Exception e) { Say("Could not read the build result: " + e.Message); foreach (var l in lines.Take(40)) Say(l); return; }
@@ -416,8 +418,24 @@ namespace A1401
         // A PC that never reaches macOS leaves its story on the stick: OpenCore's opencore-*.txt (with Apple's boot log)
         // and macOS panic-*.txt, written by the 1401 build's Misc > Debug settings. When 1401 opens with such a stick in,
         // it sends the newest ones (after the same notice) and moves them into NullMoth\sent-logs so they go only once.
-        void OfferStickLogs(bool asked)
+        internal static bool IsSupportNotice(string text)
         {
+            return text.StartsWith("NullMoth", StringComparison.Ordinal) ||
+                   text.StartsWith("Laptop display note:", StringComparison.Ordinal) ||
+                   text.StartsWith("Intel I225-LM vP", StringComparison.Ordinal);
+        }
+
+        internal bool VerifySupportNoticePresentation()
+        {
+            summary = "Package verification\r\nLaptop display note: panel wiring requires verification.\r\nIntel I225-LM vP link testing is required.";
+            built = scanned = true;
+            Go(2);
+            return log.Visible && log.Text == summary && log.ScrollBars == ScrollBars.Vertical;
+        }
+
+        internal void OfferStickLogs(bool asked)
+        {
+            if (IsDisposed || Disposing || !IsHandleCreated) return;
             var found = new List<string>();
             var configs = new List<string>();
             // asked from the link: the last failed build's log on this PC goes too

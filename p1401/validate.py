@@ -8,6 +8,7 @@ ocvalidate is tied to its OpenCore version (1.0.8's ocvalidate checks a 1.0.8 co
 release zip the engine used (URL + sha256 from the engine's download history) and take ocvalidate from it.
 """
 import hashlib
+import io
 import http.client
 import json
 import os
@@ -149,13 +150,40 @@ def invariants(efi_dir):
     return fails
 
 
+def release_components(efi_dir):
+    """The boot files must be from the release whose validator checked the config."""
+    url, expected = _opencore_release()
+    archive_path = os.path.join(CACHE, os.path.basename(url))
+    with open(archive_path, 'rb') as stream:
+        data = stream.read()
+    if not expected or hashlib.sha256(data).hexdigest() != expected:
+        raise ValidatorUnavailable('The OpenCore archive changed before its boot files could be checked.')
+    with open(os.path.join(efi_dir, 'EFI', 'OC', 'config.plist'), 'rb') as stream:
+        config = plistlib.load(stream)
+    relative_paths = ['EFI/BOOT/BOOTx64.efi', 'EFI/OC/OpenCore.efi']
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        members = set(archive.namelist())
+        for driver in config.get('UEFI', {}).get('Drivers', []):
+            relative = 'EFI/OC/Drivers/' + driver.get('Path', '')
+            if driver.get('Enabled') and 'X64/' + relative in members:
+                relative_paths.append(relative)
+        failures = []
+        for relative in relative_paths:
+            path = os.path.join(efi_dir, *relative.split('/'))
+            if not os.path.isfile(path):
+                failures.append(relative + ' is missing from the built EFI')
+            elif _sha256(path) != hashlib.sha256(archive.read('X64/' + relative)).hexdigest():
+                failures.append(relative + ' differs from the verified OpenCore release; rebuild the complete EFI')
+    return failures
+
+
 def validate(efi_dir):
     """Returns a dict: ok, ocvalidate {ok, issues, text}, invariants [..], error."""
     out = {"ok": False, "ocvalidate": None, "invariants": [], "error": ""}
     try:
         ok, n, text = run_ocvalidate(os.path.join(efi_dir, "EFI", "OC", "config.plist"))
         out["ocvalidate"] = {"ok": ok, "issues": n, "text": text[-2000:]}
-        out["invariants"] = invariants(efi_dir)
+        out["invariants"] = invariants(efi_dir) + release_components(efi_dir)
         out["ok"] = ok and not out["invariants"]
     except Exception as e:  # couldn't validate, so not ok; keep the reason
         out["error"] = f"{type(e).__name__}: {e}"

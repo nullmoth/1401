@@ -117,6 +117,7 @@ class BuildResult:
     transcript: str = ""
     hardware: dict = field(default_factory=dict)
     acpi_diagnostics: list = field(default_factory=list)
+    acpi_fingerprints: list = field(default_factory=list)
     policy_changes: list = field(default_factory=list)
     validation: dict = field(default_factory=dict)
 
@@ -307,13 +308,17 @@ def _use_ock_cache(o):
     if hasattr(o.o, 'integrity_checker'):
         from . import dependency_cache
         dependency_cache.harden(o.o.integrity_checker)
+        dependency_cache.tolerate_cache_locks(o.o.utils, OCK_CACHE)
     o.k.ock_files_dir = OCK_CACHE
 
 
 def _patient_downloads():
     """Retry transient downloads without multiplying upstream retry loops."""
     from Scripts import resource_fetcher as rf
+    from Scripts import gathering_files
+    from . import kernel_patches
     from .downloads import make_request, verified_context
+    kernel_patches.harden(gathering_files.gatheringFiles)
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
         return
@@ -441,7 +446,7 @@ def _nullmoth_gpu_pass(checker, h):
             h.notices.append(mux)
         gpus = checker.hardware_report.get("GPU", {})
         checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
-        h.notices.append("NullMoth driver: " + ", ".join(hit) + " will run on macOS 15 Sequoia."
+        h.notices.append("NullMoth driver: " + ", ".join(hit) + " selected for macOS 15 Sequoia."
                          + ("" if nullmoth.tested(checker.hardware_report) else
                             " This card is in NVIDIA's supported list but has not been tested with the driver yet."))
     checker.check_gpu_compatibility = wrapped
@@ -469,6 +474,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 raise RuntimeError("The hardware report must contain a JSON object. Run Check this PC again.")
             if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
                 raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
+            res.acpi_fingerprints = report_mod.acpi_fingerprints(acpi_dir)
             rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch)
             h.notices += norm_notes
             o = mod.OCPE()
