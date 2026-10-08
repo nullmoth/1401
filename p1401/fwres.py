@@ -29,7 +29,8 @@ import time
 from . import devicemap as dm
 
 MAX_RES_DEVICES, MAX_RES_PER_DEVICE, MAX_RES_DATA = 512, 64, 4096
-PS_TIMEOUT, MAX_BIOS_ROWS = 2, 2000
+# Cold PowerShell startup is included in this limit; each query is also clipped to the shared 12-second worker deadline.
+PS_TIMEOUT, MAX_BIOS_ROWS = 4, 2000
 
 # cfgmgr32.h
 ALLOC_LOG_CONF, RES_ALL = 0x2, 0x0
@@ -308,7 +309,10 @@ def rows_from(vendor, objs, name_prop, value_prop):
 
 def _bounded_process(command, environment, timeout):
     from . import job_guard
-    data, code, reason = job_guard.run_bounded(command, environment, min(timeout, PS_TIMEOUT))
+    budget = min(timeout, PS_TIMEOUT)
+    if budget < 0.05:
+        return None, "worker time budget exhausted; query not started"
+    data, code, reason = job_guard.run_bounded(command, environment, budget)
     if reason: return None, reason
     if code: return None, "BIOS query process failed (exit %d)" % code
     try:
@@ -365,6 +369,7 @@ def powershell_cim(namespace, cls, props, timeout=PS_TIMEOUT):
 def _run_system_cim(namespace, cls, props, timeout):
     from . import hwcapture, job_guard
     if not job_guard.ready(): return None, "subprocess containment unavailable; CIM query not started"
+    deadline = time.monotonic() + min(timeout, PS_TIMEOUT)
     try:
         kernel = hwcapture._kernel32()
         kernel.GetSystemDirectoryW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32]
@@ -384,7 +389,9 @@ def _run_system_cim(namespace, cls, props, timeout):
         environment.update({'PATH': directory.value, 'SystemRoot': windows.value, 'WINDIR': windows.value})
         encoded = base64.b64encode(script.encode('utf-16-le')).decode('ascii')
         with hwcapture._system_file(ps):
-            return _bounded_process([ps, '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], environment, timeout)
+            # Verification/bootstrap work consumes the supplied budget; it does not grant a fresh process window.
+            budget = deadline - time.monotonic()
+            return _bounded_process([ps, '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], environment, budget)
     except Exception as error:
         return None, "BIOS query unavailable (%s)" % type(error).__name__
 
