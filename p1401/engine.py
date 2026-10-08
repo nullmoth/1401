@@ -323,6 +323,29 @@ def _use_ock_cache(o):
     o.k.ock_files_dir = OCK_CACHE
 
 
+
+def _keep_first_kext(gathering_files):
+    """The engine empties a product's folder, then moves every kext it extracted into it. A release that holds two
+    kexts with the same name in different folders made the second move fail on Windows (WinError 183, itlwm.kext,
+    1401 1.0.24), which stopped the whole build; on macOS the same move silently nests one kext inside the other.
+    Keep the first copy and say so; nothing that was already there before this download can be in that folder."""
+    if getattr(gathering_files, "_1401_keep_first", False):
+        return
+    import shutil as real  # noqa: PLC0415
+
+    class _Shutil:
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+        @staticmethod
+        def move(src, dst, *a, **kw):
+            if str(dst).lower().endswith(".kext") and os.path.exists(dst):
+                print(f"Two copies of {os.path.basename(dst)} in one download; keeping the first.")
+                return dst
+            return real.move(src, dst, *a, **kw)
+    gathering_files.shutil = _Shutil()
+    gathering_files._1401_keep_first = True
+
 def _patient_downloads():
     """Retry transient downloads without multiplying upstream retry loops."""
     from Scripts import resource_fetcher as rf
@@ -330,6 +353,7 @@ def _patient_downloads():
     from . import kernel_patches
     from .downloads import make_request, verified_context
     kernel_patches.harden(gathering_files.gatheringFiles)
+    _keep_first_kext(gathering_files)
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
         return

@@ -16,12 +16,16 @@ get_session returns Ellipsis if Apple's first Set-Cookie isn't session=. Here er
     python3 -m p1401.apple --selftest
 """
 import hashlib
+import http.client
 import json
 import os
 import random
 import string
+import socket
 import struct
 import sys
+import time
+import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 from . import tls
@@ -59,12 +63,29 @@ class AppleError(RuntimeError):
     pass
 
 
-def _open(url, headers, data=None):
+# Write failures on 6 machines in one day were Apple's servers dropping a connection once: osrecovery answered
+# "RemoteDisconnected", oscdn reset the chunklist request (WinError 10054), or the image stream ended mid-chunk. Each
+# was a whole failed stick. Transient connection errors are retried; HTTP errors (a refused token, a 404) are not.
+OPEN_TRIES = 4
+RESUMES = 8
+
+
+def _transient(e):
+    if isinstance(e, urllib.error.HTTPError):
+        return e.code in (500, 502, 503, 504)
+    return isinstance(e, (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError, socket.timeout))
+
+
+def _open(url, headers, data=None, sleep=None):
     req = urllib.request.Request(url, headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
-    try:
-        return urllib.request.urlopen(req, timeout=TIMEOUT)
-    except Exception as e:  # keep the URL so the UI can show what failed
-        raise AppleError(f"{url}: {type(e).__name__}: {e}") from e
+    for attempt in range(OPEN_TRIES):
+        try:
+            return urllib.request.urlopen(req, timeout=TIMEOUT)
+        except Exception as e:  # keep the URL so the UI can show what failed
+            if attempt + 1 < OPEN_TRIES and _transient(e):
+                (sleep or time.sleep)(2 ** (attempt + 1))
+                continue
+            raise AppleError(f"{url}: {type(e).__name__}: {e}") from e
 
 
 def _hex(n):
@@ -139,22 +160,48 @@ def download(info, usb_root, progress=None):
     img = os.path.join(dest, os.path.basename(urlparse(info["image_url"]).path))
     cnk = os.path.splitext(img)[0] + ".chunklist"
     done = 0
-    with _asset(info["image_url"], info["image_token"]) as r, open(img + ".part", "wb") as fh:
-        for i, (size, sha) in enumerate(chunks, 1):
-            buf = _read_exact(r, size)
-            if hashlib.sha256(buf).digest() != sha:
-                raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
-            fh.write(buf)
-            done += size
-            if progress:
-                progress(done, total)
-        if r.read(1):
-            raise AppleError("image is larger than its signed chunklist - refused")
+    resumes = 0
+    r = _asset(info["image_url"], info["image_token"])
+    try:
+        with open(img + ".part", "wb") as fh:
+            for i, (size, sha) in enumerate(chunks, 1):
+                while True:
+                    try:
+                        buf = _read_exact(r, size)
+                        break
+                    except (AppleError, OSError, http.client.HTTPException) as e:
+                        # The stream dropped: ask for the rest from the last chunk that checked out. Every byte is
+                        # still checked against Apple's signed chunklist, so a resumed stream cannot change the image.
+                        resumes += 1
+                        if resumes > RESUMES:
+                            raise AppleError(f"{e} (after {RESUMES} resumed connections)") from None
+                        r.close()
+                        r = _resume(info, done)
+                if hashlib.sha256(buf).digest() != sha:
+                    raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
+                fh.write(buf)
+                done += size
+                if progress:
+                    progress(done, total)
+            if r.read(1):
+                raise AppleError("image is larger than its signed chunklist - refused")
+    finally:
+        r.close()
     with open(cnk + ".part", "wb") as fh:
         fh.write(cl)
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+
+
+def _resume(info, offset):
+    time.sleep(2)
+    r = _asset(info["image_url"], info["image_token"], {"Range": f"bytes={offset}-"})
+    got = (r.headers.get("Content-Range") or "") if getattr(r, "headers", None) else ""
+    if getattr(r, "status", None) != 206 or not got.startswith(f"bytes {offset}-"):
+        r.close()
+        raise AppleError(f"Apple's server would not resume the image at byte {offset} (status {getattr(r, 'status', '?')})")
+    return r
 
 
 def _read_exact(r, n):
