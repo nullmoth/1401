@@ -585,6 +585,11 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
             res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
             res.kexts = [k.name for k in o.k.kexts if k.checked]
+            # itlwm (not AirportItlwm) does not join Wi-Fi through macOS's own menu: users on the support chat had working
+            # Bluetooth and no Wi-Fi until someone told them to install HeliPort, itlwm's companion app (10-08).
+            if "itlwm" in res.kexts and "AirportItlwm" not in res.kexts:
+                h.notices.append("Wi-Fi: this Intel card uses itlwm. In macOS, Wi-Fi is joined with the HeliPort app "
+                                 "(github.com/OpenIntelWireless/HeliPort/releases), not the menu bar; install it after setup.")
             res.bios_requirements = o.check_bios_requirements(report, cust)
             if download:
                 if not o.o.gather_bootloader_kexts(o.k.kexts, mv):
