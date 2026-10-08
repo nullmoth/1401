@@ -46,7 +46,7 @@ class EngineLoop(RuntimeError):
 
 def _macos_answer(prompt, ctx, pol):
     """The version menu. "" takes the engine's default, but the default is not always on the menu.
-    10-07 (NM-036E35M9, NM-0ZH4CA2A): a Broadcom card that tops out at Ventura plus a GeForce marked Sequoia-only
+    10-07: a Broadcom card that tops out at Ventura plus a GeForce marked Sequoia-only
     left no native version; the menu offered only 23-25 (OCLP) while the default stayed "macOS Ventura 13", so the
     blank answer was refused three times. Then: Sequoia (24, the NullMoth driver's target) if listed, else the newest."""
     if pol.macos:
@@ -59,7 +59,7 @@ def _macos_answer(prompt, ctx, pol):
     return "24" if "24" in nums else max(nums, key=int)
 
 
-# 10-07 (NM-CHW0YW6F): the reason ("Intel VMD controllers are not supported ... disable Intel VMD in the BIOS") sat at
+# 10-07: the reason ("Intel VMD controllers are not supported ... disable Intel VMD in the BIOS") sat at
 # the bottom of 40 lines of compatibility output. A stop the user can fix gets its fix as the first line.
 STOP_LEADS = (
     ("Intel VMD", "This builder cannot continue with the reported Intel VMD controller. Open Review firmware prerequisites "
@@ -282,7 +282,7 @@ class _Sig(bytes):
 
 
 def _dsdt_signature_fix():
-    """10-07 (uploaded log NM-DY0PA8ZT: "Failed to load tables ... - dsdt.aml"): the engine reads a table's signature
+    """10-07 (an uploaded log: "Failed to load tables ... - dsdt.aml"): the engine reads a table's signature
     as bytes (b"DSDT") but acpi_guru compares it to the str "DSDT", which is never equal in Python 3. So it never finds
     the DSDT up front and its pre-patch path - the known patches that let iasl disassemble a DSDT it chokes on - never
     runs; the DSDT then fails in the bulk load and the build stops at "drag and drop ACPI Tables". Returning a bytes
@@ -308,7 +308,7 @@ def network_help(url):
             "then build again.")
 
 
-# 10-07 (NM-EWTXNCET PermissionError in ...\Downloads\Compressed\1401\...\OCK_Files, NM-QT5R4QQQ missing
+# 10-07 (PermissionError in ...\Downloads\Compressed\1401\...\OCK_Files, missing
 # efi\manifest.json): the engine keeps its downloads in OCK_Files beside its own code, so it rewrote files inside the
 # folder the user unpacked - which can be read-only or watched by antivirus - and 1.0.0-1.0.6 even shipped a stale copy of
 # that cache. On Windows it now lives in the user's writable app-data folder; the zip ships none.
@@ -392,7 +392,7 @@ def _patient_downloads():
         return
     cls.create_ssl_context = verified_context
     cls._make_request = make_request
-    # 10-07 (NM-DTC05X6Y, NM-GP91G90X): "TimeoutError: The read operation timed out" while gathering OpenCore and
+    # 10-07: "TimeoutError: The read operation timed out" while gathering OpenCore and
     # kexts. The connection opened; the stall came mid-body in response.read(), which the engine never retries, so one
     # slow chunk killed the build. Each whole download/fetch now gets 4 tries with the same growing pause.
     import http.client, socket, urllib.error  # noqa: E401,PLC0415
@@ -413,7 +413,7 @@ def _patient_downloads():
 
     def download_and_save_file(self, resource_url, destination_path, sha256_hash=None):
         ok = dl(self, resource_url, destination_path, sha256_hash)
-        # 10-07 (NM-KHVZNES3, NM-0CEPWXM0, NM-TS458ASW): the validator downloaded OpenCorePkg a SECOND time after the
+        # 10-07: the validator downloaded OpenCorePkg a SECOND time after the
         # engine had just fetched and checked it, and on slow or filtered networks that second download is what failed.
         # Keep the engine's checked zip where the validator looks (it re-checks the SHA-256 before using it).
         if ok and sha256_hash and os.path.basename(resource_url).startswith("OpenCore-") and resource_url.endswith(".zip"):
@@ -429,7 +429,7 @@ def _patient_downloads():
 
     def fetch_and_parse_content(self, resource_url, content_type=None):
         got = fetch(self, resource_url, content_type)
-        # 10-07 (NM-CG2NRMES, NM-Y0CFTWRR): raw.githubusercontent.com reset every connection (WinError 10054/10060,
+        # 10-07: raw.githubusercontent.com reset every connection (WinError 10054/10060,
         # mainland China); the engine got None back and died on "argument of type 'NoneType' is not iterable".
         if got is None:
             raise RuntimeError(network_help(resource_url))
@@ -446,7 +446,7 @@ def _prepare_out(out_dir):
     if os.path.exists(os.path.join(out_dir, MARKER)):
         # a second Build failed "Access is denied: ...EFI\\OC\\ACPI" because Windows leaves the old build's
         # folders ReadOnly and the upstream cleanup can't delete them. Our own previous build: clear the flag, wipe it.
-        # 10-07 (NM-3YJDQC1P): the wipe stopped with FileNotFoundError on ...\EFI\OC\Drivers\UefiPxeBcDxe.efi - the
+        # 10-07: the wipe stopped with FileNotFoundError on ...\EFI\OC\Drivers\UefiPxeBcDxe.efi - the
         # file was gone by the time this handler ran (an antivirus scan or the engine's own cleanup), and chmod on a
         # missing path raised. A file that is already gone is what the wipe wanted.
         def _force(fn, path, _exc):
@@ -535,7 +535,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
         mod, utils_mod = _load_engine()
         h = Headless(utils_mod, policy, echo)
         with h:
-            # 10-07 (NM-EMCW2SYV): Build ran with no Report.json and failed with a bare FileNotFoundError.
+            # 10-07: Build ran with no Report.json and failed with a bare FileNotFoundError.
             if not os.path.isfile(report_path):
                 raise RuntimeError("This PC has not been checked yet (no hardware report). Run Check this PC first and wait for it "
                                    "to finish; if it stops with an error, send that log instead.")
@@ -585,7 +585,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
             res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
             res.kexts = [k.name for k in o.k.kexts if k.checked]
-            # itlwm (not AirportItlwm) does not join Wi-Fi through macOS's own menu: users on the support chat had working
+            # itlwm (not AirportItlwm) does not join Wi-Fi through macOS's own menu: users had working
             # Bluetooth and no Wi-Fi until someone told them to install HeliPort, itlwm's companion app (10-08).
             if "itlwm" in res.kexts and "AirportItlwm" not in res.kexts:
                 h.notices.append("Wi-Fi: this Intel card uses itlwm. In macOS, Wi-Fi is joined with the HeliPort app "
@@ -621,7 +621,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not re.fullmatch(r'[A-Za-z0-9_<>]{1,64}', function): function = 'unknown'
             res.failure_frames.append({'source': source, 'line': trace.tb_lineno, 'function': function})
             trace = trace.tb_next
-        # 10-07 (NM-Z3WKQAFQ): after every retry the engine said only "Could not download RTL812xLucy at this time".
+        # 10-07: after every retry the engine said only "Could not download RTL812xLucy at this time".
         m = re.match(r"Could not download (\S+)", str(e))
         if m:
             res.error += "\n" + network_help(f"github.com ({m.group(1)})")

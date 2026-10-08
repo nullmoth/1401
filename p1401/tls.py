@@ -1,6 +1,6 @@
 """One TLS policy for every download 1401 makes: verify certificates, and trust what this PC trusts.
 
-10-07 (uploaded logs NM-BWQGX8A3, NM-Q8S0TG9G, NM-MTQJT5V7, NM-GF6TWC5E, NM-9J7658B9, NM-7Z4J90J3, NM-XEG1NNF8):
+10-07 (seven uploaded logs):
 every GitHub download failed with CERTIFICATE_VERIFY_FAILED "unable to get local issuer certificate", and the empty result
 later crashed the build ("argument of type 'NoneType' is not iterable"). The engine built its context with
 create_default_context(cafile=certifi), and passing a cafile makes Python skip the Windows certificate store - so on a PC

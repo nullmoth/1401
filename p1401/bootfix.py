@@ -52,7 +52,7 @@ def apply(cfg, result, texts, change):
     # AM5/AM4 boards that stop in boot.efi (STOP 0x16 "Couldn't allocate runtime area", or "StartImage failed -
     # Aborted", which 48 of 52 such logs show together) need different memory-map quirks per board: of 7 AMD sticks
     # with the policy default (DevirtualiseMmio and SetupVirtualMap off) 3 reached the kernel and 4 stopped there, and
-    # support-chat users fixed theirs with both on plus a whitelist of the firmware's runtime MMIO region (Dortania KASLR
+    # users fixed theirs with both on plus a whitelist of the firmware's runtime MMIO region (Dortania KASLR
     # guide, "Using DevirtualiseMmio"). The log says which settings it ran with - OCABC "MMIO devirt" lines appear only
     # with DevirtualiseMmio on, "skip 1" marks a whitelisted region - so each failed boot moves one step:
     #   off, failed                          -> both on (the next log lists the board's MMIO regions)
@@ -121,7 +121,7 @@ def after_handoff(texts, stopped_at=""):
         for frag, kext in OPTIONAL_KEXTS.items():
             if re.search(r"[.\s]" + re.escape(frag) + r"\b", m.group(1)) and kext not in out["disable"]:
                 out["disable"].append(kext)
-        # Both panics saved so far (NM-EP57AX1N, NM-B8EZPY0E, 10-07, laptops): page fault in VoodooPS2Controller. Its
+        # Both panics saved so far (10-07, laptops): page fault in VoodooPS2Controller. Its
         # own ps2rst=0 skips the controller reset some laptop firmware faults on; the panic file's "Boot args:" line
         # says whether the last start already had it, and then the kext goes off (a USB keyboard and mouse still work).
         if "PS2Controller" in m.group(1):
@@ -133,7 +133,7 @@ def after_handoff(texts, stopped_at=""):
                 out["args"].append("ps2rst")
         if re.search(r"com\.nullmoth\.", m.group(1)):
             out["report"].append("the panic happened inside the NullMoth NVIDIA driver - send the logs; it is our bug")
-    # Dortania troubleshooting, "Stuck on [PCI configuration begin]": npci=0x2000, then npci=0x3000 (support chat 10-08:
+    # Dortania troubleshooting, "Stuck on [PCI configuration begin]": npci=0x2000, then npci=0x3000 (user reports 10-08:
     # the second one is what some boards need). The user's stopped line names it.
     if re.search(r"(?i)IOPCIConfigurator|PCI configuration (begin|PCI)", joined):
         out["args"].append("npci")
