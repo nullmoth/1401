@@ -82,8 +82,7 @@ namespace A1401
                 string stage = args.StartsWith("p1401.scan ", StringComparison.Ordinal) ? "scan" :
                     args.StartsWith("p1401 build ", StringComparison.Ordinal) ? "build" :
                     args.StartsWith("p1401.usbwriter ", StringComparison.Ordinal) ? "write" : "operation";
-                string inputs = InputFingerprints();
-                string context = "app-reported distribution version: " + System.Windows.Forms.Application.ProductVersion + "\r\nengine identity: engine-source SHA256 observation below; no separate engine version is declared\r\nattempt: " + attempt + "\r\nstage: " + stage + "\r\noperation: " + args + "\r\n" + inputs;
+                string context = "app-reported distribution version: " + System.Windows.Forms.Application.ProductVersion + "\r\nengine identity: engine-source SHA256 observation below; no separate engine version is declared\r\nattempt: " + attempt + "\r\nstage: " + stage + "\r\noperation: " + args + "\r\n";
                 var started = DurableReport.Save(Work, stage + "-start", System.Windows.Forms.Application.ProductVersion,
                     context + "state: attempt recorded before execution\r\n");
                 if (!started.Saved)
@@ -114,6 +113,7 @@ namespace A1401
                 int exit = 1;
                 try
                 {
+                    context += InputFingerprints();
                     var psi = new ProcessStartInfo(Python, "-u -m " + args)
                     {
                         WorkingDirectory = AppDir, UseShellExecute = false, CreateNoWindow = true,

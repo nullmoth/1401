@@ -252,9 +252,11 @@ namespace A1401
                 try
                 {
                     var r = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(json);
-                    if (!(r["ok"] is bool) || !(bool)r["ok"])
+                    if (rc != 0 || !(r["ok"] is bool) || !(bool)r["ok"])
                     {
-                        Say("The build stopped: " + r["error"]);
+                        object error;
+                        var detail = r.TryGetValue("error", out error) ? "" + error : "";
+                        Say("The build stopped: " + (string.IsNullOrWhiteSpace(detail) ? "Engine exit code " + rc + "." : detail));
                         // the whole engine output, so a user can post it in a bug report
                         OfferOperationReport("build");
                         return;

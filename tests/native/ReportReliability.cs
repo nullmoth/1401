@@ -20,6 +20,19 @@ class ReportReliability
         Directory.CreateDirectory(directory);
         try
         {
+            Require(DurableReport.CleanIdentity(@"C:\Users\UnitAccount\Logs\x.txt", "UnitAccount", "UnitHost", @"C:\Users\UnitAccount") == @"%USERPROFILE%\Logs\x.txt");
+            Require(DurableReport.CleanIdentity(@"C:\\Users\\UnitAccount\\Logs", "UnitAccount", "UnitHost", @"C:\Users\UnitAccount") == @"%USERPROFILE%\\Logs");
+            Require(DurableReport.CleanIdentity("User: APPLE\ncom.apple.driver.AppleIntelFramebuffer\nAppleIntelGraphics", "apple", "UnitHost", "") == "User: user\ncom.apple.driver.AppleIntelFramebuffer\nAppleIntelGraphics");
+            Require(DurableReport.CleanIdentity("Manufacturer: NVIDIA\nGPU: NVIDIA GeForce RTX 4060\nuser NVIDIA\nhost NVIDIA", "NVIDIA", "NVIDIA", "") == "Manufacturer: NVIDIA\nGPU: NVIDIA GeForce RTX 4060\nuser user\nhost this-pc");
+            Require(DurableReport.CleanIdentity("\"Manufacturer\": \"NVIDIA\"\n\"username\": \"NVIDIA\"", "NVIDIA", "UnitHost", "") == "\"Manufacturer\": \"NVIDIA\"\n\"username\": \"user\"");
+            Require(DurableReport.CleanIdentity("macOS machdep.cpu com.mac.driver user MAC", "mac", "UnitHost", "") == "macOS machdep.cpu com.mac.driver user user");
+            Require(DurableReport.CleanIdentity("Vendor: Intel\nIntel(R) Core(TM) CPU\nAccount=INTEL\nerror Intel", "intel", "UnitHost", "") == "Vendor: Intel\nIntel(R) Core(TM) CPU\nAccount=user\nerror user");
+            Require(DurableReport.CleanIdentity(@"\\UnitHost\share https://UNITHOST/path Hostname=UnitHost", "UnitAccount", "UnitHost", "") == @"\\this-pc\share https://this-pc/path Hostname=this-pc");
+            Require(DurableReport.CleanIdentity("Username: ab\nHost: xy\nPCI 10DE-28E0 subsystem 17AA-3CF2", "ab", "xy", "") == "Username: user\nHost: this-pc\nPCI 10DE-28E0 subsystem 17AA-3CF2");
+            Require(DurableReport.CleanIdentity("com.UnitAccount.app UnitHost-logs https://UnitHost.local/path", "UnitAccount", "UnitHost", "") == "com.user.app this-pc-logs https://this-pc.local/path");
+            Require(DurableReport.CleanIdentity("com.nvidia.driver nullmoth-nvidia-1.0.11.tar.gz nvidia-macos-driver User=NVIDIA", "NVIDIA", "UnitHost", "") == "com.nvidia.driver nullmoth-nvidia-1.0.11.tar.gz nvidia-macos-driver User=user");
+            Require(DurableReport.CleanIdentity(null, null, null, null) == "");
+            Require(DurableReport.CleanIdentity("User: UnitAccount\nHOST=UnitHost\nunitaccount\nUNITHOST", "UnitAccount", "UnitHost", "") == "User: user\nHOST=this-pc\nuser\nthis-pc");
             var work = Path.Combine(directory, "missing", "app-data");
             var one = DurableReport.Save(work, "build", "1.0.23", "download failed\r\nretained output");
             Require(one.Saved && File.ReadAllText(one.Path).Contains("download failed"));

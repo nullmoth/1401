@@ -549,7 +549,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
         trace = e.__traceback__
         while trace is not None and len(res.failure_frames) < 24:
             filename = os.path.abspath(trace.tb_frame.f_code.co_filename)
-            relative = os.path.relpath(filename, REPO)
+            try: relative = os.path.relpath(filename, REPO)
+            except ValueError: relative = '..'
             source = relative.replace(os.sep, '/') if not relative.startswith('..' + os.sep) and relative != '..' else 'external'
             if not re.fullmatch(r'[A-Za-z0-9_./-]{1,200}', source): source = 'external'
             function = trace.tb_frame.f_code.co_name

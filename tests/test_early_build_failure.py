@@ -47,4 +47,12 @@ class EarlyFailure(unittest.TestCase):
         self.assertEqual(result.failure_frames[0]['source'], 'p1401/engine.py')
         self.assertNotIn(str(self.root), json.dumps(result.failure_frames))
 
+    def test_cross_drive_failure_frame_preserves_original_error(self):
+        with patch.object(engine, '_load_engine', side_effect=ImportError('missing engine file')), patch.object(engine.os.path, 'relpath', side_effect=ValueError('different drives')):
+            result = engine.build(str(self.report), str(self.acpi), str(self.root / 'out'))
+        self.assertFalse(result.ok)
+        self.assertIn('missing engine file', result.error)
+        self.assertTrue(result.failure_frames)
+        self.assertTrue(all(frame['source'] == 'external' for frame in result.failure_frames))
+
 if __name__ == '__main__': unittest.main()
