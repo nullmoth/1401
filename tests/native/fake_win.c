@@ -85,7 +85,7 @@ API int32_t QueryDisplayConfig(uint32_t flags, uint32_t *np, PATH *paths, uint32
   memset(paths, 0, sizeof(PATH) * 2);
   paths[0].s.adapterId.LowPart = 0x4004; paths[0].t.outputTechnology = (int32_t)0x80000000; paths[0].t.targetAvailable = 1;
   paths[1].s.adapterId.LowPart = 0x2002; paths[1].t.outputTechnology = 5; paths[1].t.targetAvailable = 1;
-  for (int i = 0; i < 2; i++) { paths[i].t.rn = fk_refresh_num; paths[i].t.rd = fk_refresh_den; }
+  for (int i = 0; i < 2; i++) { paths[i].t.adapterId = paths[i].s.adapterId; paths[i].flags = 1; paths[i].t.rn = fk_refresh_num; paths[i].t.rd = fk_refresh_den; }
   *np = fk_qdc_overreport ? 9 : 2; *nm = 4; return 0;
 }
 

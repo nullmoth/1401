@@ -191,12 +191,20 @@ def build_graphics_map(adapters, paths, device_nodes=()):
                 "pci_match": "none" if not cands else ("unique by IDs" if len(cands) == 1 else "ambiguous: identical IDs on several PCI functions"),
                 "displays": []}
         out.append(node)
-        by_luid[tuple(a["luid"])] = node
+        by_luid.setdefault(tuple(a["luid"]), []).append(node)
     for p in paths:
-        n = by_luid.get(tuple(p["source_luid"]))
+        target = p.get("target_luid")
+        matches = by_luid.get(tuple(target), []) if isinstance(target, (list, tuple)) and len(target) == 2 else []
+        n = matches[0] if len(matches) == 1 else None
+        sources = by_luid.get(tuple(p["source_luid"]), [])
+        render = sources[0] if len(sources) == 1 else None
         tech = p.get("output_technology")
         entry = {"target": "t%d" % p["target_index"], "output": OUTPUT_TECH.get(tech, "code %s" % tech),
                  "internal_panel": tech in INTERNAL_TECH, "target_available": p.get("target_available"),
+                 "active": p.get("active"), "routing_source": "QueryDisplayConfig targetInfo.adapterId",
+                 "output_adapter": n["adapter"] if n else None,
+                 "source_adapter": render["adapter"] if render else None,
+                 "source_status": "same-capture adapter" if render else "unavailable or ambiguous",
                  "current_refresh_rate": p.get("current_refresh_rate") or unavailable('not supplied in this path observation', 'QueryDisplayConfig target refreshRate')}
         if n is not None:
             n["displays"].append(entry)
@@ -438,7 +446,10 @@ def display_paths(nt):
         if got_p.value > cap_p:
             errors.append(f"QueryDisplayConfig returned {got_p.value} paths for a {cap_p}-path buffer; kept {cap_p}")
         n = min(got_p.value, cap_p)
-        return [{"source_luid": (p.sourceInfo.adapterId.HighPart, p.sourceInfo.adapterId.LowPart), "target_index": i,
+        return [{"source_luid": (p.sourceInfo.adapterId.HighPart, p.sourceInfo.adapterId.LowPart),
+                 "target_luid": (p.targetInfo.adapterId.HighPart, p.targetInfo.adapterId.LowPart),
+                 "source_id": p.sourceInfo.id, "target_id": p.targetInfo.id,
+                 "active": bool(p.flags & 1), "target_index": i,
                  "output_technology": p.targetInfo.outputTechnology, "target_available": bool(p.targetInfo.targetAvailable),
                  "current_refresh_rate": measured({'numerator':p.targetInfo.refreshNum,'denominator':p.targetInfo.refreshDen},
                     'QueryDisplayConfig target refreshRate; queried current rational, not maximum supported mode') if p.targetInfo.refreshNum and p.targetInfo.refreshDen else
