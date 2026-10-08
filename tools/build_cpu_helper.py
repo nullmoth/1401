@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 
 
 def build(repo, destination):
@@ -13,9 +14,11 @@ def build(repo, destination):
     destination.mkdir(parents=True, exist_ok=True)
     source = repo / 'native/cpu'
     exe = destination / 'nm_cpuinfo.exe'
-    subprocess.run(['cl','/nologo','/std:c11','/O2','/MT','/W4','/WX','/DWIN32_LEAN_AND_MEAN','/D_WIN32_WINNT=0x0602',
-                    str(source/'nm_cpuinfo_core.c'),str(source/'nm_cpuinfo_win.c'),'/Fe:'+str(exe),
-                    '/link','/Brepro','/SUBSYSTEM:CONSOLE','kernel32.lib'],cwd=destination,check=True,capture_output=True,timeout=45)
+    # Compiler intermediates are private build inputs, not runtime package files.
+    with tempfile.TemporaryDirectory(prefix='1401-cpu-build-') as temporary:
+        subprocess.run(['cl','/nologo','/std:c11','/O2','/MT','/W4','/WX','/DWIN32_LEAN_AND_MEAN','/D_WIN32_WINNT=0x0602',
+                        str(source/'nm_cpuinfo_core.c'),str(source/'nm_cpuinfo_win.c'),'/Fe:'+str(exe),
+                        '/link','/Brepro','/SUBSYSTEM:CONSOLE','kernel32.lib'],cwd=temporary,check=True,capture_output=True,timeout=45)
     output = subprocess.check_output(['dumpbin','/dependents',str(exe)],encoding='utf-8',errors='replace',timeout=15)
     dependencies = sorted({value.upper() for value in re.findall(r'^\s+(\S+\.dll)\s*$',output,re.M|re.I)})
     if dependencies != ['KERNEL32.DLL']: raise RuntimeError('Static CPU helper dependencies differ from the reviewed list.')
