@@ -97,6 +97,15 @@ def deterministic_zip(root, destination):
             archive.writestr(entry, path.read_bytes(), compresslevel=9)
 
 
+def validate_companion_release(release, inputs):
+    if release.get('draft') or release.get('tag_name') != inputs['driver_release']:
+        raise RuntimeError('The bundled companion must be published with the exact reviewed tag.')
+    # Candidate assembly can use an explicitly reviewed companion before the paired
+    # stable release. Downloaded asset digests still require all three independent pins.
+    if release.get('prerelease') and inputs.get('companion_prerelease_reviewed') is not True:
+        raise RuntimeError('The bundled companion is still in installation review.')
+
+
 def prepare(args):
     inputs = json.loads(INPUTS.read_text())
     package = runpy.run_path(str(REPO / 'p1401/nullmoth.py'))['PACKAGE']
@@ -128,8 +137,7 @@ def prepare(args):
         shutil.copyfile(REPO / relative, target)
     with get('https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/tags/' + inputs['driver_release']) as response:
         release = json.load(response)
-    if release.get('draft') or release.get('prerelease'):
-        raise RuntimeError('The bundled companion release must be published and out of installation review.')
+    validate_companion_release(release, inputs)
     assets = {asset['name']: asset for asset in release.get('assets', [])}
     sums_asset = assets.get('SHA256SUMS.txt')
     if not sums_asset or not (sums_asset.get('digest') or '').startswith('sha256:'):
