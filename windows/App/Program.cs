@@ -16,24 +16,17 @@ namespace A1401
                 Environment.ExitCode = PackageVerification.Run(args[1]);
                 return;
             }
-            // any crash of 1401 itself leaves crash-log.txt; the next start offers to send it with the other logs
+            // A saved local crash report is offered after restart; saving failures are reported explicitly.
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-            Application.ThreadException += (s, e) => { CrashLog(e.Exception); MessageBox.Show(e.Exception.Message + "\r\n\r\nA crash log was saved; 1401 offers to send it the next time it starts.", "1401", MessageBoxButtons.OK, MessageBoxIcon.Error); };
+            Application.ThreadException += (s, e) => { var report = CrashLog(e.Exception); MessageBox.Show(DurableReport.Clean(e.Exception.Message) + "\r\n\r\n" + (report.Saved ? "A local crash report was saved at " + report.Path + ". Scan for logs and send them can retry after restart." : report.Failure), "1401", MessageBoxButtons.OK, MessageBoxIcon.Error); };
             AppDomain.CurrentDomain.UnhandledException += (s, e) => CrashLog(e.ExceptionObject as Exception);
             Application.Run(new MainForm());
         }
 
-        static void CrashLog(Exception ex)
+        static DurableReport.Outcome CrashLog(Exception ex)
         {
-            try
-            {
-                var dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NullMoth", "1401");
-                System.IO.Directory.CreateDirectory(dir);
-                var text = "1401 " + Application.ProductVersion + " crash " + DateTime.UtcNow.ToString("u") + "\r\n" + Environment.OSVersion + "\r\n\r\n" + ex;
-                var user = Environment.UserName; if (!string.IsNullOrEmpty(user) && user.Length > 2) text = text.Replace(user, "user");
-                System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "crash-log.txt"), text + "\r\n\r\n");
-            }
-            catch (Exception) { }
+            return DurableReport.Save(Engine.Work, "crash", Application.ProductVersion,
+                "time: " + DateTime.UtcNow.ToString("u") + "\r\n" + Environment.OSVersion + "\r\n\r\n" + ex);
         }
     }
 }

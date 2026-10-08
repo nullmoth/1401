@@ -115,6 +115,7 @@ namespace A1401
             }
             var lines = new List<string>();
             int rc = await Engine.Run("p1401.nullmoth update " + string.Join(" ", dirs.Select(Engine.Q)), l => { lock (lines) lines.Add(l); });
+            ReportSaveStatus();
             busy = false; drvLink.Enabled = true;
             var text = string.Join("\r\n", lines.Where(l => !l.StartsWith("PROGRESS ")));
             MessageBox.Show(this, rc == 0 ? "The NVIDIA driver is up to date.\r\n\r\n" + text + (dirs.Count > 1 ? "" : "\r\n\r\nNo 1401 stick was plugged in; plug it in and run this again to update it too.")
@@ -202,6 +203,7 @@ namespace A1401
             {
                 int rc = await Engine.Run("p1401.guide --bios-only " + Engine.Q(Path.Combine(scanDir, "Report.json")) +
                     " --run-id " + scanRunId + " --html " + Engine.Q(target), Say);
+                    ReportSaveStatus();
                 if (rc == 0 && File.Exists(target)) firmwareGuideFile = target;
                 else Say("Firmware review could not be generated. No EFI or firmware was changed. The build refusal still includes storage preparation guidance.");
             }
@@ -226,19 +228,12 @@ namespace A1401
                 Say("Checking this PC...");
                 var scanLines = new List<string>();
                 int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { scanLines.Add(l); Say(l); });
+                ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 if (rc != 0)
                 {
                     Say("The check failed. The lines above say why.");
-                    var logFile = Path.Combine(Engine.Work, "scan-log.txt");
-                    try
-                    {
-                        var all = new List<string>(scanLines);
-                        var acpiDir = Path.Combine(scanDir, "ACPI");   // which tables were dumped, by name and size
-                        if (Directory.Exists(acpiDir)) { all.Add(""); all.Add("---- ACPI dump ----"); all.AddRange(Directory.GetFiles(acpiDir).Select(f => Path.GetFileName(f) + "  " + new FileInfo(f).Length)); }
-                        File.WriteAllLines(logFile, Redact(all, "scan failed"));
-                    } catch (Exception) { }
-                    OfferLog(logFile, "check");
+                    OfferOperationReport("check");
                     return;
                 }
                 scanned = true; LoadFacts(); await PrepareFirmwareGuide(); Say("Done."); Go(1); return;
@@ -251,6 +246,7 @@ namespace A1401
                 var lines = new List<string>();
                 Say("Building the startup files for this PC...");
                 int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json", l => { lines.Add(l); });
+                ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
                 try
@@ -260,14 +256,7 @@ namespace A1401
                     {
                         Say("The build stopped: " + r["error"]);
                         // the whole engine output, so a user can post it in a bug report
-                        var logFile = Path.Combine(Engine.Work, "build-log.txt");
-                        try
-                        {
-                            var all = new List<string>(lines);
-                            if (r.ContainsKey("transcript")) { all.Add(""); all.Add("---- engine output ----"); all.AddRange(("" + r["transcript"]).Split('\n')); }
-                            File.WriteAllLines(logFile, Redact(all, "" + r["error"])); Say("The full log is in " + logFile + ".");
-                        } catch (Exception) { }
-                        OfferLog(logFile, "build");
+                        OfferOperationReport("build");
                         return;
                     }
                     var mv = "" + r["macos_version"]; macosFull = mv; darwin = mv.Split('.')[0];
@@ -276,9 +265,10 @@ namespace A1401
                     if (notices != null) foreach (var n in notices) if (IsSupportNotice("" + n)) summary += "\r\n" + n;
                     built = true; showingPrerequisites = false;
                 }
-                catch (Exception e) { Say("Could not read the build result: " + e.Message); foreach (var l in lines.Take(40)) Say(l); return; }
+                catch (Exception e) { Say("Could not read the build result (" + e.GetType().Name + "). The saved operation report includes the engine output."); foreach (var l in lines.Take(40)) Say(l); OfferOperationReport("build"); return; }
                 guideFile = Path.Combine(Engine.Work, "BIOS-steps.html");
                 await Engine.Run("p1401.guide " + Engine.Q(rep) + " " + Engine.Q(Path.Combine(efiDir, "EFI", "OC", "config.plist")) + " --macos " + macosFull + " --html " + Engine.Q(guideFile), Say);
+                ReportSaveStatus();
                 Say("Done."); Go(2); return;
             }
             if (page == 4 && !built) { Go(2); return; }
@@ -299,8 +289,9 @@ namespace A1401
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
                 if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
                 int rc = await Engine.Run(args, Say);
+                ReportSaveStatus();
                 busy = false; next.Enabled = true; refresh.Enabled = true;
-                if (rc != 0) { Say("Writing the stick did not finish. The lines above say why; nothing else on this PC was touched."); return; }
+                if (rc != 0) { Say("Writing the stick did not finish. The saved report includes the writer output; partial changes to the selected stick may remain."); OfferOperationReport("write"); return; }
                 written = true; bar.Value = 100; Go(5); return;
             }
             if (page == 5) { Close(); return; }
@@ -395,6 +386,24 @@ namespace A1401
             var o = new List<string> { "1401 " + Application.ProductVersion + " build log", "error: " + clean(error), "" };
             o.AddRange(lines.Select(clean));
             return o;
+        }
+
+        void ReportSaveStatus()
+        {
+            if (Engine.LastReport != null && !Engine.LastReport.Saved)
+                Say(Engine.LastReport.Failure + " The operation output may remain visible, but a durable final report is unavailable.");
+        }
+
+        void OfferOperationReport(string kind)
+        {
+            var report = Engine.LastReport;
+            if (report == null || !report.Saved)
+            {
+                Say(report == null ? "The operation has no saved local report. The visible output remains available to copy." : report.Failure);
+                return;
+            }
+            Say("The local report is saved at " + report.Path + ". Scan for logs and send them can retry after restart.");
+            OfferLog(report.Path, kind);
         }
 
         void OfferLog(string file, string kind)
@@ -597,6 +606,10 @@ namespace A1401
             var found = new List<string>();
             var configs = new List<string>();
             // asked from the link: the last failed build's log on this PC goes too
+            {
+                try { found.AddRange(DurableReport.Find(Engine.Work).Where(f => asked || Path.GetFileName(f).Contains("-crash-"))); }
+                catch (Exception error) { Say("Saved reports could not be listed (" + error.GetType().Name + ", code " + error.HResult + "). Check access to the app data folder; existing files were retained."); }
+            }
             var bl = Path.Combine(Engine.Work, "build-log.txt");
             if (asked && File.Exists(bl)) found.Add(bl);
             var scanLog = Path.Combine(Engine.Work, "scan-log.txt");
@@ -630,7 +643,7 @@ namespace A1401
                                            "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            found = configs.Concat(found).Take(6).ToList();   // the site takes 30 uploads per hour from one address
+            found = found.Where(f => DurableReport.IsLocal(Engine.Work, f)).Concat(configs).Concat(found.Where(f => !DurableReport.IsLocal(Engine.Work, f))).Distinct().Take(6).ToList();   // the site takes 30 uploads per hour from one address
             // 10-07: most sticks now reach the macOS kernel and then stop with nothing written (a hang leaves no panic
             // file), so the line the screen stopped on is the one fact the logs cannot hold. Optional; same two clicks.
             string screen;
@@ -646,12 +659,13 @@ namespace A1401
             var batch = NewBatch();
             foreach (var f in found)
             {
-                var id = Send(f, Path.GetFileName(f).EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? Path.GetFileName(f) + ".txt" : Path.GetFileName(f), what + (evidence != null && f == evidence.Path ? (evidence.CurrentRun ? "; this scan run; not macOS qualification" : "; saved prior scan; not current-PC or attached-stick identity proof") : ""), batch);
+                var localWhat = DurableReport.IsLocal(Engine.Work, f) ? "saved local operation report; original app version is recorded in the payload; not current-PC identity proof" : what;
+                var id = Send(f, Path.GetFileName(f).EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? Path.GetFileName(f) + ".txt" : Path.GetFileName(f), localWhat + (evidence != null && f == evidence.Path ? (evidence.CurrentRun ? "; this scan run; not macOS qualification" : "; saved prior scan; not current-PC or attached-stick identity proof") : ""), batch);
                 if (id == null) continue;
                 ids.Add(id);
                 try
                 {
-                    if (f == bl || f == scanLog || (evidence != null && f == evidence.Path) || configs.Contains(f)) continue;
+                    if (f == bl || f == scanLog || DurableReport.IsLocal(Engine.Work, f) || (evidence != null && f == evidence.Path) || configs.Contains(f)) continue;
                     if (f == crash) { File.Move(crash, crash + ".sent-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")); continue; }
                     var sent = Path.Combine(Path.GetPathRoot(f), "NullMoth", "sent-logs"); Directory.CreateDirectory(sent);
                     File.Move(f, Path.Combine(sent, Path.GetFileName(f)));

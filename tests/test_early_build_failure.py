@@ -43,5 +43,8 @@ class EarlyFailure(unittest.TestCase):
             result = engine.build(str(self.report), str(self.acpi), str(self.root / 'out'))
         self.assertFalse(result.ok); self.assertIn('missing engine file', result.error)
         self.assertEqual(result.transcript, '')
+        self.assertTrue(result.failure_frames)
+        self.assertEqual(result.failure_frames[0]['source'], 'p1401/engine.py')
+        self.assertNotIn(str(self.root), json.dumps(result.failure_frames))
 
 if __name__ == '__main__': unittest.main()
