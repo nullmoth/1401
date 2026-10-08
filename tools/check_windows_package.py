@@ -57,12 +57,15 @@ def main():
     step = 'packaged module and dependency imports'
     try:
         modules = ['p1401.engine', 'p1401.acpi_diagnostics', 'p1401.dependency_cache', 'p1401.downloads',
-                   'p1401.kernel_patches', 'p1401.report', 'p1401.hwcapture', 'p1401.machine_handoff', 'p1401.cpunative', 'p1401.peripheral_caps', 'p1401.panel_guard']
+                   'p1401.kernel_patches', 'p1401.report', 'p1401.hwcapture', 'p1401.machine_handoff', 'p1401.cpunative', 'p1401.peripheral_caps', 'p1401.panel_guard', 'p1401.mirror']
         imported = []
         for name in modules:
             module = importlib.import_module(name)
             relative = Path(module.__file__).resolve().relative_to(app.resolve()).as_posix()
             imported.append(relative)
+        from p1401 import mirror
+        if not mirror.entries() or mirror.problem():
+            raise RuntimeError('The packaged dependency mirror manifest is missing or malformed: ' + str(mirror.problem()))
         for name in ['wmi', 'win32api', 'certifi']:
             importlib.import_module(name)
         versions = {name: importlib.metadata.version(name) for name in inputs['runtime_packages']}

@@ -50,8 +50,17 @@ def acpidump_path():
             return p
     os.makedirs(CACHE, exist_ok=True)
     dst = os.path.join(CACHE, "acpidump-R2024_12_12.exe")
-    with urllib.request.urlopen(urllib.request.Request(ACPIDUMP["url"], headers={"User-Agent": "1401"}), timeout=60) as r:
-        data = r.read()
+    try:
+        with urllib.request.urlopen(urllib.request.Request(ACPIDUMP["url"], headers={"User-Agent": "1401"}), timeout=60) as r:
+            data = r.read()
+    except OSError as error:
+        # GitHub blocked or reset (mainland China, some school and work networks): the same pinned file from the
+        # verified mirror; its bytes are still checked against the pin below.
+        from . import mirror  # noqa: PLC0415
+        try:
+            data = mirror.fetch(ACPIDUMP["url"], timeout=60).read()
+        except mirror.MirrorError as again:
+            raise ScanError(f"could not download acpidump.exe from GitHub ({type(error).__name__}) or the mirror ({again})") from None
     got = hashlib.sha256(data).hexdigest()
     if got != ACPIDUMP["sha256"]:
         raise ScanError(f"acpidump.exe sha256 {got[:12]} != pinned {ACPIDUMP['sha256'][:12]} - refused")

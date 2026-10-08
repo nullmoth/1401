@@ -30,11 +30,11 @@ class Routing(unittest.TestCase):
 class Safety(unittest.TestCase):
  def test_malformed_nested_evidence_cannot_become_a_panel_decision(self):
   for capture in (None,[],{'scan_binding':[]},{'scan_binding':{'status':'same_scan_run','scan_status':'complete'},'device_map':[]}):
-   panel_guard.refuse_active_panel_disable(DISABLED,capture)
+   self.assertIsNone(panel_guard.active_panel_notice(DISABLED,capture))
   for key,val in (('pci_candidates','n'),('displays',{})):
-   v=evidence();v['device_map']['graphics']['value'][1][key]=val;panel_guard.refuse_active_panel_disable(DISABLED,v)
+   v=evidence();v['device_map']['graphics']['value'][1][key]=val;self.assertIsNone(panel_guard.active_panel_notice(DISABLED,v))
  def test_exact_active_panel_selected_for_disable_refused(self):
-  with self.assertRaisesRegex(RuntimeError,'active internal panel'):panel_guard.refuse_active_panel_disable(DISABLED,evidence())
+  self.assertIn('built-in screen',panel_guard.active_panel_notice(DISABLED,evidence()) or '')
  def test_unbound_partial_ambiguous_and_legacy_not_promoted(self):
   cases=[]
   for key,val in [('status','unavailable'),('scan_status','failed')]:v=evidence();v['scan_binding'][key]=val;cases.append(v)
@@ -42,13 +42,13 @@ class Safety(unittest.TestCase):
   v=evidence();v['device_map']['graphics']['value'][1]['pci_candidates']=['n1','n2'];cases.append(v)
   v=evidence();v['device_map']['graphics']['value'].append(copy.deepcopy(v['device_map']['graphics']['value'][1]));cases.append(v)
   v=evidence();v['device_map']['graphics']['value'][1]['displays'][0].pop('routing_source');cases.append(v)
-  for v in cases:panel_guard.refuse_active_panel_disable(DISABLED,v)
+  for v in cases:self.assertIsNone(panel_guard.active_panel_notice(DISABLED,v))
  def test_inactive_unavailable_nonpanel_subsystem_mismatch(self):
   for key in ('active','target_available','internal_panel'):
-   v=evidence();v['device_map']['graphics']['value'][1]['displays'][0][key]=False;panel_guard.refuse_active_panel_disable(DISABLED,v)
-  d=copy.deepcopy(DISABLED);next(iter(d.values()))['Subsystem ID']='99991043';panel_guard.refuse_active_panel_disable(d,evidence())
+   v=evidence();v['device_map']['graphics']['value'][1]['displays'][0][key]=False;self.assertIsNone(panel_guard.active_panel_notice(DISABLED,v))
+  d=copy.deepcopy(DISABLED);next(iter(d.values()))['Subsystem ID']='99991043';self.assertIsNone(panel_guard.active_panel_notice(d,evidence()))
  def test_discrete_output_and_kept_intel_not_refused(self):
-  graph=dm.build_graphics_map([NVIDIA,INTEL],[dict(PATH,target_luid=(0,11))],PNP);panel_guard.refuse_active_panel_disable(DISABLED,evidence(graph));panel_guard.refuse_active_panel_disable({},evidence())
+  graph=dm.build_graphics_map([NVIDIA,INTEL],[dict(PATH,target_luid=(0,11))],PNP);self.assertIsNone(panel_guard.active_panel_notice(DISABLED,evidence(graph)));self.assertIsNone(panel_guard.active_panel_notice({},evidence()))
 class BeforeMutation(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
@@ -71,8 +71,8 @@ class BeforeMutation(unittest.TestCase):
    with redirect_stdout(io.StringIO()),patch.object(engine,'_load_engine',return_value=(NS(OCPE=lambda:obj),self.utils)),patch.object(engine,'_use_ock_cache'),patch.object(engine,'_nullmoth_gpu_pass'),patch.object(engine,'_wifi_prepass',side_effect=lambda hw,*a:hw),patch.object(acpi_diagnostics,'capture',return_value=nullcontext()),patch.object(rm,'normalized_copy',return_value=(str(report),[])):
     result=engine.build(str(report),str(acpi),str(out),download=True)
    return result,later.call_count,prior.exists()
- def test_bound_refusal_preserves_prior_efi_before_acpi_generation(self):
-  result,calls,retained=self.run_engine();self.assertFalse(result.ok);self.assertIn('active internal panel',result.error);self.assertEqual(calls,0);self.assertTrue(retained)
+ def test_bound_panel_on_disabled_intel_builds_with_a_notice(self):
+  result,calls,_=self.run_engine();self.assertIn('later planning reached',result.error);self.assertEqual(calls,1);self.assertTrue(any('built-in screen' in n for n in result.notices))
  def test_modified_report_cannot_inherit_route(self):
   result,calls,_=self.run_engine(mutate=True);self.assertIn('later planning reached',result.error);self.assertEqual(calls,1)
 if __name__=='__main__':unittest.main()

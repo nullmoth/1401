@@ -65,6 +65,13 @@ def ocvalidate_path():
                 break
             except (OSError, http.client.HTTPException) as e:
                 if attempt == 3:
+                    from . import mirror  # noqa: PLC0415
+                    try:
+                        with open(tmp, "wb") as fh:
+                            fh.write(mirror.fetch(url, timeout=TIMEOUT).read())
+                        break
+                    except (mirror.MirrorError, OSError):
+                        pass
                     from .engine import network_help  # noqa: PLC0415
                     raise ValidatorUnavailable(f"{type(e).__name__}: {e}. " + network_help(url)) from e
                 time.sleep(2 ** (attempt + 1))

@@ -27,6 +27,17 @@ class Response(io.BytesIO):
     def info(self): return {}
     def getheader(self, name): return None
 
+def setUpModule():
+    # These arms measure the GitHub path alone; the mirror fallback has its own arms in test_mirror.py.
+    from p1401 import mirror
+    mirror._state.update(entries={}, preferred=False)
+
+
+def tearDownModule():
+    from p1401 import mirror
+    mirror._state.update(entries=None, preferred=False)
+
+
 class Downloads(unittest.TestCase):
     def setUp(self):
         engine._patient_downloads()

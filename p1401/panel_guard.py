@@ -1,9 +1,12 @@
-"""Prevent disabling an observed active panel output; never infer a firmware MUX or a missing route."""
+"""Warn when the plan disables the adapter an observed active internal panel runs on; never infer a firmware MUX or a
+missing route. Laptops whose panel is wired to the Intel GPU are common and still build: macOS drives the NVIDIA card's
+own outputs and the panel stays dark, which the user must know before installing."""
 import re
 
 
-def refuse_active_panel_disable(disabled, capture):
-    """Use only exact completed scan evidence with one observed adapter/PnP match."""
+def active_panel_notice(disabled, capture):
+    """Notice text when exact completed scan evidence (one observed adapter/PnP match) puts an active internal panel on
+    an Intel adapter the plan disables; None otherwise."""
     if not isinstance(capture, dict) or not isinstance(disabled, dict):
         return
     binding = capture.get('scan_binding')
@@ -43,8 +46,8 @@ def refuse_active_panel_disable(disabled, capture):
             if (isinstance(panel, dict) and panel.get('internal_panel') is True and panel.get('active') is True and
                     panel.get('target_available') is True and panel.get('output_adapter') == adapter.get('adapter') and
                     panel.get('routing_source') == 'QueryDisplayConfig targetInfo.adapterId'):
-                raise RuntimeError('EFI planning stopped: this exact scan places an active internal panel on Intel ' +
-                                   device.upper() + ', but the selected configuration would disable that adapter. '
-                                   'The selected plan does not establish a compatible display route or add Intel acceleration. '
-                                   'Confirm an output path supported by the exact system and rescan after any firmware display-mode change. '
-                                   'No installable EFI was produced; no MUX or connector route is assumed.')
+                return ('The built-in screen runs on the Intel graphics (' + device.upper() + '), which macOS cannot use on '
+                        'this system, so it will stay dark in macOS. Use a monitor on a port wired to the NVIDIA card '
+                        '(often HDMI or a USB-C/Thunderbolt port), or switch the display mode to discrete/dGPU in the '
+                        'firmware if it offers one and scan again.')
+    return None

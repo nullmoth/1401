@@ -64,9 +64,8 @@ class PlannedBinding(BeforeMutation):
             return original(path, raw, **kwargs)
         with patch.object(scan_evidence, 'load_for_report', side_effect=replace_on_final_read):
             result, later_calls, retained = self.run_engine()
-        self.assertEqual(later_calls, 0)
-        self.assertTrue(retained)
-        self.assertIn('active internal panel', result.error)
+        self.assertEqual(later_calls, 1)
+        self.assertIn('later planning reached', result.error)
         self.assertEqual(result.capture['scan_binding']['status'], 'unavailable')
         self.assertEqual(result.capture['device_map']['graphics']['status'], 'unavailable')
         self.assertEqual(result.raw_hardware['Motherboard']['Name'], 'Fixture board')
