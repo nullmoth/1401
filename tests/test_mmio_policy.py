@@ -14,9 +14,9 @@ from p1401 import engine, policy, validate
 class MmioPolicy(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.archive = os.environ.get('OPENCORE_TEST_ZIP', os.path.join(validate.CACHE, 'OpenCore-1.0.9-RELEASE.zip'))
+        cls.archive = os.environ.get('OPENCORE_TEST_ZIP', os.path.join(validate.CACHE, 'OpenCore-1.0.8-RELEASE.zip'))
         if not os.path.isfile(cls.archive):
-            raise unittest.SkipTest('The OpenCore 1.0.9 release archive is required for these integration tests.')
+            raise unittest.SkipTest('The OpenCore 1.0.8 release archive is required for these integration tests.')
         with zipfile.ZipFile(cls.archive) as archive:
             cls.sample = archive.read('Docs/Sample.plist')
             name = {'Windows': 'ocvalidate.exe', 'Linux': 'ocvalidate.linux'}.get(platform.system(), 'ocvalidate')

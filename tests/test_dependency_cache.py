@@ -16,7 +16,7 @@ from Scripts.integrity_checker import IntegrityChecker
 class DependencyCache(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        archive = os.environ.get('OPENCORE_TEST_ZIP', os.path.join(validate.CACHE, 'OpenCore-1.0.9-RELEASE.zip'))
+        archive = os.environ.get('OPENCORE_TEST_ZIP', os.path.join(validate.CACHE, 'OpenCore-1.0.8-RELEASE.zip'))
         if not os.path.isfile(archive):
             raise unittest.SkipTest('The official OpenCore release archive is required.')
         with zipfile.ZipFile(archive) as release:

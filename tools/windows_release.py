@@ -148,7 +148,7 @@ def prepare(args):
                                   'Hardware support depends on the detected devices; this package does not qualify every machine.\n')
     fixtures = cache / 'fixtures'
     fixtures.mkdir(parents=True, exist_ok=True)
-    download(inputs['opencore_url'], inputs['opencore_sha256'], fixtures / 'OpenCore-1.0.9-RELEASE.zip')
+    download(inputs['opencore_url'], inputs['opencore_sha256'], fixtures / 'OpenCore-1.0.8-RELEASE.zip')
     fetch_fixture(inputs['fixture_slug'], fixtures)
     print('Verified Windows candidate prepared.')
 

@@ -45,7 +45,7 @@ def main():
     inputs = json.loads((repo / 'windows/release-inputs.json').read_text())
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
     os.environ['PYTHONIOENCODING'] = 'utf-8'
-    os.environ['OPENCORE_TEST_ZIP'] = str(cache / 'fixtures/OpenCore-1.0.9-RELEASE.zip')
+    os.environ['OPENCORE_TEST_ZIP'] = str(cache / 'fixtures/OpenCore-1.0.8-RELEASE.zip')
     result = {'ok': False, 'scope': 'Windows packaged startup, dependency imports, regression tests and one public planning fixture; no disk writes or GPU qualification.'}
     step = 'packaged module and dependency imports'
     try:
