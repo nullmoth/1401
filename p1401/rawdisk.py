@@ -83,6 +83,24 @@ def _volumes_on(k, disk):
     return found
 
 
+
+def _lock_volume(k, h, tries=40, after_dismount=20, sleep=time.sleep):
+    """Exclusive lock on an open volume handle. Rufus retries the lock first (Explorer and indexers let go within
+    seconds). If something still holds the volume - a write failure seen on 11 machines in one day with an Explorer
+    window, an antivirus scan or a previous step's open file on the stick - Rufus forces a dismount, which invalidates
+    every other open handle on the volume, and locks again. The stick is about to be erased, so nothing those handles
+    could still write is kept anyway."""
+    for _ in range(tries):
+        if _ioctl(k, h, FSCTL_LOCK_VOLUME)[0]:
+            return True
+        sleep(0.25)
+    _ioctl(k, h, FSCTL_DISMOUNT_VOLUME)
+    for _ in range(after_dismount):
+        if _ioctl(k, h, FSCTL_LOCK_VOLUME)[0]:
+            return True
+        sleep(0.25)
+    return False
+
 def wipe_mbr_fat32(disk, size, part_size, say=print):
     """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes."""
     k = _k32()
@@ -91,11 +109,7 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
         for v in _volumes_on(k, disk):
             h = _open(k, v)
             held.append(h)
-            for _ in range(40):  # Rufus retries the lock: Explorer and indexers let go within seconds
-                if _ioctl(k, h, FSCTL_LOCK_VOLUME)[0]:
-                    break
-                time.sleep(0.25)
-            else:
+            if not _lock_volume(k, h):
                 raise DiskError(f"another program is using the stick ({v}); close Explorer windows on it and try again")
             _ioctl(k, h, FSCTL_DISMOUNT_VOLUME)
         say(f"OK locked {len(held)} volume(s) on the stick")
