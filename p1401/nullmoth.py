@@ -24,7 +24,7 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
 PACKAGE = {"name": "nullmoth-nvidia-1.0.9.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.13/nullmoth-nvidia-1.0.9.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.14/nullmoth-nvidia-1.0.9.tar.gz",
            "sha256": "9dbfdb1b1359e2ef4166a46905ee195774b0b4ba20be083a8111ef550b1e5789"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
@@ -87,11 +87,20 @@ def tested(report):
     return [n for n, g in cards(report).items() if _pid(g) in TABLE["tested"]]
 
 
+def gpu_disabled(name, gpu, disabled_devices):
+    """Match upstream's exact disabled-device labels without conflating identical PCI IDs."""
+    labels = {name, "GPU: " + name}
+    device_type = gpu.get("Device Type")
+    if device_type:
+        labels.add(str(device_type) + ": " + name)
+    return any(label in disabled_devices for label in labels)
+
+
 def apply(cfg, result, change):
     """Policy-pass rule. cfg = the loaded config.plist dict; change(rule, before, after, why) records it.
     Returns True when the driver settings were applied (the SIP rule then must not lower them again)."""
     gpus = (result.hardware or {}).get("GPU", {})
-    live = [n for n, g in gpus.items() if supported(g) and g.get("Compatibility") == SEQUOIA and n not in result.disabled_devices]
+    live = [n for n, g in gpus.items() if supported(g) and g.get("Compatibility") == SEQUOIA and not gpu_disabled(n, g, result.disabled_devices)]
     if not live:
         return False
     nv = cfg["NVRAM"]["Add"].setdefault("7C436110-AB2A-4BBB-A880-FE41995C9F82", {})

@@ -57,9 +57,9 @@ def apply(config_path, result, policy):
     tahoe = _darwin(result.macos_version) >= TAHOE
     gpus = (result.hardware or {}).get("GPU", {})
     amd_dgpu = any(g.get("Manufacturer") == "AMD" and g.get("Device Type") != "Integrated GPU" for n, g in gpus.items()
-                   if n not in result.disabled_devices)
+                   if not nullmoth.gpu_disabled(n, g, result.disabled_devices))
     intel_igpu = any(g.get("Manufacturer") == "Intel" and g.get("Device Type") == "Integrated GPU" for n, g in gpus.items()
-                     if n not in result.disabled_devices)
+                     if not nullmoth.gpu_disabled(n, g, result.disabled_devices))
 
     def change(rule, before, after, why):
         changes.append({"rule": rule, "before": before, "after": after, "why": why})
