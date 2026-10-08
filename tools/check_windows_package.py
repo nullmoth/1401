@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import importlib
 import importlib.metadata
+import importlib.util
 import io
 import json
 import os
@@ -50,7 +51,7 @@ def main():
     step = 'packaged module and dependency imports'
     try:
         modules = ['p1401.engine', 'p1401.acpi_diagnostics', 'p1401.dependency_cache', 'p1401.downloads',
-                   'p1401.kernel_patches', 'p1401.report']
+                   'p1401.kernel_patches', 'p1401.report', 'p1401.hwcapture', 'p1401.machine_handoff']
         imported = []
         for name in modules:
             module = importlib.import_module(name)
@@ -64,6 +65,11 @@ def main():
         result['packaged_module_imports'] = imported
         result['runtime_packages'] = versions
         result['python_version'] = platform.python_version()
+        native_spec = importlib.util.spec_from_file_location('capture_native_verification', repo / 'tools/check_capture_native.py')
+        native_check = importlib.util.module_from_spec(native_spec)
+        native_spec.loader.exec_module(native_check)
+        step = 'Windows native capture ABI and isolated worker'
+        result['native_capture'] = native_check.verify_capture_native(repo, args.output)
         fixture = cache / 'fixtures' / inputs['fixture_slug']
         suite = unittest.defaultTestLoader.discover(str(repo / 'tests'), pattern='test_*.py')
         step = 'packaged regression tests'
@@ -105,6 +111,8 @@ def main():
         expected = (repo / 'windows/App/App.csproj').read_text().split('<Version>')[1].split('</Version>')[0]
         if process.returncode != 0 or gui.get('ok') is not True or gui.get('assembly_version') != expected:
             raise RuntimeError('The actual packaged application startup/version check failed.')
+        if gui.get('fresh_upload_batches') is not True:
+            raise RuntimeError('Compiled upload batches did not pass run-identity verification.')
         if gui.get('closed_form_log_collection_guard') is not True:
             raise RuntimeError('Log collection on a closed application window was not safely skipped.')
         if gui.get('support_notices_visible') is not True:

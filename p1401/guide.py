@@ -100,11 +100,13 @@ def _storage_trap(report):
     return hits
 
 
-def bios_settings(report, config):
+def bios_settings(report, config, disabled_devices=None):
     cpu = report.get("CPU") or {}
     intel = "Intel" in (cpu.get("Manufacturer") or "")
     bios = report.get("BIOS") or {}
-    gpus = report.get("GPU") or {}
+    from . import nullmoth
+    gpus = {n: g for n, g in (report.get("GPU") or {}).items()
+            if isinstance(g, dict) and not nullmoth.gpu_disabled(n, g, disabled_devices or {})}
     dgpu = [n for n, g in gpus.items() if g.get("Device Type") == "Discrete GPU"]
     igpu_intel = any(g.get("Device Type") == "Integrated GPU" and g.get("Manufacturer") == "Intel" for g in gpus.values())
     kq = ((config.get("Kernel") or {}).get("Quirks")) or {}
@@ -132,7 +134,7 @@ def bios_settings(report, config):
         s.append(Setting("Above 4G Decoding", "On", True,
                          "Required by the NVIDIA driver: it maps the card's full memory above 4 GB.",
                          now=f"currently {a4g} - turn it On" if a4g == "Disabled" else (f"currently {a4g}" if a4g else ""),
-                         if_missing="Every board with a GeForce RTX slot has it, sometimes under PCI or Advanced settings."))
+                         if_missing="Availability and menu names depend on the board and firmware. Check the exact board manual; if unavailable, stop and report it."))
     elif "npci=" in boot_args:
         s.append(Setting("Above 4G Decoding", "On if you have it", False,
                          "Lets the GPU map its full memory. Your EFI already carries the workaround if it's missing.",
@@ -173,7 +175,7 @@ def bios_settings(report, config):
     return s
 
 
-def build_guide(report, config, bitlocker=None, macos=""):
+def build_guide(report, config, bitlocker=None, macos="", disabled_devices=None):
     """-> [Step]. bitlocker: 'On' | 'Off' | None (unknown - then the step is kept)."""
     mb = report.get("Motherboard") or {}
     if not mb.get("Name") or not report.get("CPU"):
@@ -232,10 +234,12 @@ def build_guide(report, config, bitlocker=None, macos=""):
     open_bios.append(f"If that doesn't work: restart and press [[{k[0]}]] repeatedly right after power-on." if k else
                      "If that doesn't work: restart and press the setup key for your PC (usually Del, F2, F10 or F1; "
                      "your manual names it).")
+    open_bios.append("These settings follow the scanned hardware and generated EFI. Menu names and vendor-family boot keys "
+                     "are suggestions; check the manual for the exact model and board revision. No firmware changes are automated.")
     open_bios.append("Change the settings below, then Save & Exit (on most boards [[F10]]). Let Windows start once "
                      "to check it still boots.")
     steps.append(Step("Change these BIOS settings, then Save & Exit", open_bios,
-                      settings=bios_settings(report, config)))
+                      settings=bios_settings(report, config, disabled_devices)))
 
     steps.append(Step("Start from the stick", [
         "Leave the stick plugged in. Click **Restart now and pick the USB stick (Use a device)** in the app. Windows "
@@ -353,7 +357,7 @@ def app_html(report, steps, macos="", mark=None, uid="g"):
 <table class="logo" role="presentation" cellspacing="0" cellpadding="0"><tr><td>{img}</td><td class="word"><span class="nm">NullMoth</span> <span class="sy">Systems</span><br><span class="ig">1401 Install Guide</span> for this PC</td></tr></table>
 </center>
 <div class="ticker" aria-hidden="true"><span>*** WRITTEN FOR THIS PC *** NOTHING ON THIS PAGE WAS SENT ANYWHERE *** TAKE A PHOTO BEFORE YOU OPEN THE BIOS *** 1401 IS FREE FOREVER ***</span></div>
-<p class="hello">Hi! The 1401 app wrote this page on this PC, just for this PC &mdash; the keys and BIOS settings below are for <b>your</b> board, not anybody else's. Go through the steps in order and take your time.{first}</p>
+<p class="hello">Hi! The 1401 app wrote this page on this PC, just for this PC &mdash; the settings below follow your scan and EFI. Exact firmware menus and board revisions have not been verified. Go through the steps in order and take your time.{first}</p>
 <table class="pc" border="1" cellspacing="2" cellpadding="3"><caption>This guide is for:</caption>{plate}</table>
 <table class="main" role="presentation" cellspacing="0" cellpadding="0"><tr>
 <td class="side"><nav aria-label="Steps"><p class="sh">Steps</p><ol>{"".join(side)}</ol>
@@ -543,7 +547,12 @@ if __name__ == "__main__":
         return a[a.index(name) + 1] if name in a else None
     rep, cfg = load(a[0], a[1])
     mac = macos_name(opt("--macos") or "")
-    steps = build_guide(rep, cfg, bitlocker=opt("--bitlocker"), macos=mac)
+    from . import machine_handoff
+    build = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(a[1]))))
+    disabled = {}
+    if os.path.isfile(os.path.join(build, machine_handoff.NAME)):
+        disabled = machine_handoff.verified(build, a[0]).get("disabled_devices", {})
+    steps = build_guide(rep, cfg, bitlocker=opt("--bitlocker"), macos=mac, disabled_devices=disabled)
     if opt("--html"):
         mark = None
         if opt("--mark"):

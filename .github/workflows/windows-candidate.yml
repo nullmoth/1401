@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - support/1.0.21-candidate
+      - support/1.0.22-candidate
 
 permissions:
   contents: read
@@ -41,6 +41,22 @@ jobs:
         run: |
           python -B tools/windows_release.py prepare --stage "$env:RUNNER_TEMP/1401-stage" --cache "$env:RUNNER_TEMP/1401-cache" --compiled "$env:RUNNER_TEMP/1401-compiled/1401.exe"
           if ($LASTEXITCODE -ne 0) { throw 'Candidate preparation failed.' }
+      - name: Select the installed native Windows compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $locator = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $installation = & $locator -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'The installed Windows SDK compiler was not found.' }
+          $initialization = Join-Path $installation 'VC/Auxiliary/Build/vcvars64.bat'
+          $command = '"' + $initialization + '" >nul && set'
+          $variables = & cmd /d /s /c $command
+          if ($LASTEXITCODE -ne 0) { throw 'Native compiler environment initialization failed.' }
+          foreach ($line in $variables) {
+            if ($line -match '^(PATH|INCLUDE|LIB|LIBPATH)=(.*)$') {
+              "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
       - name: Verify packaged startup and engine behavior on Windows
         shell: pwsh
         run: |

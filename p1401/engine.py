@@ -12,6 +12,8 @@ import contextlib
 import dataclasses
 import importlib.util
 import io
+import copy
+import hashlib
 import json
 import os
 import stat
@@ -116,6 +118,12 @@ class BuildResult:
     error: str = ""
     transcript: str = ""
     hardware: dict = field(default_factory=dict)
+    # The scan exactly as Check this PC wrote it, kept apart from `hardware`, which the compatibility pass replaces
+    # with its own view (unsupported devices removed). A failure after that pass must still log the raw device IDs.
+    raw_hardware: dict = field(default_factory=dict)
+    report_sha256: str = ""
+    # measured CPU topology + NVIDIA compute facts (p1401/hwcapture.py); collected on success and failure alike
+    capture: dict = field(default_factory=dict)
     acpi_diagnostics: list = field(default_factory=list)
     acpi_fingerprints: list = field(default_factory=list)
     policy_changes: list = field(default_factory=list)
@@ -468,10 +476,13 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not os.path.isfile(report_path):
                 raise RuntimeError("This PC has not been checked yet (no hardware report). Run Check this PC first and wait for it "
                                    "to finish; if it stops with an error, send that log instead.")
-            with open(report_path, encoding="utf-8") as report_file:
-                res.hardware = json.load(report_file)
+            with open(report_path, "rb") as report_file:
+                raw = report_file.read()
+            res.report_sha256 = hashlib.sha256(raw).hexdigest()
+            res.hardware = json.loads(raw.decode("utf-8"))
             if not isinstance(res.hardware, dict):
                 raise RuntimeError("The hardware report must contain a JSON object. Run Check this PC again.")
+            res.raw_hardware = copy.deepcopy(res.hardware)
             if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
                 raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
             res.acpi_fingerprints = report_mod.acpi_fingerprints(acpi_dir)
@@ -517,6 +528,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                     raise RuntimeError("EFI failed validation: " + (res.validation.get("error") or
                                        f"ocvalidate issues={(res.validation.get('ocvalidate') or {}).get('issues')} "
                                        f"invariants={res.validation.get('invariants')}"))
+            if download:
+                from . import machine_handoff
+                machine_handoff.create(report_path, res)
             res.ok = True
     except Exception as e:  # reported to the caller in res.error
         res.error = f"{type(e).__name__}: {e}"
@@ -526,6 +540,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.error += "\n" + network_help(f"github.com ({m.group(1)})")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+    from . import hwcapture  # noqa: PLC0415
+    res.capture = hwcapture.collect(res.raw_hardware or res.hardware)  # never raises
     if h is not None:
         res.decisions, res.notices = h.decisions, h.notices
     res.transcript = h.tee.text() if hasattr(h, "tee") else ""

@@ -178,7 +178,7 @@ def _diskpart(script):
         os.remove(sp)
 
 
-def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None):
+def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, machine_profile=None):
     """Erases the stick, then writes Apple's recovery image (checked chunk by chunk) and the EFI. Returns the drive root."""
     from . import apple  # noqa: PLC0415
     ok, why = eligible(disk, allow_large)
@@ -189,6 +189,10 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None):
     if not checked.get('ok'):
         reasons = checked.get('invariants') or [checked.get('error') or 'The OpenCore configuration did not pass validation.']
         raise UsbError('The EFI must be rebuilt before erasing the stick: ' + '; '.join(reasons))
+    if machine_profile is not None:
+        from . import machine_handoff
+        if machine_handoff.verified(efi_build_dir) != machine_profile:
+            raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
     _ps(check_script(disk))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
@@ -219,6 +223,8 @@ Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABE
         cache = os.path.join(efi_build_dir, ".cache")
         os.makedirs(cache, exist_ok=True)
         driver = nullmoth.stage(root, cache, fetch=_fetch)
+    if machine_profile is not None:
+        machine_handoff.copy_to_installer(machine_profile, root)
     return {"root": root, "nullmoth": driver, **got}
 
 
@@ -322,6 +328,11 @@ def cli_write(argv):
     ok, why = eligible(disk, "--allow-large" in argv)
     if not ok:
         print("STOP " + "; ".join(why)); return 1
+    from . import machine_handoff
+    profiles = opt('--profile')
+    if len(profiles) > 1:
+        raise UsbError('Select one current scan before writing the installer.')
+    handoff = machine_handoff.verified(efi, profiles[0] if profiles else None)
     drv = opt("--driver")
     if drv and needs_nullmoth(efi):
         cache = os.path.join(efi, ".cache"); os.makedirs(cache, exist_ok=True)
@@ -335,21 +346,9 @@ def cli_write(argv):
         if pct != last[0]:
             last[0] = pct; print(f"PROGRESS {pct} downloading macOS recovery from Apple", flush=True)
     print(f"STEP erasing and writing disk {num} ({disk.get('FriendlyName')})", flush=True)
-    res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress)
+    res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff)
     root = res["root"]
-    # per-system rules: the Mac side reads the PC's real board/chipset/CPU/GPUs from NullMoth/system-profile.json
-    for rp in opt("--profile"):
-        try:
-            from . import nullmoth  # noqa: PLC0415
-            with open(rp, encoding="utf-8") as fh:
-                prof = nullmoth.system_profile(json.load(fh))
-            nm = os.path.join(root, "NullMoth")
-            os.makedirs(nm, exist_ok=True)
-            with open(os.path.join(nm, "system-profile.json"), "w", encoding="utf-8") as fh:
-                json.dump(prof, fh, indent=1, sort_keys=True)
-            print("system profile written to the stick (board, chipset, CPU, GPUs)")
-        except Exception as e:  # noqa: BLE001 - the stick still works without it; say why
-            print(f"NOTE system profile not written: {e}")
+    print('OK verified build profile written to the stick (live identity remains unverified)', flush=True)
     for f in opt("--extra"):
         d = os.path.join(root, "NullMoth"); os.makedirs(d, exist_ok=True)
         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))

@@ -1,0 +1,54 @@
+name: Windows hardware capture source validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - support/hardware-capture-validation
+      - support/1.0.22-candidate
+
+permissions:
+  contents: read
+
+jobs:
+  hardware-capture:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONIOENCODING: utf-8
+    steps:
+      - name: Check out reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Select the installed native Windows compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $locator = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $installation = & $locator -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installation) { throw 'The installed Windows SDK compiler was not found.' }
+          $initialization = Join-Path $installation 'VC/Auxiliary/Build/vcvars64.bat'
+          $command = '"' + $initialization + '" >nul && set'
+          $variables = & cmd /d /s /c $command
+          if ($LASTEXITCODE -ne 0) { throw 'Native compiler environment initialization failed.' }
+          foreach ($line in $variables) {
+            if ($line -match '^(PATH|INCLUDE|LIB|LIBPATH)=(.*)$') {
+              "$($Matches[1])=$($Matches[2])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+      - name: Validate source with the installed Python and Windows SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & py -3.12 -B tools/check_capture_source.py --output "$env:RUNNER_TEMP/hardware-capture-verification.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Hardware capture source verification failed.' }
+      - name: Retain sanitized source verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: hardware-capture-source-verification
+          path: ${{ runner.temp }}/hardware-capture-verification.json
+          if-no-files-found: error
+          retention-days: 3

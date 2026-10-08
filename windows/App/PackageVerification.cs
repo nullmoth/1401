@@ -19,6 +19,14 @@ namespace A1401
                 result["assembly_version"] = Assembly.GetExecutingAssembly().GetName().Version.ToString(3);
                 result["product_version"] = Application.ProductVersion;
                 result["engine_complete"] = Engine.Missing() == null;
+                var batches = new HashSet<string>();
+                bool freshBatches = true;
+                for (int i = 0; i < 1024; i++)
+                {
+                    var batch = MainForm.NewBatch();
+                    freshBatches &= System.Text.RegularExpressions.Regex.IsMatch(batch, @"^1401-app-[0-9a-f]{16}$") && batches.Add(batch);
+                }
+                result["fresh_upload_batches"] = freshBatches;
                 result["support_notices_visible"] = MainForm.IsSupportNotice("Laptop display note: unsupported panel") &&
                                                     MainForm.IsSupportNotice("Intel I225-LM vP requires link testing") &&
                                                     MainForm.IsSupportNotice("NullMoth driver selected") &&
@@ -41,7 +49,7 @@ namespace A1401
                 }
                 result["window_shown_and_closed"] = shown;
                 result["ok"] = shown && (bool)result["engine_complete"] && (bool)result["closed_form_log_collection_guard"] &&
-                               (bool)result["support_notices_visible"];
+                               (bool)result["support_notices_visible"] && (bool)result["fresh_upload_batches"];
             }
             catch (Exception error)
             {

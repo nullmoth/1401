@@ -136,7 +136,7 @@ namespace A1401
             {
                 case 0:
                     note.Text = "The 1401 Assistant helps you install macOS on this PC, the way Boot Camp put Windows on a Mac.\r\n\r\n" +
-                        "It checks this PC, builds the startup files macOS needs for your exact hardware, shows the BIOS settings to change on your board, " +
+                        "It checks this PC, builds the startup files macOS needs for your exact hardware, shows BIOS settings based on your scan and startup files, " +
                         "and makes a macOS install stick. Windows stays as it is. Nothing about this PC is sent anywhere.\r\n\r\n" +
                         "You need: an internet connection and a USB stick of 4 GB or more that can be erased.\r\n\r\n" +
                         "1401 is new and may not work on every PC. If it does not work on yours, set up OpenCore by hand with the guide below; " +
@@ -152,7 +152,7 @@ namespace A1401
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
-                    note.Text = "These are the BIOS settings for your board. Take a photo of this page before restarting.";
+                    note.Text = "These BIOS suggestions follow your scan and startup files. Check menu names in the exact board manual, then take a photo before restarting.";
                     Show(guide); next.Enabled = true;
                     if (guideFile != null && File.Exists(guideFile)) guide.Navigate(guideFile);
                     break;
@@ -365,8 +365,17 @@ namespace A1401
         // POST one text file to the site's upload endpoint; returns the report ID, or null when it could not be sent.
         string lastSendError = "";
 
+        // One random value per send: every file of one send shares it, so the site can tell one run's build log, stick
+        // config and startup logs apart from every other user's. It names the run, not the PC: a new one each time.
+        internal static string NewBatch()
+        {
+            var b = new byte[8];
+            using (var r = System.Security.Cryptography.RandomNumberGenerator.Create()) r.GetBytes(b);
+            return "1401-app-" + BitConverter.ToString(b).Replace("-", "").ToLowerInvariant();
+        }
+
         // POST one text file to the site's upload endpoint; returns the report ID, or null (reason in lastSendError).
-        string Send(string file, string sendName, string what)
+        string Send(string file, string sendName, string what, string batch = null)
         {
             lastSendError = "";
             try
@@ -382,7 +391,7 @@ namespace A1401
                 var notes = "1401 " + Application.ProductVersion + " " + what + " (sent from the app)";
                 if (notes.Length > 3900) notes = notes.Substring(0, 3900);
                 var meta = new JavaScriptSerializer().Serialize(new Dictionary<string, object> {
-                    { "consent", true }, { "notes", notes }, { "batch", "1401-app" } });
+                    { "consent", true }, { "notes", notes }, { "batch", batch ?? NewBatch() } });
                 var b64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(meta)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
                 var req = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://nullmothsystems.com/api/upload");
                 req.Method = "POST"; req.ContentType = "application/octet-stream"; req.Timeout = 30000;
@@ -481,9 +490,10 @@ namespace A1401
             if (ask != DialogResult.OK) return;
             var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "");
             var ids = new List<string>();
+            var batch = NewBatch();
             foreach (var f in found)
             {
-                var id = Send(f, Path.GetFileName(f), what);
+                var id = Send(f, Path.GetFileName(f), what, batch);
                 if (id == null) continue;
                 ids.Add(id);
                 try
