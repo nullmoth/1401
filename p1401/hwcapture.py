@@ -17,6 +17,7 @@ import copy
 import importlib.util
 import subprocess
 import tempfile
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -444,7 +445,7 @@ def gpu_inventory(report):
 
 CAPTURE_TIMEOUT = 12
 CAPTURE_MAX_BYTES = 2 * 1024 * 1024
-DEVICE_STAGES = ("platform_role", "devices", "display_paths", "graphics", "pci_resources", "bios_settings", "nvidia_detail")
+DEVICE_STAGES = ("platform_role", "devices", "display_paths", "cpu_native", "graphics", "pci_resources", "nvidia_detail", "bios_settings")
 
 
 def unavailable_device_map(reason):
@@ -478,6 +479,8 @@ def _device_module():
 
 
 def _native_collect(checkpoint=None):
+    started = time.monotonic()
+    remaining = lambda: max(0, CAPTURE_TIMEOUT - (time.monotonic() - started) - 0.5)
     out = {}
     def saved():
         if checkpoint:
@@ -495,6 +498,8 @@ def _native_collect(checkpoint=None):
         backends = module.native_backends()
         firmware = _owned_module("fwres")
         backends.update(firmware.native_backends())
+        backends.pop('bios_settings')  # Run slow vendor CIM queries only after all other saved facts.
+        backends['cpu_native'] = _owned_module('cpunative').cpu_native
         out["device_map"] = module.collect(backends, checkpoint=map_saved)
         out["device_map"]["qualification"] = "Windows observations; macOS support not assessed"
     except Exception as error:
@@ -506,6 +511,15 @@ def _native_collect(checkpoint=None):
     except Exception as error:
         out["nvidia"] = {"status": "unavailable", "error": type(error).__name__, "devices": []}
     saved()
+    try:
+        firmware = _owned_module('fwres')
+        module = _device_module()
+        bios, _ = module._stage(lambda: firmware.bios_settings(remaining=remaining), firmware.EXTRA_SOURCES['bios_settings'])
+        out['device_map']['bios_settings'] = bios
+        out['device_map']['stages_completed'].append('bios_settings')
+    except Exception as error:
+        out['device_map']['bios_settings'] = unavailable(type(error).__name__, 'vendor WMI BIOS provider (read-only CIM query)')
+    saved()
     return out
 
 
@@ -515,6 +529,15 @@ def _bounded_payload(value, maximum=CAPTURE_MAX_BYTES):
     encode = lambda: json.dumps(out, ensure_ascii=True).encode("utf-8")
     payload = encode()
     while len(payload) > maximum:
+        cpu_record = (out.get('device_map') or {}).get('cpu_native') or {}
+        processors = ((cpu_record.get('value') or {}).get('per_logical_processor') or {}).get('processors') or []
+        if len(processors) > 1:
+            keep = max(1, len(processors) // 2)
+            cpu_record['value']['per_logical_processor']['processors'] = processors[:keep]
+            cpu_record.update(status='partial', error='CPUID details truncated by parent capture size limit; earlier device evidence retained')
+            cpu_record['omitted_logical_records'] = cpu_record.get('omitted_logical_records',0) + len(processors) - keep
+            payload = encode()
+            continue
         extra_reduced = False
         for name in ("pci_resources", "bios_settings", "nvidia_detail"):
             record = (out.get("device_map") or {}).get(name) or {}

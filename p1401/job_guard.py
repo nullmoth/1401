@@ -5,6 +5,9 @@ No breakaway flags are enabled. Failure to establish containment blocks subproce
 """
 import ctypes
 import sys
+import subprocess
+import threading
+import time
 
 DWORD, SIZE, HANDLE = ctypes.c_uint32, ctypes.c_size_t, ctypes.c_void_p
 
@@ -65,3 +68,43 @@ def contains(process_handle):
 
 def ready():
     return _job is not None and contains(_kernel.GetCurrentProcess())
+
+
+def run_bounded(command, environment=None, timeout=2, maximum=2 * 1024 * 1024):
+    """Pipe readers retain a bounded prefix; overflow terminates the contained subprocess."""
+    maximum = min(max(int(maximum), 8192), 2 * 1024 * 1024)
+    if not ready():
+        return b"", None, "subprocess containment unavailable; owned helper not started"
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               env=environment, creationflags=0x08000000 if sys.platform == 'win32' else 0)
+    if not contains(getattr(process, "_handle", None)):
+        process.kill(); process.wait(timeout=1)
+        return b"", None, "subprocess job membership not verified; query stopped"
+    buffers, oversized = [bytearray(), bytearray()], threading.Event()
+    def reader(stream, target):
+        try:
+            while True:
+                chunk = stream.read(8192)
+                if not chunk: break
+                room = maximum - len(target)
+                target.extend(chunk[:max(0, room)])
+                if len(chunk) > room:
+                    oversized.set(); break
+        finally: stream.close()
+    threads = [threading.Thread(target=reader, args=(stream, buffers[i]), daemon=True)
+               for i, stream in enumerate((process.stdout, process.stderr))]
+    for thread in threads: thread.start()
+    deadline = time.monotonic() + min(max(timeout, 0.05), 6)
+    reason = None
+    while process.poll() is None:
+        if oversized.is_set(): reason = "owned helper output exceeded its bounded size"; break
+        if time.monotonic() >= deadline: reason = "owned helper timed out"; break
+        time.sleep(0.01)
+    if reason:
+        process.kill(); process.wait(timeout=1)
+    for thread in threads: thread.join(timeout=0.2)
+    if oversized.is_set(): return b"", None, "owned helper output exceeded its bounded size"
+    if reason: return b"", None, reason
+    if any(thread.is_alive() for thread in threads): return b"", None, "owned helper output did not close"
+    if process.returncode: return b"", None, "owned helper process failed (exit %d)" % process.returncode
+    return bytes(buffers[0]), process.returncode, None

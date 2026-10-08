@@ -120,6 +120,7 @@ def prepare(args):
     app = root / 'engine/app'
     shutil.rmtree(app / 'p1401')
     shutil.copytree(REPO / 'p1401', app / 'p1401', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    runpy.run_path(str(REPO / 'tools/build_cpu_helper.py'))['build'](REPO, app / 'bin')
     tracked = subprocess.check_output(['git', '-C', str(REPO), 'ls-files', '-z', 'upstream'], text=True).split('\0')
     for relative in filter(None, tracked):
         target = app / relative

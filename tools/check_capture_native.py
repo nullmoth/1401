@@ -95,6 +95,9 @@ def verify_capture_native(repo, output, evidence=None):
     evidence['firmware_resource_job_windows_sdk_abi'] = True
     from check_job_native import verify_job_native
     evidence['subprocess_containment'] = verify_job_native(repo)
+    from check_cpu_native import verify_cpu_native
+    evidence['cpu_native'] = {}
+    verify_cpu_native(repo, Path(output).parent, evidence['cpu_native'])
 
     csc = Path(os.environ['WINDIR']) / 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
     compiled = Path(output).parent / 'scan-evidence-check.exe'
@@ -124,6 +127,7 @@ def verify_capture_native(repo, output, evidence=None):
     for identifier in (os.environ.get('USERNAME', ''), os.environ.get('COMPUTERNAME', '')):
         if len(identifier) >= 3 and identifier.lower() in serialized.lower(): raise RuntimeError('Private identity appeared in the device map.')
     evidence['device_map_native_stages'] = counts
+    evidence['device_map_stage_reasons'] = {stage: {'status':record.get('status'), 'reason':record.get('error'), 'source':record.get('source')} for stage in hc.DEVICE_STAGES for record in [device_map.get(stage) or {}] if record.get('status') != 'measured'}
     evidence['device_nodes'] = len(((device_map.get('devices') or {}).get('value') or {}).get('nodes') or [])
     evidence['graphics_adapters'] = len((device_map.get('graphics') or {}).get('value') or [])
     evidence.update({'unsigned_file_rejected': True, 'isolated_worker': True, 'vendor_driver_hardware_qualified': False})
