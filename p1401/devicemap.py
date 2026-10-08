@@ -11,6 +11,7 @@ Privacy: hardware instance tails, friendly names, endpoint names, SSIDs and seri
 remote Bluetooth descendants are omitted. Address scrubbing preserves GUIDs, versions and technical location paths.
 """
 import ctypes
+from collections import Counter
 import ipaddress
 import json
 import os
@@ -106,8 +107,13 @@ def pci_ids(hwid):
 
 
 # pure builders (tested on fixtures)
+_report_local_instances = {}  # volatile exact instance identity -> per-report node; never serialized
+
+
 def build_device_map(raw):
     """raw: dicts from a SetupAPI walk. Returns {"nodes", "edges", "dropped"} with per-report IDs."""
+    global _report_local_instances
+    _report_local_instances = {}
     raw = list(raw)
     kept, dropped = [], {}
     for r in raw:
@@ -123,6 +129,8 @@ def build_device_map(raw):
     for i, r in enumerate(kept):
         ids.setdefault(r["instance_id"], "n%d" % i)
         parent_of[r["instance_id"]] = r.get("parent_instance_id")
+    instance_counts = Counter(row["instance_id"] for row in kept)
+    _report_local_instances = {key: value for key, value in ids.items() if instance_counts[key] == 1}
     raw_parent = {r.get("instance_id"): r.get("parent_instance_id") for r in raw}
 
     def under_bluetooth(inst):
@@ -306,7 +314,7 @@ class Native:
                         libs[dll] = ctypes.WinDLL(dll + ".dll", use_last_error=True, winmode=LOAD_LIBRARY_SEARCH_SYSTEM32)
                 except (OSError, KeyError) as e:
                     libs[dll] = None
-                    self.missing[dll] = f"{dll}.dll not loadable: {e}"
+                    self.missing[dll] = f"{dll}.dll not loadable ({type(e).__name__})"
             lib = libs[dll]
             fn = getattr(lib, name, None) if lib is not None else None
             if fn is None:
@@ -319,14 +327,14 @@ class Native:
     def need(self, *names):
         gone = [self.missing.get(n) or self.missing.get(n.split("!")[0]) for n in names if n not in self.f]
         if gone:
-            raise OSError("; ".join(x or "unavailable" for x in gone))
+            raise ObservationUnavailable("; ".join(x or "unavailable" for x in gone))
 
     @staticmethod
     def com(ptr, method):
         slot, res, args = COM[method]
         vtbl = ctypes.cast(ptr, P(P(ctypes.c_void_p)))[0]
         if not vtbl or not vtbl[slot]:
-            raise OSError(f"{method}: null vtable entry")
+            raise ObservationUnavailable(f"{method}: null vtable entry")
         return FUNCTYPE(res, ctypes.c_void_p, *args)(vtbl[slot])
 
     def release(self, ptr):
@@ -352,7 +360,7 @@ def dxgi_adapters(nt):
     factory = ctypes.c_void_p()
     hr = nt.f["CreateDXGIFactory1"](ctypes.byref(guid(*IID_IDXGIFactory1)), ctypes.byref(factory))
     if hr != 0 or not factory.value:
-        raise OSError(f"CreateDXGIFactory1 {_hex(hr)}" + ("" if factory.value else " (no factory)"))
+        raise ObservationUnavailable(f"CreateDXGIFactory1 {_hex(hr)}" + ("" if factory.value else " (no factory)"))
     adapters, errors = [], []
     try:
         enum = nt.com(factory, "EnumAdapters1")
@@ -413,7 +421,7 @@ def display_paths(nt):
         np_, nm = ctypes.c_uint32(), ctypes.c_uint32()
         rc = nt.f["GetDisplayConfigBufferSizes"](QDC_ONLY_ACTIVE_PATHS, ctypes.byref(np_), ctypes.byref(nm))
         if rc != 0:
-            raise OSError(f"GetDisplayConfigBufferSizes error {rc}")
+            raise ObservationUnavailable(f"GetDisplayConfigBufferSizes error {rc}")
         cap_p, cap_m = min(np_.value, MAX_PATHS), min(nm.value, MAX_MODES)
         if (np_.value, nm.value) != (cap_p, cap_m):
             errors.append(f"Windows reported {np_.value} paths / {nm.value} modes; capped at {MAX_PATHS}/{MAX_MODES}")
@@ -425,14 +433,14 @@ def display_paths(nt):
             errors.append(f"display topology changed during the query (attempt {attempt + 1})")
             continue
         if rc != 0:
-            raise OSError(f"QueryDisplayConfig error {rc}")
+            raise ObservationUnavailable(f"QueryDisplayConfig error {rc}")
         if got_p.value > cap_p:
             errors.append(f"QueryDisplayConfig returned {got_p.value} paths for a {cap_p}-path buffer; kept {cap_p}")
         n = min(got_p.value, cap_p)
         return [{"source_luid": (p.sourceInfo.adapterId.HighPart, p.sourceInfo.adapterId.LowPart), "target_index": i,
                  "output_technology": p.targetInfo.outputTechnology, "target_available": bool(p.targetInfo.targetAvailable)}
                 for i, p in enumerate(paths[:n])], errors
-    raise OSError("; ".join(errors) + f"; gave up after {QDC_RETRIES} attempts")
+    raise ObservationUnavailable("; ".join(errors) + f"; gave up after {QDC_RETRIES} attempts")
 
 
 def _reg_property(nt, h, d, prop, multi):
@@ -488,7 +496,7 @@ def setupapi_devices(nt):
             "SetupDiDestroyDeviceInfoList", "CM_Get_Device_IDW", "CM_Get_Parent", "CM_Get_DevNode_Status")
     h = nt.f["SetupDiGetClassDevsW"](None, None, None, DIGCF_PRESENT | DIGCF_ALLCLASSES)
     if h in (None, 0, ctypes.c_void_p(-1).value):
-        raise OSError(f"SetupDiGetClassDevsW failed (error {nt.last_error()})")
+        raise ObservationUnavailable(f"SetupDiGetClassDevsW failed (error {nt.last_error()})")
     out, errors = [], []
     try:
         for i in range(MAX_NODES * 4 + 1):
@@ -534,17 +542,26 @@ def platform_role(nt):
 
 
 # the worker and its contract
+class ObservationUnavailable(OSError):
+    """A controlled diagnostic reason; arbitrary exception text is never included in reports."""
+
+
 def _stage(fn, src):
     try:
         value, errors = fn()
     except Exception as e:  # noqa: BLE001 - permission, missing API or driver: the reason is the record
-        return unavailable(f"{type(e).__name__}: {e}", src), None
+        code = getattr(e, 'winerror', None) or getattr(e, 'errno', None)
+        reason = str(e)[:300] if isinstance(e, ObservationUnavailable) else type(e).__name__
+        if not isinstance(e, ObservationUnavailable) and isinstance(code, int): reason += " (error %d)" % code
+        return unavailable(reason, src), None
     return (partial(value, src, "; ".join(errors)) if errors else measured(value, src)), value
 
 
 def collect(backends, checkpoint=None):
     """Runs the stages with the given backends ({stage: callable returning (value, errors)}) and returns the record.
     Real native backends are only ever passed in by the worker (_worker_main); tests pass stand-ins."""
+    global _report_local_instances
+    _report_local_instances = {}
     out = {"stages_completed": []}
 
     def done(name, rec):
@@ -566,6 +583,11 @@ def collect(backends, checkpoint=None):
         nodes = (dev_rec.get("value") or {}).get("nodes") or []
         g_rec["value"] = build_graphics_map(adapters, paths or [], nodes)
     done("graphics", g_rec)
+    from . import fwres
+    for name in fwres.EXTRA_STAGES:
+        if name in backends:
+            record, _ = _stage(backends[name], fwres.EXTRA_SOURCES[name])
+            done(name, record)
     return out
 
 

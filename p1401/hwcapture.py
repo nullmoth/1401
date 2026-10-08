@@ -444,7 +444,7 @@ def gpu_inventory(report):
 
 CAPTURE_TIMEOUT = 12
 CAPTURE_MAX_BYTES = 2 * 1024 * 1024
-DEVICE_STAGES = ("platform_role", "devices", "display_paths", "graphics")
+DEVICE_STAGES = ("platform_role", "devices", "display_paths", "graphics", "pci_resources", "bios_settings", "nvidia_detail")
 
 
 def unavailable_device_map(reason):
@@ -458,12 +458,23 @@ def empty_native(reason):
             "nvidia": {"status": "unavailable", "error": reason, "devices": []}}
 
 
+def _owned_module(name):
+    # -I ignores caller paths; every module is pinned to this reviewed adjacent source folder.
+    package = "owned_capture"
+    if package not in sys.modules:
+        spec = importlib.util.spec_from_file_location(package, Path(__file__).with_name("__init__.py"),
+                    submodule_search_locations=[str(Path(__file__).parent)])
+        module = importlib.util.module_from_spec(spec); sys.modules[package] = module; spec.loader.exec_module(module)
+        sys.modules[package + ".hwcapture"] = sys.modules[__name__]
+    fullname = package + "." + name
+    if fullname not in sys.modules:
+        spec = importlib.util.spec_from_file_location(fullname, Path(__file__).with_name(name + ".py"))
+        module = importlib.util.module_from_spec(spec); sys.modules[fullname] = module; spec.loader.exec_module(module)
+    return sys.modules[fullname]
+
+
 def _device_module():
-    # -I ignores caller paths. Load this reviewed adjacent module explicitly, never a module from the current folder.
-    spec = importlib.util.spec_from_file_location("owned_device_map", Path(__file__).with_name("devicemap.py"))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    return _owned_module("devicemap")
 
 
 def _native_collect(checkpoint=None):
@@ -481,7 +492,10 @@ def _native_collect(checkpoint=None):
         def map_saved(value):
             out["device_map"] = value
             saved()
-        out["device_map"] = module.collect(module.native_backends(), checkpoint=map_saved)
+        backends = module.native_backends()
+        firmware = _owned_module("fwres")
+        backends.update(firmware.native_backends())
+        out["device_map"] = module.collect(backends, checkpoint=map_saved)
         out["device_map"]["qualification"] = "Windows observations; macOS support not assessed"
     except Exception as error:
         out["device_map"] = unavailable_device_map(type(error).__name__)
@@ -501,6 +515,22 @@ def _bounded_payload(value, maximum=CAPTURE_MAX_BYTES):
     encode = lambda: json.dumps(out, ensure_ascii=True).encode("utf-8")
     payload = encode()
     while len(payload) > maximum:
+        extra_reduced = False
+        for name in ("pci_resources", "bios_settings", "nvidia_detail"):
+            record = (out.get("device_map") or {}).get(name) or {}
+            value = record.get("value")
+            records = value if isinstance(value, list) else (value.get("settings" if name == "bios_settings" else "devices") if isinstance(value, dict) else None)
+            if records and len(records) > 1:
+                keep = max(1, len(records) // 2)
+                if isinstance(value, list): record['value'] = records[:keep]
+                else: value["settings" if name == "bios_settings" else "devices"] = records[:keep]
+                record.update(status='partial', error='optional detail truncated to the capture size limit')
+                record['omitted_records'] = record.get('omitted_records', 0) + len(records) - keep
+                extra_reduced = True
+                break
+        if extra_reduced:
+            payload = encode()
+            continue
         stage = (out.get("device_map") or {}).get("devices") or {}
         graph = stage.get("value") or {}
         nodes = graph.get("nodes") or []
@@ -510,6 +540,10 @@ def _bounded_payload(value, maximum=CAPTURE_MAX_BYTES):
             ids = {node.get("node") for node in graph["nodes"]}
             graph["edges"] = [edge for edge in graph.get("edges", [])
                               if edge.get("parent") in ids and edge.get("child") in ids]
+            for record in ((out.get("device_map") or {}).get("pci_resources") or {}).get("value") or []:
+                if record.get('node') and record['node'] not in ids:
+                    record['node'] = None
+                    record['node_join'] = 'unavailable: matching PnP node omitted by capture size limit'
             graph.setdefault("dropped", {})["capture size cap"] = graph.get("dropped", {}).get("capture size cap", 0) + len(nodes) - keep
             stage["status"] = "partial"
             stage["error"] = "device map truncated to the capture size limit; omitted nodes are unobserved in this receipt"
@@ -616,6 +650,10 @@ if __name__ == "__main__":
         raise SystemExit(2)
     destination = Path(sys.argv[2])
     partial = Path(str(destination) + ".partial")
+    try:
+        _owned_module("job_guard").initialize()
+    except Exception:
+        pass  # Optional subprocess containment failure must not discard CPU/PnP evidence.
     result = _native_collect(checkpoint=lambda value: _write_checkpoint(partial, value))
     _write_checkpoint(destination, result)
     partial.unlink(missing_ok=True)
