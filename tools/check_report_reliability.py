@@ -23,8 +23,19 @@ def main():
                 raise RuntimeError('Compiled fixture failed')
             run=subprocess.run([str(exe)],capture_output=True,timeout=20)
             result['runtime_exit']=run.returncode
-            if run.returncode:raise RuntimeError('Production lifecycle fixture failed')
-            result['fixture']=json.loads(run.stdout)
+            if len(run.stdout) > 8192 or len(run.stderr) > 8192:raise RuntimeError('Fixture diagnostic output exceeded limit')
+            try:
+                fixture=json.loads(run.stdout)
+                allowed={'ok','assertions','assertion_number','stage','error_type','error_code'}
+                if not isinstance(fixture,dict) or set(fixture)-allowed or type(fixture.get('ok')) is not bool:raise ValueError('Unexpected fixture fields')
+                for field in ['assertions','assertion_number','error_code']:
+                    if field in fixture and (type(fixture[field]) is not int or not -(2**31)<=fixture[field]<2**31):raise ValueError('Invalid numeric fixture value')
+                for field in ['stage','error_type']:
+                    if field in fixture and (not isinstance(fixture[field],str) or not __import__('re').fullmatch('[A-Za-z0-9_]{1,64}',fixture[field])):raise ValueError('Invalid fixture label')
+                result['fixture']=fixture
+            except (ValueError,TypeError):
+                result['fixture']={'ok':False,'error_type':'InvalidFixtureDiagnostic'}
+            if run.returncode or result['fixture'].get('ok') is not True:raise RuntimeError('Production lifecycle fixture failed')
             result['ok']=True
     except Exception as error:result['failure_type']=type(error).__name__
     Path(args.output).parent.mkdir(parents=True,exist_ok=True);Path(args.output).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));return 0 if result['ok'] else 1

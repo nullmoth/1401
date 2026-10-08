@@ -7,8 +7,18 @@ using A1401;
 class ReportReliability
 {
     static int checks;
+    static string stage = "synthetic_identity";
     static void Require(bool value) { checks++; if (!value) throw new Exception("Diagnostic fixture assertion " + checks); }
     static int Main(string[] args)
+    {
+        try { return RunFixtures(args); }
+        catch (Exception error)
+        {
+            Console.WriteLine("{\"ok\":false,\"assertion_number\":" + checks + ",\"stage\":\"" + stage + "\",\"error_type\":\"" + error.GetType().Name + "\",\"error_code\":" + error.HResult + "}");
+            return 1;
+        }
+    }
+    static int RunFixtures(string[] args)
     {
         if (args.Length > 0)
         {
@@ -33,6 +43,7 @@ class ReportReliability
             Require(DurableReport.CleanIdentity("com.nvidia.driver nullmoth-nvidia-1.0.11.tar.gz nvidia-macos-driver User=NVIDIA", "NVIDIA", "UnitHost", "") == "com.nvidia.driver nullmoth-nvidia-1.0.11.tar.gz nvidia-macos-driver User=user");
             Require(DurableReport.CleanIdentity(null, null, null, null) == "");
             Require(DurableReport.CleanIdentity("User: UnitAccount\nHOST=UnitHost\nunitaccount\nUNITHOST", "UnitAccount", "UnitHost", "") == "User: user\nHOST=this-pc\nuser\nthis-pc");
+            stage = "local_report_filesystem";
             var work = Path.Combine(directory, "missing", "app-data");
             var one = DurableReport.Save(work, "build", "1.0.23", "download failed\r\nretained output");
             Require(one.Saved && File.ReadAllText(one.Path).Contains("download failed"));
@@ -58,9 +69,11 @@ class ReportReliability
             Require(DurableReport.IsLocal(work, one.Path));
             Require(!DurableReport.IsLocal(work, Path.Combine(directory, "outside.txt")));
             // The executable is isolated from portable Python: production launch fails and still publishes a report.
+            stage = "engine_missing_launch";
             var seen = new List<string>(); int rc = Engine.Run("p1401 build missing missing missing --json", l => { lock (seen) seen.Add(l); }).GetAwaiter().GetResult();
             Require(rc != 0 && Engine.LastReport != null && Engine.LastReport.Saved);
             Require(File.ReadAllText(Engine.LastReport.Path).Contains("Engine operation failed"));
+            stage = "engine_child_output";
             var firstFinal = Engine.LastReport.Path;
             var engineDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine");
             Directory.CreateDirectory(Path.Combine(engineDirectory, "python"));
@@ -79,6 +92,9 @@ class ReportReliability
             File.Delete(firstFinal); File.Delete(Engine.LastReport.Path);
             Console.WriteLine("{\"ok\":true,\"assertions\":" + checks + "}"); return 0;
         }
-        finally { Directory.Delete(directory, true); }
+        finally {
+            var previous = stage; stage = "fixture_cleanup";
+            Directory.Delete(directory, true); stage = previous;
+        }
     }
 }
