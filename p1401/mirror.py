@@ -3,7 +3,8 @@
 Networks that block or reset GitHub (common in mainland China and on some school and work networks) could not finish a
 build: OpenCore, its drivers, the kexts and the patch lists all come from GitHub. Each release ships mirror.json beside
 this file: every dependency URL the build can fetch, with the size and SHA-256 of the exact bytes recorded when the
-release was packaged (tools/record_mirror.py). The same bytes are served as nullmothsystems.com/mirror/<sha256>.
+release was packaged (tools/record_mirror.py). Release index pages contain only the selected tag link; vendor archives
+remain unchanged. The same bytes are served as nullmothsystems.com/mirror/<sha256>.
 
 A mirrored file is used only when its size and SHA-256 equal the manifest's, so the mirror can never change what a
 build gets; it can only make a build possible that GitHub's reachability would otherwise stop. After the first

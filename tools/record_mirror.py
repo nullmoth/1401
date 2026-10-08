@@ -3,7 +3,7 @@
 python3 tools/record_mirror.py <out dir>
 
 Runs the engine's own fetch code against the real network with every kext selected, keeps each response body as the
-bytes the engine reads (content encoding removed), and writes <out dir>/files/<sha256> for each plus
+bytes the engine reads (content encoding removed), reduces release index pages to their first tag link, and writes <out dir>/files/<sha256> for each plus
 <out dir>/mirror.json. For a release, mirror.json goes to p1401/ and files/ to the server's /srv/nullmoth/mirror/
 (files are never removed there, so every earlier release keeps its mirror). Exits non-zero when anything the engine
 would need could not be recorded, and names it."""
@@ -74,8 +74,11 @@ def main(out):
     # iasl is not recorded: the Windows package ships iasl.exe (windows/App/Engine.cs), so a build never downloads it.
 
     os.makedirs(os.path.join(out, "files"), exist_ok=True)
+    from p1401.mirror_metadata import release_index
     entries = {}
     for url, body in sorted(recorded.items()):
+        original_sha = hashlib.sha256(body).hexdigest()
+        body = release_index(url, body)
         sha = hashlib.sha256(body).hexdigest()
         path = os.path.join(out, "files", sha)
         if not os.path.exists(path):
@@ -83,6 +86,8 @@ def main(out):
                 fh.write(body)
             os.replace(path + ".tmp", path)
         entries[url] = {"sha256": sha, "size": len(body)}
+        if sha != original_sha:
+            entries[url].update(source_sha256=original_sha, metadata_kind="release-tag")
     manifest = os.path.join(out, "mirror.json")
     with open(manifest + ".tmp", "w") as fh:
         json.dump({"schema": mirror.SCHEMA, "entries": entries}, fh, indent=1, sort_keys=True)
