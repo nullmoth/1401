@@ -34,7 +34,10 @@ class Packaging(unittest.TestCase):
                 with self.subTest(name=name):
                     archive = Path(directory) / 'bad.zip'
                     with zipfile.ZipFile(archive, 'w') as output:
-                        output.writestr(name, b'payload')
+                        entry = zipfile.ZipInfo(name)
+                        # Preserve the actual archive name across host path normalization.
+                        entry.filename = name
+                        output.writestr(entry, b'payload')
                     with self.assertRaisesRegex(RuntimeError, 'Unsafe'):
                         release.extract_baseline(archive, Path(directory) / 'stage')
 

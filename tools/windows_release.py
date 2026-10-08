@@ -72,9 +72,10 @@ def extract_baseline(archive, destination):
     destination = Path(destination)
     with zipfile.ZipFile(archive) as source:
         for entry in source.infolist():
-            name = PurePosixPath(entry.filename)
+            original = entry.orig_filename
+            name = PurePosixPath(original)
             if (not name.parts or name.parts[0] != '1401' or name.is_absolute() or
-                    '..' in name.parts or '\\' in entry.filename or ':' in entry.filename or
+                    '..' in name.parts or '\\' in original or ':' in original or
                     stat.S_ISLNK(entry.external_attr >> 16)):
                 raise RuntimeError('Unsafe baseline ZIP member.')
         source.extractall(destination)
