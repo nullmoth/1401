@@ -13,6 +13,8 @@ import struct
 import re
 import sys
 import json
+import copy
+import importlib.util
 import subprocess
 import tempfile
 from contextlib import contextmanager
@@ -436,70 +438,184 @@ def gpu_inventory(report):
                ("no usable PCI identity reported; not evidence of any physical GPU model" if not vendor else "PCI adapter; physical backing and driver qualification unverified")
         out.append({"name": name, "device_id": dev or None, "subsystem_id": value("Subsystem ID") or None,
                     "pci_path": value("PCI Path"), "acpi_path": value("ACPI Path"), "kind": kind,
-                    "raytracing": unavailable("not queried: the hardware report has no D3D12 raytracing tier", "none")})
+                    "raytracing": unavailable("not in the raw report; query results are separate device_map adapter observations where available", "none")})
     return out
 
 
-CAPTURE_TIMEOUT = 8
-CAPTURE_MAX_BYTES = 256 * 1024
+CAPTURE_TIMEOUT = 12
+CAPTURE_MAX_BYTES = 2 * 1024 * 1024
+DEVICE_STAGES = ("platform_role", "devices", "display_paths", "graphics")
 
 
-def _native_collect():
+def unavailable_device_map(reason):
+    return {**{stage: unavailable(reason, "owned hardware worker") for stage in DEVICE_STAGES},
+            "stages_completed": [], "qualification": "Windows observations; macOS support not assessed"}
+
+
+def empty_native(reason):
+    return {"cpu_topology": unavailable(reason, "owned hardware worker"),
+            "device_map": unavailable_device_map(reason),
+            "nvidia": {"status": "unavailable", "error": reason, "devices": []}}
+
+
+def _device_module():
+    # -I ignores caller paths. Load this reviewed adjacent module explicitly, never a module from the current folder.
+    spec = importlib.util.spec_from_file_location("owned_device_map", Path(__file__).with_name("devicemap.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _native_collect(checkpoint=None):
     out = {}
-    for key, fn in (("cpu_topology", cpu_topology), ("nvidia", nvidia_compute)):
-        try:
-            out[key] = fn()
-        except Exception as e:
-            out[key] = unavailable(type(e).__name__, key)
+    def saved():
+        if checkpoint:
+            checkpoint(out)
+    try:
+        out["cpu_topology"] = cpu_topology()
+    except Exception as error:
+        out["cpu_topology"] = unavailable(type(error).__name__, "cpu topology")
+    saved()
+    try:
+        module = _device_module()
+        def map_saved(value):
+            out["device_map"] = value
+            saved()
+        out["device_map"] = module.collect(module.native_backends(), checkpoint=map_saved)
+        out["device_map"]["qualification"] = "Windows observations; macOS support not assessed"
+    except Exception as error:
+        out["device_map"] = unavailable_device_map(type(error).__name__)
+    saved()
+    # GPU vendor libraries may hang; all cheaper CPU/PnP/display observations are already recoverable.
+    try:
+        out["nvidia"] = nvidia_compute()
+    except Exception as error:
+        out["nvidia"] = {"status": "unavailable", "error": type(error).__name__, "devices": []}
+    saved()
+    return out
+
+
+def _bounded_payload(value, maximum=CAPTURE_MAX_BYTES):
+    """Retain earlier evidence when size caps apply; reductions are explicit partial observations."""
+    out = copy.deepcopy(value)
+    encode = lambda: json.dumps(out, ensure_ascii=True).encode("utf-8")
+    payload = encode()
+    while len(payload) > maximum:
+        stage = (out.get("device_map") or {}).get("devices") or {}
+        graph = stage.get("value") or {}
+        nodes = graph.get("nodes") or []
+        if len(nodes) > 1:
+            keep = max(1, len(nodes) // 2)
+            graph["nodes"] = nodes[:keep]
+            ids = {node.get("node") for node in graph["nodes"]}
+            graph["edges"] = [edge for edge in graph.get("edges", [])
+                              if edge.get("parent") in ids and edge.get("child") in ids]
+            graph.setdefault("dropped", {})["capture size cap"] = graph.get("dropped", {}).get("capture size cap", 0) + len(nodes) - keep
+            stage["status"] = "partial"
+            stage["error"] = "device map truncated to the capture size limit; omitted nodes are unobserved in this receipt"
+        else:
+            cpu = out.get("cpu_topology") or {}
+            details = cpu.get("value") or {}
+            maps = [key for key in ("core_map", "package_map", "die_map", "cache_map", "numa_map") if details.get(key)]
+            if maps:
+                for key in maps:
+                    details[key] = details[key][:len(details[key]) // 2]
+                cpu["status"] = "partial"
+                cpu["error"] = "detailed topology truncated to the capture size limit; aggregate counts retained"
+            elif (out.get("nvidia") or {}).get("devices"):
+                out["nvidia"]["devices"] = []
+                out["nvidia"]["status"] = "partial"
+                out["nvidia"]["error"] = "GPU details exceeded the capture size limit; raw scan retained separately"
+            else:
+                return empty_native("capture exceeded size limit; raw scan retained separately")
+        payload = encode()
+    return out
+
+
+def _write_checkpoint(path, value):
+    payload = json.dumps(_bounded_payload(value), ensure_ascii=True).encode("utf-8")
+    temporary = str(path) + ".tmp"
+    with open(temporary, "wb") as output:
+        output.write(payload)
+        output.flush()
+        os.fsync(output.fileno())
+    os.replace(temporary, path)
+
+
+def _read_checkpoint(path):
+    try:
+        with Path(path).open("rb") as output:
+            data = output.read(CAPTURE_MAX_BYTES + 1)
+        if len(data) > CAPTURE_MAX_BYTES:
+            return None
+        value = json.loads(data)
+        if not isinstance(value, dict) or not set(value).issubset({"cpu_topology", "device_map", "nvidia"}):
+            return None
+        return value
+    except (OSError, ValueError):
+        return None
+
+
+def _recover(value, reason=None):
+    out = value if value is not None else {}
+    missing = empty_native(reason or "worker did not produce this observation")
+    for key in missing:
+        out.setdefault(key, missing[key])
+    device_map = out["device_map"]
+    if isinstance(device_map, dict):
+        for stage in DEVICE_STAGES:
+            device_map.setdefault(stage, unavailable(reason or "worker did not reach this stage", "owned hardware worker"))
+        device_map.setdefault("stages_completed", [])
+        device_map["qualification"] = "Windows observations; macOS support not assessed"
     return out
 
 
 def _bounded_native(command=None, timeout=CAPTURE_TIMEOUT):
-    """Vendor calls stay in an owned process. A crash/hang/output overflow cannot freeze the EFI builder."""
-    source = "isolated hardware capture"
-    fail = lambda why: {"cpu_topology": unavailable(why, source), "nvidia": {"status": "unavailable", "error": why, "devices": []}}
+    """One owned process, bounded output and recoverable atomic stage checkpoints."""
     try:
         with tempfile.TemporaryDirectory(prefix="1401-capture-") as directory:
             output = Path(directory) / "capture.json"
+            partial = Path(str(output) + ".partial")
             cmd = command or [sys.executable, "-I", "-B", str(Path(__file__).resolve()), "--collect-worker", str(output)]
             if command is not None:
                 cmd = [*command, str(output)]
-            with subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as child:
-                try:
-                    child.wait(timeout=timeout)
-                except subprocess.TimeoutExpired:
-                    child.kill()
-                    child.wait()
-                    return fail("capture timed out; raw scan retained")
+            child = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            reason = None
+            try:
+                child.wait(timeout=min(max(timeout, 0.05), CAPTURE_TIMEOUT))
                 if child.returncode != 0:
-                    return fail("capture process failed; raw scan retained")
-            with output.open("rb") as f:
-                payload = f.read(CAPTURE_MAX_BYTES + 1)
-            if len(payload) > CAPTURE_MAX_BYTES:
-                return fail("capture output exceeded its limit; raw scan retained")
-            result = json.loads(payload)
-            if not isinstance(result, dict) or set(result) != {"cpu_topology", "nvidia"}:
-                return fail("capture output was invalid; raw scan retained")
-            return result
+                    reason = "capture process failed; earlier stage evidence retained"
+            except subprocess.TimeoutExpired:
+                child.kill()
+                try:
+                    child.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    pass
+                reason = "capture timed out; earlier stage evidence retained"
+            final = _read_checkpoint(output) if reason is None else None
+            if final is None:
+                final = _read_checkpoint(partial)
+                reason = reason or "capture output unavailable or invalid; earlier stage evidence retained"
+            return _recover(final, reason)
     except Exception:
-        return fail("capture unavailable; raw scan retained")
+        return empty_native("capture unavailable; raw scan retained")
 
 
 def collect(report):
-    """Optional, bounded measurements. Never let collection failure change a build or its raw device evidence."""
+    """Optional measurements, always isolated; collection failure cannot change a build or raw scan evidence."""
     try:
         out = {"gpus": gpu_inventory(report)}
     except Exception:
         out = {"gpus": [], "inventory": unavailable("invalid report shape", "hardware report")}
-    out.update(_bounded_native() if sys.platform == "win32" else _native_collect())
+    out.update(_bounded_native())
     return out
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3 or sys.argv[1] != "--collect-worker":
         raise SystemExit(2)
-    payload = json.dumps(_native_collect(), ensure_ascii=True).encode("utf-8")
-    if len(payload) > CAPTURE_MAX_BYTES:
-        raise SystemExit(3)
-    with open(sys.argv[2], "xb") as output:
-        output.write(payload)
+    destination = Path(sys.argv[2])
+    partial = Path(str(destination) + ".partial")
+    result = _native_collect(checkpoint=lambda value: _write_checkpoint(partial, value))
+    _write_checkpoint(destination, result)
+    partial.unlink(missing_ok=True)

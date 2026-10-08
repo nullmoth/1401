@@ -540,8 +540,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             res.error += "\n" + network_help(f"github.com ({m.group(1)})")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
-    from . import hwcapture  # noqa: PLC0415
-    res.capture = hwcapture.collect(res.raw_hardware or res.hardware)  # never raises
+    from . import scan_evidence  # noqa: PLC0415
+    res.capture = scan_evidence.load_for_report(report_path, res.raw_hardware or res.hardware)
     if h is not None:
         res.decisions, res.notices = h.decisions, h.notices
     res.transcript = h.tee.text() if hasattr(h, "tee") else ""

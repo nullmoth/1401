@@ -28,7 +28,7 @@ namespace A1401
         readonly LinkLabel drvLink = new LinkLabel();
         readonly ListView facts = new ListView();
         bool busy, scanned, built, written, listing;
-        string scanDir, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
+        string scanDir, scanRunId, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
 
         public MainForm(bool verificationMode = false)
         {
@@ -175,10 +175,12 @@ namespace A1401
             if (page == 1 && !scanned)
             {
                 busy = true; next.Enabled = false; log.Clear();
-                scanDir = Path.Combine(Engine.Work, "scan"); Wipe(scanDir);
+                scanRunId = Guid.NewGuid().ToString("N");
+                scanDir = ScanEvidence.RunDirectory(Engine.Work, scanRunId);
+                ScanEvidence.Remember(Engine.Work, scanRunId);
                 Say("Checking this PC...");
                 var scanLines = new List<string>();
-                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir), l => { scanLines.Add(l); Say(l); });
+                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { scanLines.Add(l); Say(l); });
                 busy = false; next.Enabled = true;
                 if (rc != 0)
                 {
@@ -247,7 +249,7 @@ namespace A1401
                 if (pkg != null) args += " --driver " + Engine.Q(pkg);
                 var mac = Directory.Exists(Engine.NullMothDir) ? Directory.GetFiles(Engine.NullMothDir, "1401-Mac-*.zip").FirstOrDefault() : null;
                 if (mac != null) args += " --extra " + Engine.Q(mac);
-                var report = Path.Combine(Engine.Work, "scan", "Report.json");
+                var report = Path.Combine(scanDir, "Report.json");
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
                 if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
                 int rc = await Engine.Run(args, Say);
@@ -353,13 +355,21 @@ namespace A1401
         {
             var ask = MessageBox.Show(this,
                 "The " + kind + " failed.\r\n\r\n1401 is sending this log to nullmothsystems.com so the bug can be found and fixed. " +
-                "It holds this PC's hardware list and what the build printed. Your Windows user name and PC name are removed first. " +
+                "It holds this scan's hardware list, bounded device/CPU observations and what the check or build printed. Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
                 "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.",
                 "1401 - sending the log", MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
             if (ask != DialogResult.OK) { Say("The log was not sent. It stays in " + file + "."); return; }
-            var id = Send(file, "1401-" + kind + "-log.txt", kind + " failed");
-            Say(id != null ? "Log sent. Report ID " + id + " - mention it in the NullMoth Discord if you ask for help."
-                           : "Could not send the log (" + lastSendError + "). It stays in " + file + ".");
+            var ids = new List<string>();
+            var batch = NewBatch();
+            var id = Send(file, "1401-" + kind + "-log.txt", kind + " failed", batch);
+            if (id != null) ids.Add(id);
+            var evidence = ScanEvidence.Find(Engine.Work, scanRunId, false);
+            if (evidence != null) {
+                var receipt = Send(evidence.Path, "1401-scan-evidence.json.txt", kind + " failed; saved evidence from this scan run; macOS support not assessed", batch);
+                if (receipt != null) ids.Add(receipt);
+            }
+            Say(ids.Count > 0 ? "Logs sent. Report IDs " + string.Join(", ", ids) + " - mention them in the NullMoth Discord if you ask for help."
+                             : "Could not send the logs (" + lastSendError + "). They stay on this PC.");
         }
 
         // POST one text file to the site's upload endpoint; returns the report ID, or null when it could not be sent.
@@ -450,6 +460,10 @@ namespace A1401
             // asked from the link: the last failed build's log on this PC goes too
             var bl = Path.Combine(Engine.Work, "build-log.txt");
             if (asked && File.Exists(bl)) found.Add(bl);
+            var scanLog = Path.Combine(Engine.Work, "scan-log.txt");
+            if (asked && File.Exists(scanLog)) found.Add(scanLog);
+            var evidence = asked ? ScanEvidence.Find(Engine.Work, scanRunId, true) : null;
+            if (evidence != null) found.Insert(0, evidence.Path);
             var crash = Path.Combine(Engine.Work, "crash-log.txt");   // written by Program.cs when 1401 itself crashed
             if (File.Exists(crash)) found.Add(crash);
             foreach (var d in DriveInfo.GetDrives())
@@ -482,10 +496,10 @@ namespace A1401
             // file), so the line the screen stopped on is the one fact the logs cannot hold. Optional; same two clicks.
             string screen;
             var ask = AskSend(
-                "1401 found " + found.Count + " log file" + (found.Count == 1 ? "" : "s") + " (from a macOS start on your USB stick" + (found.Contains(bl) ? ", and the last build" : "") + ").\r\n\r\n" +
-                "If macOS did not start, these show why. 1401 is sending them to nullmothsystems.com so the bug can be found and fixed. " +
+                "1401 found " + found.Count + " diagnostic file" + (found.Count == 1 ? "" : "s") + " (available scan/build evidence and startup logs from attached sticks).\r\n\r\n" +
+                "These retain available failure and hardware observations. 1401 is sending them to nullmothsystems.com so the bug can be found and fixed. " +
                 "They hold what OpenCore and macOS printed while starting, and the stick's OpenCore settings with serial numbers removed. " +
-                "Nothing else on this PC is sent.\r\n\r\nClick Send to send them now, or Cancel to leave them on the stick.",
+                "An included scan receipt records saved Windows hardware observations, even if the check failed; it does not prove this PC or the attached stick has that hardware. Nothing else on this PC is sent.\r\n\r\nClick Send to send them now, or Cancel to keep them locally.",
                 out screen);
             if (ask != DialogResult.OK) return;
             var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "");
@@ -493,12 +507,12 @@ namespace A1401
             var batch = NewBatch();
             foreach (var f in found)
             {
-                var id = Send(f, Path.GetFileName(f), what, batch);
+                var id = Send(f, Path.GetFileName(f).EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? Path.GetFileName(f) + ".txt" : Path.GetFileName(f), what + (evidence != null && f == evidence.Path ? (evidence.CurrentRun ? "; this scan run; not macOS qualification" : "; saved prior scan; not current-PC or attached-stick identity proof") : ""), batch);
                 if (id == null) continue;
                 ids.Add(id);
                 try
                 {
-                    if (f == bl || configs.Contains(f)) continue;
+                    if (f == bl || f == scanLog || (evidence != null && f == evidence.Path) || configs.Contains(f)) continue;
                     if (f == crash) { File.Move(crash, crash + ".sent-" + DateTime.Now.ToString("yyyyMMdd-HHmmss")); continue; }
                     var sent = Path.Combine(Path.GetPathRoot(f), "NullMoth", "sent-logs"); Directory.CreateDirectory(sent);
                     File.Move(f, Path.Combine(sent, Path.GetFileName(f)));

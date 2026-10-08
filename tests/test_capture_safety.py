@@ -28,7 +28,7 @@ class CaptureSafety(unittest.TestCase):
     def test_worker_crash_and_invalid_or_large_output_are_unavailable(self):
         sources = ['raise SystemExit(4)',
                    'import sys; open(sys.argv[1],"w").write("[]")',
-                   'import sys; open(sys.argv[1],"w").write("x" * 262145)']
+                   'import sys; open(sys.argv[1],"w").write("x" * 2097153)']
         for source in sources:
             result = self.worker(source)
             self.assertEqual(result['nvidia']['status'], 'unavailable')
@@ -36,7 +36,7 @@ class CaptureSafety(unittest.TestCase):
 
     def test_real_isolated_worker_protocol(self):
         result = hc._bounded_native()
-        self.assertEqual(set(result), {'cpu_topology', 'nvidia'})
+        self.assertEqual(set(result), {'cpu_topology', 'device_map', 'nvidia'})
         self.assertIn('devices', result['nvidia'])
         self.assertNotIn('traceback', json.dumps(result).lower())
 
@@ -129,3 +129,25 @@ class CompleteTopologyIdentity(unittest.TestCase):
         self.assertEqual(hc._parse_pci('00000000:01:00.7'), (0, 1, 0, 7))
         self.assertIsNone(hc._parse_pci('0000:01:00'))
         self.assertIsNone(hc._parse_pci('0000:01:ff.0'))
+
+
+class RecoverableWorker(unittest.TestCase):
+    def test_cpu_pnp_checkpoint_survives_driver_timeout(self):
+        value = {'cpu_topology': hc.measured({'cores': 20}, 'fixture CPU'),
+                 'device_map': {'stages_completed': ['devices'], 'devices': hc.measured({'nodes': [{'node': 'n0', 'device_id': 'PCI-fixture'}]}, 'fixture PnP')}}
+        code = 'import sys,time; open(sys.argv[1]+".partial","w").write(' + repr(json.dumps(value)) + '); time.sleep(30)'
+        result = hc._bounded_native([sys.executable, '-I', '-B', '-c', code], timeout=0.2)
+        self.assertEqual(result['cpu_topology']['value']['cores'], 20)
+        self.assertEqual(result['device_map']['devices']['value']['nodes'][0]['device_id'], 'PCI-fixture')
+        self.assertEqual(result['device_map']['graphics']['status'], 'unavailable')
+        self.assertIn('timed out', result['device_map']['graphics']['error'])
+        self.assertEqual(result['nvidia']['status'], 'unavailable')
+    def test_large_pnp_map_is_partial_and_retains_cpu(self):
+        value = hc.empty_native('fixture'); value['cpu_topology'] = hc.measured({'cores': 20}, 'fixture CPU')
+        nodes = [{'node': 'n' + str(i), 'device_id': 'PCI-fixture', 'description': 'x' * 200} for i in range(3000)]
+        value['device_map']['devices'] = hc.measured({'nodes': nodes, 'edges': [], 'dropped': {}}, 'fixture PnP')
+        bounded = hc._bounded_payload(value, maximum=65536)
+        self.assertLessEqual(len(json.dumps(bounded, ensure_ascii=True).encode()), 65536)
+        self.assertEqual(bounded['cpu_topology']['value']['cores'], 20)
+        self.assertEqual(bounded['device_map']['devices']['status'], 'partial')
+        self.assertGreater(bounded['device_map']['devices']['value']['dropped']['capture size cap'], 0)

@@ -1,5 +1,6 @@
 """Windows SDK ABI and actual read-only OS API verification for the packaged collector."""
 import ctypes
+import importlib.util
 import base64
 import json
 import os
@@ -73,8 +74,45 @@ def verify_capture_native(repo, output, evidence=None):
         evidence['unsigned_status_hex'] = f'0x{status & 0xffffffff:08x}'
         if status == 0: raise RuntimeError('Unsigned fixture was accepted by WinVerifyTrust.')
     unsigned.unlink()
+    # Compile the actual Windows SDK declarations for every device-map structure/slot/constant.
+    specification = importlib.util.spec_from_file_location('device_map_abi_check', Path(repo) / 'tools/device_map_abi.py')
+    abi = importlib.util.module_from_spec(specification); specification.loader.exec_module(abi)
+    generated = Path(output).parent / 'device-map-abi.c'
+    generated.write_text(abi.generate() + '\nint main(void) {return check_guids();}\n')
+    native = Path(output).parent / 'device-map-abi.exe'
+    subprocess.run(['cl', '/nologo', '/std:c11', '/O2', str(generated), '/link', '/OUT:' + str(native)],
+                   cwd=native.parent, check=True, capture_output=True, timeout=30)
+    subprocess.run([str(native)], check=True, capture_output=True, timeout=10)
+    evidence['device_map_windows_sdk_abi'] = True
+    csc = Path(os.environ['WINDIR']) / 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
+    compiled = Path(output).parent / 'scan-evidence-check.exe'
+    subprocess.run([str(csc), '/nologo', '/target:exe', '/reference:System.Web.Extensions.dll', '/out:' + str(compiled),
+                    str(Path(repo) / 'windows/App/ScanEvidence.cs'), str(Path(repo) / 'tools/ScanEvidenceCheck.cs')],
+                   check=True, capture_output=True, timeout=30)
+    gui_proof = Path(output).parent / 'scan-evidence-check.json'
+    subprocess.run([str(compiled), str(gui_proof)], check=True, capture_output=True, timeout=10)
+    evidence['compiled_scan_evidence_binding'] = json.loads(gui_proof.read_text()).get('scan_evidence_binding') is True
+    if not evidence['compiled_scan_evidence_binding']: raise RuntimeError('Compiled scan receipt binding failed.')
     result = hc._bounded_native()
     if result.get('cpu_topology', {}).get('status') != 'measured':
-        raise RuntimeError('The actual packaged isolated collector did not return CPU topology.')
+        raise RuntimeError('The actual isolated collector did not return CPU topology.')
+    device_map = result.get('device_map') or {}
+    counts = {'measured': [], 'partial': [], 'unavailable': []}
+    for stage in hc.DEVICE_STAGES:
+        record = device_map.get(stage) or {}
+        status = record.get('status')
+        if status not in counts or not record.get('source'): raise RuntimeError('Device map stage lacks its status/source.')
+        counts[status].append(stage)
+        if status == 'measured' and record.get('error'): raise RuntimeError('Measured device map stage carries an error.')
+        if status in ('partial', 'unavailable') and not record.get('error'): raise RuntimeError('Incomplete device map stage has no reason.')
+        if status == 'unavailable' and 'value' in record: raise RuntimeError('Unavailable device map stage carries a value.')
+    if 'devices' not in counts['measured'] + counts['partial']:
+        raise RuntimeError('Actual Windows SetupAPI device inventory did not run.')
+    serialized = json.dumps(device_map)
+    for identifier in (os.environ.get('USERNAME', ''), os.environ.get('COMPUTERNAME', '')):
+        if len(identifier) >= 3 and identifier.lower() in serialized.lower(): raise RuntimeError('Private identity appeared in the device map.')
+    evidence['device_map_native_stages'] = counts
+    evidence['device_nodes'] = len(((device_map.get('devices') or {}).get('value') or {}).get('nodes') or [])
+    evidence['graphics_adapters'] = len((device_map.get('graphics') or {}).get('value') or [])
     evidence.update({'unsigned_file_rejected': True, 'isolated_worker': True, 'vendor_driver_hardware_qualified': False})
     return evidence
