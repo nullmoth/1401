@@ -133,14 +133,14 @@ def apply(config_path, result, policy):
                "boot and panic logs are written to the stick, so a failed start can be reported from Windows")
     # 2e. The Mac app proves which partition OpenCore started from by OpenCore's boot-path variable, which OpenCore
     # publishes only with Misc > Security > ExposeSensitiveData bit 0x1; the usual 6 leaves it out, and the Mac app then
-    # stopped with one OpenCore partition in sight (NM-PK5A09C6). Bit 0x1 exposes the booter path only - no serials.
+    # stopped with one OpenCore partition in sight. Bit 0x1 exposes the booter path only - no serials.
     sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
     esd = int(sec.get("ExposeSensitiveData", 6) or 0)
     if not esd & 0x1:
         sec["ExposeSensitiveData"] = esd | 0x1
         change("expose-boot-path", str(esd), str(esd | 0x1), "lets the Mac app confirm which partition OpenCore started from")
 
-    # 10-07 (NM-MH8TV0NW): the engine listed SSDT-Disable_Network_GPP7.aml twice in ACPI > Add (two network cards
+    # 10-07: the engine listed SSDT-Disable_Network_GPP7.aml twice in ACPI > Add (two network cards
     # behind the same bridge), and ocvalidate refuses a duplicated entry, so the whole build failed. OpenCore would load
     # the same table twice; the second copy does nothing. Keep the first of each Path (and each kext BundlePath).
     for section, key, label in (("ACPI", "Path", "ACPI > Add"), ("Kernel", "BundlePath", "Kernel > Add")):
@@ -157,7 +157,7 @@ def apply(config_path, result, policy):
             change("dedupe-add", ", ".join(dups), "one entry each",
                    f"{label} listed the same file twice; OpenCore's validator refuses that")
 
-    # 10-07 (stick logs NM-5WSVHVK1, NM-EQB69GYK, NM-V1W41NGH, NM-ZW53KZWZ + their configs): boot.efi stopped with
+    # 10-07 (stick logs + their configs): boot.efi stopped with
     # EB.MM.AKM Err(0xE) / STOP 0x16 ("Couldn't allocate runtime area") on Ryzen boards with SetupVirtualMap on. The engine
     # turns it off only for chipsets it can NAME (B450 X470 A520 B550 X570 TRX40), and Hardware Sniffer reads an AMD chipset
     # only from the board's product name - every AM4/AM5 FCH has the same PCI ID - so most boards report plain "AMD" and
@@ -170,9 +170,9 @@ def apply(config_path, result, policy):
         quirks["SetupVirtualMap"] = False
         change("amd-setupvirtualmap", "SetupVirtualMap=True", "SetupVirtualMap=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
-    # 10-07 (stick log NM-Z1VR8TR9 + config NM-EPAV1SHF, 1401 1.0.14): a Ryzen board with SetupVirtualMap already off
+    # 10-07 (1401 1.0.14): a Ryzen board with SetupVirtualMap already off
     # still stopped at EB.MM.AKM / STOP 0x16 - with DevirtualiseMmio on (and a 2-entry MmioWhitelist). Every Ryzen stick
-    # that passed boot.efi had it off (NM-9D6C0VP7, NM-7QZKR9WS). Dortania AMD Zen config: DevirtualiseMmio NO, YES only on
+    # that passed boot.efi had it off. Dortania AMD Zen config: DevirtualiseMmio NO, YES only on
     # TRx40 (whose MMIO layout needs it).
     if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_DEVMMIO_ON and quirks.get("DevirtualiseMmio") is True:
         quirks["DevirtualiseMmio"] = False
@@ -198,7 +198,7 @@ def apply(config_path, result, policy):
         change("relocation-block", "AllowRelocationBlock=False", "AllowRelocationBlock=True",
                "boot.efi stops (STOP 0x16) when low memory has no room for the kernel; the block is used only then")
 
-    # 10-07 (NM-MMXGZ2XV): two fetched AMD kernel patches set Replace bits where ReplaceMask is 0, and ocvalidate refuses
+    # 10-07: two fetched AMD kernel patches set Replace bits where ReplaceMask is 0, and ocvalidate refuses
     # that ("Replace requires ReplaceMask to be active for corresponding bits"). OpenCore writes (orig & ~mask) | (replace &
     # mask), so clearing those bits changes nothing it writes - it only makes the patch say what it does.
     fixed = []

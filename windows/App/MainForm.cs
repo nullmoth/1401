@@ -698,7 +698,7 @@ namespace A1401
                     if (d.DriveType != DriveType.Removable || !d.IsReady) continue;
                     found.AddRange(Directory.GetFiles(d.RootDirectory.FullName, "panic-*.txt"));
                     found.AddRange(Directory.GetFiles(d.RootDirectory.FullName, "opencore-*.txt").OrderByDescending(f => f).Take(3));
-                    // 10-07: four stick logs (NM-DXKP8FQ7 ...) ended at Apple's hand-off to the kernel and named no hardware
+                    // 10-07: four stick logs ended at Apple's hand-off to the kernel and named no hardware
                     // or settings, so nothing in them could be fixed. The config that booted goes with them, serials removed.
                     var cfg = Path.Combine(d.RootDirectory.FullName, "EFI", "OC", "config.plist");
                     if (found.Any(f => Path.GetPathRoot(f) == d.RootDirectory.FullName) && File.Exists(cfg))

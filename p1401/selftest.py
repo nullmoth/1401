@@ -140,7 +140,7 @@ def main():
         policy.apply(_cfg(d), amd, engine.Policy())
         with open(_cfg(d), "rb") as fh:
             svm = plistlib.load(fh)["Booter"]["Quirks"]["SetupVirtualMap"]
-        arm(f"Ryzen board reported as {chip!r}: SetupVirtualMap {want} (STOP 0x16 sticks, NM-5WSVHVK1)", svm is want, svm)
+        arm(f"Ryzen board reported as {chip!r}: SetupVirtualMap {want} (STOP 0x16 sticks)", svm is want, svm)
     for chip, want in (("B550", False), ("AMD", False), ("TRX40", True)):
         d = _copy(FIXTURE)
         _edit(d, lambda c: c["Booter"]["Quirks"].__setitem__("DevirtualiseMmio", True))
@@ -149,7 +149,7 @@ def main():
         policy.apply(_cfg(d), amd, engine.Policy())
         with open(_cfg(d), "rb") as fh:
             dm = plistlib.load(fh)["Booter"]["Quirks"]["DevirtualiseMmio"]
-        arm(f"Ryzen board reported as {chip!r}: DevirtualiseMmio {want} (NM-Z1VR8TR9)", dm is want, dm)
+        arm(f"Ryzen board reported as {chip!r}: DevirtualiseMmio {want}", dm is want, dm)
     d = _copy(FIXTURE)
     _edit(d, lambda c: (c["Booter"]["Quirks"].__setitem__("DevirtualiseMmio", True),
                         c["Booter"].__setitem__("MmioWhitelist", [{"Address": 4275159040, "Comment": "1401 selftest MMIO",
@@ -160,11 +160,11 @@ def main():
     with open(_cfg(d), "rb") as fh:
         bt = plistlib.load(fh)["Booter"]
     v = validate.validate(d)
-    arm("B650 with a MmioWhitelist entry: DevirtualiseMmio and the entry go off together, EFI validates (NM-KYT0Q2KS)",
+    arm("B650 with a MmioWhitelist entry: DevirtualiseMmio and the entry go off together, EFI validates",
         bt["Quirks"]["DevirtualiseMmio"] is False and not any(w.get("Enabled") for w in bt["MmioWhitelist"]) and v["ok"],
         (bt["Quirks"]["DevirtualiseMmio"], [w.get("Enabled") for w in bt["MmioWhitelist"]], v.get("issues")))
 
-    arm("a table listed twice in ACPI > Add is kept once and the EFI validates (NM-MH8TV0NW)",
+    arm("a table listed twice in ACPI > Add is kept once and the EFI validates",
         len(paths) == len(set(paths)) and "dedupe-add" in [x["rule"] for x in ch] and validate.validate(d)["ok"], paths[:3])
 
     for slide, want in ((True, True), (False, False)):
@@ -186,7 +186,7 @@ def main():
     ch = policy.apply(_cfg(d), old, engine.Policy())
     with open(_cfg(d), "rb") as fh:
         rp = [p["Replace"] for p in plistlib.load(fh)["Kernel"]["Patch"] if p.get("Comment") == "1401 selftest mask"]
-    arm("Replace bits outside ReplaceMask are cleared and the EFI validates (NM-MMXGZ2XV)",
+    arm("Replace bits outside ReplaceMask are cleared and the EFI validates",
         rp == [bytes.fromhex("b80f000000")] and validate.validate(d)["ok"], (rp[0].hex() if rp else None, [x["rule"] for x in ch]))
 
     engine._load_engine()
@@ -210,7 +210,7 @@ def main():
         got = e
     finally:
         engine.time.sleep = real_sleep
-    arm("a download that stalls mid-read twice is retried and lands (NM-DTC05X6Y)", got is True and len(tries) == 3, (got, len(tries)))
+    arm("a download that stalls mid-read twice is retried and lands", got is True and len(tries) == 3, (got, len(tries)))
 
     class Blocked(rf.ResourceFetcher):
         def _make_request(self, url, timeout=30):
@@ -220,7 +220,7 @@ def main():
         blocked = "returned"
     except RuntimeError as e:
         blocked = str(e)
-    arm("a fetch GitHub never answers says VPN/proxy, not 'NoneType is not iterable' (NM-CG2NRMES)",
+    arm("a fetch GitHub never answers says VPN/proxy, not 'NoneType is not iterable'",
         "raw.githubusercontent.com" in blocked and "VPN" in blocked, blocked[:70])
 
     from . import validate as validate_mod  # noqa: PLC0415
@@ -237,10 +237,10 @@ def main():
     finally:
         validate_mod.CACHE = real_cache
     arm("an unverified OpenCore zip is NOT handed to the validator", not unkept, unkept)
-    arm("the engine's checked OpenCore zip is kept for the validator (no second download, NM-KHVZNES3)", kept, kept)
+    arm("the engine's checked OpenCore zip is kept for the validator (no second download)", kept, kept)
 
     vmd = engine.stop_message(["5. Storage Controllers:", "Intel VMD controllers are not supported in macOS.\nPlease disable Intel VMD"])
-    arm("a VMD stop leads with 'Turn off Intel VMD' (NM-CHW0YW6F)", vmd.startswith("Turn off Intel VMD"), vmd[:40])
+    arm("a VMD stop leads with 'Turn off Intel VMD'", vmd.startswith("Turn off Intel VMD"), vmd[:40])
     plain = engine.stop_message(["something else"])
     arm("a stop with no known fix keeps the engine's words first", plain.startswith("OpenCore-Simplify stopped"), plain[:30])
 
@@ -282,7 +282,7 @@ def main():
     a3 = engine._macos_answer(q, menu_oclp.replace("   24. macOS Sequoia 15 (Requires OpenCore Legacy Patcher)\n", ""), engine.Policy())
     from . import report as report_mod
     rb, nb = report_mod.normalize({"Input": {}, "GPU": {"Microsoft Basic Display Adapter": {"Manufacturer": "Unknown", "Device ID": "10DE-1F08"}}})
-    arm("a driverless card (Basic Display Adapter) gets its maker from the PCI ID (NM-S9BPDPZQ)",
+    arm("a driverless card (Basic Display Adapter) gets its maker from the PCI ID",
         rb["GPU"]["Microsoft Basic Display Adapter"]["Manufacturer"] == "NVIDIA" and nb, nb)
     try:
         report_mod.normalize({"Input": {}, "GPU": {"Microsoft Basic Display Adapter": {"Manufacturer": "Unknown"}}})
@@ -290,20 +290,20 @@ def main():
     except RuntimeError as e:
         lone = str(e)
     arm("a lone driverless card with no PCI ID stops with 'install your graphics driver'", "driver" in lone and lone != "accepted", lone[:60])
-    arm("a default missing from the menu answers Sequoia 24 (Turing + Broadcom, NM-036E35M9)", a1 == "24", a1)
+    arm("a default missing from the menu answers Sequoia 24 (Turing + Broadcom)", a1 == "24", a1)
     arm("a default that IS on the menu keeps the engine's default", a2 == "", repr(a2))
     arm("no Sequoia on the menu takes the newest listed", a3 == "25", a3)
     a4 = engine._macos_answer("Please enter the macOS version you want to use (default: macOS Sonoma 14):",
                               "Available macOS versions:\n\n   24. macOS Sequoia 15\n\nNote:\nQ. Quit", engine.Policy())
-    arm("a Sonoma default with only Sequoia listed answers 24 (NM-3183CSDD)", a4 == "24", a4)
+    arm("a Sonoma default with only Sequoia listed answers 24", a4 == "24", a4)
     nores = engine.build(os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "Report.json"), tempfile.mkdtemp(prefix="1401-selftest-"),
                          tempfile.mkdtemp(prefix="1401-selftest-"), download=False)
     rf_ = report_mod.normalize({"Input": {}, "GPU": {}, "BIOS": {"Firmware Type": "Linux Rice loaded!\nUEFI"}})
-    arm("a PowerShell banner in the firmware type is dropped, UEFI kept (NM-WJBMSV8B)",
+    arm("a PowerShell banner in the firmware type is dropped, UEFI kept",
         rf_[0]["BIOS"]["Firmware Type"] == "UEFI" and rf_[1], rf_[0]["BIOS"]["Firmware Type"])
     rl_ = report_mod.normalize({"Input": {}, "GPU": {}, "BIOS": {"Firmware Type": "Legacy"}})
     arm("a Legacy firmware type reads as BIOS", rl_[0]["BIOS"]["Firmware Type"] == "BIOS", rl_[0]["BIOS"]["Firmware Type"])
-    arm("Build with no Report.json says 'Run Check this PC first' (NM-EMCW2SYV)", "Check this PC first" in (nores.error or ""), (nores.error or "")[:60])
+    arm("Build with no Report.json says 'Run Check this PC first'", "Check this PC first" in (nores.error or ""), (nores.error or "")[:60])
 
     busy = tempfile.mkdtemp(prefix="1401-selftest-")
     open(os.path.join(busy, "precious.txt"), "w").write("do not wipe")
@@ -315,7 +315,7 @@ def main():
     arm("refuses to build into a non-empty folder it did not make (the engine wipes its output dir)",
         refused and os.path.exists(os.path.join(busy, "precious.txt")), "refused" if refused else "ACCEPTED")
 
-    # NM-3YJDQC1P: a file of our previous build vanishes while the wipe runs (antivirus). The first unlink removes it
+    # A file of our previous build vanishes while the wipe runs (antivirus). The first unlink removes it
     # and still reports failure, as Windows does; the wipe must finish instead of raising FileNotFoundError.
     prev = tempfile.mkdtemp(prefix="1401-selftest-")
     open(os.path.join(prev, engine.MARKER), "w").write("1401")
@@ -341,7 +341,7 @@ def main():
         os.unlink = real_unlink
         if fd_rmtree is not None:
             shutil._rmtree_impl = fd_rmtree
-    arm("a previous build whose file vanishes mid-wipe is still wiped (NM-3YJDQC1P)", wiped[0], wiped[1] or "empty")
+    arm("a previous build whose file vanishes mid-wipe is still wiped", wiped[0], wiped[1] or "empty")
 
     # --- device choice + report normalizer
     ctx = "1. Network Controller\n   Device ID: 14E4-43A0\n2. Intel(R) Wi-Fi 6 AX200 160MHz\n   Device ID: 8086-2723"
@@ -365,7 +365,7 @@ def main():
     arm("a USB audio interface without a Device ID is dropped (class-compliant; never in the EFI)",
         "Focusrite USB Audio" not in r["Sound"] and len(notes) == 1, notes[:1])
     r2, n2 = report.normalize({"Sound": {}})
-    arm("a report with no Input section gets an empty one (NM-NX36531A was rejected for it), and says so",
+    arm("a report with no Input section gets an empty one (one was rejected for it), and says so",
         r2.get("Input") == {} and any(n.startswith("Input:") for n in n2), n2)
     arm("HDA codec without a Device ID is kept, so the engine's validator still rejects it",
         "Realtek(R) Audio" in r["Sound"], list(r["Sound"]))

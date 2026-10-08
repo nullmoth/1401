@@ -56,7 +56,7 @@ def ocvalidate_path():
     if not os.path.exists(zpath) or _sha256(zpath) != sha:
         tmp = zpath + ".tmp"
         req = urllib.request.Request(url, headers={"User-Agent": "1401"})
-        # 10-07 (NM-KHVZNES3): IncompleteRead mid-file failed the build. Normally the engine's own checked copy is
+        # 10-07: IncompleteRead mid-file failed the build. Normally the engine's own checked copy is
         # already here (engine.download_and_save_file keeps it); this is the fallback, retried like the engine's.
         for attempt in range(4):
             try:

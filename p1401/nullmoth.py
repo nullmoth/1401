@@ -128,7 +128,7 @@ def apply(cfg, result, change):
 def laptop_gpu_awake(cfg, result, live, change):
     """Laptops: the GPU's PCI path gets acpi-wake-type = 1 in DeviceProperties. Without it the laptop's ACPI powers the
     discrete GPU down in macOS and the driver's bring-up fails (RmInitAdapter); with it, users with an RTX 4060 Laptop
-    (i7-13620H), RTX 3050 and RTX 4050 laptops in Discrete/dGPU mode reached a Metal desktop (support chat, 2026-10-08,
+    (i7-13620H), RTX 3050 and RTX 4050 laptops in Discrete/dGPU mode reached a Metal desktop (user reports, 2026-10-08,
     several independent reports of the same manual step). Desktop cards are left alone."""
     hw = result.hardware or {}
     if (hw.get("Motherboard") or {}).get("Platform") != "Laptop":
