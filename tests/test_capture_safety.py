@@ -88,3 +88,44 @@ class CaptureSafety(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+class CompleteTopologyIdentity(unittest.TestCase):
+    def test_two_packages_hybrid_and_identical_cache_instances_keep_membership(self):
+        from tests.test_hwcapture import pkg, core, cache, numa, rec
+        buf = b''.join([pkg([0, 1]), pkg([2, 3]), core(1, True, [0, 1]), core(0, False, [2]), core(0, False, [3]),
+                        cache(2, 0, 1048576, [0, 1]), cache(2, 0, 1048576, [2, 3]), numa(0, [0, 1]), numa(1, [2, 3])])
+        # Same native processor layout for RelationProcessorDie.
+        buf += rec(5, bytes(22) + struct.pack('<H', 1) + struct.pack('<QH6x', 15, 0))
+        result = hc.parse_topology(buf)
+        self.assertEqual(result['packages'], 2)
+        self.assertEqual(result['cores_per_package'], [1, 2])
+        self.assertEqual([c['lps'] for c in result['core_map']], [[(0, 0), (0, 1)], [(0, 2)], [(0, 3)]])
+        self.assertEqual(result['core_map'][0]['efficiency_class'], 1)
+        self.assertTrue(result['core_map'][0]['smt'])
+        self.assertEqual([c['lps'] for c in result['cache_map']], [[(0, 0), (0, 1)], [(0, 2), (0, 3)]])
+        self.assertEqual(len(result['cache_map']), 2)
+        self.assertEqual(len(result['caches']), 1)
+        self.assertEqual(result['numa_map'][1]['lps'], [(0, 2), (0, 3)])
+        self.assertEqual(result['die_map'][0]['lps'], [(0, 0), (0, 1), (0, 2), (0, 3)])
+
+    def pci(self, function):
+        return {'pci': hc.measured({'domain': 0, 'bus': 1, 'device': 0, 'function': function}, 'fixture')}
+
+    def query(self, nvml, cuda):
+        with patch.object(hc, 'nvml_devices', return_value=nvml), patch.object(hc, 'cuda_devices', return_value=cuda):
+            return hc.nvidia_compute(nvml=object(), cuda=object())['devices']
+
+    def test_function_identity_distinguishes_devices_and_missing_function_is_not_guessed(self):
+        records = self.query([self.pci(0), self.pci(1)], [self.pci(1), self.pci(None)])
+        self.assertEqual([r['pci_address'] for r in records], ['0000:01:00.0', '0000:01:00.1', None])
+        self.assertNotIn('cuda', records[0]); self.assertIn('cuda', records[1]); self.assertNotIn('nvml', records[2])
+        self.assertIn('not joined', records[2]['identity_status'])
+
+    def test_duplicate_full_addresses_do_not_overwrite_or_join(self):
+        records = self.query([self.pci(0), self.pci(0)], [self.pci(0)])
+        self.assertEqual(len(records), 3)
+        self.assertTrue(all(r['identity_status'].startswith('ambiguous') for r in records))
+        self.assertTrue(all(not ('nvml' in r and 'cuda' in r) for r in records))
+        self.assertEqual(hc._parse_pci('00000000:01:00.7'), (0, 1, 0, 7))
+        self.assertIsNone(hc._parse_pci('0000:01:00'))
+        self.assertIsNone(hc._parse_pci('0000:01:ff.0'))

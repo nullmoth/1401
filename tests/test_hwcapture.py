@@ -74,7 +74,7 @@ class Capture(unittest.TestCase):
     def test_vendor_libraries_join_by_pci_not_name(self):
         n, c = self.libs()
         res = hc.nvidia_compute(nvml=n, cuda=c)
-        self.assertEqual([d["pci_address"] for d in res["devices"]], ["0000:01:00", "0000:05:00", "0000:2a:00"])
+        self.assertEqual([d["pci_address"] for d in res["devices"]], ["0000:01:00.0", "0000:05:00.0", "0000:2a:00.0"])
         a, b = res["devices"][0], res["devices"][2]
         self.assertEqual(a["nvml"]["name"]["value"], b["nvml"]["name"]["value"])  # same model, two entries
         self.assertEqual(a["cuda"]["multiprocessor_count"]["value"], 82)
@@ -85,7 +85,7 @@ class Capture(unittest.TestCase):
     def test_same_compute_capability_never_yields_unit_counts(self):
         n, c = self.libs()
         res = hc.nvidia_compute(nvml=n, cuda=c)
-        g1660 = next(d for d in res["devices"] if d["pci_address"] == "0000:05:00")
+        g1660 = next(d for d in res["devices"] if d["pci_address"] == "0000:05:00.0")
         self.assertEqual((g1660["cuda"]["compute_capability_major"]["value"], g1660["cuda"]["compute_capability_minor"]["value"]), (7, 5))
         for d in res["devices"]:
             self.assertEqual(d["tensor_cores"]["status"], "unavailable"); self.assertEqual(d["rt_cores"]["status"], "unavailable")

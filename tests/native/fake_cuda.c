@@ -1,3 +1,4 @@
+#include <stdio.h>
 #if defined(_WIN32)
 #define API __declspec(dllexport)
 #else
@@ -16,3 +17,5 @@ API int cuDeviceGetAttribute(int *v, int a, int d) {
     case 81: *v = d == 2 ? 65536 : 102400; return 0; case 82: *v = 65536; return 0; case 97: *v = d == 2 ? 65536 : 101376; return 0;
     case 106: *v = d == 2 ? 16 : 16; return 0; }
   return 1; }
+
+API int cuDeviceGetPCIBusId(char *value, int size, int device) { snprintf(value, size, "0000:%02X:00.0", BUS[device]); return 0; }

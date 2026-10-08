@@ -33,7 +33,8 @@ def main():
         sys.path.insert(0, str(repo))
         from check_capture_native import verify_capture_native
         step = 'native Windows ABI and OS APIs'
-        result['native_capture'] = verify_capture_native(repo, args.output)
+        result['native_capture'] = {}
+        verify_capture_native(repo, args.output, result['native_capture'])
         step = 'capture regression and real ctypes stand-in tests'
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             'tests.test_hwcapture', 'tests.test_capture_safety', 'tests.test_capture_completeness'])

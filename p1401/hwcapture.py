@@ -86,22 +86,24 @@ def parse_topology(buf):
             gc = struct.unpack_from("<H", buf, off + 38)[0]
             caches.append({"level": level, "type": CACHE_TYPES.get(ctype, "unknown"), "bytes": size_b, "line": line,
                            "associativity": "full" if assoc == 0xFF else assoc,
-                           "shared_by": len(_lps(masks(40, max(gc, 1))))})
+                           "shared_by": len(_lps(masks(40, max(gc, 1)))), "lps": _lps(masks(40, max(gc, 1)))})
         elif rel in (RELATION_NUMA, 6):
             require(32)
             node = struct.unpack_from("<I", buf, off + 8)[0]
             gc = struct.unpack_from("<H", buf, off + 30)[0]
-            numa.append({"node": node, "logical": len(_lps(masks(32, max(gc, 1))))})
+            numa.append({"node": node, "relationship": rel, "logical": len(_lps(masks(32, max(gc, 1)))), "lps": _lps(masks(32, max(gc, 1)))})
         off += size
     classes = sorted({c["efficiency_class"] for c in cores})
     hybrid = len(classes) > 1
     lp_package = {lp: i for i, p in enumerate(packages) for lp in p["lps"]}
     out = {"packages": len(packages), "dies": len(dies), "cores": len(cores), "logical_processors": sum(c["logical"] for c in cores),
-           "hybrid": hybrid, "numa_nodes": len(numa),
+           "hybrid": hybrid, "numa_nodes": len({n["node"] for n in numa}),
+           "core_map": cores, "package_map": packages, "die_map": dies, "cache_map": caches, "numa_map": numa,
+           "logical_address_format": "[processor group, group-local logical processor index]",
            "core_classes": [{"efficiency_class": k, "cores": sum(1 for c in cores if c["efficiency_class"] == k),
                              "logical": sum(c["logical"] for c in cores if c["efficiency_class"] == k),
                              "smt_cores": sum(1 for c in cores if c["efficiency_class"] == k and c["smt"])} for k in classes],
-           "caches": sorted({json_key(c): c for c in caches}.values(), key=lambda c: (c["level"], c["type"], c["bytes"])),
+           "caches": sorted({json_key(c): {k: v for k, v in c.items() if k != "lps"} for c in caches}.values(), key=lambda c: (c["level"], c["type"], c["bytes"])),
            "cores_per_package": [sum(1 for c in cores if c["lps"] and lp_package.get(c["lps"][0]) == i) for i in range(len(packages))]}
     if hybrid:
         out["note"] = ("Windows reports efficiency classes; a higher class is the higher-performance core. The P/E names are "
@@ -232,7 +234,7 @@ def _system_file(path):
         k.CloseHandle(h)
 
 
-def authenticode_ok(path, handle=None, trust=None):
+def authenticode_status(path, handle=None, trust=None):
     """Offline Authenticode verification on the pinned file, with state cleanup on every result."""
     action = GUID(0x00AAC56B, 0xCD44, 0x11D0, (ctypes.c_ubyte * 8)(0x8C, 0xC2, 0x00, 0xC0, 0x4F, 0xC2, 0x95, 0xEE))
     fi = FileInfo(ctypes.sizeof(FileInfo), path, handle, None)
@@ -241,10 +243,14 @@ def authenticode_ok(path, handle=None, trust=None):
     wt.WinVerifyTrust.argtypes = [ctypes.c_void_p, ctypes.POINTER(GUID), ctypes.POINTER(TrustData)]
     wt.WinVerifyTrust.restype = ctypes.c_int32
     try:
-        return wt.WinVerifyTrust(None, ctypes.byref(action), ctypes.byref(d)) == 0
+        return int(wt.WinVerifyTrust(None, ctypes.byref(action), ctypes.byref(d)))
     finally:
         d.dwStateAction = 2
         wt.WinVerifyTrust(None, ctypes.byref(action), ctypes.byref(d))
+
+
+def authenticode_ok(path, handle=None, trust=None):
+    return authenticode_status(path, handle=handle, trust=trust) == 0
 
 
 def open_vendor_library(name):
@@ -303,7 +309,11 @@ def nvml_devices(lib):
             pci = NvmlPciInfo()
             rc = lib.nvmlDeviceGetPciInfo_v3(h, ctypes.byref(pci))
             if rc == 0:
-                d["pci"] = measured({"bus_id": pci.busId.decode(errors="replace"), "domain": pci.domain, "bus": pci.bus,
+                bus_id = pci.busId.decode(errors="replace")
+                address = _parse_pci(bus_id)
+                function = address[3] if address and address[:3] == (pci.domain, pci.bus, pci.device) else None
+                d["pci"] = measured({"bus_id": bus_id, "function": function,
+                                     "function_status": "measured" if function is not None else "unavailable", "domain": pci.domain, "bus": pci.bus,
                                      "device": pci.device, "device_id": "%04X-%04X" % (pci.pciDeviceId & 0xFFFF, pci.pciDeviceId >> 16),
                                      "subsystem_id": "%08X" % pci.pciSubSystemId}, src + ":nvmlDeviceGetPciInfo_v3")
             name = ctypes.create_string_buffer(96)
@@ -334,6 +344,7 @@ def cuda_devices(lib):
     _bind(lib, "cuDeviceGetCount", [ctypes.POINTER(ctypes.c_int)])
     _bind(lib, "cuDeviceGet", [ctypes.POINTER(ctypes.c_int), ctypes.c_int])
     _bind(lib, "cuDeviceGetAttribute", [ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.c_int])
+    pci_function = _bind(lib, "cuDeviceGetPCIBusId", [ctypes.c_char_p, ctypes.c_int, ctypes.c_int])
     if lib.cuInit(0) != 0:
         raise RuntimeError("cuInit failed")
     n = ctypes.c_int(0)
@@ -349,46 +360,63 @@ def cuda_devices(lib):
             v = ctypes.c_int(0)
             rc = lib.cuDeviceGetAttribute(ctypes.byref(v), attr, dev)
             d[key] = measured(v.value, f"{src}:cuDeviceGetAttribute({attr})") if rc == 0 else unavailable(f"CUresult {rc}", f"{src}:cuDeviceGetAttribute({attr})")
+        bus_id = ctypes.create_string_buffer(32)
+        rc = pci_function(bus_id, len(bus_id), dev) if pci_function else -1
+        address = _parse_pci(bus_id.value.decode(errors="replace")) if rc == 0 else None
+        if address:
+            fields = ("pci_domain_id", "pci_bus_id", "pci_device_id")
+            if any(d.get(k, {}).get("status") == "measured" and d[k]["value"] != address[i] for i, k in enumerate(fields)):
+                address = None
+        d["pci"] = measured(dict(zip(("domain", "bus", "device", "function"), address)), "nvcuda:cuDeviceGetPCIBusId") if address else unavailable("full PCI function identity unavailable or inconsistent; not joined by partial address", "nvcuda:cuDeviceGetPCIBusId")
         out.append(d)
     return out
 
 
-def _pci_key(domain, bus, device):
-    return "%04x:%02x:%02x" % (domain, bus, device)
+def _parse_pci(value):
+    match = re.fullmatch(r"([0-9a-fA-F]{4,8}):([0-9a-fA-F]{2}):([0-9a-fA-F]{2})\.([0-7])", value)
+    if not match:
+        return None
+    values = tuple(int(v, 16) for v in match.groups())
+    return values if values[2] <= 31 else None
+
+
+def _pci_key(domain, bus, device, function):
+    return "%04x:%02x:%02x.%x" % (domain, bus, device, function)
 
 
 def nvidia_compute(nvml=None, cuda=None):
-    """Per-GPU NVIDIA facts joined by PCI domain:bus:device (never by name). Each library is optional."""
+    """Join only complete PCI domain:bus:device.function identities. Ambiguous records stay separate."""
     res = {"nvml": None, "cuda": None, "devices": []}
-    if nvml is None:
-        nvml, err = open_vendor_library("nvml.dll")
-        res["nvml"] = err
-    if cuda is None:
-        cuda, err = open_vendor_library("nvcuda.dll")
-        res["cuda"] = err
-    by_pci = {}
-    if nvml is not None:
+    records = []
+    for vendor, lib, filename, getter in (("nvml", nvml, "nvml.dll", nvml_devices),
+                                         ("cuda", cuda, "nvcuda.dll", cuda_devices)):
+        if lib is None:
+            lib, res[vendor] = open_vendor_library(filename)
+        if lib is None:
+            continue
         try:
-            for d in nvml_devices(nvml):
-                p = (d.get("pci") or {}).get("value")
-                by_pci[_pci_key(p["domain"], p["bus"], p["device"]) if p else "nvml:%d" % len(by_pci)] = {"nvml": d}
-            res["nvml"] = "ok"
-        except Exception as e:  # noqa: BLE001
-            res["nvml"] = f"{type(e).__name__}: {e}"
-    if cuda is not None:
-        try:
-            for d in cuda_devices(cuda):
-                g = lambda k: (d.get(k) or {}).get("value")
-                key = _pci_key(g("pci_domain_id"), g("pci_bus_id"), g("pci_device_id")) if all(g(k) is not None for k in ("pci_domain_id", "pci_bus_id", "pci_device_id")) else "cuda:%d" % len(by_pci)
-                by_pci.setdefault(key, {})["cuda"] = d
-            res["cuda"] = "ok"
-        except Exception as e:  # noqa: BLE001
-            res["cuda"] = f"{type(e).__name__}: {e}"
-    for key, v in sorted(by_pci.items()):
-        v["pci_address"] = key
-        v["tensor_cores"] = unavailable(NOT_EXPOSED, "none")
-        v["rt_cores"] = unavailable(NOT_EXPOSED, "none")
-        res["devices"].append(v)
+            for d in getter(lib):
+                pci = (d.get("pci") or {}).get("value")
+                address = None
+                if pci and all(pci.get(k) is not None for k in ("domain", "bus", "device", "function")):
+                    address = _pci_key(*(pci[k] for k in ("domain", "bus", "device", "function")))
+                records.append((vendor, d, address))
+            res[vendor] = "ok"
+        except Exception as error:
+            res[vendor] = type(error).__name__
+    groups = {}
+    for i, (vendor, data, address) in enumerate(records):
+        groups.setdefault(address if address else f"unavailable:{i:04d}", []).append((vendor, data, address))
+    for key, group in sorted(groups.items()):
+        ambiguous = any(sum(v == vendor for v, _, _ in group) > 1 for vendor in ("nvml", "cuda"))
+        views = [{vendor: data, "pci_address": address, "identity_status": "ambiguous duplicate PCI function"}
+                 for vendor, data, address in group] if ambiguous else [
+                    {**{vendor: data for vendor, data, _ in group}, "pci_address": group[0][2],
+                     "identity_status": "complete PCI function" if group[0][2] else "unavailable full PCI function; not joined"}]
+        for view in views:
+            view["tensor_cores"] = unavailable(NOT_EXPOSED, "none")
+            view["rt_cores"] = unavailable(NOT_EXPOSED, "none")
+            res["devices"].append(view)
     return res
 
 
