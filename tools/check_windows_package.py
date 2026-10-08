@@ -78,8 +78,8 @@ def main():
         result['native_capture'] = {}
         native_check.verify_capture_native(repo, args.output, result['native_capture'])
         fixture = cache / 'fixtures' / inputs['fixture_slug']
+        step = 'packaged regression discovery and execution'
         suite = unittest.defaultTestLoader.discover(str(repo / 'tests'), pattern='test_*.py', top_level_dir=str(repo))
-        step = 'packaged regression tests'
         log = io.StringIO()
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             checks = unittest.TextTestRunner(stream=log, verbosity=1).run(suite)
