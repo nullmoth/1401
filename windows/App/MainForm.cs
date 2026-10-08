@@ -35,6 +35,11 @@ namespace A1401
 
         public MainForm(bool verificationMode = false)
         {
+            // Every bound below is in 96-DPI pixels. On a 150-200 % display (most 4K screens and many laptops) the
+            // point-sized fonts grew with the display while the boxes kept their 96-DPI size, so text was cut off.
+            // Scale the whole layout with the display, as the Windows Forms designer does for its own forms.
+            SuspendLayout();
+            AutoScaleDimensions = new SizeF(96F, 96F); AutoScaleMode = AutoScaleMode.Dpi;
             Text = "1401 Assistant";
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             ClientSize = new Size(900, 620);
@@ -98,6 +103,10 @@ namespace A1401
             body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
+            ResumeLayout(false); PerformLayout();
+            // List view columns are not part of autoscaling.
+            float k = CurrentAutoScaleDimensions.Width / 96F;
+            if (k > 1.01F) foreach (ColumnHeader c in facts.Columns) c.Width = (int)(c.Width * k);
             Go(0);
         }
 
@@ -690,10 +699,12 @@ namespace A1401
 
         DialogResult AskSend(string text, out string screen)
         {
-            using (var f = new Form { Text = "1401 - sending the startup logs", FormBorderStyle = FormBorderStyle.FixedDialog,
+            using (var f = new Form { AutoScaleDimensions = new SizeF(96F, 96F), AutoScaleMode = AutoScaleMode.Dpi,
+                                      Text = "1401 - sending the startup logs", FormBorderStyle = FormBorderStyle.FixedDialog,
                                       MaximizeBox = false, MinimizeBox = false, StartPosition = FormStartPosition.CenterParent,
-                                      ClientSize = new Size(520, 300), Font = Font })
+                                      ClientSize = new Size(520, 300), Font = Theme.Body })
             {
+                f.SuspendLayout();
                 var msg = new Label { Text = text, Left = 14, Top = 12, Width = 492, Height = 150 };
                 var q = new Label { Text = "Optional: the last line on the screen when it stopped (for example \"PCI configuration begin\"):",
                                     Left = 14, Top = 168, Width = 492, Height = 34 };
@@ -702,6 +713,7 @@ namespace A1401
                 var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 422, Top = 252, Width = 84 };
                 f.Controls.AddRange(new Control[] { msg, q, box, send, cancel });
                 f.AcceptButton = send; f.CancelButton = cancel;
+                f.ResumeLayout(false); f.PerformLayout();
                 var r = f.ShowDialog(this);
                 screen = (box.Text ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
                 return r;
