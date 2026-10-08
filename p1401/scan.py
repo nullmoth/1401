@@ -19,6 +19,7 @@ import platform
 import subprocess
 import sys
 from . import tls
+from . import hwcapture, scan_evidence
 tls.install()   # downloads verify against the OS certificate store + certifi
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -167,21 +168,29 @@ def scan(out_dir):
     if platform.system() not in ("Windows", "Linux"):
         raise ScanError(f"scanning runs on Windows or Linux, not {platform.system()}")
     p = subprocess.run([sys.executable, "-m", "p1401.scan", out_dir], cwd=REPO, capture_output=True, text=True,
-                       timeout=TIMEOUT)
+                       timeout=TIMEOUT + hwcapture.CAPTURE_TIMEOUT + 10)
     fails = check(out_dir)
     if p.returncode != 0 or fails:
         raise ScanError(f"scan failed (rc={p.returncode}): {fails}\n{(p.stderr or p.stdout)[-1500:]}")
     return out_dir
 
 
-def _child(out_dir):
+def _sniffer_body(out_dir, token):
     sys.path.insert(0, SNIFFER)
     import HardwareSniffer  # noqa: PLC0415 - only importable with SNIFFER on the path, in this process only
     h = HardwareSniffer.HardwareSniffer(os.path.abspath(out_dir), rich_format=False)
     h.u.head = lambda *a, **k: None  # it clears the console; a child has none
     if platform.system() == "Windows":
         h.check_acpidump = acpidump_path  # pinned copy, not its own download
-    h.hardware_info.hardware_collector()
+    original_progress = h.hardware_info.utils.progress_bar
+    def checkpoint_progress(*args, **kwargs):
+        scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
+        return original_progress(*args, **kwargs)
+    h.hardware_info.utils.progress_bar = checkpoint_progress
+    try:
+        h.hardware_info.hardware_collector()
+    finally:
+        scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
     h.export_hardware_report()
     h.dump_acpi_tables()
     acpi = os.path.join(out_dir, "ACPI")
@@ -199,6 +208,41 @@ def _child(out_dir):
         print("\n".join(fails), file=sys.stderr)
         return 1
     return 0
+
+
+def _sniffer_child(out_dir, token):
+    # Only the scan controller creates the fresh run receipt; this process adds sanitized partial sections.
+    scan_evidence._current(out_dir, token)
+    return _sniffer_body(out_dir, token)
+
+
+def _child(out_dir, run_id=None):
+    """GUI and CLI share this controller: independent inventory first, bounded upstream scan second."""
+    token = scan_evidence.begin(out_dir, run_id)
+    print("Scan run " + token, flush=True)
+    try:
+        scan_evidence.save_inventory(out_dir, token, hwcapture.collect({}))
+    except Exception as error:
+        # A diagnostic collector failure must not prevent Hardware Sniffer from checking the PC.
+        print("Hardware inventory unavailable (" + type(error).__name__ + "); the ordinary scan continues.", flush=True)
+    ok, failure = False, None
+    try:
+        p = subprocess.run([sys.executable, "-u", "-m", "p1401.scan", "--sniffer-worker", out_dir, token],
+                           cwd=REPO, timeout=TIMEOUT)
+        ok = p.returncode == 0 and not check(out_dir)
+        if not ok: failure = "upstream_scan_failure"
+    except subprocess.TimeoutExpired:
+        failure = "upstream_scan_timeout"
+        print("Hardware Sniffer exceeded its time limit; the saved CPU/device inventory and partial sections remain available.", file=sys.stderr)
+    except Exception as error:
+        failure = type(error).__name__
+        print("Hardware scan could not finish (" + failure + ").", file=sys.stderr)
+    finally:
+        try:
+            scan_evidence.finish(out_dir, token, ok, failure)
+        except Exception as error:
+            print("Scan evidence finalization unavailable (" + type(error).__name__ + ").", file=sys.stderr)
+    return 0 if ok else 1
 
 
 def selftest():
@@ -244,4 +288,11 @@ def selftest():
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
         sys.exit(0 if selftest() else 1)
-    sys.exit(_child(sys.argv[1]))
+    if len(sys.argv) == 4 and sys.argv[1] == "--sniffer-worker":
+        sys.exit(_sniffer_child(sys.argv[2], sys.argv[3]))
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("out_dir")
+    parser.add_argument("--run-id", default=None)
+    args = parser.parse_args()
+    sys.exit(_child(args.out_dir, args.run_id))

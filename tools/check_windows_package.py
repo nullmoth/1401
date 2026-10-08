@@ -112,6 +112,8 @@ def main():
         expected = (repo / 'windows/App/App.csproj').read_text().split('<Version>')[1].split('</Version>')[0]
         if process.returncode != 0 or gui.get('ok') is not True or gui.get('assembly_version') != expected:
             raise RuntimeError('The actual packaged application startup/version check failed.')
+        if gui.get('scan_evidence_binding') is not True:
+            raise RuntimeError('Compiled scan evidence binding did not pass.')
         if gui.get('fresh_upload_batches') is not True:
             raise RuntimeError('Compiled upload batches did not pass run-identity verification.')
         if gui.get('closed_form_log_collection_guard') is not True:

@@ -27,6 +27,7 @@ namespace A1401
                     freshBatches &= System.Text.RegularExpressions.Regex.IsMatch(batch, @"^1401-app-[0-9a-f]{16}$") && batches.Add(batch);
                 }
                 result["fresh_upload_batches"] = freshBatches;
+                result["scan_evidence_binding"] = ScanEvidence.Verify();
                 result["support_notices_visible"] = MainForm.IsSupportNotice("Laptop display note: unsupported panel") &&
                                                     MainForm.IsSupportNotice("Intel I225-LM vP requires link testing") &&
                                                     MainForm.IsSupportNotice("NullMoth driver selected") &&
@@ -49,7 +50,7 @@ namespace A1401
                 }
                 result["window_shown_and_closed"] = shown;
                 result["ok"] = shown && (bool)result["engine_complete"] && (bool)result["closed_form_log_collection_guard"] &&
-                               (bool)result["support_notices_visible"] && (bool)result["fresh_upload_batches"];
+                               (bool)result["support_notices_visible"] && (bool)result["fresh_upload_batches"] && (bool)result["scan_evidence_binding"];
             }
             catch (Exception error)
             {

@@ -82,7 +82,7 @@ def diagnostic_hardware(report):
         if section in ("CPU", "Motherboard", "BIOS"):
             result[section] = select(value, allowed)
         else:
-            result[section] = [{"name": name, **select(props, allowed)} for name, props in list(value.items())[:256]
+            result[section] = [{"name": name[:512] if isinstance(name, str) else "unnamed device", **select(props, allowed)} for name, props in list(value.items())[:256]
                                if isinstance(props, dict)]
     if result:
         result["not_observed"] = ["USB port-to-connector routing", "BIOS setup options", "GPU BAR/VRAM size", "CPUID leaves",
