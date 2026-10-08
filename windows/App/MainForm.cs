@@ -268,9 +268,14 @@ namespace A1401
                         if (d.DriveType != DriveType.Removable || !d.IsReady) continue;
                         var newest = Directory.GetFiles(d.RootDirectory.FullName, "opencore-*.txt").OrderByDescending(f => f).FirstOrDefault();
                         if (newest != null) bootLogs += " --boot-log " + Engine.Q(newest);
+                        // macOS saves a kernel panic on the stick (ApplePanic); its backtrace names the kext to switch off.
+                        foreach (var pf in Directory.GetFiles(d.RootDirectory.FullName, "panic-*.txt").OrderByDescending(f => f).Take(2))
+                            bootLogs += " --boot-log " + Engine.Q(pf);
                     }
                     catch (Exception) { }
                 }
+                var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
+                try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say("Using the last startup log on the stick to adjust this build.");
                 int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json" + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
@@ -723,6 +728,8 @@ namespace A1401
                 out screen);
             if (ask != DialogResult.OK) return;
             var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "");
+            // the next build reads it too (bootfix.after_handoff): a hang after OpenCore leaves no file, only this line
+            if (screen.Length > 0) { try { File.WriteAllText(Path.Combine(Engine.Work, "stopped-at.txt"), screen); } catch (Exception) { } }
             var ids = new List<string>();
             var batch = NewBatch();
             foreach (var f in found)

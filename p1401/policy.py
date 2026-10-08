@@ -229,9 +229,12 @@ def apply(config_path, result, policy):
         nv["csr-active-config"] = want
 
     # 5. A failed boot's own log (the stick's opencore-*.txt), when the app passed one: see bootfix.py.
-    if getattr(policy, "boot_logs", None):
+    if getattr(policy, "boot_logs", None) or getattr(policy, "stopped_at", ""):
         from . import bootfix  # noqa: PLC0415
-        bootfix.apply(cfg, result, bootfix.read_logs(policy.boot_logs), change)
+        texts = bootfix.read_logs(policy.boot_logs)
+        bootfix.apply(cfg, result, texts, change)
+        for note in bootfix.apply_after_handoff(cfg, texts, policy.stopped_at, change)["report"]:
+            change("bootlog-note", "", note, "from the last failed start")
 
     tmp = config_path + ".tmp"
     with open(tmp, "wb") as fh:

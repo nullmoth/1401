@@ -56,7 +56,7 @@ def reorder(cfg):
     cfg["Kernel"]["Add"] = sorted(add, key=lambda k: rank.get(k.get("BundlePath", "").split("/")[-1], 2))
 
 
-def check(root, report=None, boot_logs=(), fix=False):
+def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
     cfg_path = find_oc(root)
     if not cfg_path:
         return {"ok": False, "problems": ["no EFI/OC/config.plist under " + root], "would_fix": [], "written": None}
@@ -93,8 +93,10 @@ def check(root, report=None, boot_logs=(), fix=False):
                 q["ResizeAppleGpuBars"] = 0
     elif "nvaccel=1" in nv_args and not hw:
         problems.append("the config carries the NullMoth driver's boot-args; pass --report Report.json to check the rest")
-    if boot_logs:
-        bootfix.apply(target, result, bootfix.read_logs(boot_logs), change)
+    if boot_logs or stopped_at:
+        texts = bootfix.read_logs(boot_logs)
+        bootfix.apply(target, result, texts, change)
+        problems += bootfix.apply_after_handoff(target, texts, stopped_at, change)["report"]
     if order:
         reorder(target)
         fixes += ["kext-order: " + o for o in order]
@@ -127,8 +129,9 @@ def main(argv=None):
     ap.add_argument("--report")
     ap.add_argument("--boot-log", action="append", default=[])
     ap.add_argument("--fix", action="store_true")
+    ap.add_argument("--stopped-at", default="")
     a = ap.parse_args(argv)
-    out = check(a.root, a.report, a.boot_log, a.fix)
+    out = check(a.root, a.report, a.boot_log, a.fix, a.stopped_at[:500])
     for f in out["problems"]:
         print("  problem: " + f)
     for f in out.get("fixed") or out.get("would_fix") or []:

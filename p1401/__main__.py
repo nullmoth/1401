@@ -34,9 +34,10 @@ def main(argv=None):
         p.add_argument("--macos", default="")
         p.add_argument("--echo", action="store_true", help="show the engine's own output live")
         p.add_argument("--json", action="store_true")
-        p.add_argument("--boot-log", action="append", default=[], help="a failed boot's opencore-*.txt from the stick")
+        p.add_argument("--boot-log", action="append", default=[], help="a failed boot's opencore-*.txt or panic-*.txt from the stick")
+        p.add_argument("--stopped-at", default="", help="the line the screen stopped on")
     a = ap.parse_args(argv)
-    pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log)
+    pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log, stopped_at=a.stopped_at[:500])
     out = getattr(a, "out", None)
     if out is None:
         import tempfile  # noqa: PLC0415
