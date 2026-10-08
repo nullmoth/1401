@@ -96,6 +96,8 @@ class Policy:
     force_load_unsupported_kexts: bool = False
     # Filled by 1401's pre-pass, never by the user: device kind ("WiFi") -> the device name 1401 picked.
     prefer: dict = field(default_factory=dict)
+    # The stick's opencore-*.txt from a failed boot: bootfix.py changes the next build from what it shows.
+    boot_logs: list = field(default_factory=list)
 
 
 @dataclass
@@ -324,6 +326,34 @@ def _use_ock_cache(o):
 
 
 
+
+def _opencore_debug(gathering_files):
+    """The stick boots OpenCore's DEBUG build (same release, Dortania's own DEBUG zip and SHA-256). A failed boot then
+    leaves a log that names why: the MMIO regions behind "StartImage failed - Aborted" (26 stick logs in one day, AM5
+    boards, fixed by hand with board-specific MmioWhitelist entries), memory-map and quirk decisions the RELEASE build
+    does not print. Dortania's troubleshooting guide asks for the DEBUG build for the same reason. RELEASE stays the
+    fallback when the index has no DEBUG link or hash."""
+    if getattr(gathering_files, "_1401_oc_debug", False):
+        return
+    cls = gathering_files.gatheringFiles
+    original = cls.fetch_latest_products_info
+
+    def fetch_latest_products_info(self, kexts, local_download_history):
+        products = original(self, kexts, local_download_history)
+        try:
+            v = self.fetcher.fetch_and_parse_content(self.dortania_builds_url, "json")["OpenCorePkg"]["versions"][0]
+            url, sha = v["links"]["debug"], v["hashes"]["debug"]["sha256"]
+        except (TypeError, KeyError, IndexError, ValueError):
+            print("OpenCore DEBUG build not listed; using RELEASE.")
+            return products
+        if isinstance(url, str) and url.startswith("https://") and url.endswith("-DEBUG.zip") and isinstance(sha, str) and len(sha) == 64:
+            oc = products.get("OpenCorePkg") or {}
+            oc.update({"url": url, "sha256": sha, "id": str(oc.get("id", "")) + "-debug"})
+            products["OpenCorePkg"] = oc
+        return products
+    cls.fetch_latest_products_info = fetch_latest_products_info
+    gathering_files._1401_oc_debug = True
+
 def _keep_first_kext(gathering_files):
     """The engine empties a product's folder, then moves every kext it extracted into it. A release that holds two
     kexts with the same name in different folders made the second move fail on Windows (WinError 183, itlwm.kext,
@@ -354,6 +384,7 @@ def _patient_downloads():
     from .downloads import make_request, verified_context
     kernel_patches.harden(gathering_files.gatheringFiles)
     _keep_first_kext(gathering_files)
+    _opencore_debug(gathering_files)
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
         return

@@ -5,8 +5,8 @@
    "size": 24811
   },
   "https://github.com/0xFireWolf/RealtekCardReader/releases": {
-   "sha256": "f6855081794b4b2d56026d99d90acf1cc3b8d6e274fea876c78273b944174c86",
-   "size": 321337
+   "sha256": "3045a9271e4643da7c1c6945789678abb5665d46f5742a6f013b4bd87e1c0243",
+   "size": 321310
   },
   "https://github.com/0xFireWolf/RealtekCardReader/releases/download/v0.9.7/RealtekCardReader_0.9.7_006a845_RELEASE.zip": {
    "sha256": "48c21aaf8e83e21220ca417351e75c98b16930f0ce311bb3f651d163bd694760",
@@ -17,8 +17,8 @@
    "size": 8609
   },
   "https://github.com/0xFireWolf/RealtekCardReaderFriend/releases": {
-   "sha256": "6991dc37fda050c107f904252ddcfcf6c130adb32dbd42429808e3882ee950e6",
-   "size": 280187
+   "sha256": "636dc5e45cd2e2c39432c097ef071f5eb246a987faf9a2843abdaf991fcb6026",
+   "size": 280159
   },
   "https://github.com/0xFireWolf/RealtekCardReaderFriend/releases/download/v1.0.4/RealtekCardReaderFriend_1.0.4_e1e3301_RELEASE.zip": {
    "sha256": "8fed1884e751fb1e9355604b1d047e8414b6abc986393ce7c56f32008278687c",
@@ -29,8 +29,8 @@
    "size": 8659
   },
   "https://github.com/ChefKissInc/ForgedInvariant/releases": {
-   "sha256": "5adfad396e50d556e4e3473accdafba6a2ef191a36d47451d8680f675824036e",
-   "size": 361510
+   "sha256": "b05304899f292aefcd39579bfccc61b7cc7502b76244a28c496a3530881a665c",
+   "size": 361482
   },
   "https://github.com/ChefKissInc/ForgedInvariant/releases/download/v1.5.0/ForgedInvariant-1.5.0-RELEASE.zip": {
    "sha256": "e684d3bf4c8a10e2b5e1d42ac5c9760e26ed2add8e40e319f3951ea8d41b04c7",
@@ -41,8 +41,8 @@
    "size": 12627
   },
   "https://github.com/ChefKissInc/NootedRed/releases": {
-   "sha256": "d5d93e5f61ebc17e5bc684653e2e375182ff06ffc45527a21a5b288d3ed938de",
-   "size": 491142
+   "sha256": "a8c5f751ff89475ac88f7cb4a382266845c43aa8bebdfbab18a6869022e4027b",
+   "size": 491114
   },
   "https://github.com/ChefKissInc/NootedRed/releases/download/v0.8.10/NootedRed-0.8.10-RELEASE.zip": {
    "sha256": "28767001f2bbe12d648313e0e3b0c5adb1ac2c2d1f844e4212ee2f88d486da66",
@@ -53,8 +53,8 @@
    "size": 19288
   },
   "https://github.com/CloverHackyColor/IntelMausiEthernet/releases": {
-   "sha256": "6e813547764f24fade00707e5b3a06303969e81edd90d21adc4890c17ccfa1a8",
-   "size": 217146
+   "sha256": "d6961c8dc29fe11de214b172fd870b3fb8ecdfb78fe8588aa10d2bbd3e41937f",
+   "size": 217118
   },
   "https://github.com/CloverHackyColor/IntelMausiEthernet/releases/download/3.0.3/IntelMausiEthernet.kext.zip": {
    "sha256": "da08b26109a4e6c135be68b42b24e81280b01ee17375ec63f32848fc949a6def",
@@ -65,8 +65,8 @@
    "size": 8601
   },
   "https://github.com/DexterSLamb/itlwm/releases": {
-   "sha256": "f7df866ed7aad40595a6b26610221c647db8a4eda8ad49e1e4a5fd3acb5f8776",
-   "size": 202135
+   "sha256": "750e31560affea458cad65b664834d2760ec291f0c665cd3ab9edcde04fa1cfd",
+   "size": 202107
   },
   "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Big_Sur-v2.3.0-51543d6.zip": {
    "sha256": "56e49a7c07e80be84173a7a21a83648c7c2ec946ebe51b52bdfea0506c8a24b4",
@@ -109,8 +109,8 @@
    "size": 40918
   },
   "https://github.com/Mieze/AtherosE2200Ethernet/releases": {
-   "sha256": "f2c2f0555f96d70db595c2d03264cd9f832740ebc8301eecdc7faf0bcd285964",
-   "size": 253378
+   "sha256": "a1d1d030175a43d3125cfe011d0f44a542b4473909427beea48ccef9b34b9daa",
+   "size": 253350
   },
   "https://github.com/Mieze/AtherosE2200Ethernet/releases/download/v2.4.0/AtherosE2200Ethernet-V2.4.0.zip": {
    "sha256": "4702edfcda5cc1b9c7e2ec1278130bb02c5c5a42c77f39b525fa5ac1ca900bfb",
@@ -121,8 +121,8 @@
    "size": 6560
   },
   "https://github.com/Mieze/IntelLucy/releases": {
-   "sha256": "b891ce92d53b3abb0f8ed68e409952090f98c3038e7a3ef503928492c61e7579",
-   "size": 388387
+   "sha256": "fc493ec3099ccc8cfd30033d1f238e506a6994c4b622c9cb3d8df6be20d1c114",
+   "size": 388359
   },
   "https://github.com/Mieze/IntelLucy/releases/download/v1.1.5/IntelLucy-V1.1.5.zip": {
    "sha256": "4398b6653235c5d507ba888b71e7e1ac823102ac074dcc7119838029bc0be981",
@@ -133,8 +133,8 @@
    "size": 8522
   },
   "https://github.com/Mieze/LucyRTL8125Ethernet/releases": {
-   "sha256": "a741c400fc399619337d887959e94aeec86e2783c3ba16c43172cde08ec303d6",
-   "size": 283530
+   "sha256": "f6eb8126585865ee6d8a204298bab6fc0d94533bdcaa387d3bea40711c73aefc",
+   "size": 283501
   },
   "https://github.com/Mieze/LucyRTL8125Ethernet/releases/download/v.1.2.3/LucyRTL8125Ethernet-1.2.300.zip": {
    "sha256": "89ef03362baadba546418ade9614edc0469ae2483ea5380c0dcfb04941201521",
@@ -149,8 +149,8 @@
    "size": 301740
   },
   "https://github.com/Mieze/RTL812xLucy/releases": {
-   "sha256": "ae9d34da7064619809576e43a03b2f6eb6dc360bc9cb17f30eff8ab6217ac029",
-   "size": 302307
+   "sha256": "385eafb0af47d431c1c3e4689869a78773aa6aec7915b0ea279c8dcdb756121e",
+   "size": 302284
   },
   "https://github.com/Mieze/RTL812xLucy/releases/download/v1.1.1/RTL812xLucy-V1.1.1.zip": {
    "sha256": "7a50f9b8c776405ea537bf1c42bc7e062446fba8442aa1cfa7f2a60a966b295e",
@@ -161,8 +161,8 @@
    "size": 8534
   },
   "https://github.com/RattletraPM/GUX-RyzenXHCIFix/releases": {
-   "sha256": "83d8763b323f38058d06441b7c5159a5dda4bb3cbd90ae8dc93acd9fae5cdd80",
-   "size": 197894
+   "sha256": "b2cf43475cd22da2b23bf3c5677315ac8c45cc83492c2f7cae1ed492968486e1",
+   "size": 197870
   },
   "https://github.com/RattletraPM/GUX-RyzenXHCIFix/releases/download/v1.3.0b1-ryzenxhcifix/GenericUSBXHCI.kext.zip": {
    "sha256": "2a97459605c13af889ad9e35d23ca520a0debd24e4fb1155b029753548d85b3d",
@@ -173,8 +173,8 @@
    "size": 6594
   },
   "https://github.com/SongXiaoXi/AppleIGC/releases": {
-   "sha256": "8b47a292154b38b1a556c81452dbebda6c9605e224a1587afd42bfb2fde8846c",
-   "size": 381146
+   "sha256": "05793b953149899c8b6878b387eed7fb689f5a798f6c1fe1709f29b55cfb3ca0",
+   "size": 381118
   },
   "https://github.com/SongXiaoXi/AppleIGC/releases/download/v1.9/AppleIGC.kext.zip": {
    "sha256": "3398c5cf609b26be9485445c4f10fe2ef2c43554db1c25f406d8bc955c399466",
@@ -189,8 +189,8 @@
    "size": 63147
   },
   "https://github.com/USBToolBox/kext/releases": {
-   "sha256": "6d374647137c5240205e67750c04c7ab3206f7f4f1ae6cc55a45aa6498c80817",
-   "size": 274324
+   "sha256": "ad400e51f31e555caa7acb9dfbb9dd2fccc73222439f6eb231ddc6d01cde7f18",
+   "size": 274296
   },
   "https://github.com/USBToolBox/kext/releases/download/1.2.0/USBToolBox-1.2.0-RELEASE.zip": {
    "sha256": "c315a3a5acfd496dd97d0d19b4fbd1d487103d2fd541c5651583d4c9cebcfe07",
@@ -201,8 +201,8 @@
    "size": 12545
   },
   "https://github.com/Xiashangning/BigSurface/releases": {
-   "sha256": "39003dd6e2e80da20f90294eb82f7ed46f20b7c4707dca7c0adefb94337b5030",
-   "size": 402991
+   "sha256": "71b6d19d792f88ba604bba4eb4c58a3cbedc0edb9096c7477fd88942557cd9f7",
+   "size": 402962
   },
   "https://github.com/Xiashangning/BigSurface/releases/download/v6.5/BigSurface.zip": {
    "sha256": "e3c6ea71133b9fef26a85b9184361f0cc08a25775115ddd7a3638a361616a4c3",
@@ -229,8 +229,8 @@
    "size": 2466
   },
   "https://github.com/b00t0x/CpuTopologyRebuild/releases": {
-   "sha256": "0f0e39325843adea172fd869c4e23a99b451982c98e3707581583bce94f73943",
-   "size": 329881
+   "sha256": "b9ef31e0e8037c480cbab29eba03b21c5f1830e10cff7832e4a4d1fa10b567dd",
+   "size": 329853
   },
   "https://github.com/b00t0x/CpuTopologyRebuild/releases/download/2.0.2/CpuTopologyRebuild-2.0.2-RELEASE.zip": {
    "sha256": "c25d07464d2c9adf120dbf13a50321ff1bdb273290a5e82235eef4740db7b911",
@@ -241,8 +241,8 @@
    "size": 8567
   },
   "https://github.com/blankmac/AlpsHID/releases": {
-   "sha256": "8890f33f70e1465757ebcc7297f42ab4ae18cf89b3b2c11626e583e4801f1455",
-   "size": 245086
+   "sha256": "1238ba4e263cf44c83dcd1b1daf8e6695f35a19b3ca90279b98bb20574afd465",
+   "size": 245058
   },
   "https://github.com/blankmac/AlpsHID/releases/download/v1.2/AlpsHID1.2_release.zip": {
    "sha256": "79c3181532b69b7db4fc27f6a4a22732da3d99ab0a0d10080f81d0bb014521e2",
@@ -253,8 +253,8 @@
    "size": 8469
   },
   "https://github.com/cholonam/Sinetek-rtsx/releases": {
-   "sha256": "a554da4822a138c141794d89053b9669c93819f764021b828e77a9dcdd824a6d",
-   "size": 373998
+   "sha256": "224bbb6384c53fcbf5f0654b4efe8d171a2a4fdf7966cd659fb03dd24dc12668",
+   "size": 373969
   },
   "https://github.com/cholonam/Sinetek-rtsx/releases/download/Releases%2Fv9.0/Sinetek-rtsx-9.0.zip": {
    "sha256": "91709ab1898ac7437c83480a0d43de945401ccf8aa7f0a9c1081aea01099597d",
@@ -360,9 +360,9 @@
    "sha256": "d05f21129d97079dc5f53c017bf198bdd9e1d5b21cb622f5b3cf2d4eff5298b2",
    "size": 8652
   },
-  "https://github.com/dortania/build-repo/releases/download/OpenCorePkg-963025f/OpenCore-1.0.9-RELEASE.zip": {
-   "sha256": "3c5845b74060c94a3d4bb7db8bb236c7eba689400128e70f5271f0517741f6a9",
-   "size": 10452360
+  "https://github.com/dortania/build-repo/releases/download/OpenCorePkg-963025f/OpenCore-1.0.9-DEBUG.zip": {
+   "sha256": "4a35bc9409d4bbacb7a9e72127be6cc4c677b22a0399a4c430e21460e65df886",
+   "size": 11837410
   },
   "https://github.com/dortania/build-repo/releases/download/RTCMemoryFixup-4f1db4e/RTCMemoryFixup-1.0.8-RELEASE.zip": {
    "sha256": "ac23e6a80f80f8459135c96b58935c09e6a9a3c9a6a155533487fec62af780e0",
@@ -401,8 +401,8 @@
    "size": 553515
   },
   "https://github.com/hieplpvip/AsusSMC/releases": {
-   "sha256": "c78e7c697c9bb828e46e2fdc0422d023a03fd31b610d4892819405ee5094270b",
-   "size": 376574
+   "sha256": "3e12efe1e2f3a4e13a4c3f118e1c24fd9810e01a7e6f67fdc7dfc770a23840cc",
+   "size": 376550
   },
   "https://github.com/hieplpvip/AsusSMC/releases/download/1.4.1/AsusSMC-1.4.1-RELEASE.zip": {
    "sha256": "e688da90f79e76967557f06251bcbabd600145972f5b7392094fbfecee1a2000",
@@ -413,8 +413,8 @@
    "size": 8490
   },
   "https://github.com/hrx114514x/PC711Probe/releases": {
-   "sha256": "a259961668507da7f0d35af44449faf6ee4fc4c849d30b4a49dbf6587af88886",
-   "size": 320543
+   "sha256": "5fda2c31858647d7fa0ade89ddf26cf8c7e9be8e0a520fc3c5ca9409efa8df68",
+   "size": 320520
   },
   "https://github.com/hrx114514x/PC711Probe/releases/download/v1.8.1/PC711Probe-1.8.1.zip": {
    "sha256": "42dab238872b2f9e61ac79a23bd2ebedc7e73b93a09bfe93693315509eb9d7a2",
@@ -445,8 +445,8 @@
    "size": 17781
   },
   "https://github.com/naveenkrdy/AmdTscSync/releases": {
-   "sha256": "684c71670ed60b78bf5f7dff117af38cc5aa9c63e65f0fbf0440464fb8ca8b89",
-   "size": 195830
+   "sha256": "63aca52e1648f26b8e7b9fe04a9db548d798cac07dd721680705d0eacca41a1d",
+   "size": 195800
   },
   "https://github.com/naveenkrdy/AmdTscSync/releases/download/2.0.0/AmdTscSync-2.0.0-RELEASE.zip": {
    "sha256": "aed2dffed57b2ea21e5e323a423652e00868d4831558113fd8551f536e3f3133",
@@ -457,8 +457,8 @@
    "size": 8519
   },
   "https://github.com/thegwchr/Feixiao/releases": {
-   "sha256": "3ba8d71a7d8aa12a69ea7a99cc55eedee055534e33c8cb0913aa90a94cf7eba8",
-   "size": 216038
+   "sha256": "d73001e762ec812c700ac9eaf6fac0a9784bc565f85cdf62085c4fd6797a2df8",
+   "size": 216010
   },
   "https://github.com/thegwchr/Feixiao/releases/download/v1.0.1/Feixiao_v1.0.1_FBFEB3FE-3540-398D-9A72-D54F7BAB548C.zip": {
    "sha256": "3c18571aa0038487ba713574db0afccaf310763e0be46e9f9aafa00e2f36d982",
@@ -469,8 +469,8 @@
    "size": 8630
   },
   "https://github.com/thegwchr/RealtekBluetoothFirmware/releases": {
-   "sha256": "7738ad27766c60fb8a95caaede15f3fad72e9ffe80e500db5d8dff9df64ed5ce",
-   "size": 217505
+   "sha256": "bb52630d0cdf5b133e78c1d7373fa818e594cd951f6ceb4e0e1f5ebf3534b191",
+   "size": 217483
   },
   "https://github.com/thegwchr/RealtekBluetoothFirmware/releases/download/v1.0.2/RealtekBluetoothFirmware_v1.0.2_5080405E-068B-3F14-92D7-0F48AB51C52B.zip": {
    "sha256": "d9fc23d9c8d942720d93e687cfff863aee1198a821ca4f089c8d2eae9cab0c61",
@@ -481,8 +481,8 @@
    "size": 8732
   },
   "https://github.com/zhen-zen/YogaSMC/releases": {
-   "sha256": "dba6fa9f4bd341c9fe2439a947a462c5956d4d07e105a23dc3561657f152de96",
-   "size": 433736
+   "sha256": "85d78ae21d7a844e7ffa409594d6063f4daa55c76d003a98d5ead7d2206f60a0",
+   "size": 433714
   },
   "https://github.com/zhen-zen/YogaSMC/releases/download/1.5.3/YogaSMC-Release.zip": {
    "sha256": "d212edf601a6f7722f60e63a572ed3e689430d89fdae8a0f5365c8d6f799768e",
@@ -493,8 +493,8 @@
    "size": 14375
   },
   "https://github.com/zxystd/AthBluetoothFirmware/releases": {
-   "sha256": "3efefaaf17907ece09bd4d8a9e62a5bd6a2900c0996dbba4125567c16b584809",
-   "size": 219466
+   "sha256": "e3be2bc17aeae24adaf946a63384b2d63c21a9cf717299a99cb6608680af0b75",
+   "size": 219438
   },
   "https://github.com/zxystd/AthBluetoothFirmware/releases/download/v1.1.0/Ath3kBT.kext.zip": {
    "sha256": "83b68fa50c76699f343da606c297877915a43fdfa985ae6e2a6e36fd16a2b03a",
