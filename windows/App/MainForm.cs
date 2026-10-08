@@ -498,6 +498,99 @@ namespace A1401
             return log.Visible && log.Text == summary && log.ScrollBars == ScrollBars.Vertical;
         }
 
+        // Executed only by the owned packaged GUI verification session. The fixture
+        // exercises registered control handlers without scanning or writing a stick.
+        internal string FirmwareVerificationPhase { get; private set; }
+
+        internal bool VerifyFirmwarePrerequisiteNavigation()
+        {
+            int savedPage = page, savedReturn = prerequisiteReturnPage;
+            bool savedScanned = scanned, savedBuilt = built, savedShowing = showingPrerequisites, savedWritten = written, savedBusy = busy;
+            string savedGuide = firmwareGuideFile;
+            string directory = Path.Combine(Path.GetTempPath(), "1401-firmware-ui-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string localGuide = Path.Combine(directory, "firmware.html");
+            try
+            {
+                File.WriteAllText(localGuide, "<!doctype html><html><head><title>Firmware prerequisite fixture</title></head><body><h1>Firmware prerequisites</h1><p>No settings changed.</p></body></html>");
+                FirmwareVerificationPhase = "missing_guide";
+                busy = false; scanned = true; built = written = false; showingPrerequisites = false; firmwareGuideFile = null;
+                Go(1);
+                if (firmwareLink.Visible) return false;
+                FirmwareVerificationPhase = "scan_link_and_local_document";
+                firmwareGuideFile = localGuide;
+                Go(1);
+                if (!firmwareLink.Visible || !firmwareLink.Enabled || firmwareLink.Bounds.Bottom > body.ClientSize.Height) return false;
+                ActivateFirmwareLinkForVerification();
+                if (page != 3 || !showingPrerequisites || prerequisiteReturnPage != 1 ||
+                    title.Text != "Firmware prerequisites" || next.Text != "Return >" || !guide.Visible || !next.Enabled || built) return false;
+                var wait = Stopwatch.StartNew();
+                while (wait.ElapsedMilliseconds < 2500 && (guide.Url == null || guide.DocumentTitle != "Firmware prerequisite fixture"))
+                {
+                    Application.DoEvents(); System.Threading.Thread.Sleep(10);
+                }
+                if (guide.Url == null || !guide.Url.IsFile || !string.Equals(guide.Url.LocalPath, localGuide, StringComparison.OrdinalIgnoreCase) ||
+                    guide.DocumentTitle != "Firmware prerequisite fixture") return false;
+                FirmwareVerificationPhase = "scan_next_return";
+                next.PerformClick();
+                if (page != 1 || showingPrerequisites || built || written || !firmwareLink.Visible) return false;
+                FirmwareVerificationPhase = "scan_back_return";
+                ActivateFirmwareLinkForVerification(); back.PerformClick();
+                if (page != 1 || showingPrerequisites || built || written) return false;
+                FirmwareVerificationPhase = "refused_build_link";
+                Go(2);
+                if (!firmwareLink.Visible || built) return false;
+                // This is the state left by a build refusal; the link uses no successful EFI.
+                ActivateFirmwareLinkForVerification();
+                if (page != 3 || prerequisiteReturnPage != 2 || built) return false;
+                FirmwareVerificationPhase = "refused_build_next_return";
+                next.PerformClick();
+                if (page != 2 || showingPrerequisites || built || written) return false;
+                FirmwareVerificationPhase = "refused_build_back_return";
+                ActivateFirmwareLinkForVerification(); back.PerformClick();
+                if (page != 2 || showingPrerequisites || built || written) return false;
+                FirmwareVerificationPhase = "successful_build_required";
+                // A normal completed-EFI guide cannot advance after a refused build.
+                Go(3);
+                if (next.Enabled || title.Text != "Your BIOS steps" || built) return false;
+                built = true; Go(3);
+                if (!next.Enabled || next.Text != "Continue >" || title.Text != "Your BIOS steps") return false;
+                built = false; Go(2);
+                // Invoke the actual Next handler with synthetic page state; do not call
+                // Go(4), which enumerates real removable disks for the normal product UI.
+                FirmwareVerificationPhase = "unbuilt_usb_refusal";
+                page = 4; next.PerformClick();
+                if (page != 2 || built || written || disks.Visible || refresh.Visible) return false;
+                FirmwareVerificationPhase = "busy_link_refusal";
+                busy = true;
+                ActivateFirmwareLinkForVerification();
+                if (page != 2 || showingPrerequisites) return false;
+                FirmwareVerificationPhase = "missing_file_link_refusal";
+                busy = false; firmwareGuideFile = Path.Combine(directory, "missing.html");
+                Go(2); ActivateFirmwareLinkForVerification();
+                bool passed = page == 2 && !firmwareLink.Visible && !showingPrerequisites && !built && !written;
+                if (passed) FirmwareVerificationPhase = "complete";
+                return passed;
+            }
+            finally
+            {
+                busy = false; guide.Stop(); guide.Navigate("about:blank");
+                scanned = savedScanned; built = savedBuilt; written = savedWritten; showingPrerequisites = savedShowing;
+                firmwareGuideFile = savedGuide; prerequisiteReturnPage = savedReturn;
+                Go(savedPage); busy = savedBusy;
+                Directory.Delete(directory, true);
+            }
+        }
+
+        void ActivateFirmwareLinkForVerification()
+        {
+            // Raise the same LinkClicked event wired by the constructor, rather than
+            // reproducing its navigation decisions in a separate test implementation.
+            var method = typeof(LinkLabel).GetMethod("OnLinkClicked", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (method == null || firmwareLink.Links.Count == 0) throw new InvalidOperationException("Link activation is unavailable.");
+            method.Invoke(firmwareLink, new object[] { new LinkLabelLinkClickedEventArgs(firmwareLink.Links[0]) });
+        }
+
         internal void OfferStickLogs(bool asked)
         {
             if (IsDisposed || Disposing || !IsHandleCreated) return;

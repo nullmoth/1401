@@ -75,15 +75,32 @@ def ocvalidate_path():
         os.replace(tmp, zpath)
     name = {"Windows": "ocvalidate.exe", "Linux": "ocvalidate.linux"}.get(platform.system(), "ocvalidate")
     out = os.path.join(CACHE, sha[:12] + "-" + name)
-    if not os.path.exists(out):
-        with zipfile.ZipFile(zpath) as z:
-            member = next((m for m in z.namelist() if m.endswith("Utilities/ocvalidate/" + name)), None)
-            if not member:
-                raise ValidatorUnavailable(f"{os.path.basename(url)} has no Utilities/ocvalidate/{name}")
-            with z.open(member) as src, open(out + ".tmp", "wb") as dst:
-                dst.write(src.read())
-        os.chmod(out + ".tmp", 0o755)
-        os.replace(out + ".tmp", out)
+    # A verified archive does not authenticate a validator left in a writable cache.
+    # Compare executable bytes before every launch; never run a stale or replaced copy.
+    with open(zpath, "rb") as stream:
+        archive_bytes = stream.read(64 * 1024 * 1024 + 1)
+    if len(archive_bytes) > 64 * 1024 * 1024 or hashlib.sha256(archive_bytes).hexdigest() != sha:
+        raise ValidatorUnavailable("The OpenCore archive changed before validator extraction; validation stopped.")
+    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as z:
+        member = next((m for m in z.namelist() if m.endswith("Utilities/ocvalidate/" + name)), None)
+        if not member:
+            raise ValidatorUnavailable(f"{os.path.basename(url)} has no Utilities/ocvalidate/{name}")
+        expected = z.read(member)
+    digest = hashlib.sha256(expected).hexdigest()
+    if os.path.islink(out):
+        raise ValidatorUnavailable("The cached OpenCore validator is a link; validation stopped.")
+    if not os.path.exists(out) or _sha256(out) != digest:
+        import tempfile
+        fd, temporary = tempfile.mkstemp(prefix="1401-validator-", dir=CACHE)
+        try:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(expected)
+            os.chmod(temporary, 0o755)
+            os.replace(temporary, out)
+        finally:
+            if os.path.exists(temporary): os.unlink(temporary)
+    if os.path.islink(out) or _sha256(out) != digest:
+        raise ValidatorUnavailable("OpenCore validator bytes differ from the verified release; validation stopped.")
     return out
 
 
@@ -98,7 +115,16 @@ def _sha256(p):
 def run_ocvalidate(config_path):
     """Returns (ok, issues:int, text)."""
     exe = ocvalidate_path()
-    p = subprocess.run([exe, config_path], capture_output=True, text=True, timeout=TIMEOUT)
+    try:
+        p = subprocess.run([exe, config_path], capture_output=True, text=True, timeout=TIMEOUT)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 4551:
+            raise ValidatorUnavailable("Windows application control blocked the verified OpenCore validator (4551). "
+                                       "No validated EFI was produced. Review Applications and Services Logs > Microsoft > "
+                                       "Windows > CodeIntegrity > Operational in Event Viewer, and follow the device "
+                                       "administrator's approval process for this exact OpenCore release. "
+                                       "Do not disable application control or substitute an unverified validator.") from None
+        raise
     text = (p.stdout + p.stderr).strip()
     # ocvalidate exits 0 only when it found nothing; its last line says how many issues otherwise.
     issues = 0

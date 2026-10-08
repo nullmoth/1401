@@ -481,7 +481,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 raise RuntimeError("This PC has not been checked yet (no hardware report). Run Check this PC first and wait for it "
                                    "to finish; if it stops with an error, send that log instead.")
             with open(report_path, "rb") as report_file:
-                raw = report_file.read()
+                raw = report_file.read(16 * 1024 * 1024 + 1)
+            if len(raw) > 16 * 1024 * 1024:
+                raise RuntimeError("The hardware report exceeded its bounded size. Run Check this PC again.")
             res.report_sha256 = hashlib.sha256(raw).hexdigest()
             res.hardware = json.loads(raw.decode("utf-8"))
             if not isinstance(res.hardware, dict):
@@ -490,7 +492,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
                 raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
             res.acpi_fingerprints = report_mod.acpi_fingerprints(acpi_dir)
-            rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch)
+            rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch, raw_hardware=res.raw_hardware)
             h.notices += norm_notes
             o = mod.OCPE()
             o.result_dir = out_dir
@@ -511,7 +513,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             mv = o.select_macos_version(_wifi_prepass(hw, policy, h, o), native, oclp_versions)
             cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
             from . import panel_guard, scan_evidence
-            panel_guard.refuse_active_panel_disable(disabled, scan_evidence.load_for_report(report_path, res.raw_hardware))
+            panel_guard.refuse_active_panel_disable(disabled, scan_evidence.load_for_report(
+                report_path, res.raw_hardware, expected_report_sha256=res.report_sha256))
             _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
             needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
             smbios = o.s.select_smbios_model(cust, mv)
@@ -548,7 +551,15 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     from . import scan_evidence  # noqa: PLC0415
-    res.capture = scan_evidence.load_for_report(report_path, res.raw_hardware or res.hardware)
+    try:
+        res.capture = scan_evidence.load_for_report(
+            report_path, res.raw_hardware or res.hardware, expected_report_sha256=res.report_sha256 or None)
+    except scan_evidence.ReportChanged as error:
+        res.capture = scan_evidence.unbound_report_capture(res.raw_hardware or res.hardware,
+                                                         'the planned hardware report changed or became unavailable')
+        res.ok = False
+        if not res.error:
+            res.error = f"{type(error).__name__}: {error}"
     if h is not None:
         res.decisions, res.notices = h.decisions, h.notices
     res.transcript = h.tee.text() if hasattr(h, "tee") else ""

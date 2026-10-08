@@ -113,22 +113,45 @@ def finish(directory, token, ok, error_type=None):
     return value
 
 
-def load_for_report(report_path, raw_hardware=None):
-    """No native calls. Imported or modified reports cannot inherit a different scan's live inventory."""
+class ReportChanged(RuntimeError):
+    """The on-disk input no longer matches the report used for this build."""
+
+
+def unbound_report_capture(raw_hardware=None, reason='no exact scan-bound saved inventory for this report'):
+    out = hwcapture.empty_native(reason)
+    try: out['gpus'] = hwcapture.gpu_inventory(raw_hardware or {})
+    except Exception: out['gpus'] = []
+    out['scan_binding'] = {'status': 'unavailable',
+                           'meaning': 'saved Windows observations; not current-host or macOS driver qualification'}
+    return out
+
+
+def load_for_report(report_path, raw_hardware=None, *, expected_report_sha256=None):
+    """No native calls. A build must supply the hash of the bytes it originally parsed."""
+    if expected_report_sha256 is not None and not re.fullmatch(r'[0-9a-f]{64}', str(expected_report_sha256)):
+        raise ValueError('invalid expected report digest')
     path = Path(report_path)
     value = _read(path.parent / RECEIPT)
     valid = value and value.get('schema') == SCHEMA and RUN_ID.fullmatch(str(value.get('run_id', ''))) and value.get('phase') == 'complete'
+    digest = None
     try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > 16 * 1024 * 1024: raise OSError('report not a bounded regular file')
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 16 * 1024 * 1024:
+            raise OSError('report not a bounded regular file')
         digest_value = hashlib.sha256()
+        total = 0
         with path.open('rb') as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b''): digest_value.update(chunk)
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                total += len(chunk)
+                if total > 16 * 1024 * 1024: raise OSError('report exceeded its bounded size')
+                digest_value.update(chunk)
         digest = digest_value.hexdigest()
         valid = valid and value.get('report_sha256') == digest
     except OSError: valid = False
+    if expected_report_sha256 is not None and digest != expected_report_sha256:
+        raise ReportChanged('The hardware report changed or became unavailable during planning. '
+                            'Run Check this PC again before rebuilding.')
     capture = value.get('capture') if valid else None
-    out = capture if isinstance(capture, dict) else hwcapture.empty_native('no exact scan-bound saved inventory for this report')
-    out = dict(out)
+    out = dict(capture) if isinstance(capture, dict) else unbound_report_capture(raw_hardware)
     try: out['gpus'] = hwcapture.gpu_inventory(raw_hardware or {})
     except Exception: out['gpus'] = []
     out['scan_binding'] = {'status': 'same_scan_run' if valid else 'unavailable',
