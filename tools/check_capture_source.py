@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import platform
+import subprocess
 import re
 import sys
 import unittest
@@ -53,6 +54,19 @@ def main():
     except Exception as error:
         result['failure'] = {'step': step, 'error_type': type(error).__name__,
                              'frames': frames(__import__('traceback').format_exc())}
+        if isinstance(error, subprocess.CalledProcessError):
+            diagnostics = []
+            for stream in (error.stdout, error.stderr):
+                if not stream: continue
+                content = stream.decode('utf-8', 'replace') if isinstance(stream, bytes) else str(stream)
+                for line in content.splitlines():
+                    match = re.search(r'\b(?:fatal error|error|warning) ((?:C|CS|LNK)\d+): (.*)', line)
+                    if not match: continue
+                    # Source/compiler symbols only: never publish arbitrary diagnostic paths or command lines.
+                    symbols = re.findall(r'\b(?:DXGI|D3D12|DISPLAYCONFIG|SP_|DEVPROP|LUID|GUID|IID_|IUnknown|IDXGI|ID3D12|DEVPKEY|POWER_|MAX_|ERROR_|REG_|LOAD_|CR_)[A-Za-z0-9_]*\b', match[2])
+                    diagnostics.append({'code': match[1], 'symbols': symbols[:16]})
+            result['failure']['compiler_diagnostics'] = diagnostics[:32]
+            result['failure']['command_exit'] = error.returncode
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     Path(args.output).write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result))
