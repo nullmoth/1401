@@ -30,7 +30,7 @@ from . import devicemap as dm
 
 MAX_RES_DEVICES, MAX_RES_PER_DEVICE, MAX_RES_DATA = 512, 64, 4096
 # Cold PowerShell startup is included in this limit; each query is also clipped to the shared 12-second worker deadline.
-PS_TIMEOUT, MAX_BIOS_ROWS = 4, 2000
+PS_TIMEOUT, MAX_BIOS_ROWS = 10, 2000
 
 # cfgmgr32.h
 ALLOC_LOG_CONF, RES_ALL = 0x2, 0x0

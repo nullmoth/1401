@@ -345,15 +345,15 @@ class CimBootstrap(unittest.TestCase):
 
 
 class CimBudget(unittest.TestCase):
-    def test_cold_start_window_is_four_seconds_but_clipped_to_remaining_budget(self):
+    def test_cold_start_window_is_ten_seconds_but_clipped_to_remaining_budget(self):
         from p1401 import job_guard
         def cold_start(command, environment, timeout):
-            if timeout < 3:
+            if timeout < 6:
                 return b'', None, 'owned helper timed out'
             return b'{"status":"ok","rows":[]}', 0, None
         with patch.object(job_guard, 'run_bounded', side_effect=cold_start) as run:
             self.assertEqual(fwres._bounded_process([], {}, 20), ([], None))
-            self.assertEqual(run.call_args.args[2], 4)
+            self.assertEqual(run.call_args.args[2], 10)
             self.assertEqual(fwres._bounded_process([], {}, 1.25), (None, 'owned helper timed out'))
             self.assertEqual(run.call_args.args[2], 1.25)
             run.reset_mock()
