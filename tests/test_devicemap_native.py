@@ -177,7 +177,7 @@ class Collect(unittest.TestCase):
 
     def test_missing_permission_keeps_the_rest(self):
         def denied():
-            raise PermissionError("SetupDiGetClassDevsW failed (error 5)")
+            raise PermissionError(5, "private failed path that must not leave the collector")
         r = dm.collect(self.stub(devices=denied))
         self.assertEqual(r["devices"]["status"], "unavailable"); self.assertIn("error 5", r["devices"]["error"])
         self.assertEqual(r["graphics"]["status"], "measured"); self.assertEqual(r["platform_role"]["value"], "mobile")

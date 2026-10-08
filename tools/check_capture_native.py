@@ -84,6 +84,18 @@ def verify_capture_native(repo, output, evidence=None):
                    cwd=native.parent, check=True, capture_output=True, timeout=30)
     subprocess.run([str(native)], check=True, capture_output=True, timeout=10)
     evidence['device_map_windows_sdk_abi'] = True
+    firmware_spec = importlib.util.spec_from_file_location('firmware_abi_check', Path(repo) / 'tools/firmware_resources_abi.py')
+    firmware_abi = importlib.util.module_from_spec(firmware_spec); firmware_spec.loader.exec_module(firmware_abi)
+    generated = Path(output).parent / 'firmware-resource-abi.c'
+    generated.write_text(firmware_abi.generate(True) + '\nint main(void) {return 0;}\n')
+    native = Path(output).parent / 'firmware-resource-abi.exe'
+    subprocess.run(['cl', '/nologo', '/std:c11', '/O2', str(generated), '/link', '/OUT:' + str(native)],
+                   cwd=native.parent, check=True, capture_output=True, timeout=30)
+    subprocess.run([str(native)], check=True, capture_output=True, timeout=10)
+    evidence['firmware_resource_job_windows_sdk_abi'] = True
+    from check_job_native import verify_job_native
+    evidence['subprocess_containment'] = verify_job_native(repo)
+
     csc = Path(os.environ['WINDIR']) / 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
     compiled = Path(output).parent / 'scan-evidence-check.exe'
     subprocess.run([str(csc), '/nologo', '/target:exe', '/reference:System.Web.Extensions.dll', '/out:' + str(compiled),

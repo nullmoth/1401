@@ -151,3 +151,15 @@ class RecoverableWorker(unittest.TestCase):
         self.assertEqual(bounded['cpu_topology']['value']['cores'], 20)
         self.assertEqual(bounded['device_map']['devices']['status'], 'partial')
         self.assertGreater(bounded['device_map']['devices']['value']['dropped']['capture size cap'], 0)
+
+class FirmwareEvidenceSize(unittest.TestCase):
+    def test_optional_resource_truncation_retains_cpu_and_pnp(self):
+        value = hc.empty_native('fixture')
+        value['cpu_topology'] = hc.measured({'cores': 20}, 'fixture')
+        value['device_map']['devices'] = hc.measured({'nodes': [{'node': 'n0'}], 'edges': []}, 'fixture')
+        value['device_map']['pci_resources'] = hc.measured([{'resource_record': 'r%d' % i, 'allocated': ['x' * 4096]} for i in range(50)], 'fixture')
+        bounded = hc._bounded_payload(value, maximum=20000)
+        self.assertEqual(bounded['cpu_topology']['value']['cores'], 20)
+        self.assertEqual(bounded['device_map']['devices']['value']['nodes'], [{'node': 'n0'}])
+        resource = bounded['device_map']['pci_resources']
+        self.assertEqual(resource['status'], 'partial'); self.assertGreater(resource['omitted_records'], 0)
