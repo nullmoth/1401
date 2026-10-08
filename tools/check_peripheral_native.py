@@ -19,7 +19,18 @@ def verify_peripheral_sdk(repo, directory):
     errors=(rejected.stdout+rejected.stderr).decode('utf-8',errors='replace')
     if rejected.returncode==0 or 'C2338' not in errors or 'HidD_GetPreparsedData ctypes return width' not in errors:
         raise RuntimeError('BOOLEAN-width negative control was not rejected for the intended SDK mismatch.')
-    return {'actual_sdk_positive':True,'runtime_guids_and_hid_bitfield':True,'boolean_width_negative_rejected':True}
+    for label, options in [('positive', []), ('negative', ['--negative-audio-guid'])]:
+        source = directory / ('audio-guid-' + label + '.cpp')
+        binary = directory / ('audio-guid-' + label + '.exe')
+        subprocess.run([sys.executable, '-I', '-B', str(generator), str(source), '--guid-cpp', *options],
+                       check=True, capture_output=True, timeout=10)
+        subprocess.run(['cl', '/nologo', '/std:c++17', '/TP', str(source), '/Fe:' + str(binary)],
+                       cwd=directory, check=True, capture_output=True, timeout=30)
+        result = subprocess.run([str(binary)], capture_output=True, timeout=10)
+        if result.returncode != (0 if label == 'positive' else 1):
+            raise RuntimeError('SDK declared audio GUID check did not produce the expected result.')
+    return {'actual_sdk_positive':True,'runtime_guids_and_hid_bitfield':True,
+            'boolean_width_negative_rejected':True, 'audio_guid_negative_rejected':True}
 
 
 def verify_cim_engine(repo, directory):

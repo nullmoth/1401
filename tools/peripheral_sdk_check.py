@@ -5,6 +5,18 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from p1401 import peripheral_caps as p
+if '--guid-cpp' in sys.argv:
+    # MIDL declares these identifiers with __declspec(uuid); C libraries need not export IID objects.
+    lines = ['#include <windows.h>', '#include <mmdeviceapi.h>', '#include <audioclient.h>', 'int main(void) {']
+    for index, (name, value) in enumerate([('MMDeviceEnumerator', p.CLSID_MMDeviceEnumerator),
+            ('IMMDeviceEnumerator', p.IID_IMMDeviceEnumerator), ('IAudioClient', p.IID_IAudioClient)]):
+        first = value[0] ^ (1 if '--negative-audio-guid' in sys.argv and index == 0 else 0)
+        lines.append('const GUID& g%d = __uuidof(%s);' % (index, name))
+        lines.append(f'if (g{index}.Data1!={first:#x}u || g{index}.Data2!={value[1]:#x} || g{index}.Data3!={value[2]:#x}) return 1;')
+        lines.extend(f'if (g{index}.Data4[{i}]!={byte:#x}) return 1;' for i, byte in enumerate(value[3:]))
+    lines.append('return 0; }')
+    Path(sys.argv[1]).write_text('\n'.join(lines)+'\n')
+    sys.exit(0)
 STRUCTS = {name: getattr(p, name) for name in ('HIDP_CAPS', 'HIDP_LINK_COLLECTION_NODE', 'SP_DEVICE_INTERFACE_DATA',
           'WLAN_INTERFACE_INFO', 'WLAN_INTERFACE_CAPABILITY', 'WAVEFORMATEX', 'WAVEFORMATEXTENSIBLE')}
 rename = {'WAVEFORMATEXTENSIBLE.wValidBitsPerSample': 'Samples.wValidBitsPerSample'}
@@ -67,13 +79,7 @@ lines += [
     'int check_link_flags(void) { HIDP_LINK_COLLECTION_NODE node={0};node.CollectionType=0xA5;node.IsAlias=1;',
     'return (*(const ULONG*)((const char*)&node+12)&0x1FF)!=0x1A5; }',
 ]
-lines.append('int check_audio_guids(void) {')
-for symbol, value in [('CLSID_MMDeviceEnumerator',p.CLSID_MMDeviceEnumerator),
-                      ('IID_IMMDeviceEnumerator',p.IID_IMMDeviceEnumerator),('IID_IAudioClient',p.IID_IAudioClient)]:
-    lines.append(f'if ({symbol}.Data1!={value[0]:#x}u || {symbol}.Data2!={value[1]:#x} || {symbol}.Data3!={value[2]:#x}) return 1;')
-    lines.extend(f'if ({symbol}.Data4[{i}]!={byte:#x}) return 1;' for i,byte in enumerate(value[3:]))
-lines.append('return 0; }')
-lines.append('int main(void) { return check_link_flags() || check_audio_guids(); }')
+lines.append('int main(void) { return check_link_flags(); }')
 target = Path(sys.argv[1]) if len(sys.argv)>1 else Path(__file__).with_name('peripheral_sdk_check.c')
 target.write_text('\n'.join(lines)+'\n')
 print('Compile-only Windows SDK assertions written; actual SDK compiler result remains pending.')
