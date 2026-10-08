@@ -65,7 +65,9 @@ MUX_HELP = (
     "A panel or external display needs a connection wired to the NVIDIA GPU for its display driver to use it. "
     "Check the exact model's connector wiring and whether a hardware MUX provides a Discrete GPU mode. "
     "Some laptops have no MUX; a config change cannot create one. If a supported Discrete GPU mode is available, "
-    "enable it, restart Windows, then run Check this PC and Build again. Display output still requires testing.")
+    "enable it, restart Windows, then run Check this PC and Build again (a scan taken before the switch still shows the "
+    "old wiring). Without a MUX, a monitor on a port wired to the NVIDIA GPU (often HDMI or a USB-C/Thunderbolt port) "
+    "works; the built-in screen stays dark in macOS.")
 
 
 def mux_help(report):
@@ -113,6 +115,7 @@ def apply(cfg, result, change):
         change("nullmoth-sip", (nv.get("csr-active-config") or b"").hex(), SIP_DRIVER.hex(),
                "the SIP value the NullMoth driver was tested with (its kexts are not Apple-signed)")
         nv["csr-active-config"] = SIP_DRIVER
+    laptop_gpu_awake(cfg, result, live, change)
     delete = cfg["NVRAM"].setdefault("Delete", {}).setdefault("7C436110-AB2A-4BBB-A880-FE41995C9F82", [])
     # not boot-args (): deleting it replaced the flags of a machine already running macOS. SIP is safe to reassert.
     for k in ("csr-active-config",):
@@ -120,6 +123,27 @@ def apply(cfg, result, change):
             delete.append(k)
     return True
 
+
+
+def laptop_gpu_awake(cfg, result, live, change):
+    """Laptops: the GPU's PCI path gets acpi-wake-type = 1 in DeviceProperties. Without it the laptop's ACPI powers the
+    discrete GPU down in macOS and the driver's bring-up fails (RmInitAdapter); with it, users with an RTX 4060 Laptop
+    (i7-13620H), RTX 3050 and RTX 4050 laptops in Discrete/dGPU mode reached a Metal desktop (support chat, 2026-10-08,
+    several independent reports of the same manual step). Desktop cards are left alone."""
+    hw = result.hardware or {}
+    if (hw.get("Motherboard") or {}).get("Platform") != "Laptop":
+        return
+    gpus = hw.get("GPU") or {}
+    add = cfg.setdefault("DeviceProperties", {}).setdefault("Add", {})
+    for name in live:
+        path = (gpus.get(name) or {}).get("PCI Path") or ""
+        if not re.fullmatch(r"PciRoot\(0x[0-9A-Fa-f]+\)(/Pci\(0x[0-9A-Fa-f]+,0x[0-9A-Fa-f]+\))+", path):
+            continue
+        props = add.setdefault(path, {})
+        if props.get("acpi-wake-type") != 1:
+            change("nullmoth-laptop-gpu-awake", str(props.get("acpi-wake-type", "")), "1",
+                   f"{name}: keeps the laptop's discrete GPU powered for the NullMoth driver (acpi-wake-type)")
+            props["acpi-wake-type"] = 1
 
 def stage(usb_root, cache_dir, fetch=None):
     """Puts the driver package on the stick under NullMoth/. Verifies SHA-256 before and after copying; a mismatch
