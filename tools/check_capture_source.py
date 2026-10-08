@@ -33,10 +33,6 @@ def main():
             raise RuntimeError('This check requires installed Python 3.12 on Windows.')
         repo = Path(__file__).resolve().parent.parent
         sys.path.insert(0, str(repo))
-        from check_capture_native import verify_capture_native
-        step = 'native Windows ABI and OS APIs'
-        result['native_capture'] = {}
-        verify_capture_native(repo, args.output, result['native_capture'])
         step = 'production local-report lifecycle'
         report_check = subprocess.run([sys.executable, '-B', str(repo / 'tools/check_report_reliability.py'),
                                        '--output', str(Path(args.output).parent / 'local-report-verification.json')],
@@ -44,6 +40,10 @@ def main():
         result['local_reports'] = json.loads((Path(args.output).parent / 'local-report-verification.json').read_text())
         if report_check.returncode or result['local_reports'].get('ok') is not True:
             raise RuntimeError('Production local-report verification failed.')
+        from check_capture_native import verify_capture_native
+        step = 'native Windows ABI and OS APIs'
+        result['native_capture'] = {}
+        verify_capture_native(repo, args.output, result['native_capture'])
         step = 'pinned dependency test fixture'
         from windows_release import download
         inputs = json.loads((repo / 'windows/release-inputs.json').read_text())
