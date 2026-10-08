@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - support/1.0.24-candidate
+      - support/1.1.0-candidate
 
 permissions:
   contents: read
