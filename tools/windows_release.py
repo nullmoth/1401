@@ -128,6 +128,8 @@ def prepare(args):
         shutil.copyfile(REPO / relative, target)
     with get('https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/tags/' + inputs['driver_release']) as response:
         release = json.load(response)
+    if release.get('draft') or release.get('prerelease'):
+        raise RuntimeError('The bundled companion release must be published and out of installation review.')
     assets = {asset['name']: asset for asset in release.get('assets', [])}
     sums_asset = assets.get('SHA256SUMS.txt')
     if not sums_asset or not (sums_asset.get('digest') or '').startswith('sha256:'):

@@ -11,6 +11,16 @@ import shutil
 from p1401 import hwcapture as hc
 
 
+def load_verification_helper(repo, name):
+    """Portable Python may omit the script directory from its isolated import path."""
+    if name not in ('check_job_native', 'check_peripheral_native', 'check_cpu_native'):
+        raise ValueError('Unknown native verification helper.')
+    spec = importlib.util.spec_from_file_location(name, Path(repo) / 'tools' / (name + '.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def verify_capture_native(repo, output, evidence=None):
     evidence = evidence if evidence is not None else {}
     if sys.platform != 'win32' or ctypes.sizeof(ctypes.c_void_p) != 8:
@@ -93,13 +103,14 @@ def verify_capture_native(repo, output, evidence=None):
                    cwd=native.parent, check=True, capture_output=True, timeout=30)
     subprocess.run([str(native)], check=True, capture_output=True, timeout=10)
     evidence['firmware_resource_job_windows_sdk_abi'] = True
-    from check_job_native import verify_job_native
+    verify_job_native = load_verification_helper(repo, "check_job_native").verify_job_native
     evidence['subprocess_containment'] = verify_job_native(repo)
-    from check_peripheral_native import verify_peripheral_sdk, verify_cim_engine
+    peripheral = load_verification_helper(repo, "check_peripheral_native")
+    verify_peripheral_sdk, verify_cim_engine = peripheral.verify_peripheral_sdk, peripheral.verify_cim_engine
     evidence['peripheral_sdk'] = verify_peripheral_sdk(repo, Path(output).parent)
     evidence['cim_engine'] = verify_cim_engine(repo, Path(output).parent)
     if evidence['cim_engine'].get('ok') is not True:raise RuntimeError('System PowerShell/CIM engine did not pass its fixed read-only query.')
-    from check_cpu_native import verify_cpu_native
+    verify_cpu_native = load_verification_helper(repo, "check_cpu_native").verify_cpu_native
     evidence['cpu_native'] = {}
     verify_cpu_native(repo, Path(output).parent, evidence['cpu_native'])
 
