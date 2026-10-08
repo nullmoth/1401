@@ -13,7 +13,7 @@ def verify_job_native(repo):
     with tempfile.TemporaryDirectory(prefix='1401-job-test-') as directory:
         receipt = Path(directory) / 'child.json'
         source = Path(repo) / 'p1401/job_guard.py'
-        program = "import importlib.util,json,subprocess,sys,time; s=importlib.util.spec_from_file_location('guard',sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.initialize(); p=subprocess.Popen([sys.executable,'-I','-B','-c','import time; time.sleep(60)']); assert m.contains(p._handle); open(sys.argv[2],'w').write(json.dumps({'pid':p.pid,'contained':True})); time.sleep(60)"
+        program = "import importlib.util,json,subprocess,sys,time,os; s=importlib.util.spec_from_file_location('guard',sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.initialize(); p=subprocess.Popen([sys.executable,'-I','-B','-c','import time; time.sleep(60)']); assert m.contains(p._handle); q=sys.argv[2]+'.tmp'; f=open(q,'x'); f.write(json.dumps({'pid':p.pid,'contained':True})); f.flush(); os.fsync(f.fileno()); f.close(); os.replace(q,sys.argv[2]); time.sleep(60)"
         worker = subprocess.Popen([sys.executable, '-I', '-B', '-c', program, str(source), str(receipt)],
                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         kernel = ctypes.WinDLL('kernel32.dll', winmode=0x800)
