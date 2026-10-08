@@ -28,6 +28,12 @@ def failure_frames(text):
     return frames
 
 
+def require_firmware_navigation(gui):
+    """A prior or incomplete executable smoke cannot qualify the new guide flow."""
+    if gui.get('firmware_prerequisite_navigation') is not True or gui.get('firmware_navigation_fixture_phase') != 'complete':
+        raise RuntimeError('Compiled prebuild firmware guidance and refusal-return navigation did not pass.')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--stage', required=True)
@@ -120,6 +126,7 @@ def main():
             raise RuntimeError('Log collection on a closed application window was not safely skipped.')
         if gui.get('support_notices_visible') is not True:
             raise RuntimeError('Laptop display and controller qualification notices were not shown in the build summary.')
+        require_firmware_navigation(gui)
         if not (gui.get('product_version') or '').startswith(expected):
             raise RuntimeError('The packaged executable product version differs.')
         changed_runtime = []

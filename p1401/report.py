@@ -8,6 +8,7 @@ USB audio is class-compliant (macOS drives it without a kext), so it never ends 
 import json
 import os
 import hashlib
+import copy
 
 # section -> can an entry with no Device ID be dropped? (only where the EFI can't depend on it)
 DROPPABLE = {
@@ -136,9 +137,14 @@ def normalize(report):
     return report, notes
 
 
-def normalized_copy(report_path, dest_dir):
-    with open(report_path, encoding="utf-8") as fh:
-        report, notes = normalize(json.load(fh))
+def normalized_copy(report_path, dest_dir, raw_hardware=None):
+    """Normalize a private copy of the parsed input, or read a standalone imported report."""
+    if raw_hardware is None:
+        with open(report_path, encoding="utf-8") as fh:
+            hardware = json.load(fh)
+    else:
+        hardware = copy.deepcopy(raw_hardware)
+    report, notes = normalize(hardware)
     out = os.path.join(dest_dir, "Report.json")
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
