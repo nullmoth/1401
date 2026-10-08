@@ -439,12 +439,12 @@ def _nullmoth_gpu_pass(checker, h):
             exited = e
         hit = nullmoth.mark(checker.hardware_report)
         if not hit:
-            mux = nullmoth.mux_help(checker.hardware_report)
-            if exited and mux:
-                raise EngineExit(mux)
             if exited:
                 raise exited
             return
+        mux = nullmoth.mux_help(checker.hardware_report)
+        if mux:
+            h.notices.append(mux)
         gpus = checker.hardware_report.get("GPU", {})
         checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
         h.notices.append("NullMoth driver: " + ", ".join(hit) + " will run on macOS 15 Sequoia."

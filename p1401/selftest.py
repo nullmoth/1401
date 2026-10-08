@@ -167,6 +167,17 @@ def main():
     arm("a table listed twice in ACPI > Add is kept once and the EFI validates (NM-MH8TV0NW)",
         len(paths) == len(set(paths)) and "dedupe-add" in [x["rule"] for x in ch] and validate.validate(d)["ok"], paths[:3])
 
+    for slide, want in ((True, True), (False, False)):
+        d = _copy(FIXTURE)
+        _edit(d, lambda c: c["Booter"]["Quirks"].update(ProvideCustomSlide=slide, AvoidRuntimeDefrag=True, AllowRelocationBlock=False))
+        intel = engine.BuildResult(ok=True, out_dir=d, macos_version="24.99.99", decisions=[],
+                                   hardware={"GPU": {}, "CPU": {"Manufacturer": "Intel"}, "Motherboard": {"Chipset": "Z790"}})
+        policy.apply(_cfg(d), intel, engine.Policy())
+        with open(_cfg(d), "rb") as fh:
+            rb = plistlib.load(fh)["Booter"]["Quirks"]["AllowRelocationBlock"]
+        arm(f"ProvideCustomSlide {slide}: AllowRelocationBlock {want}" + (", EFI validates (STOP 0x16 sticks)" if want else ""),
+            rb is want and (not want or validate.validate(d)["ok"]), rb)
+
     d = _copy(FIXTURE)
     _edit(d, lambda c: c["Kernel"]["Patch"].append({"Arch": "x86_64", "Base": "", "Comment": "1401 selftest mask", "Count": 1,
           "Enabled": True, "Find": bytes.fromhex("b800000000"), "Identifier": "kernel", "Limit": 0, "Mask": b"",

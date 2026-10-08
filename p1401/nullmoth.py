@@ -23,9 +23,9 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 # takeover is off on the tested machine. The two AMFI args let WindowServer load a GPU bundle Apple did not sign.
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-1.0.7.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.10/nullmoth-nvidia-1.0.7.tar.gz",
-           "sha256": "5d66e1b6b0706de1056b76d5adcd3fb1cbe7e81af57c4dfbd2b31b7ec202ebf7"}
+PACKAGE = {"name": "nullmoth-nvidia-1.0.8.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.0.12/nullmoth-nvidia-1.0.8.tar.gz",
+           "sha256": "459e874e889f5913f4c88956c09fd827f1a2bb2c4f39ab1bbcb8af9094366ba2"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
@@ -46,18 +46,13 @@ def cards(report):
 
 
 def mark(report):
-    """Gives each supported card macOS 15 compatibility. Returns the names marked. A card that drives a laptop's
-    internal panel through another GPU is left alone (the engine rule for that case stands)."""
-    monitors = list((report.get("Monitor") or {}).values())
-    internal = [m for m in monitors if m.get("Connector Type") == "Internal"]
+    """Gives each supported card macOS 15 compatibility. Returns the names marked.
+    A laptop whose built-in panel runs on an integrated GPU macOS cannot drive (Iris Xe, 12th/13th-gen UHD, Radeon 680M/780M)
+    is marked too. Refusing it stopped every such laptop at Build (seven uploaded logs on 10-07). The macOS installer runs
+    on the built-in panel through the firmware's display, and the driver runs the NVIDIA card for Metal and for any monitor
+    on its ports; mux_help() says so, and how to put the panel on the NVIDIA card, in the build notes."""
     hit = []
     for n, g in cards(report).items():
-        # A laptop whose built-in panel runs on the integrated GPU can still use the NVIDIA card for a monitor plugged into
-        # a port wired to it (10-07, NM-K8HCTWCW: RTX 5060 Laptop + Radeon 610M panel + a DP monitor). Without such a
-        # monitor the card has nothing to show a picture on, and the engine rule stands.
-        external_on_card = any(m.get("Connector Type") != "Internal" and m.get("Connected GPU") == n for m in monitors)
-        if any(m.get("Connected GPU", n) != n for m in internal) and not external_on_card:
-            continue
         g["Compatibility"] = SEQUOIA
         g.pop("OCLP Compatibility", None)
         g["Codename"] = g.get("Codename") if g.get("Codename") not in (None, "", "Unknown") else "NullMoth driver"
@@ -66,19 +61,20 @@ def mark(report):
 
 
 MUX_HELP = (
-    "This laptop's built-in screen is connected to its integrated graphics ({igpu}), which macOS cannot drive, so the "
-    "{card} has no screen to show macOS on.\n\n"
-    "Most gaming laptops can connect the built-in screen straight to the NVIDIA card (a MUX switch):\n"
+    "Laptop note: the built-in screen is connected to the integrated graphics ({igpu}), which macOS cannot drive. "
+    "The macOS installer shows on the built-in screen through the firmware's display. Once macOS and the NullMoth driver "
+    "are installed, macOS shows on monitors plugged into ports wired to the {card} (often HDMI or a USB-C/DP port); "
+    "the built-in screen can stay dark.\n\n"
+    "To use the built-in screen, connect it straight to the NVIDIA card first (a MUX switch):\n"
     "  - ASUS: Armoury Crate > GPU Mode > Ultimate (or dGPU / Discrete)\n"
     "  - Lenovo Legion: Lenovo Vantage > Hybrid Mode off, or BIOS > Graphic Device > Discrete Graphics\n"
     "  - MSI: MSI Center > MUX switch / Discrete Graphics Mode\n"
     "  - Others: look for 'MUX', 'Discrete GPU' or 'dGPU only' in the vendor app or the BIOS\n"
-    "Switch it, restart Windows, then run Check this PC and Build again.\n"
-    "An external monitor plugged into a port wired to the NVIDIA card (often HDMI or the dGPU-side USB-C/DP) also works.")
+    "Switch it, restart Windows, then run Check this PC and Build again.")
 
 
 def mux_help(report):
-    """When a supported card was skipped only because the built-in panel runs on another GPU: the advice to give.
+    """The build note for a laptop whose built-in panel runs on another GPU (Optimus mode), or None.
     (10-07: five uploaded logs in one night were RTX 4060/5060/5070 Ti laptops in Optimus mode.)"""
     mons = list((report.get("Monitor") or {}).values())
     for n, g in cards(report).items():
@@ -265,7 +261,10 @@ def selftest():
     arm("an AMD card with the same product id is NOT marked", not supported(dict(rtx, Manufacturer="AMD")), "AMD")
     lap = {"GPU": {"RTX": dict(rtx), "iGPU": {"Manufacturer": "Intel", "Device Type": "Integrated GPU"}},
            "Monitor": {"panel": {"Connector Type": "Internal", "Connected GPU": "iGPU"}}}
-    arm("a laptop whose panel is on the iGPU keeps the engine's rule", mark(lap) == [], lap["GPU"]["RTX"].get("Compatibility"))
+    arm("a laptop whose panel is on the iGPU is still marked (no more refusal at Build)", mark(lap) == ["RTX"], lap["GPU"]["RTX"].get("Compatibility"))
+    note = mux_help(lap) or ""
+    arm("that laptop gets the built-in-screen note naming its iGPU and the MUX switch", "iGPU" in note and "MUX" in note, note[:60])
+    arm("a desktop gets no laptop note", mux_help(rep) is None, mux_help(rep))
     arm("only the 5060 counts as tested", tested(rep) == ["RTX 5060"], tested(rep))
 
     class R:

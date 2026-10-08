@@ -181,6 +181,16 @@ def apply(config_path, result, policy):
             change("amd-mmiowhitelist", f"{len(wl)} MmioWhitelist entr{'y' if len(wl) == 1 else 'ies'} enabled",
                    "disabled", "they only apply with DevirtualiseMmio on, and ocvalidate refuses them without it")
 
+    # boot.efi stopped with STOP 0x16 (EB.MM.AKMr2: no room in low memory for the kernel) on 14 sticks, Intel and AMD,
+    # although ProvideCustomSlide had picked a valid slide. OpenCore's AllowRelocationBlock loads the kernel through a
+    # scratch block in the lower 4 GB and is used only when no slide fits (OpenCore Configuration, Booter > Quirks), so
+    # machines that boot today never touch it. It needs ProvideCustomSlide and AvoidRuntimeDefrag on.
+    if quirks.get("ProvideCustomSlide") is True and quirks.get("AvoidRuntimeDefrag") is True \
+            and quirks.get("AllowRelocationBlock") is not True:
+        quirks["AllowRelocationBlock"] = True
+        change("relocation-block", "AllowRelocationBlock=False", "AllowRelocationBlock=True",
+               "boot.efi stops (STOP 0x16) when low memory has no room for the kernel; the block is used only then")
+
     # 10-07 (NM-MMXGZ2XV): two fetched AMD kernel patches set Replace bits where ReplaceMask is 0, and ocvalidate refuses
     # that ("Replace requires ReplaceMask to be active for corresponding bits"). OpenCore writes (orig & ~mask) | (replace &
     # mask), so clearing those bits changes nothing it writes - it only makes the patch say what it does.
