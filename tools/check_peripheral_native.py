@@ -37,6 +37,6 @@ def verify_cim_engine(repo, directory):
     destination=Path(directory)/'cim-engine-smoke.json'
     program="import json,sys;sys.path.insert(0,sys.argv[1]);from p1401 import job_guard,fwres;assert job_guard.initialize();result=fwres._cim_engine_smoke();open(sys.argv[2],'w').write(json.dumps(result))"
     subprocess.run([sys.executable,'-I','-B','-c',program,str(Path(repo).resolve()),str(destination)],
-                   check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=5)
+                   check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=8)
     if not destination.is_file() or destination.stat().st_size>4096:raise RuntimeError('CIM engine verification evidence unavailable.')
     return json.loads(destination.read_bytes())

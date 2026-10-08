@@ -191,9 +191,9 @@ class Bios(unittest.TestCase):
         self.assertEqual(r["status"], "unavailable"); self.assertIn("not observable", r["error"]); self.assertNotIn("value", r)
 
     def test_access_denied_and_timeout_are_partial(self):
-        q = query_for({"Lenovo_BiosSetting"}, fail={"HP_BIOSEnumeration": "access denied", "DCIM_BIOSEnumeration": "query did not finish in 15 s"})
+        q = query_for({"Lenovo_BiosSetting"}, fail={"HP_BIOSEnumeration": "access denied", "DCIM_BIOSEnumeration": "owned helper timed out"})
         v, errors = fwres.bios_settings(q)
-        self.assertEqual(sorted(errors), ["Dell: query did not finish in 15 s", "HP: access denied"])
+        self.assertEqual(sorted(errors), ["Dell: owned helper timed out", "HP: access denied"])
         self.assertIn("secure_boot", {s["category"] for s in v["settings"]})
 
     def test_unreported_categories_are_unknown_not_off(self):
@@ -342,3 +342,54 @@ class CimBootstrap(unittest.TestCase):
         from p1401 import job_guard
         with patch.object(job_guard,'run_bounded',return_value=(b'{"status":"provider_absent","phase":"cim_query","hresult":-2147217394,"mi_code":3,"rows":[]}',0,None)):
             self.assertEqual(fwres._bounded_process([],{},1),(None,'provider not present'))
+
+
+class CimBudget(unittest.TestCase):
+    def test_cold_start_window_is_four_seconds_but_clipped_to_remaining_budget(self):
+        from p1401 import job_guard
+        def cold_start(command, environment, timeout):
+            if timeout < 3:
+                return b'', None, 'owned helper timed out'
+            return b'{"status":"ok","rows":[]}', 0, None
+        with patch.object(job_guard, 'run_bounded', side_effect=cold_start) as run:
+            self.assertEqual(fwres._bounded_process([], {}, 20), ([], None))
+            self.assertEqual(run.call_args.args[2], 4)
+            self.assertEqual(fwres._bounded_process([], {}, 1.25), (None, 'owned helper timed out'))
+            self.assertEqual(run.call_args.args[2], 1.25)
+            run.reset_mock()
+            self.assertIn('not started', fwres._bounded_process([], {}, 0)[1])
+            run.assert_not_called()
+
+    def test_three_provider_launches_cannot_reset_the_shared_deadline(self):
+        remaining = [3.0]  # Earlier CPU/PnP/routing/vendor stages used the rest of the shared window.
+        calls = []
+        def query(namespace, cls, props, timeout):
+            calls.append(timeout)
+            remaining[0] = max(0, remaining[0] - timeout)
+            return None, 'owned helper timed out'
+        value, errors = fwres.bios_settings(query=query, remaining=lambda: remaining[0])
+        self.assertEqual(calls, [3])
+        self.assertEqual(value['providers']['Lenovo'], 'owned helper timed out')
+        self.assertTrue(all('not started' in value['providers'][vendor] for vendor in ('HP', 'Dell')))
+        self.assertEqual(len(errors), 3)
+
+    def test_file_verification_time_is_deducted_before_launch(self):
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from p1401 import job_guard, hwcapture
+        class DirectoryCall:
+            def __init__(self, text): self.text = text
+            def __call__(self, buffer, capacity):
+                buffer.value = self.text
+                return len(self.text)
+        kernel = SimpleNamespace(GetSystemDirectoryW=DirectoryCall(r'C:\Windows\System32'),
+                                 GetWindowsDirectoryW=DirectoryCall(r'C:\Windows'))
+        for elapsed, expected in ((2.5, 1.5), (4.5, None)):
+            with self.subTest(elapsed=elapsed), patch.object(job_guard, 'ready', return_value=True), patch.object(hwcapture, '_kernel32', return_value=kernel), patch.object(hwcapture, '_system_file', return_value=nullcontext()), patch.object(fwres.time, 'monotonic', side_effect=[100, 100 + elapsed]), patch.object(job_guard, 'run_bounded', return_value=(b'{"status":"ok","rows":[]}', 0, None)) as run:
+                rows, error = fwres._run_system_cim(r'root\CIMV2', 'Win32_OperatingSystem', ['BuildNumber'], 4)
+                if expected is None:
+                    self.assertIn('not started', error)
+                    run.assert_not_called()
+                else:
+                    self.assertEqual((rows, error), ([], None))
+                    self.assertEqual(run.call_args.args[2], expected)
