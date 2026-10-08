@@ -131,6 +131,14 @@ def apply(config_path, result, policy):
         dbg["Target"] = want; dbg["AppleDebug"] = True; dbg["ApplePanic"] = True
         change("boot-logs-on-stick", before, f"Target {want}, AppleDebug, ApplePanic",
                "boot and panic logs are written to the stick, so a failed start can be reported from Windows")
+    # 2e. The Mac app proves which partition OpenCore started from by OpenCore's boot-path variable, which OpenCore
+    # publishes only with Misc > Security > ExposeSensitiveData bit 0x1; the usual 6 leaves it out, and the Mac app then
+    # stopped with one OpenCore partition in sight (NM-PK5A09C6). Bit 0x1 exposes the booter path only - no serials.
+    sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
+    esd = int(sec.get("ExposeSensitiveData", 6) or 0)
+    if not esd & 0x1:
+        sec["ExposeSensitiveData"] = esd | 0x1
+        change("expose-boot-path", str(esd), str(esd | 0x1), "lets the Mac app confirm which partition OpenCore started from")
 
     # 10-07 (NM-MH8TV0NW): the engine listed SSDT-Disable_Network_GPP7.aml twice in ACPI > Add (two network cards
     # behind the same bridge), and ocvalidate refuses a duplicated entry, so the whole build failed. OpenCore would load
