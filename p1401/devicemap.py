@@ -196,7 +196,8 @@ def build_graphics_map(adapters, paths, device_nodes=()):
         n = by_luid.get(tuple(p["source_luid"]))
         tech = p.get("output_technology")
         entry = {"target": "t%d" % p["target_index"], "output": OUTPUT_TECH.get(tech, "code %s" % tech),
-                 "internal_panel": tech in INTERNAL_TECH, "target_available": p.get("target_available")}
+                 "internal_panel": tech in INTERNAL_TECH, "target_available": p.get("target_available"),
+                 "current_refresh_rate": p.get("current_refresh_rate") or unavailable('not supplied in this path observation', 'QueryDisplayConfig target refreshRate')}
         if n is not None:
             n["displays"].append(entry)
     sig = {}
@@ -438,7 +439,10 @@ def display_paths(nt):
             errors.append(f"QueryDisplayConfig returned {got_p.value} paths for a {cap_p}-path buffer; kept {cap_p}")
         n = min(got_p.value, cap_p)
         return [{"source_luid": (p.sourceInfo.adapterId.HighPart, p.sourceInfo.adapterId.LowPart), "target_index": i,
-                 "output_technology": p.targetInfo.outputTechnology, "target_available": bool(p.targetInfo.targetAvailable)}
+                 "output_technology": p.targetInfo.outputTechnology, "target_available": bool(p.targetInfo.targetAvailable),
+                 "current_refresh_rate": measured({'numerator':p.targetInfo.refreshNum,'denominator':p.targetInfo.refreshDen},
+                    'QueryDisplayConfig target refreshRate; queried current rational, not maximum supported mode') if p.targetInfo.refreshNum and p.targetInfo.refreshDen else
+                    unavailable('queried refresh rational has zero numerator or denominator', 'QueryDisplayConfig target refreshRate')}
                 for i, p in enumerate(paths[:n])], errors
     raise ObservationUnavailable("; ".join(errors) + f"; gave up after {QDC_RETRIES} attempts")
 
@@ -581,6 +585,15 @@ def collect(backends, checkpoint=None):
     if 'cpu_native' in backends:
         record, _ = _stage(backends['cpu_native'], 'nm_cpuinfo.exe documented read-only CPUID allow-list')
         done('cpu_native', record)
+    if 'peripheral_caps' in backends:
+        def peripheral_saved(value):
+            subset = dict(value)
+            for component in ('hid','audio','wifi'):
+                subset.setdefault(component, unavailable('worker has not reached this peripheral component', 'owned capture worker'))
+            out['peripheral_caps'] = partial(subset, 'read-only HID/WASAPI/Native Wi-Fi metadata', 'peripheral collection in progress; unreached components unavailable')
+            if checkpoint: checkpoint(out)
+        record, _ = _stage(lambda: backends['peripheral_caps'](checkpoint=peripheral_saved), 'read-only HID/WASAPI/Native Wi-Fi metadata')
+        done('peripheral_caps', record)
     g_rec, adapters = _stage(backends["graphics"], "DXGI EnumAdapters1 + D3D12 CheckFeatureSupport")
     if adapters is not None:
         nodes = (dev_rec.get("value") or {}).get("nodes") or []

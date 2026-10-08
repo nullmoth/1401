@@ -445,7 +445,7 @@ def gpu_inventory(report):
 
 CAPTURE_TIMEOUT = 12
 CAPTURE_MAX_BYTES = 2 * 1024 * 1024
-DEVICE_STAGES = ("platform_role", "devices", "display_paths", "cpu_native", "graphics", "pci_resources", "nvidia_detail", "bios_settings")
+DEVICE_STAGES = ("platform_role", "devices", "display_paths", "cpu_native", "peripheral_caps", "graphics", "pci_resources", "nvidia_detail", "bios_settings")
 
 
 def unavailable_device_map(reason):
@@ -500,6 +500,7 @@ def _native_collect(checkpoint=None):
         backends.update(firmware.native_backends())
         backends.pop('bios_settings')  # Run slow vendor CIM queries only after all other saved facts.
         backends['cpu_native'] = _owned_module('cpunative').cpu_native
+        backends['peripheral_caps'] = lambda checkpoint=None: _owned_module('peripheral_caps').collect(seconds=min(3,remaining()),checkpoint=checkpoint)
         out["device_map"] = module.collect(backends, checkpoint=map_saved)
         out["device_map"]["qualification"] = "Windows observations; macOS support not assessed"
     except Exception as error:
@@ -529,6 +530,33 @@ def _bounded_payload(value, maximum=CAPTURE_MAX_BYTES):
     encode = lambda: json.dumps(out, ensure_ascii=True).encode("utf-8")
     payload = encode()
     while len(payload) > maximum:
+        peripheral_record = (out.get('device_map') or {}).get('peripheral_caps') or {}
+        peripheral = peripheral_record.get('value') or {}
+        peripheral_reduced = False
+        for component in ('hid','audio','wifi'):
+            observation = peripheral.get(component) or {}
+            rows = observation.get('value') or []
+            if len(rows) > 1:
+                keep = max(1,len(rows)//2)
+                observation['value'] = rows[:keep]
+                observation.update(status='partial',error='peripheral detail truncated to parent capture size limit')
+                observation['omitted_records'] = observation.get('omitted_records',0) + len(rows)-keep
+                peripheral_reduced = True
+                break
+            if component == 'hid' and rows:
+                capabilities = rows[0].get('capabilities') or {}
+                details = capabilities.get('value') or {}
+                collections = details.get('collections') or []
+                if len(collections) > 1:
+                    keep=max(1,len(collections)//2);details['collections']=collections[:keep]
+                    capabilities.update(status='partial',error='HID collection detail truncated to parent capture size limit')
+                    observation.update(status='partial',error='HID collection detail truncated to parent capture size limit')
+                    peripheral_reduced=True
+                    break
+        if peripheral_reduced:
+            peripheral_record.update(status='partial',error='peripheral detail truncated; earlier CPU/PnP evidence retained')
+            payload=encode()
+            continue
         cpu_record = (out.get('device_map') or {}).get('cpu_native') or {}
         processors = ((cpu_record.get('value') or {}).get('per_logical_processor') or {}).get('processors') or []
         if len(processors) > 1:
@@ -567,6 +595,10 @@ def _bounded_payload(value, maximum=CAPTURE_MAX_BYTES):
                 if record.get('node') and record['node'] not in ids:
                     record['node'] = None
                     record['node_join'] = 'unavailable: matching PnP node omitted by capture size limit'
+            for row in (((out.get('device_map') or {}).get('peripheral_caps') or {}).get('value') or {}).get('hid',{}).get('value') or []:
+                if row.get('pnp_node') and row['pnp_node'] not in ids:
+                    row.pop('pnp_node')
+                    row['pnp_link'] = 'unavailable: matching PnP node omitted by parent capture size limit'
             graph.setdefault("dropped", {})["capture size cap"] = graph.get("dropped", {}).get("capture size cap", 0) + len(nodes) - keep
             stage["status"] = "partial"
             stage["error"] = "device map truncated to the capture size limit; omitted nodes are unobserved in this receipt"

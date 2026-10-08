@@ -163,3 +163,14 @@ class FirmwareEvidenceSize(unittest.TestCase):
         self.assertEqual(bounded['device_map']['devices']['value']['nodes'], [{'node': 'n0'}])
         resource = bounded['device_map']['pci_resources']
         self.assertEqual(resource['status'], 'partial'); self.assertGreater(resource['omitted_records'], 0)
+
+class PeripheralSize(unittest.TestCase):
+    def test_peripheral_truncation_preserves_cpu_pnp_and_is_explicit(self):
+        value=hc.empty_native('fixture')
+        value['cpu_topology']=hc.measured({'cores':20},'fixture')
+        value['device_map']['devices']=hc.measured({'nodes':[{'node':'n0'}],'edges':[]},'fixture')
+        value['device_map']['peripheral_caps']=hc.measured({'hid':hc.measured([{'interface':'h%d'%index,'capabilities':hc.measured({'collections':[{'usage':index,'padding':'x'*512} for index in range(256)]},'fixture')} for index in range(20)],'fixture')},'fixture')
+        output=hc._bounded_payload(value,maximum=20000)
+        self.assertEqual(output['cpu_topology']['value']['cores'],20)
+        self.assertEqual(output['device_map']['devices']['value']['nodes'],[{'node':'n0'}])
+        self.assertEqual(output['device_map']['peripheral_caps']['status'],'partial')

@@ -51,7 +51,7 @@ def main():
     step = 'packaged module and dependency imports'
     try:
         modules = ['p1401.engine', 'p1401.acpi_diagnostics', 'p1401.dependency_cache', 'p1401.downloads',
-                   'p1401.kernel_patches', 'p1401.report', 'p1401.hwcapture', 'p1401.machine_handoff']
+                   'p1401.kernel_patches', 'p1401.report', 'p1401.hwcapture', 'p1401.machine_handoff', 'p1401.cpunative', 'p1401.peripheral_caps']
         imported = []
         for name in modules:
             module = importlib.import_module(name)
