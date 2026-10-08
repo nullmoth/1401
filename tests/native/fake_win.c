@@ -26,6 +26,7 @@ typedef struct { GUID fmtid; uint32_t pid; } DEVPROPKEY;
 API int fk_desc_fail_at = -1, fk_null_adapter_at = -1, fk_d3d12_fail_at = -1, fk_qdc_changes = 0, fk_qdc_overreport = 0;
 API int fk_setup_err_at = -1, fk_prop_mode = 0, fk_role = 2, fk_factory_fail = 0;
 /* observations */
+API uint32_t fk_refresh_num = 60000, fk_refresh_den = 1001;
 API int fk_live_objects = 0, fk_releases = 0, fk_last_error = 0, fk_destroyed = 0, fk_qdc_calls = 0, fk_max_prop_buf = 0;
 API int fk_GetLastError(void) { return fk_last_error; }
 
@@ -84,6 +85,7 @@ API int32_t QueryDisplayConfig(uint32_t flags, uint32_t *np, PATH *paths, uint32
   memset(paths, 0, sizeof(PATH) * 2);
   paths[0].s.adapterId.LowPart = 0x4004; paths[0].t.outputTechnology = (int32_t)0x80000000; paths[0].t.targetAvailable = 1;
   paths[1].s.adapterId.LowPart = 0x2002; paths[1].t.outputTechnology = 5; paths[1].t.targetAvailable = 1;
+  for (int i = 0; i < 2; i++) { paths[i].t.rn = fk_refresh_num; paths[i].t.rd = fk_refresh_den; }
   *np = fk_qdc_overreport ? 9 : 2; *nm = 4; return 0;
 }
 

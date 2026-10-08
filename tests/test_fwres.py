@@ -323,3 +323,22 @@ class Security(unittest.TestCase):
         self.assertEqual(fwres._version(b'1.2.3.4', numeric=True), '1.2.3.4')
         self.assertEqual(fwres._version(b'94.02.42.00.A9'), '94.02.42.00.A9')
         with self.assertRaises(ValueError): fwres._version(b'private-host version')
+
+class CimBootstrap(unittest.TestCase):
+    def test_bootstrap_failure_has_controlled_phase_and_numeric_metadata_only(self):
+        from p1401 import job_guard
+        payload={'status':'failed','phase':'utility_module','hresult':-2146233087,'mi_code':-1,'message':'private-host C:/private-account'}
+        with patch.object(job_guard,'run_bounded',return_value=(json.dumps(payload).encode(),0,None)):
+            rows,error=fwres._bounded_process([],{},1)
+        self.assertIsNone(rows);self.assertIn('phase=utility_module',error);self.assertIn('hresult=-2146233087',error)
+        self.assertNotIn('private',error)
+    def test_script_covers_bootstrap_and_uses_a_single_module_separator(self):
+        script=fwres._cim_script(r'root\WMI','Lenovo_BiosSetting',['CurrentSetting'])
+        self.assertLess(script.index('try {'),script.index('Import-Module'))
+        self.assertIn(r'CimCmdlets\Get-CimInstance',script)
+        self.assertNotIn(r'CimCmdlets\\Get-CimInstance',script)
+        self.assertNotIn('-ExecutionPolicy',script);self.assertNotIn('.Exception.Message',script)
+    def test_provider_absence_is_distinct_from_bootstrap_failure(self):
+        from p1401 import job_guard
+        with patch.object(job_guard,'run_bounded',return_value=(b'{"status":"provider_absent","phase":"cim_query","hresult":-2147217394,"mi_code":3,"rows":[]}',0,None)):
+            self.assertEqual(fwres._bounded_process([],{},1),(None,'provider not present'))

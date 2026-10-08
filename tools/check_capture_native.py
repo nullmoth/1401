@@ -95,6 +95,10 @@ def verify_capture_native(repo, output, evidence=None):
     evidence['firmware_resource_job_windows_sdk_abi'] = True
     from check_job_native import verify_job_native
     evidence['subprocess_containment'] = verify_job_native(repo)
+    from check_peripheral_native import verify_peripheral_sdk, verify_cim_engine
+    evidence['peripheral_sdk'] = verify_peripheral_sdk(repo, Path(output).parent)
+    evidence['cim_engine'] = verify_cim_engine(repo, Path(output).parent)
+    if evidence['cim_engine'].get('ok') is not True:raise RuntimeError('System PowerShell/CIM engine did not pass its fixed read-only query.')
     from check_cpu_native import verify_cpu_native
     evidence['cpu_native'] = {}
     verify_cpu_native(repo, Path(output).parent, evidence['cpu_native'])
@@ -130,5 +134,10 @@ def verify_capture_native(repo, output, evidence=None):
     evidence['device_map_stage_reasons'] = {stage: {'status':record.get('status'), 'reason':record.get('error'), 'source':record.get('source')} for stage in hc.DEVICE_STAGES for record in [device_map.get(stage) or {}] if record.get('status') != 'measured'}
     evidence['device_nodes'] = len(((device_map.get('devices') or {}).get('value') or {}).get('nodes') or [])
     evidence['graphics_adapters'] = len((device_map.get('graphics') or {}).get('value') or [])
+    peripheral=(device_map.get('peripheral_caps') or {}).get('value') or {}
+    evidence['peripheral_components']={key:{'status':record.get('status'),'reason':record.get('error'),'source':record.get('source'),'observed_count':len(record.get('value') or [])} for key,record in peripheral.items()}
+    for key,record in peripheral.items():
+        if key not in ('hid','audio','wifi') or record.get('status') not in ('measured','partial','unavailable') or not record.get('source'): raise RuntimeError('Peripheral component lacks its bounded status/source.')
+        if record['status'] != 'measured' and not record.get('error'): raise RuntimeError('Incomplete peripheral metadata has no reason.')
     evidence.update({'unsigned_file_rejected': True, 'isolated_worker': True, 'vendor_driver_hardware_qualified': False})
     return evidence

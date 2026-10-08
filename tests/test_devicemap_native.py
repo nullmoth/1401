@@ -125,6 +125,18 @@ class Native(unittest.TestCase):
         p = self.run_all()["display_paths"]
         self.assertEqual(p["status"], "partial"); self.assertEqual(len(p["value"]), 2); self.assertIn("returned 9 paths", p["error"])
 
+    def test_refresh_rational_stays_on_the_exact_adapter_route(self):
+        result=self.run_all()
+        refresh=result['graphics']['value'][1]['displays'][0]['current_refresh_rate']
+        self.assertEqual(refresh['status'],'measured')
+        self.assertEqual(refresh['value'],{'numerator':60000,'denominator':1001})
+        self.assertIn('not maximum',refresh['source'])
+        ctypes.c_uint32.in_dll(self.lib,'fk_refresh_den').value=0
+        try:
+            refresh=self.run_all()['display_paths']['value'][0]['current_refresh_rate']
+            self.assertEqual(refresh['status'],'unavailable');self.assertNotIn('value',refresh)
+        finally:ctypes.c_uint32.in_dll(self.lib,'fk_refresh_den').value=1001
+
     # devices
     def test_walk_error_is_partial_with_what_was_seen(self):
         self.set("fk_setup_err_at", 3)

@@ -318,11 +318,38 @@ def _bounded_process(command, environment, timeout):
     status = payload.get("status")
     if status == "provider_absent": return None, "provider not present"
     if status == "access_denied": return None, "access denied"
-    if status != "ok": return None, "BIOS provider query failed"
+    if status != "ok":
+        phase = payload.get('phase')
+        if phase not in ('encoding','utility_module','cim_module','cim_query','serialization'): phase='unknown'
+        hresult = payload.get('hresult'); mi = payload.get('mi_code')
+        suffix = ' phase='+phase
+        if type(hresult) is int and -2147483648 <= hresult <= 2147483647: suffix += ' hresult=%d' % hresult
+        if type(mi) is int and -1 <= mi <= 65535: suffix += ' mi_code=%d' % mi
+        return None, "BIOS provider query failed;" + suffix
     rows = payload.get("rows") or []
     if not isinstance(rows, list): return None, "BIOS query rows invalid"
     if len(rows) > MAX_BIOS_ROWS: return rows[:MAX_BIOS_ROWS], "BIOS rows truncated to the observation limit"
     return rows, None
+
+
+def _cim_script(namespace, cls, props):
+    # Every bootstrap and query phase is covered; a bootstrap failure can report fixed JSON without a serializer.
+    return (r"$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; $phase='encoding'; "
+            r"try { [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); "
+            r"$PSModuleAutoLoadingPreference='None'; $phase='utility_module'; "
+            r"Import-Module ($PSHOME+'\Modules\Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1'); "
+            r"$phase='cim_module'; Import-Module ($PSHOME+'\Modules\CimCmdlets\CimCmdlets.psd1'); "
+            r"$phase='cim_query'; $rows=@(CimCmdlets\Get-CimInstance -Namespace '%s' -ClassName '%s' | "
+            r"Microsoft.PowerShell.Utility\Select-Object -First %d -Property %s); "
+            r"$phase='serialization'; $r=@{status='ok';phase='complete';hresult=0;mi_code=0;rows=$rows}; "
+            r"Microsoft.PowerShell.Utility\ConvertTo-Json -InputObject $r -Compress -Depth 4 } "
+            r"catch { $h=[int]$_.Exception.HResult; $mi=-1; "
+            r"if ($_.Exception.PSObject.Properties.Name -contains 'NativeErrorCode') {$mi=[int]$_.Exception.NativeErrorCode}; "
+            r"$status='failed'; if ($phase -eq 'cim_query') { "
+            r"if ($mi -eq 3 -or $mi -eq 5 -or $h -eq -2147217394 -or $h -eq -2147217392) {$status='provider_absent'}; "
+            r"if ($mi -eq 2 -or $h -eq -2147217405 -or $h -eq -2147024891) {$status='access_denied'} }; "
+            r'''[Console]::WriteLine('{"status":"'+$status+'","phase":"'+$phase+'","hresult":'+$h+',"mi_code":'+$mi+',"rows":[]}') }'''
+            % (namespace, cls, MAX_BIOS_ROWS+1, ','.join(props)))
 
 
 def powershell_cim(namespace, cls, props, timeout=PS_TIMEOUT):
@@ -332,6 +359,12 @@ def powershell_cim(namespace, cls, props, timeout=PS_TIMEOUT):
                   for _, ns, classname, name, value in PROVIDERS)
     if not allowed: return None, "query is outside the documented provider allow-list"
     if not job_guard.ready(): return None, "subprocess containment unavailable; BIOS query not started"
+    return _run_system_cim(namespace, cls, props, timeout)
+
+
+def _run_system_cim(namespace, cls, props, timeout):
+    from . import hwcapture, job_guard
+    if not job_guard.ready(): return None, "subprocess containment unavailable; CIM query not started"
     try:
         kernel = hwcapture._kernel32()
         kernel.GetSystemDirectoryW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32]
@@ -340,17 +373,7 @@ def powershell_cim(namespace, cls, props, timeout=PS_TIMEOUT):
         size = kernel.GetSystemDirectoryW(directory, len(directory))
         if not 0 < size < len(directory): return None, "Windows system directory unavailable"
         ps = os.path.join(directory.value, "WindowsPowerShell", "v1.0", "powershell.exe")
-        script = ("$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; "
-                  "$PSModuleAutoLoadingPreference='None'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); "
-                  "Import-Module ($PSHOME+'\\Modules\\CimCmdlets\\CimCmdlets.psd1'); "
-                  "Import-Module ($PSHOME+'\\Modules\\Microsoft.PowerShell.Utility\\Microsoft.PowerShell.Utility.psd1'); "
-                  "try { $rows=@(CimCmdlets\\Get-CimInstance -Namespace '%s' -ClassName '%s' | "
-                  "Select-Object -First %d -Property %s); $r=@{status='ok';rows=$rows} } "
-                  "catch { $status='failed'; if ($_.Exception.HResult -eq -2147217394 -or $_.Exception.HResult -eq -2147217392) "
-                  "{$status='provider_absent'}; if ($_.Exception.HResult -eq -2147217405 -or $_.Exception.HResult -eq -2147024891) "
-                  "{$status='access_denied'}; $r=@{status=$status;rows=@()} }; "
-                  "Microsoft.PowerShell.Utility\\ConvertTo-Json -InputObject $r -Compress -Depth 4" %
-                  (namespace, cls, MAX_BIOS_ROWS + 1, ','.join(props)))
+        script = _cim_script(namespace, cls, props)
         environment = {key: value for key, value in os.environ.items() if not key.upper().startswith('PS')}
         kernel.GetWindowsDirectoryW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32]
         kernel.GetWindowsDirectoryW.restype = ctypes.c_uint32
@@ -364,6 +387,13 @@ def powershell_cim(namespace, cls, props, timeout=PS_TIMEOUT):
             return _bounded_process([ps, '-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], environment, timeout)
     except Exception as error:
         return None, "BIOS query unavailable (%s)" % type(error).__name__
+
+
+def _cim_engine_smoke():
+    rows, error = _run_system_cim(r'root\CIMV2', 'Win32_OperatingSystem', ['BuildNumber'], PS_TIMEOUT)
+    if error: return {'ok':False,'reason':error}
+    valid = bool(rows) and all(isinstance(row,dict) and isinstance(row.get('BuildNumber'),str) and re.fullmatch(r'[0-9]{1,8}',row['BuildNumber']) for row in rows)
+    return {'ok':valid,'fixed_read_only_cim_query':valid}
 
 
 def bios_settings(query=powershell_cim, remaining=None):

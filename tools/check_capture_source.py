@@ -39,7 +39,7 @@ def main():
         step = 'capture regression and real ctypes stand-in tests'
         suite = unittest.defaultTestLoader.loadTestsFromNames([
             'tests.test_hwcapture', 'tests.test_capture_safety', 'tests.test_capture_completeness',
-            'tests.test_devicemap', 'tests.test_devicemap_native', 'tests.test_scan_evidence', 'tests.test_fwres', 'tests.test_cpu_core', 'tests.test_cpunative'])
+            'tests.test_devicemap', 'tests.test_devicemap_native', 'tests.test_scan_evidence', 'tests.test_fwres', 'tests.test_cpu_core', 'tests.test_cpunative', 'tests.test_peripherals'])
         log = io.StringIO()
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             checked = unittest.TextTestRunner(stream=log, verbosity=1).run(suite)
