@@ -56,7 +56,9 @@ def generate():
     for vt, m, slot in VTBL:
         out.append(f'A(offsetof({vt}, {m}) / sizeof(void *) == {slot}, "{vt}.{m} slot");')
     for c, v in CONSTS:
-        out.append(f'A((long long)({c}) == (long long)({v}), "{c}");')
+        # HRESULT is a signed LONG in the SDK; bindings compare its unsigned 32-bit bit pattern.
+        comparison = "unsigned long" if c == "DXGI_ERROR_NOT_FOUND" else "long long"
+        out.append(f'A(({comparison})({c}) == ({comparison})({v}), "{c}");')
     out.append("int check_guids(void) {")
     for g, v in GUIDS:
         out.append(f"  if ({g}.Data1 != {v[0]:#x}u || {g}.Data2 != {v[1]:#x} || {g}.Data3 != {v[2]:#x}) return 1;")
