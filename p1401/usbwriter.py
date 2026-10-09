@@ -112,7 +112,8 @@ def check_script(disk, erase_os=False):
         raise UsbError("refusing: " + "; ".join(why))
     n, size = int(disk["Number"]), int(disk["Size"])
     return f"""$ErrorActionPreference = 'Stop'
-$d = Get-Disk -Number {n}
+$d = Get-Disk -Number {n} -ErrorAction SilentlyContinue
+if (-not $d) {{ throw '1401: disk {n} is not attached any more (Windows renumbered the stick). Nothing was erased. Press Refresh, pick the stick again and write.' }}
 if (($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip())} -or $d.Size -ne {size} -or
     $d.FriendlyName -ne {_q(disk.get('FriendlyName'))} -or $d.BusType -ne 'USB' -or $d.IsBoot -or $d.IsSystem) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
@@ -160,6 +161,24 @@ Set-Disk -Number {n} -IsReadOnly $false
 for ($i = 0; $i -lt 30 -and (Get-Disk -Number {n}).OperationalStatus -ne 'Online'; $i++) {{ Start-Sleep -Seconds 1 }}
 exit 0
 """)
+
+
+def _copy_settled(src, dst, root, tries=6, sleep=time.sleep):
+    """copytree that survives the stick's volume blinking out for a moment: "device not ready" (WinError 21) and
+    access denied mid-copy on 1.2.0 sticks, while Windows or an antivirus re-read the fresh FAT32 volume."""
+    for attempt in range(tries):
+        try:
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+            return
+        except (shutil.Error, OSError) as error:
+            if attempt == tries - 1:
+                raise
+            print(f"(the stick was busy: {type(error).__name__}; trying the copy again)", flush=True)
+            for _ in range(20):
+                if os.path.isdir(root):
+                    break
+                sleep(1)
+            sleep(2)
 
 
 def _free_letter():
@@ -210,25 +229,48 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     n = int(disk["Number"])
     rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
     letter = _free_letter()
-    _ps(f"""$ErrorActionPreference = 'Stop'
-Update-HostStorageCache
-for ($i = 0; $i -lt 20 -and -not (Get-Partition -DiskNumber {n} -PartitionNumber 1 -ErrorAction SilentlyContinue); $i++) {{ Start-Sleep 1 }}
-$p = Get-Partition -DiskNumber {n} -PartitionNumber 1
-if ($p.DriveLetter) {{ Remove-PartitionAccessPath -DiskNumber {n} -PartitionNumber 1 -AccessPath ($p.DriveLetter + ':\\') }}
-Set-Partition -DiskNumber {n} -PartitionNumber 1 -NewDriveLetter {letter}
+    out = _ps(f"""$ErrorActionPreference = 'Stop'
+# After the raw erase Windows re-detects the stick: its disk number can change and the partition objects it had are
+# gone ("The requested object could not be found" from Get-/Set-Partition and Remove-PartitionAccessPath, 1.2.0).
+# Find it again by serial and size, wait for partition 1, and keep the letter Windows gives it.
+$sn = {_q((disk.get('SerialNumber') or '').strip())}; $sz = {int(disk['Size'])}; $fn = {_q(disk.get('FriendlyName'))}
+function Find-Stick {{
+  $all = @(Get-Disk -ErrorAction SilentlyContinue | Where-Object {{ $_.BusType -eq 'USB' -and $_.Size -eq $sz }})
+  $hit = @($all | Where-Object {{ $sn -and (($_.SerialNumber + '').Trim() -eq $sn) }})
+  if (-not $hit.Count) {{ $hit = @($all | Where-Object {{ $_.FriendlyName -eq $fn }}) }}
+  if ($hit.Count -eq 1) {{ return $hit[0] }}
+  return Get-Disk -Number {n} -ErrorAction SilentlyContinue
+}}
+$p = $null
+for ($i = 0; $i -lt 40 -and -not $p; $i++) {{
+  Update-HostStorageCache
+  $d = Find-Stick
+  if ($d) {{ $p = Get-Partition -DiskNumber $d.Number -PartitionNumber 1 -ErrorAction SilentlyContinue }}
+  if (-not $p) {{ Start-Sleep 1 }}
+}}
+if (-not $p) {{ throw '1401: the stick was erased but Windows did not show its new partition. Unplug the stick, plug it into another USB port (on the back of the PC) and write again.' }}
+$letter = [string]$p.DriveLetter
+for ($i = 0; $i -lt 5 -and -not $letter.Trim(); $i++) {{
+  try {{ Set-Partition -DiskNumber $p.DiskNumber -PartitionNumber 1 -NewDriveLetter {letter} -ErrorAction Stop; $letter = '{letter}' }}
+  catch {{ Start-Sleep 2; Update-HostStorageCache; $d = Find-Stick; if ($d) {{ $p = Get-Partition -DiskNumber $d.Number -PartitionNumber 1 -ErrorAction SilentlyContinue; if ($p.DriveLetter) {{ $letter = [string]$p.DriveLetter }} }} }}
+}}
+if (-not $letter.Trim()) {{ throw '1401: Windows would not give the stick a drive letter. Unplug it, plug it in again and write again.' }}
 # Format-Volume failed with "Invalid Parameter", "Access Denied" or "Failed" on 12 sticks through 1.1: the new volume
 # was not published yet, or an indexer/antivirus held it for a moment. Three tries, then format.com, which Windows
 # has shipped for decades and which does not go through the storage management service.
 $done = $false
 for ($i = 0; $i -lt 3 -and -not $done; $i++) {{
-  try {{ Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABEL}' -Force -Confirm:$false -ErrorAction Stop | Out-Null; $done = $true }}
+  try {{ Format-Volume -DriveLetter $letter -FileSystem FAT32 -NewFileSystemLabel '{LABEL}' -Force -Confirm:$false -ErrorAction Stop | Out-Null; $done = $true }}
   catch {{ $last = $_; Start-Sleep 2; Update-HostStorageCache }}
 }}
 if (-not $done) {{
-  $out = cmd /c "format {letter}: /FS:FAT32 /Q /Y /V:{LABEL} 2>&1"
+  $out = cmd /c "format ${{letter}}: /FS:FAT32 /Q /Y /V:{LABEL} 2>&1"
   if ($LASTEXITCODE -ne 0) {{ throw "Format-Volume: $last; format.com: $($out | Select-Object -Last 2)" }}
 }}
+Write-Output "LETTER=$letter"
 """)
+    got_letter = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("LETTER=")), "")
+    letter = got_letter[:1].upper() if got_letter[:1].isalpha() else letter
     root = letter + ":\\"
     for _ in range(60):
         if os.path.isdir(root):
@@ -237,7 +279,7 @@ if (-not $done) {{
     if not os.path.isdir(root):
         raise UsbError(f"diskpart finished but {root} did not appear")
     got = (apple.copy_local if recovery_info.get("local") else apple.download)(recovery_info, root, progress)
-    shutil.copytree(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"))
+    _copy_settled(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"), root)
     verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
     driver = None
     if needs_nullmoth(efi_build_dir):
