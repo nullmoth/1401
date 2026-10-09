@@ -396,5 +396,10 @@ if __name__ == "__main__":
         try:
             sys.exit(cli_write(sys.argv[2:]))
         except Exception as e:  # the window shows the reason; nothing is retried behind the user's back
-            print(f"STOP {type(e).__name__}: {e}", flush=True); sys.exit(1)
+            import traceback  # noqa: PLC0415
+            # where it stopped, module and line only (no user paths): 41 write reports through 1.1 said just
+            # "Errno 22" or "WinError 2" and nothing could be traced from them
+            where = [f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in traceback.extract_tb(e.__traceback__)][-4:]
+            print(f"STOP {type(e).__name__}: {e}", flush=True)
+            print("WHERE " + " < ".join(reversed(where)), flush=True); sys.exit(1)
     print(json.dumps(list_disks(), indent=2))
