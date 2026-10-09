@@ -561,8 +561,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 raise RuntimeError(f"hardware report rejected: {errors}")
             res.hardware = report
             o.ac.dsdt = o.ac.acpi.acpi_tables = None
-            from . import acpi_diagnostics
-            with acpi_diagnostics.capture(o.ac.acpi, res.acpi_diagnostics):
+            from . import acpi_diagnostics, acpi_dupnames
+            with acpi_diagnostics.capture(o.ac.acpi, res.acpi_diagnostics), \
+                    acpi_dupnames.tolerate(o.ac.acpi, res.acpi_diagnostics):
                 o.ac.read_acpi_tables(os.path.abspath(acpi_dir))
             if not o.ac.ensure_dsdt():
                 raise RuntimeError(f"no usable DSDT in {acpi_dir} - the ACPI dump is required")
