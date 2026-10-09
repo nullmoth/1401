@@ -216,7 +216,18 @@ for ($i = 0; $i -lt 20 -and -not (Get-Partition -DiskNumber {n} -PartitionNumber
 $p = Get-Partition -DiskNumber {n} -PartitionNumber 1
 if ($p.DriveLetter) {{ Remove-PartitionAccessPath -DiskNumber {n} -PartitionNumber 1 -AccessPath ($p.DriveLetter + ':\\') }}
 Set-Partition -DiskNumber {n} -PartitionNumber 1 -NewDriveLetter {letter}
-Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABEL}' -Force -Confirm:$false | Out-Null
+# Format-Volume failed with "Invalid Parameter", "Access Denied" or "Failed" on 12 sticks through 1.1: the new volume
+# was not published yet, or an indexer/antivirus held it for a moment. Three tries, then format.com, which Windows
+# has shipped for decades and which does not go through the storage management service.
+$done = $false
+for ($i = 0; $i -lt 3 -and -not $done; $i++) {{
+  try {{ Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABEL}' -Force -Confirm:$false -ErrorAction Stop | Out-Null; $done = $true }}
+  catch {{ $last = $_; Start-Sleep 2; Update-HostStorageCache }}
+}}
+if (-not $done) {{
+  $out = cmd /c "format {letter}: /FS:FAT32 /Q /Y /V:{LABEL} 2>&1"
+  if ($LASTEXITCODE -ne 0) {{ throw "Format-Volume: $last; format.com: $($out | Select-Object -Last 2)" }}
+}}
 """)
     root = letter + ":\\"
     for _ in range(60):
