@@ -15,6 +15,42 @@ MAX_LOG = 16 * 1024 * 1024
 _MMIO = re.compile(r"OCABC: MMIO devirt (?:0x)?([0-9A-Fa-f]{6,16}) \((?:0x)?([0-9A-Fa-f]+) pages, (?:0x)?[0-9A-Fa-f]+\) skip (\d)")
 
 
+# One boot, from its own log: when boot.efi stamped it, which entry OpenCore started (T:4 = Apple recovery, which is the
+# 1401 installer), whether it reached ExitBootServices, the two hand-off quirks it ran with (OCABC prints DEVMMIO and
+# WRUNPROT, not the others), and whether the picker listed a macOS volume on an internal disk (T:2 on a non-USB path:
+# the installer's second stage or an installed system exists).
+_ABC = re.compile(r"OCABC: ALRBL \d+ .*?DEVMMIO (\d) .*?WRUNPROT (\d)")
+_CHOSEN = re.compile(r"OCB: Should boot from \d+\. [^\n]*?\(T:(\d+)\|")
+_MACOS_DISK = re.compile(r"OCB: Registering entry [^\n]*\(T:2\|[^\n]* - (?![^\n]*USB\()")
+
+
+def _boot(t):
+    if "EXITBS:START" not in t:
+        return None
+    abc = _ABC.search(t)
+    chosen = _CHOSEN.findall(t)
+    stamp = re.findall(r"#\[EB\|LOG:DT\] (\S+)", t)
+    return {"stamp": stamp[-1] if stamp else "", "installer": bool(chosen) and chosen[-1] == "4",
+            "devmmio": abc and abc.group(1) == "1", "wrunprot": abc and abc.group(2) == "1",
+            "macos_disk": bool(_MACOS_DISK.search(t))}
+
+
+def handoff_stuck(f, stopped_at=""):
+    """The newest boot that froze after the hand-off, or None. Every OpenCore log ends at EXITBS:START, good boots too,
+    so a log alone proves nothing: either the user's stopped-at line says EXITBS, or the stick shows the installer
+    started at least twice and no macOS volume ever appeared on an internal disk (a working installer creates one
+    before its first restart). 10-09: 29 photos in chat froze on EXITBS:START, but only 3 users typed it."""
+    boots = sorted(f["boots"], key=lambda b: b["stamp"])
+    if not boots:
+        return {"devmmio": None, "wrunprot": None} if re.search(r"EXITBS", stopped_at or "") else None
+    if re.search(r"EXITBS", stopped_at or ""):
+        return boots[-1]
+    tries = [b for b in boots if b["installer"]]
+    if len(tries) >= 2 and not any(b["macos_disk"] for b in boots):
+        return tries[-1]
+    return None
+
+
 def read_logs(paths):
     texts = []
     for p in paths or []:
@@ -28,13 +64,16 @@ def read_logs(paths):
 
 def findings(texts):
     """What the logs show, newest-boot-last order not assumed: any log showing a failure counts."""
-    out = {"startimage_aborted": False, "stop16": False, "secureboot_dmg": False, "mmio": [], "devirt_ran": False}
+    out = {"startimage_aborted": False, "stop16": False, "secureboot_dmg": False, "mmio": [], "devirt_ran": False, "boots": []}
     seen = set()
     for t in texts:
         out["startimage_aborted"] |= "StartImage failed - Aborted" in t
         out["stop16"] |= bool(re.search(r"EB\.MM\.AKM|Couldn't allocate runtime area|STOP 0x16", t))
         out["secureboot_dmg"] |= "Cannot use Secure Boot with Any DmgLoading" in t
         out["devirt_ran"] |= "OCABC: MMIO devirt" in t
+        boot = _boot(t)
+        if boot:
+            out["boots"].append(boot)
         for m in _MMIO.finditer(t):
             addr, pages, skip = int(m.group(1), 16), int(m.group(2), 16), m.group(3) == "1"
             if addr not in seen:
@@ -86,22 +125,37 @@ def apply(cfg, result, texts, change, stopped_at=""):
             booter["MmioWhitelist"] = wl
             change("bootlog-amd-memory-map-exhausted", before, "DevirtualiseMmio=False, SetupVirtualMap=False",
                    "every memory-map step the log allows has failed on this board; send the logs so it can be looked at")
-    # AMD stuck right after the hand-off (the screen stops at EXITBS:START; OpenCore's own log always ends there, so only
-    # the user's stopped-at line can say it). Measured on a Ryzen 5 5500 / B550 (10-09): the 1401 build hung there;
-    # DevirtualiseMmio + SetupVirtualMap with RebuildAppleMemoryMap off got past it, then the kernel panicked (type 14)
-    # until EnableWriteUnprotector went on and SyncRuntimePermissions off: OpenCore's pairing for firmware whose memory
-    # attributes table cannot be trusted. All five change together; half the set is the panic.
-    if cpu == "AMD" and re.search(r"EXITBS", stopped_at or ""):
-        want = {"DevirtualiseMmio": True, "SetupVirtualMap": True, "RebuildAppleMemoryMap": False,
-                "EnableWriteUnprotector": True, "SyncRuntimePermissions": False}
-        if any(quirks.get(k) != v for k, v in want.items()):
-            before = ", ".join(f"{k}={quirks.get(k)}" for k in want)
-            quirks.update(want)
-            change("bootlog-amd-exitbs", before, ", ".join(f"{k}={v}" for k, v in want.items()),
-                   "the screen stopped at EXITBS:START (the kernel never started) on an AMD PC")
+    # Stuck right after the hand-off (the screen freezes on EXITBS:START, the kernel never prints). Dortania's list for
+    # this stop is the booter's memory-map handling, and the log of the frozen boot says which settings it ran with, so
+    # each frozen boot moves one step and the next build never repeats a set that already froze:
+    #   1. the no-MAT pairing: EnableWriteUnprotector on, RebuildAppleMemoryMap and SyncRuntimePermissions off, for
+    #      firmware whose memory attributes table cannot be trusted. On AMD with DevirtualiseMmio and SetupVirtualMap on
+    #      as well: measured on a Ryzen 5 5500 / B550 (10-09), it hung with the default, got past with the MMIO pair,
+    #      then panicked (type 14) until the write-unprotector pair was on. All five change together.
+    #   2. the frozen boot already ran with the write unprotector: DevirtualiseMmio flips from the policy's choice.
+    #   3. both tried: the policy's settings stay, and the BIOS checklist is said out loud.
+    stuck = handoff_stuck(f, stopped_at)
+    if stuck is not None and cpu in ("AMD", "Intel"):
+        nomat = {"RebuildAppleMemoryMap": False, "EnableWriteUnprotector": True, "SyncRuntimePermissions": False}
+        if cpu == "AMD":
+            nomat = {"DevirtualiseMmio": True, "SetupVirtualMap": True, **nomat}
+        keys = list(dict.fromkeys(list(nomat) + ["DevirtualiseMmio"]))
+        before = ", ".join(f"{k}={quirks.get(k)}" for k in keys)
+        if not stuck["wrunprot"]:
+            quirks.update(nomat)
+            change("bootlog-handoff-nomat" if cpu == "Intel" else "bootlog-amd-exitbs", before,
+                   ", ".join(f"{k}={v}" for k, v in nomat.items()),
+                   f"the installer froze at EXITBS:START (the kernel never started) on an {cpu} PC")
+        elif stuck["devmmio"] == nomat.get("DevirtualiseMmio", bool(quirks.get("DevirtualiseMmio"))):
+            first = nomat.get("DevirtualiseMmio", bool(quirks.get("DevirtualiseMmio")))
+            quirks.update(nomat)
+            quirks["DevirtualiseMmio"] = not first
+            change("bootlog-handoff-devirt", before, f"no-MAT set kept, DevirtualiseMmio={quirks['DevirtualiseMmio']}",
+                   "it froze at EXITBS:START again with the write unprotector on")
         else:
-            change("bootlog-note", "", "the AMD hand-off settings were already in use; send the logs so this board can be looked at",
-                   "the screen stopped at EXITBS:START again")
+            change("bootlog-note", "", "every hand-off setting the log allows has frozen on this PC. In the BIOS: Above 4G "
+                   "Decoding on, CSM off, Secure Boot off, VT-d off (or keep it and leave DisableIoMapper on), then send the logs",
+                   "it froze at EXITBS:START with each hand-off setting")
     if f["secureboot_dmg"]:
         sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
         if sec.get("SecureBootModel") != "Disabled" and sec.get("DmgLoading") != "Signed":
@@ -275,11 +329,36 @@ def selftest():
     arm("AMD stuck at EXITBS:START gets the full no-MAT hand-off set (B550 / Ryzen 5 5500, 10-09)",
         la == ["bootlog-amd-exitbs"] and qa["DevirtualiseMmio"] and qa["SetupVirtualMap"] and qa["EnableWriteUnprotector"]
         and not qa["RebuildAppleMemoryMap"] and not qa["SyncRuntimePermissions"], la)
-    la = []; apply(ca, amd, [], lambda k, *x: la.append(k), "EXITBS:START")
-    arm("the same stop again changes nothing more and says so", la == ["bootlog-note"], la)
-    ci = {"Booter": {"Quirks": dict(q0)}}; li = []
-    apply(ci, intel, [], lambda k, *x: li.append(k), "EXITBS:START")
-    arm("control: an Intel PC stuck at EXITBS:START is not given the AMD set", not li and ci["Booter"]["Quirks"] == q0, li)
+    def boot(stamp, devmmio, wrunprot, entry_t=4, macos_disk=False):
+        return (f"OCABC: ALRBL 1 RTDFRG 1 DEVMMIO {int(devmmio)} NOSU 0 NOVRWR 0 NOSB 0 FBSIG 0 NOHBMAP 0 SMSLIDE 1 WRUNPROT {int(wrunprot)} CLRTS 0\n"
+                + ("OCB: Registering entry Macintosh HD [Apple] (T:2|F:0|G:0|E:0|B:0) - PciRoot(0x0)/Pci(0x1D,0x0)/NVMe(0x1,AA)/HD(2,GPT,X)\n" if macos_disk else "")
+                + f"OCB: Should boot from 1. 1401 (T:{entry_t}|F:1|G:0|E:1|DEF:0)\n"
+                f"AAPL: #[EB|LOG:DT] {stamp}\nAAPL: #[EB|LOG:EXITBS:START] {stamp}\n")
+
+    def ladder(result, logs, stopped=""):
+        c = {"Booter": {"Quirks": dict(q0)}}; lg = []
+        apply(c, result, logs, lambda k, *x: lg.append(k), stopped)
+        return c["Booter"]["Quirks"], lg
+    qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0), boot("2026-10-09T10:20", 0, 0)])
+    arm("Intel installer frozen twice at the hand-off, nothing typed: no-MAT pairing on the next build (step 1)",
+        li == ["bootlog-handoff-nomat"] and qi["EnableWriteUnprotector"] and not qi["RebuildAppleMemoryMap"]
+        and not qi["SyncRuntimePermissions"] and qi["DevirtualiseMmio"] == q0["DevirtualiseMmio"], li)
+    qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0), boot("2026-10-09T10:40", 0, 1)])
+    arm("Intel frozen again WITH the write unprotector: DevirtualiseMmio flips, no-MAT kept (step 2)",
+        li == ["bootlog-handoff-devirt"] and qi["DevirtualiseMmio"] is True and qi["EnableWriteUnprotector"], li)
+    qi, li = ladder(intel, [boot("2026-10-09T10:40", 0, 1), boot("2026-10-09T11:00", 1, 1)])
+    arm("Intel frozen with both steps tried: policy kept, BIOS checklist said (step 3)", li == ["bootlog-note"] and qi == q0, li)
+    qa, la = ladder(amd, [boot("2026-10-09T10:00", 1, 1), boot("2026-10-09T10:30", 1, 1)])
+    arm("AMD frozen with the measured five-quirk set: DevirtualiseMmio comes off next, the rest stays",
+        la == ["bootlog-handoff-devirt"] and qa["DevirtualiseMmio"] is False and qa["EnableWriteUnprotector"], la)
+    qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0)])
+    arm("control: ONE installer boot that reached the hand-off is not called frozen (good boots log the same)", not li and qi == q0, li)
+    qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0), boot("2026-10-09T10:20", 0, 0, macos_disk=True)])
+    arm("control: once a macOS volume appears on an internal disk the installer worked - nothing changes", not li and qi == q0, li)
+    qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0, entry_t=2), boot("2026-10-09T10:20", 0, 0, entry_t=2)])
+    arm("control: repeated starts of an INSTALLED macOS are not the installer freezing", not li and qi == q0, li)
+    qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0)], "the screen froze at EXITBS:START")
+    arm("one boot plus the user's own 'EXITBS' line is enough", li == ["bootlog-handoff-nomat"], li)
     cn = {"Booter": {"Quirks": dict(q0)}}; ln = []
     apply(cn, amd, ["AAPL: #[EB|LOG:EXITBS:START]"], lambda k, *x: ln.append(k))
     arm("control: an OpenCore log that merely ends at EXITBS (every good start does) changes nothing", not ln, ln)
