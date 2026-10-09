@@ -25,8 +25,11 @@ MAX_DISK = 256 * GiB
 PART_CAP = 16 * GiB
 BASIC_DATA = "{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}"
 LABEL = "1401"
-# GPT types of an installed OS: EFI system, Apple APFS, Apple HFS+, Microsoft reserved, Windows recovery
-OS_TYPES = "'{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}','{7c3457ef-0000-11aa-aa11-00306543ecac}','{48465300-0000-11aa-aa11-00306543ecac}','{e3c9e316-0b5c-4db8-817d-f92df00215ae}','{de94bba4-06d1-4d40-a16a-bfd50179d6ac}'"
+# GPT types only an installed OS has: Apple APFS, Apple HFS+, Windows recovery.
+# WAS also EFI system and Microsoft reserved: every Rufus, Ventoy or 1401 stick has an EFI partition, and Windows adds a
+# Microsoft reserved one when it initializes a GPT disk, so 116 users' plain USB sticks were refused (1.0.24 and 1.1.0)
+# and a second try on the stick 1401 had just written could never pass.
+OS_TYPES = "'{7c3457ef-0000-11aa-aa11-00306543ecac}','{48465300-0000-11aa-aa11-00306543ecac}','{de94bba4-06d1-4d40-a16a-bfd50179d6ac}'"
 TIMEOUT = 300  # seconds, so a hung format fails instead of waiting forever
 FIELDS = "Number,FriendlyName,SerialNumber,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
 
@@ -110,7 +113,7 @@ if (($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
 $os = @(Get-Partition -DiskNumber {n} -ErrorAction SilentlyContinue | Where-Object {{ $_.GptType -in {OS_TYPES} }})
-if ($os.Count) {{ throw '1401: disk {n} holds an operating system (macOS or Windows). Nothing was erased.' }}
+if ($os.Count) {{ throw '1401: disk {n} holds a macOS or Windows system partition (APFS, HFS+ or Windows recovery). Nothing was erased. If nothing on it is needed: Disk Management, right-click each of its volumes, Delete Volume, then try again.' }}
 """
 
 
@@ -288,6 +291,10 @@ def selftest():
     ok, _ = eligible({**usb16, "Size": 2 * 10**12}, allow_large=True)
     arm("same 2 TB drive is allowed once the user confirms", ok, "ok" if ok else "refused")
 
+    arm("an EFI or Microsoft reserved partition alone does not count as an OS (Rufus, Ventoy and 1401 sticks have them)",
+        "c12a7328" not in OS_TYPES and "e3c9e316" not in OS_TYPES, OS_TYPES[:40])
+    arm("APFS, HFS+ and Windows recovery still count as an OS", all(g in OS_TYPES for g in ("7c3457ef", "48465300", "de94bba4")),
+        OS_TYPES.count("{"))
     s = format_script(usb16)
     clear, check = s.find("Clear-Disk"), s.find("throw '1401")
     arm("disk is re-checked before Clear-Disk, in the same run", 0 < check < clear, f"check@{check} clear@{clear}")
