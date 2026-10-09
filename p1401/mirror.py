@@ -10,6 +10,7 @@ A mirrored file is used only when its size and SHA-256 equal the manifest's, so 
 build gets; it can only make a build possible that GitHub's reachability would otherwise stop. After the first
 dependency that GitHub fails and the mirror serves, the rest of the build asks the mirror first, so a blocked network
 does not wait out every GitHub timeout again for each file."""
+import time
 import email.message
 import hashlib
 import io
@@ -102,7 +103,23 @@ class Response(io.BytesIO):
         return self.url
 
 
-def fetch(url, context=None, timeout=30, user_agent="1401"):
+TRIES = 4
+
+
+def fetch(url, context=None, timeout=30, user_agent="1401", sleep=time.sleep):
+    """fetch_once with retries. The networks that need the mirror are the ones that drop connections: 1.1.0 builds
+    stopped on one SSLEOFError, TimeoutError or ConnectionResetError, sometimes right after the mirror had served the
+    previous file. A refused or mismatching file is not retried."""
+    for attempt in range(TRIES):
+        try:
+            return fetch_once(url, context, timeout, user_agent)
+        except MirrorError as error:
+            if "unreachable" not in str(error) or attempt + 1 == TRIES:
+                raise
+            sleep(2 ** (attempt + 1))
+
+
+def fetch_once(url, context=None, timeout=30, user_agent="1401"):
     """The recorded bytes for url from the mirror, verified against the manifest. Raises MirrorError with the reason."""
     entry = entries().get(url)
     if not entry:
@@ -182,6 +199,24 @@ def selftest():
                 fetch("https://github.com/other/file.zip"); arm("a URL outside the manifest is never fetched", False)
             except MirrorError as error:
                 arm("a URL outside the manifest is never fetched", len(served["asked"]) == 3, str(error))
+            served["data"] = body
+            drops = {"left": 2}
+            import ssl  # noqa: PLC0415
+
+            def flaky(request, timeout=None, context=None):
+                if drops["left"]:
+                    drops["left"] -= 1
+                    raise urllib.error.URLError(ssl.SSLEOFError("EOF occurred in violation of protocol"))
+                return Served(served["data"])
+            with patch("urllib.request.urlopen", flaky):
+                got = fetch(url, sleep=lambda s: None)
+                arm("two dropped TLS connections, then the file: it comes back (SSLEOFError stopped 1.1.0 builds)",
+                    got.read() == body and drops["left"] == 0)
+                drops["left"] = TRIES
+                try:
+                    fetch(url, sleep=lambda s: None); arm("a mirror that never answers still stops after the retries", False)
+                except MirrorError as error:
+                    arm("a mirror that never answers still stops after the retries", "unreachable" in str(error), str(error))
         os.remove(path)
         entries(path)
         arm("no manifest: no entries, and the reason is kept", not has(url) and problem() == "no mirror.json in this build", problem())
