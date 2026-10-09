@@ -53,7 +53,10 @@ def rename_later(data, name, serial):
 
 @contextlib.contextmanager
 def tolerate(dsdt, records):
-    runner = dsdt.r
+    runner = getattr(dsdt, "r", None)
+    if runner is None or not getattr(dsdt, "iasl", None):
+        yield  # no iasl runner on this loader: nothing to wrap
+        return
     original = runner.run
     executable = os.path.normcase(os.path.abspath(dsdt.iasl))
 
