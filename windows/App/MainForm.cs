@@ -30,6 +30,9 @@ namespace A1401
         readonly LinkLabel firmwareLink = new LinkLabel();
         readonly ListView facts = new ListView();
         bool busy, scanned, built, written, listing, showingPrerequisites;
+        // Startup logs the last build read, and drive roots it must also read (the picked stick, which may not be Removable).
+        readonly HashSet<string> buildLogFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        readonly List<string> stickRoots = new List<string>();
         int prerequisiteReturnPage = 1;
         string firmwareGuideFile;
         string scanDir, scanRunId, efiDir, guideFile, darwin = "24", macosFull = "24.99.99", summary = "";
@@ -225,6 +228,24 @@ namespace A1401
             finally { busy = false; next.Enabled = true; }
         }
 
+        // A stick's record of its last failed start: the newest opencore-*.txt, and the two newest panic-*.txt macOS saves
+        // there (ApplePanic; a backtrace names the kext to switch off). bootfix.py reads them in the build.
+        static List<string> StickBootLogs(IEnumerable<string> roots)
+        {
+            var files = new List<string>();
+            foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var newest = Directory.GetFiles(root, "opencore-*.txt").OrderByDescending(f => f).FirstOrDefault();
+                    if (newest != null) files.Add(newest);
+                    files.AddRange(Directory.GetFiles(root, "panic-*.txt").OrderByDescending(f => f).Take(2));
+                }
+                catch (Exception) { }
+            }
+            return files;
+        }
+
         async void OnNext()
         {
             if (busy) return;
@@ -260,20 +281,15 @@ namespace A1401
                 var lines = new List<string>();
                 Say("Building the startup files for this PC...");
                 // A stick that already failed to boot says why in its newest OpenCore log; the build reads it (bootfix.py).
-                var bootLogs = "";
+                var roots = new List<string>(stickRoots);
                 foreach (var d in DriveInfo.GetDrives())
                 {
-                    try
-                    {
-                        if (d.DriveType != DriveType.Removable || !d.IsReady) continue;
-                        var newest = Directory.GetFiles(d.RootDirectory.FullName, "opencore-*.txt").OrderByDescending(f => f).FirstOrDefault();
-                        if (newest != null) bootLogs += " --boot-log " + Engine.Q(newest);
-                        // macOS saves a kernel panic on the stick (ApplePanic); its backtrace names the kext to switch off.
-                        foreach (var pf in Directory.GetFiles(d.RootDirectory.FullName, "panic-*.txt").OrderByDescending(f => f).Take(2))
-                            bootLogs += " --boot-log " + Engine.Q(pf);
-                    }
+                    try { if (d.DriveType == DriveType.Removable && d.IsReady) roots.Add(d.RootDirectory.FullName); }
                     catch (Exception) { }
                 }
+                var logFiles = StickBootLogs(roots);
+                buildLogFiles.Clear(); buildLogFiles.UnionWith(logFiles);
+                var bootLogs = string.Concat(logFiles.Select(f => " --boot-log " + Engine.Q(f)));
                 var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
                 try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say("Using the last startup log on the stick to adjust this build.");
@@ -310,6 +326,16 @@ namespace A1401
             {
                 var d = disks.SelectedItem as UsbDisk;
                 if (d == null) { MessageBox.Show(this, "Plug in a USB stick and press Refresh.", "1401"); return; }
+                // The build reads a failed start's log only from a stick that was plugged in while it ran. Most people
+                // plug the stick in here, after the build, and erasing it deletes that log. WAS: AMD PCs that stopped in
+                // boot.efi were rebuilt with the same settings every time, because their log never reached the build.
+                var picked = d.Letters.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l + "\\").ToList();
+                if (StickBootLogs(picked).Any(f => !buildLogFiles.Contains(f)))
+                {
+                    stickRoots.Clear(); stickRoots.AddRange(picked);
+                    Say("This stick holds the log of a start that did not finish. Building again with it before the stick is erased.");
+                    built = false; Go(2); OnNext(); return;
+                }
                 var ok = MessageBox.Show(this, "Erase " + d + " and make it the macOS installer?\r\n\r\nEverything on it will be lost.",
                     "1401 - erase this stick?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (ok != DialogResult.Yes) return;
