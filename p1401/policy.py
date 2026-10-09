@@ -131,6 +131,15 @@ def apply(config_path, result, policy):
         dbg["Target"] = want; dbg["AppleDebug"] = True; dbg["ApplePanic"] = True
         change("boot-logs-on-stick", before, f"Target {want}, AppleDebug, ApplePanic",
                "boot and panic logs are written to the stick, so a failed start can be reported from Windows")
+    # 2d2. The installer on a 1401 stick is Apple's recovery image (com.apple.recovery.boot), which OpenCore lists as an
+    # AUXILIARY entry: with HideAuxiliary on (552 of the configs users sent) the picker showed only Windows until Space
+    # was pressed ("it didn't see macOS in OpenCore, only Windows", 10-09). Dortania: HideAuxiliary off for installers.
+    boot = cfg.setdefault("Misc", {}).setdefault("Boot", {})
+    if boot.get("HideAuxiliary") is not False:
+        before = str(boot.get("HideAuxiliary"))
+        boot["HideAuxiliary"] = False
+        change("show-installer-entry", f"HideAuxiliary={before}", "HideAuxiliary=False",
+               "the macOS installer on the stick is a recovery entry; it was hidden in the boot picker")
     # 2e. The Mac app proves which partition OpenCore started from by OpenCore's boot-path variable, which OpenCore
     # publishes only with Misc > Security > ExposeSensitiveData bit 0x1; the usual 6 leaves it out, and the Mac app then
     # stopped with one OpenCore partition in sight. Bit 0x1 exposes the booter path only - no serials.
@@ -240,7 +249,7 @@ def apply(config_path, result, policy):
     if getattr(policy, "boot_logs", None) or getattr(policy, "stopped_at", ""):
         from . import bootfix  # noqa: PLC0415
         texts = bootfix.read_logs(policy.boot_logs)
-        bootfix.apply(cfg, result, texts, change)
+        bootfix.apply(cfg, result, texts, change, getattr(policy, "stopped_at", ""))
         for note in bootfix.apply_after_handoff(cfg, texts, policy.stopped_at, change)["report"]:
             change("bootlog-note", "", note, "from the last failed start")
 

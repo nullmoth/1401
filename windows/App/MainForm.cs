@@ -348,7 +348,18 @@ namespace A1401
                 var report = Path.Combine(scanDir, "Report.json");
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
                 if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
-                int rc = await Engine.Run(args, Say);
+                var writeLines = new List<string>();
+                int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
+                // The stick holds a Mac or Windows partition (an older macOS installer, or a disk with a system on it).
+                // Name what is there and ask once more; only an explicit Yes erases it.
+                var found = writeLines.FirstOrDefault(l => l.Contains("1401-OS-PARTITIONS:"));
+                if (rc != 0 && found != null)
+                {
+                    var what = found.Substring(found.IndexOf("1401-OS-PARTITIONS:") + 19).Trim();
+                    var again = MessageBox.Show(this, "This stick is not empty: " + what + "\r\n\r\nThat is usually an old macOS installer, but it can also be a Mac backup or a Mac or Windows system. Erase it anyway?",
+                        "1401 - erase what is on this stick?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                    if (again == DialogResult.Yes) rc = await Engine.Run(args + " --erase-os-partitions", Say);
+                }
                 ReportSaveStatus();
                 busy = false; next.Enabled = true; refresh.Enabled = true;
                 if (rc != 0) { Say("Writing the stick did not finish. The saved report includes the writer output; partial changes to the selected stick may remain."); OfferOperationReport("write"); return; }
