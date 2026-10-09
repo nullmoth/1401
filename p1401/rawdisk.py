@@ -15,6 +15,8 @@ FSCTL_LOCK_VOLUME = 0x90018
 FSCTL_DISMOUNT_VOLUME = 0x90020
 IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS = 0x560000
 IOCTL_DISK_DELETE_DRIVE_LAYOUT = 0x7C100
+IOCTL_DISK_SET_DISK_ATTRIBUTES = 0x7C0F4
+DISK_ATTRIBUTE_OFFLINE = 0x1
 IOCTL_DISK_CREATE_DISK = 0x7C058
 IOCTL_DISK_SET_DRIVE_LAYOUT_EX = 0x7C054
 IOCTL_DISK_UPDATE_PROPERTIES = 0x70140
@@ -101,20 +103,35 @@ def _lock_volume(k, h, tries=40, after_dismount=20, sleep=time.sleep):
         sleep(0.25)
     return False
 
+def _disk_offline(k, d, offline):
+    """SET_DISK_ATTRIBUTES (40 bytes: Version, Persist, Attributes, AttributesMask): not persisted across reboots."""
+    return _ioctl(k, d, IOCTL_DISK_SET_DISK_ATTRIBUTES,
+                  struct.pack("<I?3xQQ16x", 40, False, DISK_ATTRIBUTE_OFFLINE if offline else 0, DISK_ATTRIBUTE_OFFLINE))[0]
+
+
 def wipe_mbr_fat32(disk, size, part_size, say=print):
     """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes."""
     k = _k32()
     held = []
+    offline = None
     try:
         for v in _volumes_on(k, disk):
             h = _open(k, v)
             held.append(h)
             if not _lock_volume(k, h):
-                raise DiskError(f"another program is using the stick ({v}); close Explorer windows on it and try again")
+                # Still held after the lock retries and a forced dismount (18 machines on 1.1-1.2: Explorer, antivirus,
+                # a sync client). Taking the whole disk offline closes every volume handle Windows has on it, and raw
+                # writes to an offline disk are allowed (diskpart clean does the same). Online again in finally.
+                offline = _open(k, rf"\\.\PhysicalDrive{int(disk)}")
+                if not _disk_offline(k, offline, True):
+                    raise DiskError(f"another program is using the stick ({v}); close Explorer windows on it and try again")
+                say("OK another program held the stick; took it offline to free it")
+                break
             _ioctl(k, h, FSCTL_DISMOUNT_VOLUME)
         say(f"OK locked {len(held)} volume(s) on the stick")
-        d = _open(k, rf"\\.\PhysicalDrive{int(disk)}")
-        held.append(d)
+        d = offline or _open(k, rf"\\.\PhysicalDrive{int(disk)}")
+        if d is not offline:
+            held.append(d)
         zero = bytes(MiB)
         for off in (0, (size // MiB - 1) * MiB):  # both ends: MBR/GPT header and the GPT backup
             k.SetFilePointerEx(d, off, None, 0)
@@ -138,5 +155,8 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
         _ioctl(k, d, IOCTL_DISK_UPDATE_PROPERTIES)
         say("OK erased the stick and made one FAT32 partition")
     finally:
+        if offline:
+            _disk_offline(k, offline, False)
+            k.CloseHandle(offline)
         for h in reversed(held):
             k.CloseHandle(h)

@@ -187,20 +187,26 @@ def download(info, usb_root, progress=None):
     try:
         with open(img + ".part", "wb") as fh:
             for i, (size, sha) in enumerate(chunks, 1):
+                part = bytearray()
                 while True:
+                    before = len(part)
                     try:
-                        buf = _read_exact(r, size)
+                        _read_into(r, part, size)
                         break
                     except (AppleError, OSError, http.client.HTTPException) as e:
-                        # The stream dropped: ask for the rest from the last chunk that checked out. Every byte is
-                        # still checked against Apple's signed chunklist, so a resumed stream cannot change the image.
+                        # The stream dropped: ask for the rest from the last byte received. Every byte is still
+                        # checked against Apple's signed chunklist, so a resumed stream cannot change the image.
+                        # WAS: resumed from the start of the chunk. Some networks close every connection after 1 MiB
+                        # (1.2.0 logs: "stream ended at 1048576/10485760", 9 resumes), so each retry fetched the same
+                        # first MiB of a 10 MiB chunk and the download never moved.
                         resumes += 1
-                        stalled += 1
+                        stalled = 1 if len(part) > before else stalled + 1  # a connection that added bytes is progress
                         if stalled > RESUMES or resumes > RESUMES_TOTAL:
                             raise AppleError(f"{e} (after {resumes} resumed connections, {stalled - 1} in a row "
                                              f"with no progress)") from None
                         r.close()
-                        r = _resume(info, done)
+                        r = _resume(info, done + len(part))
+                buf = bytes(part)
                 if hashlib.sha256(buf).digest() != sha:
                     raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
                 fh.write(buf)
@@ -219,6 +225,51 @@ def download(info, usb_root, progress=None):
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
 
 
+def local_image(folder):
+    """A recovery image the user downloaded elsewhere (BaseSystem.dmg + BaseSystem.chunklist, e.g. macrecovery on another
+    network), as an info dict for copy_local, or None. Apple refuses some networks outright (HTTP 403 on every session,
+    1.2.0 logs), and one user asked for an offline installer: this is it. Nothing is trusted - copy_local checks every
+    chunk against Apple's signed chunklist, exactly like a download."""
+    if not folder or not os.path.isdir(folder):
+        return None
+    for cl in sorted(n for n in os.listdir(folder) if n.lower().endswith(".chunklist")):
+        img = os.path.join(folder, os.path.splitext(cl)[0] + ".dmg")
+        if os.path.isfile(img):
+            return {"local": True, "image_path": img, "chunklist_path": os.path.join(folder, cl),
+                    "image_url": "file:///" + os.path.basename(img), "name": "recovery image from " + folder,
+                    "product": os.path.basename(img)}
+    return None
+
+
+def copy_local(info, usb_root, progress=None):
+    """Like download(), from local files: the chunklist must carry Apple's signature and every chunk its hash."""
+    dest = os.path.join(usb_root, "com.apple.recovery.boot")
+    os.makedirs(dest, exist_ok=True)
+    with open(info["chunklist_path"], "rb") as fh:
+        cl = fh.read()
+    chunks = parse_chunklist(cl)
+    total = sum(s for s, _ in chunks)
+    if os.path.getsize(info["image_path"]) != total:
+        raise AppleError(f"{os.path.basename(info['image_path'])} is {os.path.getsize(info['image_path'])} bytes; its signed chunklist says {total}")
+    img = os.path.join(dest, os.path.basename(info["image_path"]))
+    cnk = os.path.splitext(img)[0] + ".chunklist"
+    done = 0
+    with open(info["image_path"], "rb") as src, open(img + ".part", "wb") as fh:
+        for i, (size, digest) in enumerate(chunks, 1):
+            buf = src.read(size)
+            if hashlib.sha256(buf).digest() != digest:
+                raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(info['image_path'])} fails Apple's hash - refused")
+            fh.write(buf)
+            done += size
+            if progress:
+                progress(done, total)
+    with open(cnk + ".part", "wb") as fh:
+        fh.write(cl)
+    os.replace(img + ".part", img)
+    os.replace(cnk + ".part", cnk)
+    return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+
+
 def _resume(info, offset):
     time.sleep(2)
     r = _asset(info["image_url"], info["image_token"], {"Range": f"bytes={offset}-"})
@@ -227,6 +278,15 @@ def _resume(info, offset):
         r.close()
         raise AppleError(f"Apple's server would not resume the image at byte {offset} (status {getattr(r, 'status', '?')})")
     return r
+
+
+def _read_into(r, part, n):
+    """Appends to `part` until it holds n bytes; what arrived before a drop stays in `part`."""
+    while len(part) < n:
+        b = r.read(min(n - len(part), 1 << 20))
+        if not b:
+            raise AppleError(f"stream ended at {len(part)}/{n} bytes of a chunk")
+        part += b
 
 
 def _read_exact(r, n):
@@ -308,6 +368,29 @@ def selftest():
             except AppleError as e:
                 ok, shown = False, str(e)
             arm("a download that drops after every chunk still finishes (drops with progress are not counted)", ok, shown)
+            blob = b"".join(data)
+
+            class Capped:  # a network that closes every connection after 16 bytes, mid-chunk (chunks are 64 bytes)
+                def __init__(self, off):
+                    self.off, self.left, self.headers, self.status = off, 16, {}, 206
+
+                def read(self, n):
+                    got = blob[self.off:self.off + min(n, self.left)]
+                    self.off += len(got)
+                    self.left -= len(got)
+                    return got
+
+                def close(self):
+                    pass
+            g["_asset"] = lambda *a, **k: Capped(0)
+            g["_resume"] = lambda info, off: Capped(off)
+            try:
+                out = download(info, tmp)
+                ok, shown = out["bytes"] == 64 * 12, f"{out['bytes']} bytes, 16 per connection"
+            except AppleError as e:
+                ok, shown = False, str(e)[:90]
+            arm("a network that cuts every connection mid-chunk still finishes (resume from the last byte)", ok, shown)
+            g["_asset"] = lambda *a, **k: Drop(0)
             g["_resume"] = lambda info, off: Drop(len(data))  # every resume returns nothing: no progress
             try:
                 download(info, tmp)

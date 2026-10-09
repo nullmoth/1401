@@ -31,6 +31,8 @@ LABEL = "1401"
 # and a second try on the stick 1401 had just written could never pass.
 OS_TYPES = "'{7c3457ef-0000-11aa-aa11-00306543ecac}','{48465300-0000-11aa-aa11-00306543ecac}','{de94bba4-06d1-4d40-a16a-bfd50179d6ac}'"
 TIMEOUT = 300  # seconds, so a hung format fails instead of waiting forever
+# 1401\\Recovery beside 1401.exe: a recovery image the user brings (see cli_write)
+RECOVERY_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "Recovery"))
 FIELDS = "Number,FriendlyName,SerialNumber,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
 
 
@@ -100,8 +102,11 @@ Format-Volume -Partition $p -FileSystem FAT32 -NewFileSystemLabel '{LABEL}' -Con
 """
 
 
-def check_script(disk):
-    """PowerShell that only READS: throws unless disk N is still the exact stick the user picked."""
+def check_script(disk, erase_os=False):
+    """PowerShell that only READS: throws unless disk N is still the exact stick the user picked. Unless erase_os (the
+    user confirmed a second time), it also throws when the stick holds a Mac or Windows system/installer partition and
+    names each one, so the app can ask. WAS a hard stop: a stick made by createinstallmedia (HFS+) or an earlier macOS
+    install could never be reused (1.2.0 logs), and the message told people to delete volumes by hand."""
     ok, why = eligible(disk, allow_large=True)
     if not ok:
         raise UsbError("refusing: " + "; ".join(why))
@@ -112,9 +117,13 @@ if (($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip
     $d.FriendlyName -ne {_q(disk.get('FriendlyName'))} -or $d.BusType -ne 'USB' -or $d.IsBoot -or $d.IsSystem) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
-$os = @(Get-Partition -DiskNumber {n} -ErrorAction SilentlyContinue | Where-Object {{ $_.GptType -in {OS_TYPES} }})
-if ($os.Count) {{ throw '1401: disk {n} holds a macOS or Windows system partition (APFS, HFS+ or Windows recovery). Nothing was erased. If nothing on it is needed: Disk Management, right-click each of its volumes, Delete Volume, then try again.' }}
-"""
+""" + ("" if erase_os else f"""$os = @(Get-Partition -DiskNumber {n} -ErrorAction SilentlyContinue | Where-Object {{ $_.GptType -in {OS_TYPES} }})
+if ($os.Count) {{
+  $kinds = @{{'{{7c3457ef-0000-11aa-aa11-00306543ecac}}'='Mac APFS'; '{{48465300-0000-11aa-aa11-00306543ecac}}'='Mac HFS+'; '{{de94bba4-06d1-4d40-a16a-bfd50179d6ac}}'='Windows recovery'}}
+  $list = ($os | ForEach-Object {{ $kinds[$_.GptType] + ' ' + [math]::Round($_.Size / 1GB, 1) + ' GB' }}) -join ', '
+  throw ('1401-OS-PARTITIONS: disk {n} holds ' + $list + '. Nothing was erased.')
+}}
+""")
 
 
 def diskpart_script(disk, letter):
@@ -181,7 +190,7 @@ def _diskpart(script):
         os.remove(sp)
 
 
-def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, machine_profile=None):
+def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, machine_profile=None, erase_os=False):
     """Erases the stick, then writes Apple's recovery image (checked chunk by chunk) and the EFI. Returns the drive root."""
     from . import apple  # noqa: PLC0415
     ok, why = eligible(disk, allow_large)
@@ -196,7 +205,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         from . import machine_handoff
         if machine_handoff.verified(efi_build_dir) != machine_profile:
             raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
-    _ps(check_script(disk))
+    _ps(check_script(disk, erase_os))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
     rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
@@ -216,7 +225,7 @@ Format-Volume -DriveLetter {letter} -FileSystem FAT32 -NewFileSystemLabel '{LABE
         time.sleep(0.5)
     if not os.path.isdir(root):
         raise UsbError(f"diskpart finished but {root} did not appear")
-    got = apple.download(recovery_info, root, progress)
+    got = (apple.copy_local if recovery_info.get("local") else apple.download)(recovery_info, root, progress)
     shutil.copytree(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"))
     verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
     driver = None
@@ -344,16 +353,32 @@ def cli_write(argv):
     if drv and needs_nullmoth(efi):
         cache = os.path.join(efi, ".cache"); os.makedirs(cache, exist_ok=True)
         shutil.copyfile(drv[0], os.path.join(cache, os.path.basename(drv[0])))
-    print("STEP asking Apple for the macOS recovery image", flush=True)
-    info = apple.image_info(darwin)
-    print(f"OK {info['name']} ({info['product']})", flush=True)
+    # A recovery image already downloaded elsewhere (1401\\Recovery, or --recovery-dir) is used first: Apple refuses some
+    # networks on every session (HTTP 403 in 1.2.0 logs) and some PCs have no internet at all.
+    rec = (opt("--recovery-dir") or [RECOVERY_DIR])[0]
+    info = apple.local_image(rec)
+    if info:
+        print(f"OK using {info['name']} (checked against Apple's signed chunklist while copying)", flush=True)
+    else:
+        print("STEP asking Apple for the macOS recovery image", flush=True)
+        try:
+            info = apple.image_info(darwin)
+        except apple.AppleError as e:
+            if "403" in str(e):
+                print(f"STOP Apple's recovery server refused this network (HTTP 403). Connect through a VPN or another "
+                      f"network and press Next again, or put BaseSystem.dmg and BaseSystem.chunklist (macrecovery on any "
+                      f"computer) into {rec} and press Next again.", flush=True)
+                return 1
+            raise
+        print(f"OK {info['name']} ({info['product']})", flush=True)
     last = [-1]
     def progress(done, total, *_):
         pct = int(done * 100 / total) if total else 0
         if pct != last[0]:
             last[0] = pct; print(f"PROGRESS {pct} downloading macOS recovery from Apple", flush=True)
     print(f"STEP erasing and writing disk {num} ({disk.get('FriendlyName')})", flush=True)
-    res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff)
+    res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff,
+                erase_os="--erase-os-partitions" in argv)
     root = res["root"]
     print('OK verified build profile written to the stick (live identity remains unverified)', flush=True)
     for f in opt("--extra"):

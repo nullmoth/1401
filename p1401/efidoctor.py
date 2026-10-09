@@ -95,7 +95,7 @@ def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
         problems.append("the config carries the NullMoth driver's boot-args; pass --report Report.json to check the rest")
     if boot_logs or stopped_at:
         texts = bootfix.read_logs(boot_logs)
-        bootfix.apply(target, result, texts, change)
+        bootfix.apply(target, result, texts, change, stopped_at)
         problems += bootfix.apply_after_handoff(target, texts, stopped_at, change)["report"]
     if order:
         reorder(target)

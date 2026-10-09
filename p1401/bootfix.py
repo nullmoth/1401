@@ -43,7 +43,7 @@ def findings(texts):
     return out
 
 
-def apply(cfg, result, texts, change):
+def apply(cfg, result, texts, change, stopped_at=""):
     """Mutates cfg (the loaded config.plist) from the boot logs. Returns the findings used."""
     f = findings(texts)
     cpu = ((result.hardware or {}).get("CPU") or {}).get("Manufacturer")
@@ -86,6 +86,22 @@ def apply(cfg, result, texts, change):
             booter["MmioWhitelist"] = wl
             change("bootlog-amd-memory-map-exhausted", before, "DevirtualiseMmio=False, SetupVirtualMap=False",
                    "every memory-map step the log allows has failed on this board; send the logs so it can be looked at")
+    # AMD stuck right after the hand-off (the screen stops at EXITBS:START; OpenCore's own log always ends there, so only
+    # the user's stopped-at line can say it). Measured on a Ryzen 5 5500 / B550 (10-09): the 1401 build hung there;
+    # DevirtualiseMmio + SetupVirtualMap with RebuildAppleMemoryMap off got past it, then the kernel panicked (type 14)
+    # until EnableWriteUnprotector went on and SyncRuntimePermissions off: OpenCore's pairing for firmware whose memory
+    # attributes table cannot be trusted. All five change together; half the set is the panic.
+    if cpu == "AMD" and re.search(r"EXITBS", stopped_at or ""):
+        want = {"DevirtualiseMmio": True, "SetupVirtualMap": True, "RebuildAppleMemoryMap": False,
+                "EnableWriteUnprotector": True, "SyncRuntimePermissions": False}
+        if any(quirks.get(k) != v for k, v in want.items()):
+            before = ", ".join(f"{k}={quirks.get(k)}" for k in want)
+            quirks.update(want)
+            change("bootlog-amd-exitbs", before, ", ".join(f"{k}={v}" for k, v in want.items()),
+                   "the screen stopped at EXITBS:START (the kernel never started) on an AMD PC")
+        else:
+            change("bootlog-note", "", "the AMD hand-off settings were already in use; send the logs so this board can be looked at",
+                   "the screen stopped at EXITBS:START again")
     if f["secureboot_dmg"]:
         sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
         if sec.get("SecureBootModel") != "Disabled" and sec.get("DmgLoading") != "Signed":
@@ -251,6 +267,22 @@ def selftest():
         step1 == ("ps2rst=0", True) and c["Kernel"]["Add"][0]["Enabled"] is False, (step1, c["Kernel"]["Add"][0]["Enabled"]))
     f = after_handoff([], "busy timeout 60s for 'NVRM'")
     arm("the user's own wording of the NVRM busy timeout is recognised", any("Resizable BAR" in r for r in f["report"]))
+    q0 = {"DevirtualiseMmio": False, "SetupVirtualMap": False, "RebuildAppleMemoryMap": True,
+          "EnableWriteUnprotector": False, "SyncRuntimePermissions": True}
+    ca = {"Booter": {"Quirks": dict(q0)}}; la = []
+    apply(ca, amd, [], lambda k, *x: la.append(k), "AAPL: #[EB|LOG:EXITBS:START] 2026-10-09T20:04:12")
+    qa = ca["Booter"]["Quirks"]
+    arm("AMD stuck at EXITBS:START gets the full no-MAT hand-off set (B550 / Ryzen 5 5500, 10-09)",
+        la == ["bootlog-amd-exitbs"] and qa["DevirtualiseMmio"] and qa["SetupVirtualMap"] and qa["EnableWriteUnprotector"]
+        and not qa["RebuildAppleMemoryMap"] and not qa["SyncRuntimePermissions"], la)
+    la = []; apply(ca, amd, [], lambda k, *x: la.append(k), "EXITBS:START")
+    arm("the same stop again changes nothing more and says so", la == ["bootlog-note"], la)
+    ci = {"Booter": {"Quirks": dict(q0)}}; li = []
+    apply(ci, intel, [], lambda k, *x: li.append(k), "EXITBS:START")
+    arm("control: an Intel PC stuck at EXITBS:START is not given the AMD set", not li and ci["Booter"]["Quirks"] == q0, li)
+    cn = {"Booter": {"Quirks": dict(q0)}}; ln = []
+    apply(cn, amd, ["AAPL: #[EB|LOG:EXITBS:START]"], lambda k, *x: ln.append(k))
+    arm("control: an OpenCore log that merely ends at EXITBS (every good start does) changes nothing", not ln, ln)
     f = after_handoff([], "the last line on the screen when it stopped")
     arm("negative control: a stopped line that names nothing changes nothing", f == {"disable": [], "args": [], "cfglock": False, "report": []}, f)
     print(f"bootfix: {sum(res)}/{len(res)}")
