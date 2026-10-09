@@ -55,8 +55,8 @@ Reads the report and the built config and writes an HTML page with this board's 
 ## 5. Create the macOS stick (`p1401.usbwriter write`)
 
 1. **Safety checks.** Only USB disks are offered. A disk is refused if it is the boot or system disk, offline,
-   read-only, or if it holds an operating system (an EFI system, APFS,
-   HFS+, Microsoft reserved or Windows recovery partition). The disk is re-identified by serial number and size just
+   read-only, or if it holds an operating system (an APFS, HFS+ or
+   Windows recovery partition; an EFI or Microsoft reserved partition alone is normal on a USB stick). The disk is re-identified by serial number and size just
    before erasing, so a disk number that moved cannot be erased by mistake.
 2. **Erase** (`p1401/rawdisk.py`), the way Rufus does it: lock and dismount every volume on the stick, zero the
    partition tables at both ends, then write a new MBR layout with one active FAT32 partition (16 GB) through the disk

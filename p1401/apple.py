@@ -45,8 +45,14 @@ TARGETS = {
     21: ("macOS 12 Monterey", "Mac-FFE5EF870D7BA81A"),
     20: ("macOS 11 Big Sur", "Mac-42FD25EABCABB274"),
     19: ("macOS 10.15 Catalina", "Mac-00BE6ED71E35EB86"),
+    18: ("macOS 10.14 Mojave", "Mac-7BA5B2D9E42DDD94"),
+    17: ("macOS 10.13 High Sierra", "Mac-7BA5B2D9E42DDD94"),
 }
-MAJOR = {25: "26", 24: "15", 23: "14", 22: "13", 21: "12", 20: "11", 19: "10.15"}
+MAJOR = {25: "26", 24: "15", 23: "14", 22: "13", 21: "12", 20: "11", 19: "10.15", 18: "10.14", 17: "10.13"}
+# Before Catalina the generic MLB returns that board's newest OS, not the one asked for: Apple picks the image from a
+# real board serial with os=default (Dortania's macrecovery commands). WAS missing: 18 High Sierra builds in two days
+# (Maxwell/Pascal cards) stopped at "no recovery target for Darwin 17".
+OLD_MLB = {18: "00000000000KXPG00", 17: "00000000000J80300"}
 
 # From macrecovery.py (zhangyoufu, gist MCJack123/943eaca762730ca4b7ae460b731b68e7, 2021-10-08): Apple EFI ROM key 1.
 APPLE_EFI_ROM_KEY_1 = int(
@@ -67,7 +73,11 @@ class AppleError(RuntimeError):
 # "RemoteDisconnected", oscdn reset the chunklist request (WinError 10054), or the image stream ended mid-chunk. Each
 # was a whole failed stick. Transient connection errors are retried; HTTP errors (a refused token, a 404) are not.
 OPEN_TRIES = 4
+FORBIDDEN_TRIES = 3
+# drops in a row with no new chunk verified. WAS 8 for the whole image: 78 writes in two days failed "after 8 resumed
+# connections" while every resume was still making progress, on networks that drop a long stream every few minutes.
 RESUMES = 8
+RESUMES_TOTAL = 400
 
 
 def _transient(e):
@@ -107,10 +117,22 @@ def image_info(darwin_major, sess=None):
     if darwin_major not in TARGETS:
         raise AppleError(f"no recovery target for Darwin {darwin_major}")
     name, board = TARGETS[darwin_major]
-    post = {"cid": _hex(16), "sn": MLB_ZERO, "bid": board, "k": _hex(64), "fg": _hex(64), "os": "latest"}
-    r = _open("http://osrecovery.apple.com/InstallationPayload/RecoveryImage",
-              {"Host": "osrecovery.apple.com", "Cookie": sess or session(), "Content-Type": "text/plain"},
-              "\n".join(f"{k}={v}" for k, v in post.items()).encode())
+    old = darwin_major in OLD_MLB
+    # 403 here is osrecovery refusing that one session (23 Sequoia writes in two days, while 108 others passed):
+    # ask again with a new session and new client ids before giving up
+    for attempt in range(FORBIDDEN_TRIES):
+        post = {"cid": _hex(16), "sn": OLD_MLB.get(darwin_major, MLB_ZERO), "bid": board, "k": _hex(64), "fg": _hex(64),
+                "os": "default" if old else "latest"}
+        try:
+            r = _open("http://osrecovery.apple.com/InstallationPayload/RecoveryImage",
+                      {"Host": "osrecovery.apple.com", "Cookie": (sess if attempt == 0 and sess else session()),
+                       "Content-Type": "text/plain"},
+                      "\n".join(f"{k}={v}" for k, v in post.items()).encode())
+            break
+        except AppleError as e:
+            if "HTTP Error 403" not in str(e) or attempt + 1 == FORBIDDEN_TRIES:
+                raise
+            time.sleep(3 * (attempt + 1))
     info = dict(l.split(": ", 1) for l in r.read().decode().splitlines() if ": " in l)
     missing = [k for k in ("AP", "AU", "AH", "AT", "CU", "CH", "CT") if k not in info]
     if missing:
@@ -160,7 +182,7 @@ def download(info, usb_root, progress=None):
     img = os.path.join(dest, os.path.basename(urlparse(info["image_url"]).path))
     cnk = os.path.splitext(img)[0] + ".chunklist"
     done = 0
-    resumes = 0
+    resumes = stalled = 0
     r = _asset(info["image_url"], info["image_token"])
     try:
         with open(img + ".part", "wb") as fh:
@@ -173,14 +195,17 @@ def download(info, usb_root, progress=None):
                         # The stream dropped: ask for the rest from the last chunk that checked out. Every byte is
                         # still checked against Apple's signed chunklist, so a resumed stream cannot change the image.
                         resumes += 1
-                        if resumes > RESUMES:
-                            raise AppleError(f"{e} (after {RESUMES} resumed connections)") from None
+                        stalled += 1
+                        if stalled > RESUMES or resumes > RESUMES_TOTAL:
+                            raise AppleError(f"{e} (after {resumes} resumed connections, {stalled - 1} in a row "
+                                             f"with no progress)") from None
                         r.close()
                         r = _resume(info, done)
                 if hashlib.sha256(buf).digest() != sha:
                     raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
                 fh.write(buf)
                 done += size
+                stalled = 0
                 if progress:
                     progress(done, total)
             if r.read(1):
@@ -245,9 +270,53 @@ def selftest():
         print(("ok   " if cond else "FAIL ") + name + f"  [{shown}]")
 
     boards = _boards_json()
-    bad = {d: (b, boards.get(b)) for d, (_, b) in TARGETS.items()
-           if not str(boards.get(b, "")).startswith(MAJOR[d] + ".") and boards.get(b) != MAJOR[d]}
+    # pre-Catalina targets name their OS through OLD_MLB, not the board's newest OS
+    bad = {d: (b, boards.get(b)) for d, (_, b) in TARGETS.items() if d not in OLD_MLB
+           and not str(boards.get(b, "")).startswith(MAJOR[d] + ".") and boards.get(b) != MAJOR[d]}
     arm("each board-id's newest OS in boards.json is the macOS we use it for", not bad, bad or "7/7")
+    arm("High Sierra and Mojave have a recovery target", 17 in TARGETS and 18 in TARGETS, sorted(TARGETS))
+
+    # a stream that drops after every chunk: 11 drops in all, never two in a row without progress
+    import tempfile  # noqa: PLC0415
+    data = [bytes([i]) * 64 for i in range(12)]
+
+    class Drop:
+        def __init__(self, start):
+            self.i, self.left, self.headers, self.status = start, 64, {}, 206
+
+        def read(self, n):
+            if self.i >= len(data) or self.left == 0:
+                return b""
+            got = data[self.i][64 - self.left:64 - self.left + n]
+            self.left -= len(got)
+            return got
+
+        def close(self):
+            pass
+    g = globals()
+    keep = {k: g[k] for k in ("fetch_chunklist", "parse_chunklist", "_asset", "_resume")}
+    g["fetch_chunklist"] = lambda info: b""
+    g["parse_chunklist"] = lambda cl: [(64, hashlib.sha256(c).digest()) for c in data]
+    g["_asset"] = lambda *a, **k: Drop(0)
+    g["_resume"] = lambda info, off: Drop(off // 64)
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            info = {"image_url": "http://x/BaseSystem.dmg", "image_token": "", "product": "test"}
+            try:
+                out = download(info, tmp)
+                ok, shown = out["bytes"] == 64 * 12, f"{out['bytes']} bytes after 11 drops"
+            except AppleError as e:
+                ok, shown = False, str(e)
+            arm("a download that drops after every chunk still finishes (drops with progress are not counted)", ok, shown)
+            g["_resume"] = lambda info, off: Drop(len(data))  # every resume returns nothing: no progress
+            try:
+                download(info, tmp)
+                ok, shown = False, "finished with no data"
+            except AppleError as e:
+                ok, shown = "in a row" in str(e), str(e)[:80]
+            arm("a stream that never makes progress still stops", ok, shown)
+    finally:
+        g.update(keep)
 
     p = probe(25)
     arm("Apple's Tahoe chunklist verifies against Apple's EFI ROM key", p["chunks"] > 0,
