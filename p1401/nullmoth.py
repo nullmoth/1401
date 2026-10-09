@@ -70,6 +70,33 @@ MUX_HELP = (
     "in macOS.")
 
 
+BASIC = "basic display (no acceleration)"
+BASIC_NOTE = (
+    "Basic display: {name} has no macOS driver (NVIDIA GTX 10 and older, AMD RX 7000, Intel Arc). macOS runs on the "
+    "screen the card's firmware sets up: the desktop, the installer and everyday apps work, but there is no graphics "
+    "acceleration - games, 3D and apps that require Metal will not run, the resolution is the one the firmware picked, "
+    "and only the monitor that shows the BIOS screen lights up. A supported card (AMD RX 6000 or older, or an NVIDIA "
+    "RTX through the NullMoth driver) gives the full desktop.")
+
+
+def basic_display(report):
+    """A PC whose every GPU is unsupported: keeps the card that drives a monitor (else the first discrete card) for
+    macOS 15 so the build continues on the firmware's framebuffer instead of stopping. Nothing in macOS 15 claims these
+    cards, so the screen the firmware lit stays lit (the same path the installer already uses for every NVIDIA card).
+    62 builds stopped on 'without a supported GPU' through 1.1 (10-09). Returns the name kept, or None."""
+    gpus = report.get("GPU") or {}
+    if not gpus or any(g.get("Compatibility") not in (None, (None, None)) for g in gpus.values()):
+        return None
+    shown = {m.get("Connected GPU") for m in (report.get("Monitor") or {}).values()}
+    name = next((n for n in gpus if n in shown), None) or next(
+        (n for n, g in gpus.items() if g.get("Device Type") == "Discrete GPU"), None) or next(iter(gpus))
+    g = gpus[name]
+    g["Compatibility"] = SEQUOIA
+    g.pop("OCLP Compatibility", None)
+    g["Codename"] = BASIC
+    return name
+
+
 def mux_help(report):
     """The build note for a laptop whose built-in panel runs on another GPU (Optimus mode), or None.
     (10-07: five uploaded logs in one night were RTX 4060/5060/5070 Ti laptops in Optimus mode.)"""
