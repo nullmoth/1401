@@ -109,6 +109,26 @@ def _disk_offline(k, d, offline):
                   struct.pack("<I?3xQQ16x", 40, False, DISK_ATTRIBUTE_OFFLINE if offline else 0, DISK_ATTRIBUTE_OFFLINE))[0]
 
 
+WRITE_HELP = {  # what the user can do, per Windows error from the raw write
+    433: "The stick disconnected while it was being written: use a USB port on the back of the PC (not a hub or front "
+         "panel) and try again.",
+    0: "This stick refuses direct writes even with nothing else using it. Use another USB stick (16 GB or more, a "
+       "known brand) - some sticks report a size they do not have or are read-only by design.",
+}
+
+
+def _write_at(k, h, off, data):
+    """Writes data at byte offset off. 0 = written, else the Windows error (the seek is checked: a failed seek used to
+    send the write to the wrong place)."""
+    if not k.SetFilePointerEx(h, off, None, 0):
+        return ctypes.get_last_error() or -1
+    n = wintypes.DWORD(0)
+    buf = ctypes.create_string_buffer(data, len(data))
+    if not k.WriteFile(h, buf, len(data), ctypes.byref(n), None) or n.value != len(data):
+        return ctypes.get_last_error() or -1
+    return 0
+
+
 def wipe_mbr_fat32(disk, size, part_size, say=print):
     """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes."""
     k = _k32()
@@ -132,14 +152,22 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
         d = offline or _open(k, rf"\\.\PhysicalDrive{int(disk)}")
         if d is not offline:
             held.append(d)
+        # Rufus order: drop the partition table first, so no volume covers the sectors written next (Windows refuses
+        # raw writes inside a mounted volume: error 5, and error 1 on some USB bridges - 34 uploads through 1.2.0).
+        _ioctl(k, d, IOCTL_DISK_DELETE_DRIVE_LAYOUT)
+        _ioctl(k, d, IOCTL_DISK_UPDATE_PROPERTIES)
         zero = bytes(MiB)
         for off in (0, (size // MiB - 1) * MiB):  # both ends: MBR/GPT header and the GPT backup
-            k.SetFilePointerEx(d, off, None, 0)
-            n = wintypes.DWORD(0)
-            zb = ctypes.create_string_buffer(zero, len(zero))
-            if not k.WriteFile(d, zb, len(zero), ctypes.byref(n), None) or n.value != len(zero):
-                raise DiskError(f"could not write to the stick (Windows error {ctypes.get_last_error()})")
-        _ioctl(k, d, IOCTL_DISK_DELETE_DRIVE_LAYOUT)
+            err = _write_at(k, d, off, zero)
+            if err and offline is None:
+                # still refused: offline the disk (closes every handle Windows has on it) and write once more
+                offline = _open(k, rf"\\.\PhysicalDrive{int(disk)}")
+                if _disk_offline(k, offline, True):
+                    say("OK Windows refused the write; took the stick offline and wrote again")
+                    d = offline
+                    err = _write_at(k, d, off, zero)
+            if err:
+                raise DiskError(f"could not write to the stick (Windows error {err}). " + WRITE_HELP.get(err, WRITE_HELP[0]))
         sig = struct.unpack("<I", os.urandom(4))[0] or 1
         ok, _, err = _ioctl(k, d, IOCTL_DISK_CREATE_DISK, struct.pack("<II16x", 0, sig))
         if not ok:
