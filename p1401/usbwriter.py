@@ -25,8 +25,6 @@ MAX_DISK = 256 * GiB
 PART_CAP = 16 * GiB
 BASIC_DATA = "{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}"
 LABEL = "1401"
-# GPT types of an installed OS: EFI system, Apple APFS, Apple HFS+, Microsoft reserved, Windows recovery
-OS_TYPES = "'{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}','{7c3457ef-0000-11aa-aa11-00306543ecac}','{48465300-0000-11aa-aa11-00306543ecac}','{e3c9e316-0b5c-4db8-817d-f92df00215ae}','{de94bba4-06d1-4d40-a16a-bfd50179d6ac}'"
 TIMEOUT = 300  # seconds, so a hung format fails instead of waiting forever
 FIELDS = "Number,FriendlyName,SerialNumber,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
 
@@ -109,8 +107,6 @@ if (($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip
     $d.FriendlyName -ne {_q(disk.get('FriendlyName'))} -or $d.BusType -ne 'USB' -or $d.IsBoot -or $d.IsSystem) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
-$os = @(Get-Partition -DiskNumber {n} -ErrorAction SilentlyContinue | Where-Object {{ $_.GptType -in {OS_TYPES} }})
-if ($os.Count) {{ throw '1401: disk {n} holds an operating system (macOS or Windows). Nothing was erased.' }}
 """
 
 
