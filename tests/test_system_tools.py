@@ -81,6 +81,36 @@ class PartitionNotShown(unittest.TestCase):
                 usbwriter.write(PICK, tempfile.mkdtemp(), {})
         self.assertEqual(calls[-3:], ["release", "diskpart", "ps"])
 
+    def test_after_diskpart_the_letter_it_assigned_is_used_without_searching_again(self):
+        calls, n = [], {"ps": 0}
+        from p1401 import rawdisk
+        def ps(script):
+            n["ps"] += 1
+            if "did not show its new partition" in script:
+                # the stick that is never found by the search, before or after diskpart
+                raise usbwriter.UsbError("1401: the stick was erased but Windows did not show its new partition. Unplug")
+            calls.append("ps")
+            return ""
+        made = {"diskpart": False}
+        def dp(script):
+            made["diskpart"] = True
+            calls.append("diskpart")
+        with mock.patch.object(usbwriter, "eligible", lambda d, allow_large=False: (True, [])), \
+             mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
+             mock.patch.object(usbwriter, "_ps", ps), mock.patch.object(rawdisk, "wipe_mbr_fat32", lambda *a, **k: None), \
+             mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
+             mock.patch.object(usbwriter, "release", lambda x: calls.append("release")), \
+             mock.patch.object(usbwriter, "_diskpart", dp), \
+             mock.patch.object(usbwriter.os.path, "isdir", lambda p: made["diskpart"] and p.startswith("Q:")), \
+             mock.patch.object(usbwriter.time, "sleep", lambda s: None):
+            try:
+                usbwriter.write(PICK, tempfile.mkdtemp(), {})
+            except usbwriter.UsbError as e:
+                self.assertNotIn("did not show its new partition", str(e))
+            except Exception:  # noqa: BLE001 - later stages (the Apple download) are not part of this test
+                pass
+        self.assertEqual(calls[-2:], ["release", "diskpart"])
+
 
 if __name__ == "__main__":
     unittest.main()
