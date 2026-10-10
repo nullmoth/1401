@@ -7,7 +7,7 @@ Made by **NullMoth Systems**. Support the work: https://buymeacoffee.com/nullmot
 | Download (Releases) | What it is |
 |---|---|
 | `1401-Windows-1.0.24.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
-| `1401-Mac-1.4.0.dmg` (in the [driver repo](https://github.com/nullmoth/nvidia-macos-driver) releases) | the Mac installer for the NVIDIA driver: open it and run **1401**; the helper package is a separate verified download or the copy staged on the USB stick |
+| `1401-Mac-1.5.0.dmg` (in the [driver repo](https://github.com/nullmoth/nvidia-macos-driver) releases) | the Mac installer for the NVIDIA driver: open it and run **1401**; the helper package is a separate verified download or the copy staged on the USB stick |
 
 > **1401 is new and may not work on every PC.** It has been tested end to end on one PC (Intel Core Ultra 5 225F,
 > B860 board, GeForce RTX 5060). If it does not work on yours, set up OpenCore by hand with the
@@ -28,7 +28,7 @@ Maintenance changes: [`Windows 1.0.24 companion refresh`](docs/RELEASE-1.0.24.md
    In the installer, choose only the intended macOS partition or volume. Do not erase a whole disk containing Windows or other data. Prepare verified backups and recovery media before changing partitions. Format only the intended macOS destination as APFS with Disk Utility, then choose Reinstall macOS. The installer
    downloads the rest of macOS from Apple.
 4. With a supported Turing-or-later NVIDIA card: when macOS is running, open the `NullMoth` folder on the stick, unzip `1401-Mac-1.0.18.zip`
-   and run **1401.app** (or download `1401-Mac-1.4.0.dmg`). It installs the NVIDIA driver and updates the driver-related OpenCore settings. Keep the 1401 stick plugged in while it runs and every time you start
+   and run **1401.app** (or download `1401-Mac-1.5.0.dmg`). It installs the NVIDIA driver and updates the driver-related OpenCore settings. Keep the 1401 stick plugged in while it runs and every time you start
    the Mac: OpenCore on that stick is what starts macOS, and it is the config 1401.app changes.
 The Mac companion does not copy OpenCore onto an internal EFI. Keep its startup stick attached for every restart until that boot setup is separately reviewed.
 
