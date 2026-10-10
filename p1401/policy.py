@@ -138,6 +138,24 @@ def apply(config_path, result, policy):
             nv["boot-args"] = " ".join(a for a in args if not a.startswith("ctrsmt"))
             change("arrow-lake-ctrsmt", "ctrsmt", "", "goes with CpuTopologyRebuild")
 
+    # 2b'. Intel Core Ultra (Meteor, Arrow, Lunar Lake): the kernel hangs at EXITBS:START with VT-d's DMAR table present,
+    # DisableIoMapper on or not (every Core Ultra stick config uploaded had it on; 1401 #10/#11 and chat, 245KF-290HX).
+    # Every Core Ultra machine that reached the desktop had VT-d off: three users by turning it off in the BIOS (one
+    # found it only on the overclocking page), and the 225F test machine, whose firmware gives macOS no DMAR. Dropping
+    # DMAR in OpenCore is the same for macOS and works where the BIOS hides the switch. Linux and Windows keep it.
+    name = str(cpu.get("Processor Name") or "")
+    if cpu.get("Manufacturer") == "Intel" and ("Core(TM) Ultra" in name or any(c in (cpu.get("Codename") or "") for c in ("Meteor Lake", "Arrow Lake", "Lunar Lake"))):
+        dele = cfg.setdefault("ACPI", {}).setdefault("Delete", [])
+        if not any(isinstance(d, dict) and d.get("TableSignature") == b"DMAR" and d.get("Enabled") for d in dele):
+            dele.append({"All": True, "Comment": "Drop VT-d DMAR (Core Ultra hangs at the kernel hand-off with it)", "Enabled": True,
+                         "OemTableId": bytes(8), "TableLength": 0, "TableSignature": b"DMAR"})
+            change("core-ultra-drop-dmar", "DMAR present", "ACPI > Delete DMAR",
+                   "Core Ultra PCs hang at EXITBS:START with VT-d's table; every one that booted had VT-d off")
+        kq = cfg.setdefault("Kernel", {}).setdefault("Quirks", {})
+        if kq.get("DisableIoMapper") is not True:
+            kq["DisableIoMapper"] = True
+            change("core-ultra-iomapper", "DisableIoMapper=False", "True", "VT-d stays out of macOS on Core Ultra")
+
     # 2c. The stick listed boot-args in NVRAM->Delete, so booting it once replaced the boot flags of a machine that
     # already runs macOS (its -no_compat_check went with them and macOS refused to boot). Without Delete, OpenCore still
     # writes boot-args when none exist (a new machine), and never overwrites someone's existing ones.
