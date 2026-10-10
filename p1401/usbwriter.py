@@ -317,7 +317,17 @@ Write-Output "LETTER=$letter"
         print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)", flush=True)
         release(n)
         _diskpart(diskpart_script(disk, letter))
-        out = _ps(script)
+        # diskpart has already made, formatted and lettered the partition. Five 1.8/1.9 logs (10-10, all the same
+        # "VendorCo ProductCode" stick) passed diskpart and then failed the second search, which looks the stick up by
+        # bus type, size and serial that this stick does not report the same way twice. The letter diskpart assigned
+        # is the answer; the search only runs again when that drive never appears.
+        out = ""
+        for _ in range(30):
+            if os.path.isdir(letter + ":\\"):
+                break
+            time.sleep(1)
+        else:
+            out = _ps(script)
     got_letter = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("LETTER=")), "")
     letter = got_letter[:1].upper() if got_letter[:1].isalpha() else letter
     root = letter + ":\\"
@@ -371,10 +381,31 @@ def needs_nullmoth(efi_build_dir):
     return "nvaccel=1" in (nv.get("boot-args") or "").split()
 
 
-def _fetch(url, path):
+def _pinned_package(path):
+    """The driver package this build pins, from the folder the app passed. A folder kept across updates holds every
+    version, and the app took the first by name: a 1.8 app passed nullmoth-nvidia-1.7.0.tar.gz (10-10), so the stick
+    went to the network for 1.8.0, and "1.10.0" sorts before "1.9.0". The pinned name wins when it is there."""
+    from . import nullmoth  # noqa: PLC0415
+    pinned = os.path.join(os.path.dirname(path), nullmoth.PACKAGE["name"])
+    return pinned if os.path.isfile(pinned) else path
+
+
+def _fetch(url, path, tries=3):
+    """Downloads url to path; a body shorter than its Content-Length (a dropped connection, 10-10 log) is fetched again."""
     import urllib.request  # noqa: PLC0415
-    with urllib.request.urlopen(url, timeout=60) as r, open(path, "wb") as fh:
-        shutil.copyfileobj(r, fh, 1 << 20)
+    for attempt in range(tries):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as r, open(path, "wb") as fh:
+                want = int(r.headers.get("Content-Length") or 0)
+                shutil.copyfileobj(r, fh, 1 << 20)
+            if not want or os.path.getsize(path) == want:
+                return
+            print(f"(the driver download stopped at {os.path.getsize(path)} of {want} bytes; downloading it again)", flush=True)
+        except OSError as error:
+            if attempt == tries - 1:
+                raise
+            print(f"(the driver download failed: {type(error).__name__}; downloading it again)", flush=True)
+        time.sleep(5)
 
 
 def selftest():
@@ -454,7 +485,7 @@ def cli_write(argv):
     drv = opt("--driver")
     if drv and needs_nullmoth(efi):
         cache = os.path.join(efi, ".cache"); os.makedirs(cache, exist_ok=True)
-        shutil.copyfile(drv[0], os.path.join(cache, os.path.basename(drv[0])))
+        shutil.copyfile(_pinned_package(drv[0]), os.path.join(cache, os.path.basename(_pinned_package(drv[0]))))
     # A recovery image already downloaded elsewhere (1401\\Recovery, or --recovery-dir) is used first: Apple refuses some
     # networks on every session (HTTP 403 in 1.2.0 logs) and some PCs have no internet at all.
     rec = (opt("--recovery-dir") or [RECOVERY_DIR])[0]

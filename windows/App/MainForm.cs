@@ -228,6 +228,24 @@ namespace A1401
             finally { busy = false; next.Enabled = true; }
         }
 
+        // The companion file for this app's own version. A folder kept across updates holds every version, and the first
+        // by name was used: a 1.8 app passed the 1.7 driver (10-10), and "1.10.0" sorts before "1.9.0". This version's
+        // file first, then the highest version present.
+        static string Companion(string prefix, string suffix)
+        {
+            if (!Directory.Exists(Engine.NullMothDir)) return null;
+            var files = Directory.GetFiles(Engine.NullMothDir, prefix + "*" + suffix);
+            var own = Application.ProductVersion.Split('+')[0];
+            var exact = files.FirstOrDefault(f => string.Equals(Path.GetFileName(f), prefix + own + suffix, StringComparison.OrdinalIgnoreCase));
+            if (exact != null) return exact;
+            return files.OrderByDescending(f =>
+            {
+                var name = Path.GetFileName(f);
+                Version v;
+                return Version.TryParse(name.Substring(prefix.Length, Math.Max(0, name.Length - prefix.Length - suffix.Length)), out v) ? v : new Version(0, 0);
+            }).FirstOrDefault();
+        }
+
         // A stick's record of its last failed start: the newest opencore-*.txt, and the two newest panic-*.txt macOS saves
         // there (ApplePanic; a backtrace names the kext to switch off). bootfix.py reads them in the build.
         static List<string> StickBootLogs(IEnumerable<string> roots)
@@ -341,9 +359,9 @@ namespace A1401
                 if (ok != DialogResult.Yes) return;
                 busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
                 var args = "p1401.usbwriter write " + d.Number + " " + Engine.Q(efiDir) + " " + darwin;
-                var pkg = Directory.Exists(Engine.NullMothDir) ? Directory.GetFiles(Engine.NullMothDir, "nullmoth-nvidia-*.tar.gz").FirstOrDefault() : null;
+                var pkg = Companion("nullmoth-nvidia-", ".tar.gz");
                 if (pkg != null) args += " --driver " + Engine.Q(pkg);
-                var mac = Directory.Exists(Engine.NullMothDir) ? Directory.GetFiles(Engine.NullMothDir, "1401-Mac-*.zip").FirstOrDefault() : null;
+                var mac = Companion("1401-Mac-", ".zip");
                 if (mac != null) args += " --extra " + Engine.Q(mac);
                 var report = Path.Combine(scanDir, "Report.json");
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
