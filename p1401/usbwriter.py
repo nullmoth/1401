@@ -40,10 +40,18 @@ class UsbError(RuntimeError):
     pass
 
 
+def _system_tool(*parts):
+    """A Windows tool by its full path under System32. 1.7 log 10-10: "FileNotFoundError: [WinError 2]" starting plain
+    "powershell" on a PC whose PATH no longer listed it; the tool was there, the lookup was not."""
+    root = os.environ.get("SystemRoot") or os.environ.get("windir") or r"C:\Windows"
+    path = os.path.join(root, "System32", *parts)
+    return path if os.path.isfile(path) else parts[-1]
+
+
 def _ps(script):
     if platform.system() != "Windows":
         raise UsbError("the USB writer runs on Windows only")
-    p = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
+    p = subprocess.run([_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
                        capture_output=True, text=True, timeout=TIMEOUT)
     if p.returncode != 0:
         raise UsbError((p.stderr or p.stdout).strip()[-1500:])
@@ -213,12 +221,12 @@ def _diskpart(script):
     try:
         with os.fdopen(fd, "w", encoding="ascii", newline="") as fh:
             fh.write(script)
-        p = subprocess.run(["diskpart", "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
+        p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
         for _ in range(3):  # a just-released stick can refuse clean ("not ready"/"access denied") for a few seconds
             if p.returncode == 0:
                 break
             time.sleep(5)
-            p = subprocess.run(["diskpart", "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
+            p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
         if p.returncode != 0:
             raise UsbError(f"Windows could not erase the stick (diskpart exit {p.returncode}): " + (p.stdout or p.stderr).strip()[-1200:])
     finally:
@@ -265,12 +273,16 @@ for ($i = 0; $i -lt 40 -and -not $p; $i++) {{
   if (-not $p) {{ Start-Sleep 1 }}
 }}
 if (-not $p) {{ throw '1401: the stick was erased but Windows did not show its new partition. Unplug the stick, plug it into another USB port (on the back of the PC) and write again.' }}
-$letter = [string]$p.DriveLetter
-for ($i = 0; $i -lt 5 -and -not $letter.Trim(); $i++) {{
+# DriveLetter is the char NUL (not an empty string) when Windows has not assigned one, and NUL is not whitespace, so
+# the old -not $letter.Trim() test passed it on: Format-Volume "Invalid property" + format.com "Required parameter
+# missing" on 1.6/1.7 (5 sticks 10-10). A letter counts only when it is A-Z.
+function Letter-Of($q) {{ $c = [string]$q.DriveLetter; if ($c -match '^[A-Za-z]$') {{ return $c }} return '' }}
+$letter = Letter-Of $p
+for ($i = 0; $i -lt 5 -and -not $letter; $i++) {{
   try {{ Set-Partition -DiskNumber $p.DiskNumber -PartitionNumber 1 -NewDriveLetter {letter} -ErrorAction Stop; $letter = '{letter}' }}
-  catch {{ Start-Sleep 2; Update-HostStorageCache; $d = Find-Stick; if ($d) {{ $p = Get-Partition -DiskNumber $d.Number -PartitionNumber 1 -ErrorAction SilentlyContinue; if ($p.DriveLetter) {{ $letter = [string]$p.DriveLetter }} }} }}
+  catch {{ Start-Sleep 2; Update-HostStorageCache; $d = Find-Stick; if ($d) {{ $p = Get-Partition -DiskNumber $d.Number -PartitionNumber 1 -ErrorAction SilentlyContinue; $letter = Letter-Of $p }} }}
 }}
-if (-not $letter.Trim()) {{ throw '1401: Windows would not give the stick a drive letter. Unplug it, plug it in again and write again.' }}
+if (-not $letter) {{ throw '1401: Windows would not give the stick a drive letter. Unplug it, plug it in again and write again.' }}
 # Format-Volume failed with "Invalid Parameter", "Access Denied" or "Failed" on 12 sticks through 1.1: the new volume
 # was not published yet, or an indexer/antivirus held it for a moment. Three tries, then format.com, which Windows
 # has shipped for decades and which does not go through the storage management service.
