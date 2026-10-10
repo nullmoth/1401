@@ -23,9 +23,9 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 # takeover is off on the tested machine. The two AMFI args let WindowServer load a GPU bundle Apple did not sign.
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-1.2.0.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.2.0/nullmoth-nvidia-1.2.0.tar.gz",
-           "sha256": "4ffb64cbaae05745b289bce328ee77c13203672536132839b5bade3024cf8b1c"}
+PACKAGE = {"name": "nullmoth-nvidia-1.3.0.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.3.0/nullmoth-nvidia-1.3.0.tar.gz",
+           "sha256": "fa75d3bc98d73ed722fe216a7f21b01a98f4acfcc89270c51df9ddfc1bfd5d76"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
