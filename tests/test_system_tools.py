@@ -30,5 +30,35 @@ class SystemTools(unittest.TestCase):
         self.assertNotIn("-and -not $letter.Trim();", src)
 
 
+class RawWriteFallback(unittest.TestCase):
+    def run_write(self, err):
+        calls = []
+        from p1401 import rawdisk
+        def wipe(*a, **k):
+            raise rawdisk.DiskError(f"could not write to the stick (Windows error {err}). help")
+        with mock.patch.object(usbwriter, "eligible", lambda d, allow_large=False: (True, [])), \
+             mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
+             mock.patch.object(usbwriter, "_ps", lambda s: calls.append("ps") or ""), \
+             mock.patch.object(rawdisk, "wipe_mbr_fat32", wipe), \
+             mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
+             mock.patch.object(usbwriter, "release", lambda n: calls.append("release")), \
+             mock.patch.object(usbwriter, "_diskpart", lambda s: calls.append("diskpart")):
+            try:
+                usbwriter.write(PICK, tempfile.mkdtemp(), {})
+            except Exception as e:  # noqa: BLE001 - the root never appears in a test; what ran before it is the point
+                return calls, e
+        return calls, None
+
+    def test_a_stick_refusing_raw_writes_is_erased_with_diskpart(self):
+        calls, _ = self.run_write(5)
+        self.assertIn("diskpart", calls)
+
+    def test_any_other_raw_write_error_still_stops(self):
+        from p1401 import rawdisk
+        calls, e = self.run_write(1)
+        self.assertNotIn("diskpart", calls)
+        self.assertIsInstance(e, rawdisk.DiskError)
+
+
 if __name__ == "__main__":
     unittest.main()

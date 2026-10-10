@@ -251,8 +251,18 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     _ps(check_script(disk, erase_os))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
-    rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
     letter = _free_letter()
+    try:
+        rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
+    except rawdisk.DiskError as e:
+        # Some sticks refuse raw sector writes outright (1.7 logs 10-10: Lexar, "Windows error 5" with nothing else
+        # using them). Windows' own diskpart erase goes through the volume manager and works on them; it was the
+        # writer's path before the raw erase, so it is kept as the fallback rather than ending the write.
+        if "Windows error 5" not in str(e):
+            raise
+        print("(this stick refuses direct writes; erasing it with Windows' diskpart instead)", flush=True)
+        release(n)
+        _diskpart(diskpart_script(disk, letter))
     out = _ps(f"""$ErrorActionPreference = 'Stop'
 # After the raw erase Windows re-detects the stick: its disk number can change and the partition objects it had are
 # gone ("The requested object could not be found" from Get-/Set-Partition and Remove-PartitionAccessPath, 1.2.0).

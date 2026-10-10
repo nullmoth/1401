@@ -72,7 +72,7 @@ class AppleError(RuntimeError):
 # Write failures on 6 machines in one day were Apple's servers dropping a connection once: osrecovery answered
 # "RemoteDisconnected", oscdn reset the chunklist request (WinError 10054), or the image stream ended mid-chunk. Each
 # was a whole failed stick. Transient connection errors are retried; HTTP errors (a refused token, a 404) are not.
-OPEN_TRIES = 4
+OPEN_TRIES = 6  # WAS 4: osrecovery answered 502 and timed out past 4 tries on 1.7 (10-10); 6 tries back off ~2 min in all
 FORBIDDEN_TRIES = 3
 # drops in a row with no new chunk verified. WAS 8 for the whole image: 78 writes in two days failed "after 8 resumed
 # connections" while every resume was still making progress, on networks that drop a long stream every few minutes.
