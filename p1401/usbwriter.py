@@ -81,6 +81,22 @@ def _q(s):
     return "'" + str(s or "").replace("'", "''") + "'"
 
 
+def same_stick_ps(disk):
+    """PowerShell that sets $same when disk $d is still the stick the user picked. The serial decides, except for USB
+    controllers that report a new serial on every read (10-10: one SMI stick, 7 writes, 7 different serials, every write
+    refused "not the USB stick you picked"). Then the stick still counts as the same one only when it is the ONLY USB disk
+    with that exact size and model, it sits at the picked disk number, and no disk carries the picked serial."""
+    n, size = int(disk["Number"]), int(disk["Size"])
+    return f"""$sn = {_q((disk.get('SerialNumber') or '').strip())}
+$same = (($d.SerialNumber + '').Trim() -eq $sn)
+if (-not $same) {{
+  $twins = @(Get-Disk -ErrorAction SilentlyContinue | Where-Object {{ $_.BusType -eq 'USB' -and $_.Size -eq {size} -and $_.FriendlyName -eq {_q(disk.get('FriendlyName'))} }})
+  $named = @(Get-Disk -ErrorAction SilentlyContinue | Where-Object {{ $sn -and (($_.SerialNumber + '').Trim() -eq $sn) }})
+  $same = ($twins.Count -eq 1 -and $twins[0].Number -eq {n} -and $named.Count -eq 0)
+}}
+"""
+
+
 def format_script(disk):
     """Builds the PowerShell that re-checks the disk, erases it, and prints the new drive letter. Doesn't run it."""
     ok, why = eligible(disk, allow_large=True)
@@ -90,7 +106,7 @@ def format_script(disk):
     psize = min(size - 64 * (1 << 20), PART_CAP)
     return f"""$ErrorActionPreference = 'Stop'
 $d = Get-Disk -Number {n}
-if (($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip())} -or $d.Size -ne {size} -or
+{same_stick_ps(disk)}if (-not $same -or $d.Size -ne {size} -or
     $d.FriendlyName -ne {_q(disk.get('FriendlyName'))} -or $d.BusType -ne 'USB' -or $d.IsBoot -or $d.IsSystem) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
@@ -114,7 +130,7 @@ def check_script(disk, erase_os=False):
     return f"""$ErrorActionPreference = 'Stop'
 $d = Get-Disk -Number {n} -ErrorAction SilentlyContinue
 if (-not $d) {{ throw '1401: disk {n} is not attached any more (Windows renumbered the stick). Nothing was erased. Press Refresh, pick the stick again and write.' }}
-if (($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip())} -or $d.Size -ne {size} -or
+{same_stick_ps(disk)}if (-not $same -or $d.Size -ne {size} -or
     $d.FriendlyName -ne {_q(disk.get('FriendlyName'))} -or $d.BusType -ne 'USB' -or $d.IsBoot -or $d.IsSystem) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
