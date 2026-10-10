@@ -1,0 +1,12 @@
+{
+ "schema": 1,
+ "about": "Machines whose setup is known from their own boots. A build whose scan matches board AND cpu (case-insensitive substrings) gets these settings; a failed boot's own log still overrides them. status: works = the owner reached the desktop with it; fix-sent = built from the machine's own logs, not confirmed yet.",
+ "machines": [
+  {"board": "PRO A620M-E", "cpu": "Ryzen 5 7600", "gpu": "RTX 4060", "status": "works",
+   "source": "owner report 10-10: desktop with the driver installed (OpenCore 1.0.5, macOS 15.8.1, Above 4G + ReBAR on)",
+   "booter_quirks": {"DevirtualiseMmio": true, "SetupVirtualMap": false}},
+  {"board": "ROG STRIX X670E-E GAMING", "cpu": "Ryzen 9 9950X3D", "gpu": "RTX 5090", "status": "fix-sent",
+   "source": "own stick logs 10-07/08: installed system stopped at EB.MM.AKM / STOP 0x16 with DevirtualiseMmio off; DSDT repaired by dsdt_pass1",
+   "booter_quirks": {"DevirtualiseMmio": true, "SetupVirtualMap": true}}
+ ]
+}

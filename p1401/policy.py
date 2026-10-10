@@ -8,6 +8,8 @@ writes csr-active-config 0x00000A03 (unsigned kexts, unrestricted FS, unapproved
 on every macOS 11+ build (upstream config_prodigy.csr_active_config) whether anything needs it or not.
 Dortania's baseline is 0x00000000.
 """
+import json
+import os
 import plistlib
 
 from . import nullmoth
@@ -44,6 +46,15 @@ def _args(nv):
 # AMD platforms whose MMIO layout needs DevirtualiseMmio (Dortania: TRx40); everything else boots with it off.
 AMD_DEVMMIO_ON = {"TRX40", "TRX50"}
 AMD_SVM_ON = {"AM1", "A68H", "A75", "A78", "A85X", "A88X", "A320", "B350", "X370", "X399"}
+
+
+def _known_machines():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "known_machines.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh).get("machines", [])
+    except (OSError, ValueError):
+        return []  # a missing or broken table never stops a build; it only means no machine-specific settings
 
 
 def apply(config_path, result, policy):
@@ -244,6 +255,21 @@ def apply(config_path, result, policy):
     if not driver and nv.get("csr-active-config") != want:
         change("sip-minimal", (nv.get("csr-active-config") or b"").hex(), want.hex(), why)
         nv["csr-active-config"] = want
+
+    # 4b. Known machines (known_machines.json): a board + CPU whose own boots showed the settings it needs gets them on
+    # every build, so its owner does not have to fail, send logs and rebuild again (Jake 10-09: keep each machine that
+    # works and build it in). Checked before 5, so a newer failed boot's own log still wins.
+    mb = ((result.hardware or {}).get("Motherboard") or {}).get("Name", "").lower()
+    cpu_name = ((result.hardware or {}).get("CPU") or {}).get("Processor Name", "").lower()
+    for known in _known_machines():
+        if known["board"].lower() in mb and known["cpu"].lower() in cpu_name:
+            q = cfg.setdefault("Booter", {}).setdefault("Quirks", {})
+            for k, v in known.get("booter_quirks", {}).items():
+                if q.get(k) != v:
+                    change("known-machine", f"{k}={q.get(k)}", f"{k}={v}",
+                           f"{known['board']} + {known['cpu']} ({known['status']}): {known['source']}")
+                    q[k] = v
+            break
 
     # 5. A failed boot's own log (the stick's opencore-*.txt), when the app passed one: see bootfix.py.
     if getattr(policy, "boot_logs", None) or getattr(policy, "stopped_at", ""):
