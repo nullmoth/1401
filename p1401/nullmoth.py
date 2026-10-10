@@ -21,7 +21,9 @@ SEQUOIA = ("24.99.99", "24.0.0")  # (max, min) Darwin: the only macOS the driver
 SIP_DRIVER = bytes.fromhex("430A0000")
 # nvfb/nvaccel switch the framebuffer and accelerator on; nvfbheads=4 = the card's display heads; the smooth boot
 # takeover is off on the tested machine. The two AMFI args let WindowServer load a GPU bundle Apple did not sign.
-BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80")
+# ipc_control_port_options=0: with AMFI relaxed Firefox crashes at launch (10-10 chat); OCLP sets it for the same reason
+BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80",
+             "ipc_control_port_options=0")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
 PACKAGE = {"name": "nullmoth-nvidia-1.10.0.tar.gz",
            "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v1.10.0/nullmoth-nvidia-1.10.0.tar.gz",
