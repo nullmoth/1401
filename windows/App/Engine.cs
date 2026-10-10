@@ -22,8 +22,8 @@ namespace A1401
 
         public static string Missing()
         {
-            if (!File.Exists(Python)) return "The engine folder is missing next to 1401.exe (engine\\python\\python.exe). Copy the whole 1401 folder, not just the exe.";
-            if (!Directory.Exists(Path.Combine(AppDir, "p1401"))) return "The engine folder is incomplete (engine\\app\\p1401).";
+            if (!File.Exists(Python)) return Loc.T("The engine folder is missing next to 1401.exe (engine\\python\\python.exe). Copy the whole 1401 folder, not just the exe.");
+            if (!Directory.Exists(Path.Combine(AppDir, "p1401"))) return Loc.T("The engine folder is incomplete (engine\\app\\p1401).");
             return null;
         }
 

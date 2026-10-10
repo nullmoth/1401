@@ -18,7 +18,7 @@ namespace A1401
             }
             // A saved local crash report is offered after restart; saving failures are reported explicitly.
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-            Application.ThreadException += (s, e) => { var report = CrashLog(e.Exception); MessageBox.Show(DurableReport.Clean(e.Exception.Message) + "\r\n\r\n" + (report.Saved ? "A local crash report was saved at " + report.Path + ". Scan for logs and send them can retry after restart." : report.Failure), "1401", MessageBoxButtons.OK, MessageBoxIcon.Error); };
+            Application.ThreadException += (s, e) => { var report = CrashLog(e.Exception); MessageBox.Show(DurableReport.Clean(e.Exception.Message) + "\r\n\r\n" + (report.Saved ? Loc.T("A local crash report was saved at ") + report.Path + Loc.T(". Scan for logs and send them can retry after restart.") : report.Failure), "1401", MessageBoxButtons.OK, MessageBoxIcon.Error); };
             AppDomain.CurrentDomain.UnhandledException += (s, e) => CrashLog(e.ExceptionObject as Exception);
             Application.Run(new MainForm());
         }
