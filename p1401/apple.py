@@ -83,6 +83,13 @@ RESUMES_TOTAL = 400
 # image) delivered 0 bytes - a middlebox resetting large HTTP responses. Apple's CDN serves small ranges fine (measured
 # 10-09: 206, byte-identical), so small windows get under the cap. Every chunk is still checked against the signed list.
 WINDOW = 512 * 1024
+# Once windowed, a network may hand out nothing for minutes before letting windows through again (1.5.0 logs 10-10: one
+# write reached 8 MiB after 19 resumes, others gave up "after 9 resumed connections, 8 in a row with no progress" about
+# 2.5 minutes in). In windowed mode allow this many empty connections in a row, backing off up to WINDOW_MAX_DELAY s each
+# (about 15 minutes in all), and every REFRESH_EVERY empty connections ask osrecovery for a fresh image URL and token.
+RESUMES_WINDOWED = 20
+WINDOW_MAX_DELAY = 60
+REFRESH_EVERY = 4
 
 
 def _transient(e):
@@ -213,14 +220,27 @@ def download(info, usb_root, progress=None):
                         # WAS: resumed from the start of the chunk. Some networks close every connection after 1 MiB
                         # (1.2.0 logs: "stream ended at 1048576/10485760", 9 resumes), so each retry fetched the same
                         # first MiB of a 10 MiB chunk and the download never moved.
-                        resumes += 1
                         stalled = 1 if len(part) > before else stalled + 1  # a connection that added bytes is progress
-                        if stalled > RESUMES or resumes > RESUMES_TOTAL:
-                            raise AppleError(f"{e} (after {resumes} resumed connections, {stalled - 1} in a row "
-                                             f"with no progress)") from None
-                        window = WINDOW  # from now on never ask for more than one window per connection
                         r.close()
-                        r = _resume(info, pos, window, delay=min(2 ** stalled, 30))  # back off when nothing arrives
+                        while True:
+                            resumes += 1
+                            limit = RESUMES_WINDOWED if window else RESUMES
+                            if stalled > limit or resumes > RESUMES_TOTAL:
+                                raise AppleError(f"{e} (after {resumes - 1} resumed connections, {stalled - 1} in a row "
+                                                 f"with no progress)") from None
+                            if window and stalled > 1 and (stalled - 1) % REFRESH_EVERY == 0:
+                                _refresh(info)
+                            window = WINDOW  # from now on never ask for more than one window per connection
+                            try:
+                                # back off when nothing arrives
+                                r = _resume(info, pos, window, delay=min(2 ** stalled, WINDOW_MAX_DELAY))
+                                break
+                            except (AppleError, OSError, http.client.HTTPException) as again:
+                                if "(status 200)" in str(again):
+                                    raise  # the server ignores ranges: no retry can resume, so refuse at once
+                                # WAS: a resume whose own request failed (reset, refused range) ended the whole
+                                # download; it is one more empty connection
+                                e, stalled = again, stalled + 1
                         conn_start = pos
                 buf = bytes(part)
                 if hashlib.sha256(buf).digest() != sha:
@@ -284,6 +304,20 @@ def copy_local(info, usb_root, progress=None):
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+
+
+def _refresh(info):
+    """Swaps in a fresh image URL and token for the same image from osrecovery. Any failure keeps the old ones: this only
+    helps when a token or edge was the problem, and every byte is still checked against the signed chunklist."""
+    major = next((k for k, (name, board) in TARGETS.items() if board == info.get("board") and name == info.get("name")), None)
+    if major is None:
+        return
+    try:
+        fresh = image_info(major)
+    except (AppleError, OSError, http.client.HTTPException):
+        return
+    if fresh.get("product") == info.get("product"):
+        info["image_url"], info["image_token"] = fresh["image_url"], fresh["image_token"]
 
 
 def _resume(info, offset, window=0, delay=2):

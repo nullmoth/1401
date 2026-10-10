@@ -86,11 +86,28 @@ class Resume(unittest.TestCase):
         self.assertIn("would not resume", err)
 
     def test_resumes_are_bounded(self):
-        opens = [lambda e: Stream(IMAGE, drop_after=10)] + [lambda e: Stream(b"", status=206, content_range=f"bytes 10-{len(IMAGE)-1}/{len(IMAGE)}")] * 20
-        got, calls, err = self.run_download(opens)
+        opens = [lambda e: Stream(IMAGE, drop_after=10)] + [lambda e: Stream(b"", status=206, content_range=f"bytes 10-{len(IMAGE)-1}/{len(IMAGE)}")] * 40
+        with patch.object(apple, "_refresh", lambda info: None):
+            got, calls, err = self.run_download(opens)
         self.assertIsNone(got)
         self.assertIn("resumed connections", err)
-        self.assertLessEqual(len(calls), apple.RESUMES + 1)
+        self.assertLessEqual(len(calls), apple.RESUMES_WINDOWED + 1)
+
+    def test_a_resume_whose_own_request_fails_is_retried_not_fatal(self):
+        # 1.5.0: a reset on the resume request itself ended the download; it is one more empty connection now
+        def reset(e):
+            raise ConnectionResetError(10054, "reset")
+        def opener(e):
+            rng = (e or {}).get("Range")
+            if rng is None:
+                return Stream(IMAGE, drop_after=1000)
+            a, b = rng.split("=")[1].split("-")
+            start, end = int(a), min(int(b), len(IMAGE) - 1)
+            return Stream(IMAGE[start:end + 1], status=206, content_range=f"bytes {start}-{end}/{len(IMAGE)}")
+        with patch.object(apple, "_refresh", lambda info: None):
+            got, calls, err = self.run_download([opener, reset, reset] + [opener] * 400)
+        self.assertIsNone(err, err)
+        self.assertEqual(got, IMAGE)
 
     def test_a_recovery_image_brought_on_disk_is_copied_and_checked(self):
         # Apple refuses some networks on every session (HTTP 403): a BaseSystem.dmg + chunklist from elsewhere works
