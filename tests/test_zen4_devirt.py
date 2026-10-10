@@ -26,13 +26,13 @@ def build(cpu, codename="", devirt=False, svm=True, chipset=""):
 
 
 class Zen4Devirt(unittest.TestCase):
-    def test_am5_desktop_by_codename_gets_devirt_on_and_svm_off(self):
-        self.assertEqual(build("AMD Ryzen 9 9950X3D 16-Core Processor", "Granite Ridge"), (True, False))
+    def test_am5_desktop_by_codename_gets_both_memory_quirks_on(self):
+        self.assertEqual(build("AMD Ryzen 9 9950X3D 16-Core Processor", "Granite Ridge"), (True, True))
 
     def test_am5_desktop_without_codename_is_found_by_name(self):
         for name in ("AMD Ryzen 7 7800X3D 8-Core Processor", "AMD Ryzen 5 7600 6-Core Processor",
                      "AMD Ryzen 7 9800X3D 8-Core Processor", "AMD Ryzen 7 8700F 8-Core Processor"):
-            self.assertEqual(build(name), (True, False), name)
+            self.assertEqual(build(name), (True, True), name)
 
     def test_zen4_laptops_are_found_by_name(self):
         for name in ("AMD Ryzen 9 8945H w/ Radeon 780M Graphics", "AMD Ryzen 7 7840HS w/ Radeon 780M Graphics",
@@ -44,8 +44,8 @@ class Zen4Devirt(unittest.TestCase):
                      "AMD Ryzen 7 7735HS with Radeon Graphics", "AMD Ryzen 5 5500"):
             self.assertEqual(build(name, devirt=True)[0], False, name)
 
-    def test_an_already_on_config_keeps_devirt_on(self):
-        self.assertEqual(build("AMD Ryzen 7 7800X3D 8-Core Processor", devirt=True, svm=False), (True, False))
+    def test_a_devirt_only_config_gets_setupvirtualmap_too(self):
+        self.assertEqual(build("AMD Ryzen 7 7800X3D 8-Core Processor", devirt=True, svm=False), (True, True))
 
 
 if __name__ == "__main__":

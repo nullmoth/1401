@@ -201,7 +201,8 @@ def apply(config_path, result, policy):
     cpu = (result.hardware or {}).get("CPU", {}) or {}
     chipset = ((result.hardware or {}).get("Motherboard", {}) or {}).get("Chipset", "")
     quirks = cfg.get("Booter", {}).get("Quirks", {})
-    if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_SVM_ON and quirks.get("SetupVirtualMap") is True:
+    zen45 = cpu.get("Manufacturer") == "AMD" and is_zen4_or_later(cpu)
+    if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_SVM_ON and not zen45 and quirks.get("SetupVirtualMap") is True:
         quirks["SetupVirtualMap"] = False
         change("amd-setupvirtualmap", "SetupVirtualMap=True", "SetupVirtualMap=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
@@ -212,20 +213,21 @@ def apply(config_path, result, policy):
     # Zen 4 and Zen 5 (Ryzen 7000/8000/9000, AM5 and their laptops) are the exception. Measured over every stick log
     # received through 2026-10-10: with DevirtualiseMmio off, family 19h models 60h-7Fh and family 1Ah stopped at
     # EB.MM.AKM in 60 boots and reached the kernel hand-off in 14; with it on, 6 stops (all one board) and 35 hand-offs.
-    # AM4 and older Zen boot with it off (1 stop in more than 150 boots), so the rule above still holds for them. The
-    # set that reached the desktop on an AM5 board is DevirtualiseMmio on with SetupVirtualMap off; the boot-log
-    # ladder (bootfix.py) moves on from there if a board still stops.
-    zen45 = cpu.get("Manufacturer") == "AMD" and is_zen4_or_later(cpu)
+    # AM4 and older Zen boot with it off (1 stop in more than 150 boots), so the rule above still holds for them.
+    # The same machines prove it, not only the totals: five AM5 boards (B650M DS3H, TUF B650M-PLUS, B850 AORUS ELITE,
+    # X870E CARBON, B850 TOMAHAWK) stopped at AKM with both quirks off and passed boot.efi on their next stick with
+    # DevirtualiseMmio AND SetupVirtualMap on; a 7500F went on/pass, off/AKM, on/pass. Both on is the set with the
+    # most passes (31 hand-offs); the boot-log ladder (bootfix.py) moves on from there if a board still stops.
     if cpu.get("Manufacturer") == "AMD" and chipset not in AMD_DEVMMIO_ON and not zen45 and quirks.get("DevirtualiseMmio") is True:
         quirks["DevirtualiseMmio"] = False
         change("amd-devirtualisemmio", "DevirtualiseMmio=True", "DevirtualiseMmio=False",
                f"Ryzen board (chipset reported as {chipset or 'unknown'}): boot.efi cannot allocate the kernel's memory with it on")
-    if zen45 and quirks.get("DevirtualiseMmio") is not True:
+    if zen45 and not (quirks.get("DevirtualiseMmio") is True and quirks.get("SetupVirtualMap") is True):
+        before = f"DevirtualiseMmio={quirks.get('DevirtualiseMmio')}, SetupVirtualMap={quirks.get('SetupVirtualMap')}"
         quirks["DevirtualiseMmio"] = True
-        if chipset not in AMD_SVM_ON:
-            quirks["SetupVirtualMap"] = False
-        change("amd-zen4-devirtualisemmio", "DevirtualiseMmio=False", "DevirtualiseMmio=True",
-               f"{cpu.get('Processor Name') or 'Zen 4/5 Ryzen'}: boot.efi stops at EB.MM.AKM on these CPUs with it off")
+        quirks["SetupVirtualMap"] = True
+        change("amd-zen4-memory-map", before, "DevirtualiseMmio=True, SetupVirtualMap=True",
+               f"{cpu.get('Processor Name') or 'Zen 4/5 Ryzen'}: boot.efi stops at EB.MM.AKM on these CPUs with them off")
     # Whitelist entries are inert whenever DevirtualiseMmio is off. This includes configurations whose quirk was
     # already off before the policy pass; ocvalidate rejects enabled entries in either case.
     if quirks.get("DevirtualiseMmio") is False:
