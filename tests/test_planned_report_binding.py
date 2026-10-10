@@ -86,7 +86,9 @@ class FrozenNormalization(unittest.TestCase):
             self.assertEqual(normalized['Motherboard']['Name'], 'Fixture board')
             self.assertEqual(normalized['BIOS']['Firmware Type'], 'UEFI')
             self.assertEqual(normalized['Input'], {})
-            self.assertEqual(len(notes), 2)
+            self.assertEqual(normalized['USB Controllers'], {})
+            self.assertEqual(normalized['Storage Controllers'], {})
+            self.assertEqual(len(notes), 4)
 
     def test_standalone_import_normalization_preserves_existing_behavior(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -94,8 +96,12 @@ class FrozenNormalization(unittest.TestCase):
             path = root / 'imported.json'
             path.write_text(json.dumps(REPORT))
             out, notes = report_mod.normalized_copy(path, root)
-            self.assertEqual(json.loads(Path(out).read_text())['Input'], {})
-            self.assertEqual(len(notes), 1)
+            norm = json.loads(Path(out).read_text())
+            self.assertEqual(norm['Input'], {})
+            # a report missing whole controller sections is accepted (treated as empty), not rejected
+            self.assertEqual(norm['USB Controllers'], {})
+            self.assertEqual(norm['Storage Controllers'], {})
+            self.assertEqual(len(notes), 3)
 
     def test_import_without_receipt_remains_offline_unbound(self):
         with tempfile.TemporaryDirectory() as temporary:
