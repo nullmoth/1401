@@ -100,6 +100,16 @@ def normalize(report):
     if not isinstance(report.get("Input"), dict):
         report["Input"] = {}
         notes.append("Input: the report lists no keyboard/trackpad section - treated as none (no PS/2 or I2C input kexts)")
+    # 10-09 (14 uploaded logs, "hardware report rejected: Missing required key 'USB Controllers'/'Storage Controllers'"):
+    # an older or partial scan can omit these whole sections. The engine reads a missing section as none - the same build
+    # it would make with an empty one - so treat missing as empty and let the build proceed instead of refusing the report.
+    # A machine with no Storage Controllers section just gets no storage-specific quirks (e.g. VMD is not detected from it);
+    # the user can send a fuller scan to improve it. Keep this in step with the engine's required-key list.
+    for sec in ("USB Controllers", "Storage Controllers"):
+        if not isinstance(report.get(sec), dict):
+            report[sec] = {}
+            notes.append(f"{sec}: the report has no {sec.lower()} section - treated as none; the build continues "
+                         "(a fuller scan adds the matching quirks)")
     # 10-07: Hardware Sniffer asks PowerShell for $env:firmware_type, and a PowerShell profile that prints
     # a banner lands in the value ("Linux Rice loaded!\nUEFI"), so the schema rejected the whole report. Keep the real word.
     bios = report.get("BIOS") if isinstance(report.get("BIOS"), dict) else None
