@@ -66,6 +66,24 @@ def tolerate(dsdt, records):
         if not (argv and isinstance(argv[0], str) and os.path.normcase(os.path.abspath(argv[0])) == executable):
             return result
         tables = [a for a in argv[1:] if isinstance(a, str) and os.path.basename(a).lower() == "dsdt.aml"]
+        # iasl can CRASH on some firmware's DSDT instead of returning an ASL error: on Windows the exit code is a
+        # structured-exception value (0xC0000005 access violation = 3221225477), not a small iasl error code. Renaming a
+        # repeated Device cannot help a crash, so record it with the exact code and keep a copy of the DSDT beside it so
+        # the next uploaded log carries the table itself (38 build logs on 10-09 showed only "exit 3221225477"). The
+        # build then follows upstream's own path, which proceeds on the raw tables when disassembly is unavailable.
+        if tables and isinstance(result, (list, tuple)) and len(result) >= 3 and isinstance(result[2], int) and result[2] >= 0x80000000:
+            kept = None
+            try:
+                import shutil  # noqa: PLC0415
+                kept = tables[0] + ".crash"
+                shutil.copyfile(tables[0], kept)
+            except OSError:
+                kept = None
+            records.append({"tool": "acpi-dupnames", "iasl_crash_exit": result[2],
+                            "hex": hex(result[2] & 0xFFFFFFFF), "dsdt_kept": kept})
+            print(f"ACPI: iasl crashed on this DSDT (exit {result[2]} = {hex(result[2] & 0xFFFFFFFF)}); "
+                  "kept a copy for diagnosis and continuing without pre-patch disassembly")
+            return result
         serial = 0
         while tables and isinstance(result, (list, tuple)) and len(result) >= 3 and result[2] != 0 and serial < MAX_RENAMES:
             m = _FAILED.search(str(result[0]) + str(result[1]))
@@ -152,6 +170,17 @@ def selftest():
         with tolerate(d2, []):
             r2 = d2.r.run({"args": [os.path.join(tmp, "other-tool"), path]})
         arm("a command that is not iasl is passed through untouched", r2[2] != 0 and d2.r.calls == 1)
+
+        class Crasher:
+            def __init__(self): self.calls = 0
+            def run(self, command): self.calls += 1; return ("", "", 3221225477)  # 0xC0000005 access violation
+        d3 = SimpleNamespace(r=Crasher(), iasl=iasl)
+        rec3 = []
+        with tolerate(d3, rec3):
+            r3 = d3.r.run({"args": [iasl, "-dl", "-l", path]})
+        arm("an iasl CRASH (0xC0000005) is recorded once, the DSDT is kept, and it is NOT retried as a rename",
+            d3.r.calls == 1 and rec3 and rec3[0].get("hex") == "0xc0000005" and rec3[0].get("dsdt_kept", "x").endswith(".crash")
+            and os.path.exists(path + ".crash"), rec3)
     print(f"acpi_dupnames: {sum(results)}/{len(results)}")
     return all(results)
 
