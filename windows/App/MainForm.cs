@@ -733,6 +733,7 @@ namespace A1401
             if (IsDisposed || Disposing || !IsHandleCreated) return;
             var found = new List<string>();
             var configs = new List<string>();
+            var provenance = new List<string>();   // "not built by 1401" / "edited after 1401 built it", per stick
             // asked from the link: the last failed build's log on this PC goes too
             {
                 try { found.AddRange(DurableReport.Find(Engine.Work).Where(f => asked || Path.GetFileName(f).Contains("-crash-"))); }
@@ -761,6 +762,8 @@ namespace A1401
                         var safe = Path.Combine(Engine.Work, "stick-config-" + d.Name.TrimEnd('\\', ':') + ".txt");
                         File.WriteAllText(safe, RedactConfig(File.ReadAllText(cfg)));
                         configs.Add(safe);
+                        var prov = StickProvenance(d.RootDirectory.FullName, cfg);
+                        if (prov.Length > 0) provenance.Add(prov);
                     }
                 }
                 catch (Exception) { }
@@ -782,7 +785,13 @@ namespace A1401
                 "An included scan receipt records saved Windows hardware observations, even if the check failed; it does not prove this PC or the attached stick has that hardware. Nothing else on this PC is sent.\r\n\r\nClick Send to send them now, or Cancel to keep them locally.",
                 out screen);
             if (ask != DialogResult.OK) return;
-            var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "");
+            var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "")
+                       + (provenance.Count > 0 ? "; " + string.Join("; ", provenance) : "");
+            // the dialog only for a foreign EFI: 1401 Mac setup itself edits the config it boots from, so "changed after"
+            // is normal after a driver install and stays a note in the upload
+            if (provenance.Any(x => x.Contains("not built by 1401")))
+                MessageBox.Show(this, string.Join("\r\n\r\n", provenance.Where(x => x.Contains("not built by 1401"))) + "\r\n\r\nBuild the stick again with 1401: it makes the OpenCore settings this PC needs. "
+                                + "A stick made elsewhere, or edited afterwards, cannot be fixed from its logs.", "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
             // the next build reads it too (bootfix.after_handoff): a hang after OpenCore leaves no file, only this line
             if (screen.Length > 0) { try { File.WriteAllText(Path.Combine(Engine.Work, "stopped-at.txt"), screen); } catch (Exception) { } }
             var ids = new List<string>();
@@ -808,6 +817,33 @@ namespace A1401
         }
 
         // The Mac identity OpenCore gives this PC (serial, board serial, UUID, ROM) is the only personal part of a config.
+        // A stick log is only worth fixing when 1401 built the EFI that produced it. 10-10: a Ryzen 9 5900X stick hung at
+        // AppleACPICPU running a hand-made EFI whose AMD patches all stop at macOS 10.15. 1401 writes NullMoth\system-profile.json
+        // with the SHA-256 of every EFI file it built, so a missing profile means "not 1401's" and a changed config hash
+        // means "edited after 1401 built it".
+        static string StickProvenance(string root, string configPath)
+        {
+            try
+            {
+                var profile = Path.Combine(root, "NullMoth", "system-profile.json");
+                if (!File.Exists(profile)) return "this stick's OpenCore EFI was not built by 1401";
+                var text = File.ReadAllText(profile);
+                var key = "\"OC/config.plist\":";
+                var at = text.IndexOf(key, StringComparison.Ordinal);
+                if (at < 0) return "";
+                var q1 = text.IndexOf('"', at + key.Length);
+                var q2 = q1 < 0 ? -1 : text.IndexOf('"', q1 + 1);
+                if (q1 < 0 || q2 < 0) return "";
+                var want = text.Substring(q1 + 1, q2 - q1 - 1);
+                string have;
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                using (var fs = File.OpenRead(configPath))
+                    have = BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
+                return have == want ? "" : "this stick's OpenCore config was changed after 1401 built it";
+            }
+            catch (Exception) { return ""; }
+        }
+
         static string RedactConfig(string xml)
         {
             // <data> must stay valid base64 or the uploaded config no longer parses as a plist (10-07: every 1.0.5 copy)
