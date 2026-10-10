@@ -98,12 +98,61 @@ def _transient(e):
     return isinstance(e, (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError, socket.timeout))
 
 
-def _open(url, headers, data=None, sleep=None):
+# Public DNS-over-HTTPS resolvers, tried in order. Alibaba's answers inside China, where the others may not.
+DOH = ("https://dns.google/resolve?name={}&type=A", "https://cloudflare-dns.com/dns-query?name={}&type=A",
+       "https://dns.alidns.com/resolve?name={}&type=1")
+_doh_cache = {}
+
+
+def _doh(host, fetch=None):
+    """An IPv4 address for host from DNS-over-HTTPS, or None. The download still comes from Apple's own server."""
+    if host in _doh_cache:
+        return _doh_cache[host]
+    import json  # noqa: PLC0415
+    for tmpl in DOH:
+        try:
+            if fetch:
+                body = fetch(tmpl.format(host))
+            else:
+                req = urllib.request.Request(tmpl.format(host), headers={"Accept": "application/dns-json", "User-Agent": UA})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    body = r.read(65536)
+            for a in json.loads(body).get("Answer") or []:
+                ip = str(a.get("data", ""))
+                if a.get("type") == 1 and ip.count(".") == 3 and all(p.isdigit() and int(p) < 256 for p in ip.split(".")):
+                    _doh_cache[host] = ip
+                    return ip
+        except Exception:  # noqa: BLE001 - the next resolver is tried; None means none answered
+            continue
+    return None
+
+
+def _dns_failure(e):
+    """The network could not reach the host by name or the connection was refused/reset before HTTP started."""
+    r = getattr(e, "reason", e)
+    return isinstance(r, (socket.gaierror, ConnectionRefusedError, ConnectionResetError))
+
+
+def _open(url, headers, data=None, sleep=None, doh=None):
+    # Write logs 10-10 (1.6-1.9): osrecovery.apple.com failed with getaddrinfo 11001, WinError 10061 (refused) and 10054
+    # (reset) on networks whose DNS is broken or poisoned. Apple's recovery service and its CDN speak plain HTTP, so the
+    # same request goes to the address DNS-over-HTTPS gives, with the real Host header; the image is still Apple's and is
+    # still checked chunk by chunk against Apple's signed chunklist.
     req = urllib.request.Request(url, headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
+    rerouted = False
     for attempt in range(OPEN_TRIES):
         try:
             return urllib.request.urlopen(req, timeout=TIMEOUT)
         except Exception as e:  # keep the URL so the UI can show what failed
+            if not rerouted and url.startswith("http://") and _dns_failure(e):
+                host = urlparse(url).hostname
+                ip = (doh or _doh)(host)
+                if ip:
+                    rerouted = True
+                    print(f"(could not reach {host} through this network's DNS; using {ip} from DNS-over-HTTPS)", flush=True)
+                    req = urllib.request.Request(url.replace("//" + host, "//" + ip, 1),
+                                                 headers={"Connection": "close", "User-Agent": UA, **headers, "Host": host}, data=data)
+                    continue
             if attempt + 1 < OPEN_TRIES and _transient(e):
                 (sleep or time.sleep)(2 ** (attempt + 1))
                 continue
