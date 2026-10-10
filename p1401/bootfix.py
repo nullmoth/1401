@@ -236,8 +236,11 @@ def after_handoff(texts, stopped_at=""):
     # the second one is what some boards need). The user's stopped line names it.
     if re.search(r"(?i)IOPCIConfigurator|PCI configuration (begin|PCI)", joined):
         out["args"].append("npci")
-    if re.search(r"AppleIntelCPUPowerManagement", joined) and "panic" in joined.lower():
-        out["cfglock"] = True   # Dortania: CFG-locked firmware panics in AppleIntelCPUPowerManagement -> AppleCpuPmCfgLock
+    # Dortania: CFG-locked firmware panics in AppleIntelCPUPowerManagement -> AppleCpuPmCfgLock. Only a panic BACKTRACE
+    # counts: every OpenCore log on AMD names the kext ("Skipping dummy AppleIntelCPUPowerManagement patch") and its
+    # kernel patches have "panic" in their names, which set this on 87 AMD configs (10-10 scan of uploads).
+    if any("AppleIntelCPUPowerManagement" in m.group(1) for m in _BT.finditer(joined)):
+        out["cfglock"] = True
     if re.search(r"(?i)busy timeout.{0,24}NVRM", joined):
         out["report"].append("the NVIDIA card was still starting (small BAR1: up to 2 minutes). Enable Above 4G Decoding "
                              "and Resizable BAR in the BIOS and it starts in about a second; otherwise wait it out.")
@@ -407,6 +410,13 @@ def selftest():
     apply(cn, amd, ["AAPL: #[EB|LOG:EXITBS:START]"], lambda k, *x: ln.append(k))
     arm("control: an OpenCore log that merely ends at EXITBS (every good start does) changes nothing", not ln, ln)
     f = after_handoff([], "the last line on the screen when it stopped")
+    amdlog = ("OCAK: [OK] Skipping dummy AppleIntelCPUPowerManagement patch on 240600\n"
+              "OC: Kernel patcher result 16 for kernel (algrey, XLNC | Remove version check and panic | 10.13+) - Success\n")
+    intel_panic = ("panic(cpu 0 caller 0xffffff8000a1b2c3): \"Unrecoverable trap\"\n"
+                   "      Kernel Extensions in backtrace:\n         com.apple.driver.AppleIntelCPUPowerManagement(222.0)[X]@0xffffff7f8\n\n")
+    arm("a panic backtrace through AppleIntelCPUPowerManagement turns AppleCpuPmCfgLock on", after_handoff([intel_panic])["cfglock"])
+    arm("control: an AMD OpenCore log naming the kext and a patch called 'panic' is not a CFG-lock panic",
+        not after_handoff([amdlog])["cfglock"])
     arm("negative control: a stopped line that names nothing changes nothing", f == {"disable": [], "args": [], "cfglock": False, "report": []}, f)
     print(f"bootfix: {sum(res)}/{len(res)}")
     return all(res)
