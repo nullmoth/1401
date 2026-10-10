@@ -64,13 +64,17 @@ def read_logs(paths):
 
 def findings(texts):
     """What the logs show, newest-boot-last order not assumed: any log showing a failure counts."""
-    out = {"startimage_aborted": False, "stop16": False, "secureboot_dmg": False, "mmio": [], "devirt_ran": False, "boots": []}
+    out = {"startimage_aborted": False, "stop16": False, "secureboot_dmg": False, "mmio": [], "devirt_ran": False, "boots": [],
+           "vmap": None}
     seen = set()
     for t in texts:
         out["startimage_aborted"] |= "StartImage failed - Aborted" in t
         out["stop16"] |= bool(re.search(r"EB\.MM\.AKM|Couldn't allocate runtime area|STOP 0x16", t))
         out["secureboot_dmg"] |= "Cannot use Secure Boot with Any DmgLoading" in t
         out["devirt_ran"] |= "OCABC: MMIO devirt" in t
+        vm = re.search(r"OCABC: .*\bVMAP ([01])\b", t)  # the quirk line: SetupVirtualMap as that boot ran it
+        if vm:
+            out["vmap"] = vm.group(1) == "1"
         boot = _boot(t)
         if boot:
             out["boots"].append(boot)
@@ -118,6 +122,16 @@ def apply(cfg, result, texts, change, stopped_at=""):
             quirks["DevirtualiseMmio"] = True; quirks["SetupVirtualMap"] = True
             change("bootlog-amd-mmio-whitelist", before, f"{len(low)} region(s) below 4 GiB whitelisted",
                    "the stick's last boot stopped in boot.efi with DevirtualiseMmio on and those regions devirtualised")
+        elif f["vmap"] is not False:
+            # 10-10: a Ryzen 9 9900X (X870E) ran every step above and still stopped at EB.MM.AKM ("No slide values are
+            # usable"), while a Ryzen 5 7600 reached the desktop with DevirtualiseMmio on, SetupVirtualMap OFF and no
+            # whitelist - a set this ladder never tried. It is the step before giving up.
+            quirks["DevirtualiseMmio"] = True; quirks["SetupVirtualMap"] = False
+            for w in wl:
+                w["Enabled"] = False
+            booter["MmioWhitelist"] = wl
+            change("bootlog-amd-devirt-no-vmap", before, "DevirtualiseMmio=True, SetupVirtualMap=False, no whitelist",
+                   "every whitelist step failed with SetupVirtualMap on; this set reached the desktop on another AM5 board")
         else:
             quirks["DevirtualiseMmio"] = False; quirks["SetupVirtualMap"] = False
             for w in wl:
@@ -282,7 +296,13 @@ def selftest():
         [w["Address"] for w in wl] == [0xF7000000] and c["Booter"]["Quirks"]["DevirtualiseMmio"], [hex(w["Address"]) for w in wl])
     c, log = run(amd, wl_fail, {"Booter": {"Quirks": {"DevirtualiseMmio": True, "SetupVirtualMap": True},
                                            "MmioWhitelist": [{"Address": 0xF7000000, "Enabled": True}]}})
-    arm("step 3: failed with the low region already whitelisted -> back to the default, said out loud",
+    arm("step 3: failed with the low region whitelisted and VirtualMap on -> devirt on, VirtualMap off, no whitelist",
+        c["Booter"]["Quirks"]["DevirtualiseMmio"] and not c["Booter"]["Quirks"]["SetupVirtualMap"]
+        and not any(w["Enabled"] for w in c["Booter"]["MmioWhitelist"]) and log == ["bootlog-amd-devirt-no-vmap"], log)
+    c, log = run(amd, wl_fail + "\nOCABC: FEXITBS 0 PRMRG 0 CSLIDE 1 MSLIDE 0 PRSRV 0 RBMAP 1 VMAP 0 APPLOS 0\n",
+                 {"Booter": {"Quirks": {"DevirtualiseMmio": True, "SetupVirtualMap": False},
+                             "MmioWhitelist": [{"Address": 0xF7000000, "Enabled": False}]}})
+    arm("step 4: that set failed too (log says VMAP 0) -> back to the default, said out loud",
         not c["Booter"]["Quirks"]["DevirtualiseMmio"] and log == ["bootlog-amd-memory-map-exhausted"], log)
     c, log = run(intel, off_fail)
     arm("control: an Intel PC is not given the AMD steps", not c["Booter"]["Quirks"]["DevirtualiseMmio"] and not log)

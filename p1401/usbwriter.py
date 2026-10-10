@@ -263,7 +263,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         print("(this stick refuses direct writes; erasing it with Windows' diskpart instead)", flush=True)
         release(n)
         _diskpart(diskpart_script(disk, letter))
-    out = _ps(f"""$ErrorActionPreference = 'Stop'
+    script = (f"""$ErrorActionPreference = 'Stop'
 # After the raw erase Windows re-detects the stick: its disk number can change and the partition objects it had are
 # gone ("The requested object could not be found" from Get-/Set-Partition and Remove-PartitionAccessPath, 1.2.0).
 # Find it again by serial and size, wait for partition 1, and keep the letter Windows gives it.
@@ -307,6 +307,17 @@ if (-not $done) {{
 }}
 Write-Output "LETTER=$letter"
 """)
+    try:
+        out = _ps(script)
+    except UsbError as e:
+        # 1.8 log 10-10 (a "VendorCo ProductCode" stick): the raw erase succeeded but Windows never showed the new
+        # partition. Windows' own diskpart erase makes Windows re-read the stick, then the same find-and-format runs again.
+        if "did not show its new partition" not in str(e):
+            raise
+        print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)", flush=True)
+        release(n)
+        _diskpart(diskpart_script(disk, letter))
+        out = _ps(script)
     got_letter = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("LETTER=")), "")
     letter = got_letter[:1].upper() if got_letter[:1].isalpha() else letter
     root = letter + ":\\"

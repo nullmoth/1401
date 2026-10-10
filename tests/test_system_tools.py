@@ -60,5 +60,27 @@ class RawWriteFallback(unittest.TestCase):
         self.assertIsInstance(e, rawdisk.DiskError)
 
 
+class PartitionNotShown(unittest.TestCase):
+    def test_a_partition_windows_never_showed_gets_a_diskpart_erase_and_a_second_look(self):
+        calls, n = [], {"ps": 0}
+        from p1401 import rawdisk
+        def ps(script):
+            n["ps"] += 1
+            if "did not show its new partition" in script and n["ps"] == 2:
+                raise usbwriter.UsbError("1401: the stick was erased but Windows did not show its new partition. Unplug")
+            calls.append("ps")
+            return ""
+        with mock.patch.object(usbwriter, "eligible", lambda d, allow_large=False: (True, [])), \
+             mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
+             mock.patch.object(usbwriter, "_ps", ps), mock.patch.object(rawdisk, "wipe_mbr_fat32", lambda *a, **k: None), \
+             mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
+             mock.patch.object(usbwriter, "release", lambda x: calls.append("release")), \
+             mock.patch.object(usbwriter, "_diskpart", lambda x: calls.append("diskpart")), \
+             mock.patch.object(usbwriter.os.path, "isdir", lambda p: False), mock.patch.object(usbwriter.time, "sleep", lambda s: None):
+            with self.assertRaises(usbwriter.UsbError):  # the drive root never appears in a test
+                usbwriter.write(PICK, tempfile.mkdtemp(), {})
+        self.assertEqual(calls[-3:], ["release", "diskpart", "ps"])
+
+
 if __name__ == "__main__":
     unittest.main()
