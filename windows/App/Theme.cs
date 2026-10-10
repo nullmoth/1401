@@ -18,10 +18,20 @@ namespace A1401
             // the site has no amber; a warning still has to read as one next to cyan and pink
             Amber = C(0xffcf70);
 
-        public static readonly Font Body = new Font("Verdana", 9.75f);
-        public static readonly Font Title = new Font("Times New Roman", 20f, FontStyle.Bold);
-        public static readonly Font Brand = new Font("Times New Roman", 22f, FontStyle.Bold);
-        public static readonly Font Mono = new Font("Courier New", 10f, FontStyle.Bold);
+        // Every face here ships with Windows, same rule as the site. The Chinese UI needs a face that
+        // actually carries CJK glyphs: Verdana, Times New Roman and Courier New do not, so Windows
+        // would fall back per-character and the sizes would not match. Microsoft YaHei ships with
+        // every supported Windows and covers Latin and Han in one face.
+        internal static string Face(string latin) { return Loc.Language == "zh" ? "Microsoft YaHei UI" : latin; }
+
+        public static readonly Font Body = new Font(Face("Verdana"), 9.75f);
+        public static readonly Font Title = new Font(Face("Times New Roman"), 20f, FontStyle.Bold);
+        public static readonly Font Brand = new Font(Face("Times New Roman"), 22f, FontStyle.Bold);
+        public static readonly Font Mono = new Font(Face("Courier New"), 10f, FontStyle.Bold);
+        public static readonly Font Link = new Font(Face("Verdana"), 9.5f);
+        public static readonly Font Log = new Font(Face("Courier New"), 9f);
+        public static readonly Font Fact = new Font(Face("Courier New"), 9.5f);
+        public static readonly Font Picker = new Font(Face("Courier New"), 10f);
 
         /// <summary>The site's bevelled button: purple face, light edge, brighter on hover.</summary>
         public static void Style(Button b, bool primary = true)
@@ -42,7 +52,7 @@ namespace A1401
             l.BackColor = Bg;
             l.ForeColor = Text;
             l.BorderStyle = BorderStyle.FixedSingle;
-            l.Font = new Font("Courier New", 10f);
+            l.Font = new Font(Loc.Language == "zh" ? "Microsoft YaHei UI" : "Courier New", 10f);
         }
 
         /// <summary>The moth mark from the site, embedded in the exe. Null if it is somehow missing; the header
