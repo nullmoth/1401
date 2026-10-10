@@ -465,6 +465,22 @@ def selftest():
     return all(res)
 
 
+STICK_ADVICE = (" - the USB stick stopped accepting writes. That is the stick or its port, not the build: plug it into a "
+                "rear USB port on the motherboard (not a hub or the front panel), or use another stick (16 GB or more, a "
+                "known brand), and press Next again.")
+
+
+def stick_hint(e):
+    """Advice for a write that died because the stick did. 1.9.0 logs (10-10): format.com "Invalid media or Track 0 bad",
+    EINVAL copying the driver package after a full download, PermissionError/OSError mid-image ("the stick's file could
+    not be reopened"), and the disk vanishing all reached users as bare errors with nothing to do about them."""
+    s = str(e)
+    if isinstance(e, OSError) and getattr(e, "errno", None) in (5, 22) or "could not be reopened" in s \
+            or "Track 0 bad" in s or "Invalid media" in s or "not attached any more" in s:
+        return STICK_ADVICE
+    return ""
+
+
 def cli_write(argv):
     """write <disk number> <EFI build dir> <darwin major> [--driver <tar.gz>] [--extra <file>]... [--profile <Report.json>] [--allow-large]
     The Windows app's write step. Every line printed is "STEP|OK|PROGRESS|STOP ..." so the window can show it."""
@@ -473,7 +489,7 @@ def cli_write(argv):
     def opt(n): return [argv[i + 1] for i, a in enumerate(argv) if a == n and i + 1 < len(argv)]
     disk = next((d for d in list_disks() if int(d.get("Number", -1)) == num), None)
     if not disk:
-        print(f"STOP disk {num} is not attached any more"); return 1
+        print(f"STOP disk {num} is not attached any more{STICK_ADVICE}"); return 1
     ok, why = eligible(disk, "--allow-large" in argv)
     if not ok:
         print("STOP " + "; ".join(why)); return 1
@@ -533,6 +549,6 @@ if __name__ == "__main__":
             # where it stopped, module and line only (no user paths): 41 write reports through 1.1 said just
             # "Errno 22" or "WinError 2" and nothing could be traced from them
             where = [f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in traceback.extract_tb(e.__traceback__)][-4:]
-            print(f"STOP {type(e).__name__}: {e}", flush=True)
+            print(f"STOP {type(e).__name__}: {e}{stick_hint(e)}", flush=True)
             print("WHERE " + " < ".join(reversed(where)), flush=True); sys.exit(1)
     print(json.dumps(list_disks(), indent=2))
