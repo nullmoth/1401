@@ -93,6 +93,19 @@ class Resume(unittest.TestCase):
         self.assertIn("resumed connections", err)
         self.assertLessEqual(len(calls), apple.RESUMES_WINDOWED + 1)
 
+    def test_a_stick_that_refuses_the_image_file_reports_that_not_an_unbound_handle(self):
+        # 1.9.0 (10-10): "UnboundLocalError: cannot access local variable 'fh'" hid why the file could not be created
+        with tempfile.TemporaryDirectory() as t, patch.object(apple, "fetch_chunklist", lambda i: b"cl"), \
+                patch.object(apple, "parse_chunklist", lambda d: LIST), \
+                patch.object(apple, "_asset", lambda *a, **k: Stream(IMAGE)):
+            real_open = open
+            def refusing_open(path, *a, **k):   # the stick refuses the image file itself
+                if str(path).endswith(".dmg.part"):
+                    raise PermissionError(13, "Permission denied", str(path))
+                return real_open(path, *a, **k)
+            with patch("builtins.open", refusing_open), self.assertRaises(PermissionError):
+                apple.download(INFO, t)
+
     def test_a_stalled_download_says_what_each_connection_did_and_what_to_do(self):
         # 1.9.0 logs (15 writes, 10-10): the STOP line named only the first drop, so the resumes' behaviour was unknowable
         opens = [lambda e: Stream(IMAGE, drop_after=10)] + [lambda e: Stream(b"", status=206, content_range=f"bytes 10-{len(IMAGE)-1}/{len(IMAGE)}")] * 40

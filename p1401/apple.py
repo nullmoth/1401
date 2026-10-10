@@ -254,6 +254,9 @@ def download(info, usb_root, progress=None):
         trail.append(f"{time.monotonic() - t0:.0f}s {s}")
         del trail[1:-7]  # the first cut (how much one full stream got) plus the last seven
     r = _asset(info["image_url"], info["image_token"])
+    # WAS: fh was first bound inside the with, so a stick that refused the file made the finally raise
+    # UnboundLocalError and hid the real error (1.9.0 write log, 10-10)
+    fh = None
     try:
         with open(img + ".part", "wb") as fh:
             for i, (size, sha) in enumerate(chunks, 1):
@@ -315,7 +318,8 @@ def download(info, usb_root, progress=None):
                 raise AppleError("image is larger than its signed chunklist - refused")
     finally:
         r.close()
-        fh.close()  # the handle may be a reopened one (_write_settled); the with only closed the first
+        if fh is not None:
+            fh.close()  # the handle may be a reopened one (_write_settled); the with only closed the first
     with open(cnk + ".part", "wb") as fh:
         fh.write(cl)
     os.replace(img + ".part", img)
