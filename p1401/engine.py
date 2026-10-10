@@ -606,6 +606,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
+                # 10-10: 43 of 233 users' DSDTs are discarded whole by macOS's ACPICA (forward Scope targets in pass 1);
+                # ship the firmware table with those Scopes deferred so macOS gets a DSDT at all
+                from . import dsdt_pass1  # noqa: PLC0415
+                res.policy_changes += dsdt_pass1.apply(os.path.abspath(acpi_dir), out_dir)
                 res.validation = validate_mod.validate(out_dir)
                 if not res.validation.get("ok"):
                     raise RuntimeError("EFI failed validation: " + (res.validation.get("error") or
