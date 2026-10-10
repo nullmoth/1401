@@ -265,9 +265,43 @@ def _load_engine():
     spec.loader.exec_module(mod)
     _patient_downloads()
     _dsdt_signature_fix()
+    _unsupported_igpu_fix()
     from . import tls  # noqa: PLC0415
     tls.install()   # verify against the Windows store + certifi, not certifi alone
     return mod, utils_mod
+
+
+def _unsupported_igpu_fix():
+    """1.10.0 build log (10-10, Intel Iris Xe laptop): "KeyError: 'PciRoot(0x0)/Pci(0x2,0x0)'". For an Intel iGPU macOS has
+    no driver for, the engine's igpu_properties returns no properties, its add_device_property then adds nothing (as
+    intended), and the very next line indexes that missing entry. The iGPU entry is left out of the device-properties
+    pass instead: the result is the one the engine meant (no properties for that GPU) and every other device is untouched."""
+    from Scripts import config_prodigy  # noqa: PLC0415 - upstream module
+    cls = config_prodigy.ConfigProdigy
+    if getattr(cls, "_1401_igpu", False):
+        return
+    orig = cls.deviceproperties
+
+    def deviceproperties(self, hardware_report, disabled_devices, macos_version, kexts):
+        gpus = hardware_report.get("GPU", {}) or {}
+        board = hardware_report.get("Motherboard", {}) or {}
+        platform = "NUC" if "NUC" in (board.get("Name") or "") else board.get("Platform")
+        empty = []
+        for name, info in gpus.items():
+            if info.get("Device Type") != "Integrated GPU" or "Intel" not in (info.get("Manufacturer") or ""):
+                continue
+            try:
+                props = self.igpu_properties(platform, (name, info), hardware_report.get("Monitor", {}), macos_version)
+            except Exception:  # noqa: BLE001 - the engine's own call below raises the real error if this one does
+                continue
+            if not props:
+                empty.append(name)
+        if empty:
+            print(f"(no macOS properties for {', '.join(empty)}: left out of device properties)")
+            hardware_report = dict(hardware_report, GPU={k: v for k, v in gpus.items() if k not in empty})
+        return orig(self, hardware_report, disabled_devices, macos_version, kexts)
+    cls.deviceproperties = deviceproperties
+    cls._1401_igpu = True
 
 
 class _Sig(bytes):
