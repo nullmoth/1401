@@ -255,9 +255,15 @@ namespace A1401
             {
                 try
                 {
-                    var newest = Directory.GetFiles(root, "opencore-*.txt").OrderByDescending(f => f).FirstOrDefault();
+                    // Send logs moves what it sent into NullMoth\sent-logs, so a build after sending found no log and the
+                    // fix for the failure it recorded never ran (10-10: Zen 4/5 sticks still stopping at EB.MM.AKM). Both
+                    // places count; OpenCore names its logs by date, so the newest name is the last start.
+                    var dirs = new[] { root, Path.Combine(root, "NullMoth", "sent-logs") }.Where(Directory.Exists).ToList();
+                    var newest = dirs.SelectMany(d => Directory.GetFiles(d, "opencore-*.txt"))
+                                     .OrderByDescending(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase).FirstOrDefault();
                     if (newest != null) files.Add(newest);
-                    files.AddRange(Directory.GetFiles(root, "panic-*.txt").OrderByDescending(f => f).Take(2));
+                    files.AddRange(dirs.SelectMany(d => Directory.GetFiles(d, "panic-*.txt"))
+                                       .OrderByDescending(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase).Take(2));
                 }
                 catch (Exception) { }
             }
@@ -792,6 +798,18 @@ namespace A1401
             if (provenance.Any(x => x.Contains("not built by 1401")))
                 MessageBox.Show(this, string.Join("\r\n\r\n", provenance.Where(x => x.Contains("not built by 1401"))) + "\r\n\r\nBuild the stick again with 1401: it makes the OpenCore settings this PC needs. "
                                 + "A stick made elsewhere, or edited afterwards, cannot be fixed from its logs.", "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            // 10-10: 13 stick logs stopped at EB.MM.AKM on sticks built before 1.10, whose build fixes those PCs; the users kept
+            // starting the same stick. Say what fixes it, before the logs are moved.
+            var akm = false;
+            foreach (var f in found.Where(x => Path.GetFileName(x).StartsWith("opencore-", StringComparison.OrdinalIgnoreCase)))
+            {
+                try { if (File.ReadAllText(f).Contains("EB.MM.AKM")) akm = true; } catch (Exception) { }
+            }
+            if (akm)
+                MessageBox.Show(this, "This stick stopped inside Apple's boot loader, before macOS started (EB.MM.AKM: no room in memory for the kernel).\r\n\r\n"
+                                + "Starting the same stick again will stop the same way. Build it again with this 1401 with the stick plugged in: "
+                                + "the build reads this log and changes the memory settings for this PC. Then write the stick and start from it.",
+                                "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
             // the next build reads it too (bootfix.after_handoff): a hang after OpenCore leaves no file, only this line
             if (screen.Length > 0) { try { File.WriteAllText(Path.Combine(Engine.Work, "stopped-at.txt"), screen); } catch (Exception) { } }
             var ids = new List<string>();

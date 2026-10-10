@@ -528,6 +528,18 @@ def _oclp_still_needed(cust, flagged, h):
     return bool(left)
 
 
+def _nullmoth_amfipass(o, hw, mv, h):
+    """The NullMoth driver needs AMFIPass (with Lilu) so WindowServer can load it. The engine picks AMFIPass only for OCLP
+    Wi-Fi, so EFIs rebuilt for the driver lacked it and the driver's Mac setup 1.10 stopped on them (10-10, 9 uploads)."""
+    if not nullmoth.cards(hw):
+        return False
+    from Scripts.datasets import kext_data  # noqa: PLC0415 - importable once the engine is loaded
+    if o.k.check_kext(kext_data.kext_index_by_name.get("AMFIPass"), mv):
+        return True
+    h.notices.append("AMFIPass could not be selected for this macOS version; the NVIDIA driver's Mac setup adds it.")
+    return False
+
+
 def _nullmoth_gpu_pass(checker, h):
     """Runs the engine's GPU check, then gives cards the NullMoth driver supports macOS 15 (nullmoth.mark). A machine
     whose only GPU is such a card made the engine exit; with the card marked it builds."""
@@ -622,6 +634,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             smbios = o.s.select_smbios_model(cust, mv)
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
+            _nullmoth_amfipass(o, hw, mv, h)
             o.s.smbios_specific_options(cust, smbios, mv, o.ac.patches, o.k)
             res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
             res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
