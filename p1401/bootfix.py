@@ -72,6 +72,7 @@ def findings(texts):
         out["stop16"] |= bool(re.search(r"EB\.MM\.AKM|Couldn't allocate runtime area|STOP 0x16", t))
         out["secureboot_dmg"] |= "Cannot use Secure Boot with Any DmgLoading" in t
         out["devirt_ran"] |= "OCABC: MMIO devirt" in t
+        out["no_slide"] = out.get("no_slide", False) or "No slide values are usable" in t
         vm = re.search(r"OCABC: .*\bVMAP ([01])\b", t)  # the quirk line: SetupVirtualMap as that boot ran it
         if vm:
             out["vmap"] = vm.group(1) == "1"
@@ -104,9 +105,22 @@ def apply(cfg, result, texts, change, stopped_at=""):
     failed = f["stop16"] or f["startimage_aborted"]
     if cpu == "AMD" and failed:
         before = f"DevirtualiseMmio={quirks.get('DevirtualiseMmio')}, SetupVirtualMap={quirks.get('SetupVirtualMap')}"
+        # OpenCore sizes the kernel's area as every runtime page plus 200 MB (OcAfterBootCompatLib/CustomSlide.c,
+        # ESTIMATED_KERNEL_SIZE) and a whitelisted MMIO region stays runtime. One whitelisted window boots on most AM5
+        # boards (11 stick logs: 0xE0000000 or 0xF7000000 alone), but an X870E board with both (382 MB) had no room left
+        # below 512 MB: "No slide values are usable", then EB.MM.AKMr2 (4 stick logs 10-10). That log line sends the
+        # next build back to no whitelist.
         low = [(a, p, k) for a, p, k in f["mmio"] if a < 0x100000000]
         wl = [w for w in booter.get("MmioWhitelist", []) if isinstance(w, dict)]
-        if not f["devirt_ran"]:
+        if f["devirt_ran"] and f.get("no_slide") and any(k for _, _, k in f["mmio"]):
+            # The whitelist itself is what left no room: the next build devirtualises every region again.
+            quirks["DevirtualiseMmio"] = True; quirks["SetupVirtualMap"] = True
+            for w in wl:
+                w["Enabled"] = False
+            booter["MmioWhitelist"] = wl
+            change("bootlog-amd-no-slide-whitelist-off", before, "DevirtualiseMmio=True, SetupVirtualMap=True, no whitelist",
+                   "OpenCore found no kernel slide: whitelisted MMIO counts as runtime memory and left no room below 512 MB")
+        elif not f["devirt_ran"]:
             quirks["DevirtualiseMmio"] = True; quirks["SetupVirtualMap"] = True
             change("bootlog-amd-memory-map", before, "DevirtualiseMmio=True, SetupVirtualMap=True",
                    "the stick's last boot stopped in boot.efi with both off; the next log will list this board's MMIO regions")
@@ -304,6 +318,16 @@ def selftest():
                              "MmioWhitelist": [{"Address": 0xF7000000, "Enabled": False}]}})
     arm("step 4: that set failed too (log says VMAP 0) -> back to the default, said out loud",
         not c["Booter"]["Quirks"]["DevirtualiseMmio"] and log == ["bootlog-amd-memory-map-exhausted"], log)
+    hero = ("OCABC: MMIO devirt 0xE0000000 (0x10000 pages, 0x800000000000100D) skip 1\n"
+            "OCABC: MMIO devirt 0xF7000000 (0x7E00 pages, 0x800000000000100D) skip 1\n"
+            "OCABC: MMIO devirt 0x890000000 (0x20200 pages, 0x800000000000100D) skip 0\n"
+            "OCABC: No slide values are usable! Falling back to 0 with 0x0991F000 bytes!\n"
+            "AAPL: #[EB.BST.FBS|RT!] 0 <- EB.MM.AKMr2 0x21286000 0x0\nAAPL: #[EB.MM.AKM|!] Err(0xE) <- EB.MM.MKP\n")
+    c, log = run(amd, hero, {"Booter": {"Quirks": {"DevirtualiseMmio": True, "SetupVirtualMap": True},
+                                        "MmioWhitelist": [{"Address": 0xE0000000, "Enabled": True}, {"Address": 0xF7000000, "Enabled": True}]}})
+    arm("X870E log: no slide with regions whitelisted -> whitelist off, both quirks on",
+        log == ["bootlog-amd-no-slide-whitelist-off"] and not any(w["Enabled"] for w in c["Booter"]["MmioWhitelist"])
+        and c["Booter"]["Quirks"]["DevirtualiseMmio"] and c["Booter"]["Quirks"]["SetupVirtualMap"], log)
     c, log = run(intel, off_fail)
     arm("control: an Intel PC is not given the AMD steps", not c["Booter"]["Quirks"]["DevirtualiseMmio"] and not log)
     c, log = run(amd, "OCB: Saved mode 0/0/0 - Success\nAAPL: #[EB|LOG:EXITBS:START]\n")

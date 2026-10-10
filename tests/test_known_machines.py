@@ -24,9 +24,12 @@ def build(board, cpu):
 
 class KnownMachines(unittest.TestCase):
     def test_a_known_board_and_cpu_gets_its_recorded_settings(self):
-        q, ch = build("ASUSTeK COMPUTER INC. ROG STRIX X670E-E GAMING WIFI", "AMD Ryzen 9 9950X3D 16-Core Processor")
-        self.assertEqual((q["DevirtualiseMmio"], q["SetupVirtualMap"]), (True, True))
+        # the A620M-E reached the desktop with SetupVirtualMap off, unlike the Zen 4/5 default (both on)
+        q, ch = build("Micro-Star International Co., Ltd. PRO A620M-E (MS-7E28)", "AMD Ryzen 5 7600 6-Core Processor")
+        self.assertEqual((q["DevirtualiseMmio"], q["SetupVirtualMap"]), (True, False))
         self.assertTrue(ch)
+        q, _ = build("ASUSTeK COMPUTER INC. ROG STRIX X670E-E GAMING WIFI", "AMD Ryzen 9 9950X3D 16-Core Processor")
+        self.assertEqual((q["DevirtualiseMmio"], q["SetupVirtualMap"]), (True, True))
 
     def test_the_same_board_with_another_cpu_is_not_matched(self):
         q, ch = build("ASUSTeK COMPUTER INC. ROG STRIX X670E-E GAMING WIFI", "AMD Ryzen 7 7800X3D 8-Core Processor")
