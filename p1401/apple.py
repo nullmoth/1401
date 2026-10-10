@@ -246,6 +246,13 @@ def download(info, usb_root, progress=None):
     resumes = stalled = 0
     window = 0       # 0 = ask for the rest of the image; WINDOW once the network has cut a stream
     conn_start = 0   # image offset where the current connection started
+    # What each connection did, for the STOP line. 1.9.0 logs (10-10, 15 writes): "stream ended at 1048576 ... 20 in a row
+    # with no progress" reported only the first drop, so nobody could tell whether the resumes got empty 206s, resets
+    # or refusals.
+    trail, t0 = [], time.monotonic()
+    def note(s):
+        trail.append(f"{time.monotonic() - t0:.0f}s {s}")
+        del trail[1:-7]  # the first cut (how much one full stream got) plus the last seven
     r = _asset(info["image_url"], info["image_token"])
     try:
         with open(img + ".part", "wb") as fh:
@@ -258,6 +265,8 @@ def download(info, usb_root, progress=None):
                         break
                     except (AppleError, OSError, http.client.HTTPException) as e:
                         pos = done + len(part)
+                        if not (window and pos - conn_start >= window):
+                            note(f"connection at {conn_start} gave {pos - conn_start} B, then {type(e).__name__}")
                         if window and pos - conn_start >= window:
                             # windowed mode: this connection delivered its whole window - normal, open the next one
                             r.close()
@@ -276,7 +285,9 @@ def download(info, usb_root, progress=None):
                             limit = RESUMES_WINDOWED if window else RESUMES
                             if stalled > limit or resumes > RESUMES_TOTAL:
                                 raise AppleError(f"{e} (after {resumes - 1} resumed connections, {stalled - 1} in a row "
-                                                 f"with no progress)") from None
+                                                 f"with no progress). Something on this network cuts Apple's download: "
+                                                 f"turn off web/HTTP scanning in your antivirus, or connect through a phone "
+                                                 f"hotspot or a VPN, and press Next. Last connections: {'; '.join(trail)}") from None
                             if window and stalled > 1 and (stalled - 1) % REFRESH_EVERY == 0:
                                 _refresh(info)
                             window = WINDOW  # from now on never ask for more than one window per connection
@@ -289,6 +300,7 @@ def download(info, usb_root, progress=None):
                                     raise  # the server ignores ranges: no retry can resume, so refuse at once
                                 # WAS: a resume whose own request failed (reset, refused range) ended the whole
                                 # download; it is one more empty connection
+                                note(f"resume at {pos} refused: {type(again).__name__} {str(again)[-80:]}")
                                 e, stalled = again, stalled + 1
                         conn_start = pos
                 buf = bytes(part)

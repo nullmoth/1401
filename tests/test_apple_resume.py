@@ -93,6 +93,17 @@ class Resume(unittest.TestCase):
         self.assertIn("resumed connections", err)
         self.assertLessEqual(len(calls), apple.RESUMES_WINDOWED + 1)
 
+    def test_a_stalled_download_says_what_each_connection_did_and_what_to_do(self):
+        # 1.9.0 logs (15 writes, 10-10): the STOP line named only the first drop, so the resumes' behaviour was unknowable
+        opens = [lambda e: Stream(IMAGE, drop_after=10)] + [lambda e: Stream(b"", status=206, content_range=f"bytes 10-{len(IMAGE)-1}/{len(IMAGE)}")] * 40
+        with patch.object(apple, "_refresh", lambda info: None):
+            got, calls, err = self.run_download(opens)
+        self.assertIsNone(got)
+        self.assertIn("Last connections:", err)
+        self.assertIn("connection at 0 gave 10 B", err)
+        self.assertIn("connection at 10 gave 0 B", err)
+        self.assertIn("phone hotspot or a VPN", err)
+
     def test_a_resume_whose_own_request_fails_is_retried_not_fatal(self):
         # 1.5.0: a reset on the resume request itself ended the download; it is one more empty connection now
         def reset(e):
