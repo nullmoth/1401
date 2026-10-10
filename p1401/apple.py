@@ -78,6 +78,11 @@ FORBIDDEN_TRIES = 3
 # connections" while every resume was still making progress, on networks that drop a long stream every few minutes.
 RESUMES = 8
 RESUMES_TOTAL = 400
+# After a network cuts the first stream, every later request asks for at most this many bytes. 1.3.0 logs (14 machines,
+# 10-09): the first connection delivered exactly 1 MiB, then every resumed "bytes=N-" request (the ~887 MB rest of the
+# image) delivered 0 bytes - a middlebox resetting large HTTP responses. Apple's CDN serves small ranges fine (measured
+# 10-09: 206, byte-identical), so small windows get under the cap. Every chunk is still checked against the signed list.
+WINDOW = 512 * 1024
 
 
 def _transient(e):
@@ -183,6 +188,8 @@ def download(info, usb_root, progress=None):
     cnk = os.path.splitext(img)[0] + ".chunklist"
     done = 0
     resumes = stalled = 0
+    window = 0       # 0 = ask for the rest of the image; WINDOW once the network has cut a stream
+    conn_start = 0   # image offset where the current connection started
     r = _asset(info["image_url"], info["image_token"])
     try:
         with open(img + ".part", "wb") as fh:
@@ -194,6 +201,13 @@ def download(info, usb_root, progress=None):
                         _read_into(r, part, size)
                         break
                     except (AppleError, OSError, http.client.HTTPException) as e:
+                        pos = done + len(part)
+                        if window and pos - conn_start >= window:
+                            # windowed mode: this connection delivered its whole window - normal, open the next one
+                            r.close()
+                            r = _resume(info, pos, window, delay=0)
+                            conn_start, stalled = pos, 0
+                            continue
                         # The stream dropped: ask for the rest from the last byte received. Every byte is still
                         # checked against Apple's signed chunklist, so a resumed stream cannot change the image.
                         # WAS: resumed from the start of the chunk. Some networks close every connection after 1 MiB
@@ -204,8 +218,10 @@ def download(info, usb_root, progress=None):
                         if stalled > RESUMES or resumes > RESUMES_TOTAL:
                             raise AppleError(f"{e} (after {resumes} resumed connections, {stalled - 1} in a row "
                                              f"with no progress)") from None
+                        window = WINDOW  # from now on never ask for more than one window per connection
                         r.close()
-                        r = _resume(info, done + len(part))
+                        r = _resume(info, pos, window, delay=min(2 ** stalled, 30))  # back off when nothing arrives
+                        conn_start = pos
                 buf = bytes(part)
                 if hashlib.sha256(buf).digest() != sha:
                     raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
@@ -270,9 +286,11 @@ def copy_local(info, usb_root, progress=None):
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
 
 
-def _resume(info, offset):
-    time.sleep(2)
-    r = _asset(info["image_url"], info["image_token"], {"Range": f"bytes={offset}-"})
+def _resume(info, offset, window=0, delay=2):
+    if delay:
+        time.sleep(delay)
+    rng = f"bytes={offset}-{offset + window - 1}" if window else f"bytes={offset}-"
+    r = _asset(info["image_url"], info["image_token"], {"Range": rng})
     got = (r.headers.get("Content-Range") or "") if getattr(r, "headers", None) else ""
     if getattr(r, "status", None) != 206 or not got.startswith(f"bytes {offset}-"):
         r.close()

@@ -47,17 +47,38 @@ class Resume(unittest.TestCase):
                                              lambda e: Stream(IMAGE[4000:], status=206, content_range=f"bytes 4000-{len(IMAGE)-1}/{len(IMAGE)}")])
         self.assertIsNone(err)
         self.assertEqual(got, IMAGE)
-        self.assertEqual(calls, [None, "bytes=4000-"])
+        self.assertEqual(calls, [None, f"bytes=4000-{4000 + apple.WINDOW - 1}"])
 
     def test_a_network_that_cuts_every_connection_mid_chunk_still_finishes(self):
         cap = 700  # each connection ends after 700 bytes; chunks are 3000
         def opener(e):
-            start = int((e or {}).get("Range", "bytes=0-")[6:-1] or 0)
+            start = int((e or {}).get("Range", "bytes=0-").split("=")[1].split("-")[0] or 0)
             return Stream(IMAGE[start:], drop_after=cap, status=206 if start else 200,
                           content_range=f"bytes {start}-{len(IMAGE)-1}/{len(IMAGE)}" if start else None)
         got, calls, err = self.run_download([opener] * 20)
         self.assertIsNone(err)
         self.assertEqual(got, IMAGE)
+
+    def test_a_network_that_resets_every_large_response_finishes_in_small_windows(self):
+        # 1.3.0 logs (14 machines): the first connection got exactly 1 MiB, then every "bytes=N-" resume (the whole rest of
+        # the image) got 0 bytes. Here: the first stream is cut at 1000 bytes; any later response asking for more than the
+        # window is reset with nothing; window-sized ranges pass. The download must finish and match byte for byte.
+        win = 500
+        def opener(e):
+            rng = (e or {}).get("Range")
+            if rng is None:
+                return Stream(IMAGE, drop_after=1000)
+            a, b = rng.split("=")[1].split("-")
+            start = int(a)
+            if not b or int(b) - start + 1 > win:
+                return Stream(b"", status=206, content_range=f"bytes {start}-{len(IMAGE)-1}/{len(IMAGE)}")
+            end = min(int(b), len(IMAGE) - 1)
+            return Stream(IMAGE[start:end + 1], status=206, content_range=f"bytes {start}-{end}/{len(IMAGE)}")
+        with patch.object(apple, "WINDOW", win):
+            got, calls, err = self.run_download([opener] * 40)
+        self.assertIsNone(err, err)
+        self.assertEqual(got, IMAGE)
+        self.assertTrue(all(c is None or not c.endswith("-") for c in calls), calls)
 
     def test_negative_control_a_server_that_ignores_the_range_is_refused(self):
         got, calls, err = self.run_download([lambda e: Stream(IMAGE, drop_after=4000), lambda e: Stream(IMAGE, status=200)])
