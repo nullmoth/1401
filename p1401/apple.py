@@ -245,7 +245,7 @@ def download(info, usb_root, progress=None):
                 buf = bytes(part)
                 if hashlib.sha256(buf).digest() != sha:
                     raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
-                fh.write(buf)
+                fh = _write_settled(fh, img + ".part", done, buf)
                 done += size
                 stalled = 0
                 if progress:
@@ -254,6 +254,7 @@ def download(info, usb_root, progress=None):
                 raise AppleError("image is larger than its signed chunklist - refused")
     finally:
         r.close()
+        fh.close()  # the handle may be a reopened one (_write_settled); the with only closed the first
     with open(cnk + ".part", "wb") as fh:
         fh.write(cl)
     os.replace(img + ".part", img)
@@ -304,6 +305,45 @@ def copy_local(info, usb_root, progress=None):
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+
+
+def _write_settled(fh, path, offset, buf, tries=6, sleep=time.sleep):
+    """Writes buf at offset, surviving the stick's volume blinking out under the open file: 1.5.0 log 10-10, Windows
+    re-mounted a just-formatted stick mid-download and the next write failed "PermissionError: [Errno 13]". The partial
+    image is reopened at the same offset and the write repeated; every chunk is still hash-checked before this."""
+    for attempt in range(tries):
+        try:
+            fh.write(buf)
+            return fh
+        except OSError as error:
+            if attempt == tries - 1:
+                raise
+            print(f"(the stick was busy: {type(error).__name__}; writing that piece again)", flush=True)
+            try:
+                fh.close()
+            except OSError:
+                pass
+            for _ in range(20):
+                if os.path.isfile(path):
+                    break
+                sleep(1)
+            sleep(2)
+            try:
+                fh = open(path, "r+b")
+                fh.seek(offset)
+                fh.truncate()
+            except OSError:
+                fh = _Broken()
+    return fh
+
+
+class _Broken:
+    """A handle that could not be reopened yet: its write fails, so the retry loop tries again."""
+    def write(self, b):
+        raise OSError("the stick's file could not be reopened")
+
+    def close(self):
+        pass
 
 
 def _refresh(info):
