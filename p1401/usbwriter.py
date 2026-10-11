@@ -214,6 +214,22 @@ def _free_letter():
     raise UsbError("no free drive letter between G: and Z:")
 
 
+# diskpart exits with the HRESULT of the command that failed. 0x80070005 is "access denied": seen on 1.13 (two
+# reports, 10-11) after all retries, where the bare number told the user nothing.
+E_ACCESSDENIED = 0x80070005
+
+
+def _diskpart_failure(code, output):
+    """The stop shown when diskpart could not erase the stick, naming the cause when the exit code identifies one."""
+    if code & 0xFFFFFFFF == E_ACCESSDENIED:
+        return ("Windows refused access to the stick (access denied, diskpart 0x80070005) - nothing was erased. The stick "
+                "is write-protected (check for a lock switch on it or its card adapter), or another program has it open: "
+                "close Explorer windows showing it, other USB tools (Rufus, balenaEtcher, Ventoy) and any antivirus scan "
+                "of it, unplug it and plug it back in, then try again. If it still refuses, use another stick. "
+                f"diskpart said: {output}")
+    return f"Windows could not erase the stick (diskpart exit {code}): {output}"
+
+
 def _diskpart(script):
     """diskpart /s from a fresh private temp file: /s mode stops at the first failed command with a non-zero exit."""
     import tempfile  # noqa: PLC0415
@@ -228,7 +244,7 @@ def _diskpart(script):
             time.sleep(5)
             p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
         if p.returncode != 0:
-            raise UsbError(f"Windows could not erase the stick (diskpart exit {p.returncode}): " + (p.stdout or p.stderr).strip()[-1200:])
+            raise UsbError(_diskpart_failure(p.returncode, (p.stdout or p.stderr).strip()[-1200:]))
     finally:
         os.remove(sp)
 
@@ -441,6 +457,14 @@ def selftest():
 
     arm("an EFI or Microsoft reserved partition alone does not count as an OS (Rufus, Ventoy and 1401 sticks have them)",
         "c12a7328" not in OS_TYPES and "e3c9e316" not in OS_TYPES, OS_TYPES[:40])
+    denied = _diskpart_failure(2147942405, "DiskPart has encountered an error: Access is denied.")
+    arm("diskpart's access-denied exit names write protection and programs holding the stick",
+        "access denied" in denied and "write-protected" in denied and "nothing was erased" in denied, denied[:60])
+    arm("the same code as a signed 32-bit value is recognised too", "write-protected" in _diskpart_failure(-2147024891, ""),
+        "-2147024891")
+    other = _diskpart_failure(2, "The system cannot find the file specified.")
+    arm("any other diskpart failure keeps its exit code and output", other.startswith("Windows could not erase the stick "
+        "(diskpart exit 2)") and "write-protected" not in other, other[:60])
     arm("APFS, HFS+ and Windows recovery still count as an OS", all(g in OS_TYPES for g in ("7c3457ef", "48465300", "de94bba4")),
         OS_TYPES.count("{"))
     s = format_script(usb16)
