@@ -72,6 +72,7 @@ class AppleError(RuntimeError):
 # Write failures on 6 machines in one day were Apple's servers dropping a connection once: osrecovery answered
 # "RemoteDisconnected", oscdn reset the chunklist request (WinError 10054), or the image stream ended mid-chunk. Each
 # was a whole failed stick. Transient connection errors are retried; HTTP errors (a refused token, a 404) are not.
+OSRECOVERY_HTTP = "http://osrecovery.apple.com/"
 OPEN_TRIES = 6  # WAS 4: osrecovery answered 502 and timed out past 4 tries on 1.7 (10-10); 6 tries back off ~2 min in all
 FORBIDDEN_TRIES = 3
 # drops in a row with no new chunk verified. WAS 8 for the whole image: 78 writes in two days failed "after 8 resumed
@@ -139,12 +140,23 @@ def _open(url, headers, data=None, sleep=None, doh=None):
     # same request goes to the address DNS-over-HTTPS gives, with the real Host header; the image is still Apple's and is
     # still checked chunk by chunk against Apple's signed chunklist.
     req = urllib.request.Request(url, headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
-    rerouted = False
+    rerouted = secured = False
     for attempt in range(OPEN_TRIES):
         try:
             return urllib.request.urlopen(req, timeout=TIMEOUT)
         except Exception as e:  # keep the URL so the UI can show what failed
-            if not rerouted and url.startswith("http://") and _dns_failure(e):
+            # 1.13 write logs 10-11: one PC got "HTTP Error 502: Bad Gateway" from http://osrecovery.apple.com/ six times
+            # in 17 minutes while Apple answered 200 everywhere else: a proxy on that network breaks plain HTTP. osrecovery
+            # also answers over HTTPS (measured 10-11: session, RecoveryImage and an HTTPS session cookie on HTTP all work),
+            # which such a proxy cannot touch. oscdn has no valid HTTPS certificate, so the image itself stays on HTTP and
+            # is checked against Apple's signed chunklist as before. A DNS failure keeps the DNS-over-HTTPS route below.
+            if not (secured or rerouted) and url.startswith(OSRECOVERY_HTTP) and _transient(e) and not _dns_failure(e):
+                secured = True
+                print("(osrecovery.apple.com failed over HTTP on this network; asking it over HTTPS)", flush=True)
+                req = urllib.request.Request("https://" + url[len("http://"):],
+                                             headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
+                continue
+            if not rerouted and not secured and url.startswith("http://") and _dns_failure(e):
                 host = urlparse(url).hostname
                 ip = (doh or _doh)(host)
                 if ip:

@@ -246,6 +246,18 @@ def apply(config_path, result, policy):
         quirks["SetupVirtualMap"] = True
         change("amd-zen4-memory-map", before, "DevirtualiseMmio=True, SetupVirtualMap=True",
                f"{cpu.get('Processor Name') or 'Zen 4/5 Ryzen'}: boot.efi stops at EB.MM.AKM on these CPUs with them off")
+    # 1401 issue #30 (10-11): Ryzen 9950X/X870, 9700X/X870, 9800X3D/B850 froze hard about 19 minutes into the macOS
+    # install (Caps Lock dead) on 1.10-1.13, past a new SSD, stick and port. ReleaseUsbOwnership was already on in every
+    # 1401 EFI (172 of 175 uploaded Ryzen configs); DisableVariableWrite was off in 173 of 175, and the 9800X3D's owner
+    # reported the install finished once it was on. These boards run with the firmware memory map rewritten (the two quirks
+    # above), and the installer's NVRAM writes go through the firmware's runtime services; with this quirk OpenRuntime
+    # refuses them before they reach the firmware. Needs OpenRuntime.efi, which every 1401 EFI loads. macOS cannot keep its
+    # own NVRAM changes (startup disk choice) on these machines; OpenCore's config still sets every variable at boot.
+    if zen45 and quirks.get("DisableVariableWrite") is not True:
+        before = f"DisableVariableWrite={quirks.get('DisableVariableWrite')}"
+        quirks["DisableVariableWrite"] = True
+        change("amd-zen4-variable-write", before, "DisableVariableWrite=True",
+               f"{cpu.get('Processor Name') or 'Zen 4/5 Ryzen'}: the installer froze about 19 minutes in while writing NVRAM")
     # Whitelist entries are inert whenever DevirtualiseMmio is off. This includes configurations whose quirk was
     # already off before the policy pass; ocvalidate rejects enabled entries in either case.
     if quirks.get("DevirtualiseMmio") is False:

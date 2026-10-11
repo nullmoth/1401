@@ -47,6 +47,52 @@ class DohFallback(unittest.TestCase):
                 apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None, doh=lambda h: "17.0.0.1")
         self.assertTrue(all("osrecovery.apple.com" in u for u in calls))
 
+    def test_a_502_from_osrecovery_over_http_is_asked_again_over_https_at_once(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            if req.full_url.startswith("http://"):
+                raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
+            return Resp()
+        slept = []
+        with mock.patch("urllib.request.urlopen", urlopen):
+            apple._open("http://osrecovery.apple.com/InstallationPayload/RecoveryImage", {}, b"x", sleep=slept.append)
+        self.assertEqual(seen, ["http://osrecovery.apple.com/InstallationPayload/RecoveryImage",
+                                "https://osrecovery.apple.com/InstallationPayload/RecoveryImage"])
+        self.assertEqual(slept, [])
+
+    def test_the_image_cdn_never_goes_to_https(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
+        with mock.patch("urllib.request.urlopen", urlopen):
+            with self.assertRaises(apple.AppleError):
+                apple._open("http://oscdn.apple.com/content/x.dmg", {}, sleep=lambda s: None)
+        self.assertTrue(seen and all(u.startswith("http://oscdn.apple.com/") for u in seen))
+
+    def test_a_dns_failure_on_osrecovery_still_takes_the_doh_route(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            if "osrecovery.apple.com" in req.full_url:
+                raise urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))
+            return Resp()
+        with mock.patch("urllib.request.urlopen", urlopen):
+            apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+        self.assertEqual(seen, ["http://osrecovery.apple.com/", "http://17.253.1.2/"])
+
+    def test_https_failing_too_still_reports_the_error(self):
+        def urlopen(req, timeout=0):
+            raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
+        with mock.patch("urllib.request.urlopen", urlopen):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
+        self.assertIn("502", str(cm.exception))
+
     def test_doh_answer_parsing_takes_the_first_ipv4_a_record(self):
         body = json.dumps({"Answer": [{"type": 5, "data": "cdn.apple.com."}, {"type": 1, "data": "17.253.1.2"}]}).encode()
         self.assertEqual(apple._doh("osrecovery.apple.com", fetch=lambda url: body), "17.253.1.2")

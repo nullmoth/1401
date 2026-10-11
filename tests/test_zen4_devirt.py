@@ -22,6 +22,7 @@ def build(cpu, codename="", devirt=False, svm=True, chipset=""):
         "CPU": {"Manufacturer": "AMD", "Processor Name": cpu, "Codename": codename}, "GPU": {}})
     policy.apply(path, res, engine.Policy())
     q = plistlib.load(open(path, "rb"))["Booter"]["Quirks"]
+    build.last = q
     return q["DevirtualiseMmio"], q["SetupVirtualMap"]
 
 
@@ -43,6 +44,17 @@ class Zen4Devirt(unittest.TestCase):
         for name in ("AMD Ryzen 5 5600X 6-Core Processor", "AMD Ryzen 7 3700X 8-Core Processor",
                      "AMD Ryzen 7 7735HS with Radeon Graphics", "AMD Ryzen 5 5500"):
             self.assertEqual(build(name, devirt=True)[0], False, name)
+
+    def test_zen4_and_zen5_get_disablevariablewrite_for_the_19_minute_install_freeze(self):
+        for name in ("AMD Ryzen 9 9950X 16-Core Processor", "AMD Ryzen 7 9800X3D 8-Core Processor",
+                     "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics"):
+            build(name)
+            self.assertIs(build.last.get("DisableVariableWrite"), True, name)
+
+    def test_am4_and_intel_era_ryzen_keep_nvram_writes(self):
+        for name in ("AMD Ryzen 5 5600X 6-Core Processor", "AMD Ryzen 7 7735HS with Radeon Graphics"):
+            build(name)
+            self.assertNotEqual(build.last.get("DisableVariableWrite"), True, name)
 
     def test_a_devirt_only_config_gets_setupvirtualmap_too(self):
         self.assertEqual(build("AMD Ryzen 7 7800X3D 8-Core Processor", devirt=True, svm=False), (True, True))
