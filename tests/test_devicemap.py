@@ -118,3 +118,45 @@ class Devices(unittest.TestCase):
         self.assertIn("_VID&0001004C_PID&2002", bt["hardware_ids"][0])
         self.assertIn("{0000111E-0000-1000-8000-00805F9B34FB}", bt["hardware_ids"][0])  # service GUID stays whole
 
+
+
+class GpuDriverRegistry(unittest.TestCase):
+    """The installed Windows driver's record of every display adapter, any vendor, read through a stand-in registry."""
+    REG = {
+        "": {"__subkeys__": ["0000", "0001", "0002", "0003", "Properties"]},
+        "0000": {"DriverDesc": "Intel(R) Arc(TM) A770 Graphics", "DriverVersion": "32.0.101.6083", "ProviderName": "Intel Corporation",
+                 "HardwareInformation.ChipType": "Intel(R) Arc(TM) A770 Graphics".encode("utf-16-le") + b"\x00\x00",
+                 "HardwareInformation.qwMemorySize": (16 << 30).to_bytes(8, "little")},
+        "0001": {"DriverDesc": "AMD Radeon 890M Graphics", "DriverVersion": "32.0.12033.1030", "MatchingDeviceId": "PCI\\VEN_1002&DEV_150E",
+                 "HardwareInformation.BiosString": "113-STRIXEMU-001".encode("utf-16-le")},
+        "0002": "unreadable",
+        "0003": {"DriverDesc": "NVIDIA GeForce GTX 1060 6GB", "DriverVersion": "32.0.15.6094"},
+    }
+
+    def reader(self, sub):
+        v = self.REG[sub]
+        if v == "unreadable":
+            raise PermissionError(5, "Access is denied")
+        return v
+
+    def test_every_vendor_old_and_new_is_recorded_with_its_driver(self):
+        out, errors = dm.gpu_driver_registry(self.reader)
+        names = [r["DriverDesc"] for r in out]
+        self.assertEqual(names, ["Intel(R) Arc(TM) A770 Graphics", "AMD Radeon 890M Graphics", "NVIDIA GeForce GTX 1060 6GB"])
+        self.assertEqual(out[0]["HardwareInformation.ChipType"], "Intel(R) Arc(TM) A770 Graphics")   # UTF-16 binary decoded
+        self.assertEqual(out[0]["HardwareInformation.qwMemorySize"], 16 << 30)                      # 8-byte size as a number
+        self.assertEqual(out[1]["HardwareInformation.BiosString"], "113-STRIXEMU-001")
+
+    def test_an_unreadable_key_is_an_error_not_a_stop_and_non_adapter_keys_are_skipped(self):
+        out, errors = dm.gpu_driver_registry(self.reader)
+        self.assertEqual(errors, ["0002: PermissionError"])
+        self.assertNotIn("Properties", [r["key"] for r in out])
+
+    def test_the_stage_runs_in_collect_and_a_failing_registry_is_recorded(self):
+        def boom():
+            raise PermissionError(5, "denied")
+        backends = {"platform_role": lambda: ({}, []), "devices": lambda: ([], []), "display_paths": lambda: ([], []),
+                    "graphics": lambda: ([], []), "gpu_drivers": boom}
+        rec = dm.collect(backends)
+        self.assertIn("gpu_drivers", rec["stages_completed"])
+        self.assertEqual(rec["gpu_drivers"]["status"], "unavailable")

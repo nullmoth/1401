@@ -303,6 +303,64 @@ def update(dirs, rel, fetch):
     return lines
 
 
+WIN_RELEASE_API = "https://api.github.com/repos/nullmoth/1401/releases/latest"
+_WIN_RE = re.compile(r"^1401-Windows-(\d+\.\d+\.\d+)\.zip$")
+
+
+def latest_windows(get_json, get_text):
+    """The newest 1401 Windows app: (version, name, url, sha256) from the 1401 release, hashed by its SHA256SUMS.txt."""
+    rel = get_json(WIN_RELEASE_API)
+    assets = {a.get("name"): a.get("browser_download_url") for a in rel.get("assets", []) if isinstance(a, dict)}
+    if not assets.get("SHA256SUMS.txt"):
+        raise RuntimeError("the latest 1401 release has no SHA256SUMS.txt")
+    sums = {}
+    for line in get_text(assets["SHA256SUMS.txt"]).splitlines():
+        f = line.split()
+        if len(f) >= 2 and re.fullmatch(r"[0-9a-fA-F]{64}", f[0]):
+            sums[f[-1]] = f[0].lower()
+    best = None
+    for name, url in assets.items():
+        m = _WIN_RE.match(name or "")
+        if m and url and url.startswith("https://") and name in sums and (best is None or _vkey(m.group(1)) > _vkey(best[0])):
+            best = (m.group(1), name, url, sums[name])
+    if best is None:
+        raise RuntimeError("the latest 1401 release has no Windows app listed in SHA256SUMS.txt")
+    return best
+
+
+def app_update(current, work, rel, fetch):
+    """'Update 1401': None when `current` is the newest, else the folder holding the verified new 1401 (with 1401.exe).
+    The zip must match its published SHA-256 and every entry must stay inside the folder it unpacks to (no ../ paths)."""
+    import hashlib  # noqa: PLC0415
+    import shutil  # noqa: PLC0415
+    import zipfile  # noqa: PLC0415
+    version, name, url, want = rel
+    if _vkey(version) <= _vkey(current):
+        return None
+    shutil.rmtree(work, ignore_errors=True)
+    os.makedirs(work)
+    z = os.path.join(work, name)
+    fetch(url, z + ".part")
+    h = hashlib.sha256()
+    with open(z + ".part", "rb") as fh:
+        for b in iter(lambda: fh.read(1 << 20), b""):
+            h.update(b)
+    if h.hexdigest() != want:
+        os.remove(z + ".part")
+        raise RuntimeError(f"{name} does not match the SHA-256 published with it - nothing was changed")
+    os.replace(z + ".part", z)
+    out = os.path.realpath(os.path.join(work, "unpacked"))
+    with zipfile.ZipFile(z) as zf:
+        for m in zf.namelist():
+            if not os.path.realpath(os.path.join(out, m)).startswith(out + os.sep):
+                raise RuntimeError(f"{name} has an entry outside its folder ({m}) - refused")
+        zf.extractall(out)
+    app = os.path.join(out, "1401")
+    if not os.path.isfile(os.path.join(app, "1401.exe")):
+        raise RuntimeError(f"{name} does not hold 1401\\1401.exe - refused")
+    return app
+
+
 def selftest():
     res = []
 
@@ -399,6 +457,37 @@ def selftest():
         refused = True
     arm("a download that does not match its published SHA-256 is refused and the old package stays",
         refused and os.listdir(bad) == ["nullmoth-nvidia-1.0.6.tar.gz"], os.listdir(bad))
+    # --- Update 1401 (the Windows app itself)
+    import io  # noqa: PLC0415
+    import zipfile  # noqa: PLC0415
+
+    def mkzip(entries):
+        b = io.BytesIO()
+        with zipfile.ZipFile(b, "w") as zf:
+            for n, d in entries.items():
+                zf.writestr(n, d)
+        return b.getvalue()
+    good = mkzip({"1401/1401.exe": b"exe", "1401/engine/x.py": b"x"})
+    wapi = {"assets": [{"name": "1401-Windows-1.14.0.zip", "browser_download_url": "https://x/w"},
+                       {"name": "1401-Windows-9.0.0.zip", "browser_download_url": "https://x/unlisted"},
+                       {"name": "SHA256SUMS.txt", "browser_download_url": "https://x/s"}]}
+    wsums = hashlib.sha256(good).hexdigest() + "  1401-Windows-1.14.0.zip\n"
+    wrel = latest_windows(lambda u: wapi, lambda u: wsums)
+    arm("the newest Windows app listed in SHA256SUMS.txt is picked (an unlisted 9.0.0 is not)", wrel[0] == "1.14.0", wrel[:2])
+    wt = tempfile.mkdtemp(prefix="1401-selftest-")
+    arm("the same version is not an update", app_update("1.14.0", os.path.join(wt, "a"), wrel, None) is None, "1.14.0")
+    got = app_update("1.13.0", os.path.join(wt, "b"), wrel, lambda u, p: open(p, "wb").write(good))
+    arm("a newer, verified app unpacks to a folder holding 1401.exe", got and os.path.isfile(os.path.join(got, "1401.exe")), got)
+    for label, blob in (("a tampered download", b"tampered"), ("a zip with a ../ entry",
+                        mkzip({"1401/1401.exe": b"e", "../evil.txt": b"x"}))):
+        r2 = (wrel[0], wrel[1], wrel[2], hashlib.sha256(blob).hexdigest()) if blob != b"tampered" else wrel
+        try:
+            app_update("1.13.0", os.path.join(wt, "c"), r2, lambda u, p, b=blob: open(p, "wb").write(b))
+            ok_ = False
+        except RuntimeError:
+            ok_ = True
+        arm(f"{label} is refused", ok_ and not os.path.exists(os.path.join(wt, "evil.txt")), label)
+    shutil.rmtree(wt, ignore_errors=True)
     print(f"{sum(res)}/{len(res)} passed")
     return 0 if all(res) else 1
 
@@ -432,8 +521,37 @@ def _cli_update(dirs):
         return 1
 
 
+def _cli_appupdate(current, work):
+    """python -m p1401.nullmoth appupdate <this app's version> <work dir>: RESULT uptodate / ready <v> <dir> / stop."""
+    import shutil  # noqa: PLC0415
+    import urllib.request  # noqa: PLC0415
+    from p1401 import tls  # noqa: PLC0415
+    tls.install()
+
+    def get(url):
+        rq = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "1401"})
+        with urllib.request.urlopen(rq, timeout=60) as r:
+            return r.read()
+
+    def fetch(url, path):
+        rq = urllib.request.Request(url, headers={"User-Agent": "1401"})
+        with urllib.request.urlopen(rq, timeout=300) as r, open(path, "wb") as fh:
+            shutil.copyfileobj(r, fh, 1 << 20)
+
+    try:
+        rel = latest_windows(lambda u: json.loads(get(u)), lambda u: get(u).decode("utf-8", "replace"))
+        app = app_update(current, work, rel, fetch)
+        print(f"RESULT uptodate {rel[0]}" if app is None else f"RESULT ready {rel[0]} {app}")
+        return 0
+    except Exception as e:  # noqa: BLE001 - the reason is what the user sees
+        print(f"RESULT stop: {e}")
+        return 1
+
+
 if __name__ == "__main__":
     import sys
+    if len(sys.argv) == 4 and sys.argv[1] == "appupdate":
+        raise SystemExit(_cli_appupdate(sys.argv[2], sys.argv[3]))
     if len(sys.argv) > 2 and sys.argv[1] == "update":
         raise SystemExit(_cli_update(sys.argv[2:]))
     raise SystemExit(selftest())

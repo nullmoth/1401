@@ -561,6 +561,64 @@ class ObservationUnavailable(OSError):
     """A controlled diagnostic reason; arbitrary exception text is never included in reports."""
 
 
+DISPLAY_CLASS = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
+GPU_DRIVER_VALUES = ("DriverDesc", "DriverVersion", "DriverDate", "ProviderName", "MatchingDeviceId", "InfSection",
+                     "HardwareInformation.ChipType", "HardwareInformation.DacType", "HardwareInformation.AdapterString",
+                     "HardwareInformation.BiosString", "HardwareInformation.qwMemorySize", "HardwareInformation.MemorySize")
+
+
+def _reg_text(v):
+    """A registry value as text: HardwareInformation.* strings are REG_BINARY UTF-16 on most drivers."""
+    if isinstance(v, (bytes, bytearray)):
+        if len(v) in (4, 8):
+            return int.from_bytes(bytes(v), "little")
+        return bytes(v[:MAX_PROP_BYTES]).decode("utf-16-le", "replace").rstrip("\x00")
+    if isinstance(v, str):
+        return v[:MAX_PROP_BYTES]
+    return v
+
+
+def gpu_driver_registry(reader=None):
+    """(adapters, errors): the installed Windows driver's own record of every display adapter, any vendor (Intel HD to
+    Arc, Radeon and Ryzen iGPUs, NVIDIA): driver name and version, chip, BIOS string and memory size. These say which
+    generation a GPU is when its PCI id alone is new to us. `reader(subkey)` returns {name: value} or raises
+    FileNotFoundError; the default reads HKLM with winreg (Windows only, read-only)."""
+    if reader is None:
+        import winreg  # noqa: PLC0415 - Windows only
+
+        def reader(sub):
+            path = DISPLAY_CLASS + ("\\" + sub if sub else "")
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path, 0, winreg.KEY_READ) as k:
+                if not sub:
+                    names, i = [], 0
+                    while True:
+                        try:
+                            names.append(winreg.EnumKey(k, i)); i += 1
+                        except OSError:
+                            return {"__subkeys__": names}
+                vals, i = {}, 0
+                while True:
+                    try:
+                        n, v, _ = winreg.EnumValue(k, i); i += 1
+                    except OSError:
+                        return vals
+                    if n in GPU_DRIVER_VALUES:
+                        vals[n] = v
+    out, errors = [], []
+    for sub in [x for x in reader("").get("__subkeys__", []) if x.isdigit()][:64]:
+        try:
+            vals = reader(sub)
+        except (OSError, ValueError) as e:  # a key the account cannot read is a recorded error, not a stop
+            errors.append(f"{sub}: {type(e).__name__}")
+            continue
+        rec = {k: _reg_text(vals[k]) for k in GPU_DRIVER_VALUES if k in vals}
+        if rec:
+            rec = {k: (scrub(v) if isinstance(v, str) else v) for k, v in rec.items()}
+            rec["key"] = sub
+            out.append(rec)
+    return out, errors
+
+
 def _stage(fn, src):
     try:
         value, errors = fn()
@@ -610,6 +668,9 @@ def collect(backends, checkpoint=None):
         nodes = (dev_rec.get("value") or {}).get("nodes") or []
         g_rec["value"] = build_graphics_map(adapters, paths or [], nodes)
     done("graphics", g_rec)
+    if "gpu_drivers" in backends:
+        record, _ = _stage(backends["gpu_drivers"], "registry: display adapter class (installed driver records, read-only)")
+        done("gpu_drivers", record)
     from . import fwres
     for name in fwres.EXTRA_STAGES:
         if name in backends:
@@ -623,4 +684,5 @@ def native_backends(nt=None):
     return {"platform_role": lambda: platform_role(nt or Native(only={"powrprof"})),
             "devices": lambda: setupapi_devices(nt or Native(only={"setupapi", "cfgmgr32"})),
             "display_paths": lambda: display_paths(nt or Native(only={"user32"})),
-            "graphics": lambda: dxgi_adapters(nt or Native(only={"dxgi", "d3d12"}))}
+            "graphics": lambda: dxgi_adapters(nt or Native(only={"dxgi", "d3d12"})),
+            "gpu_drivers": gpu_driver_registry}

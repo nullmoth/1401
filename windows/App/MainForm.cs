@@ -26,6 +26,7 @@ namespace A1401
         readonly LinkLabel ocLink = new LinkLabel();
         readonly LinkLabel logLink = new LinkLabel(), coffeeLink = new LinkLabel();
         readonly LinkLabel drvLink = new LinkLabel();
+        readonly LinkLabel appLink = new LinkLabel();
         readonly LinkLabel doctorLink = new LinkLabel();
         readonly LinkLabel firmwareLink = new LinkLabel();
         readonly ListView facts = new ListView();
@@ -101,6 +102,9 @@ namespace A1401
             drvLink.Text = "Update the NVIDIA driver (newest release, here and on your 1401 stick)"; drvLink.AutoSize = true;
             drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = new Font("Verdana", 9.5f);
             drvLink.LinkClicked += (s, e) => UpdateDriver();
+            appLink.Text = "Update 1401 (this app)"; appLink.AutoSize = true;
+            appLink.Location = new Point(440, 355); appLink.LinkColor = Theme.Cyan; appLink.Font = new Font("Verdana", 9.5f);
+            appLink.LinkClicked += (s, e) => UpdateApp();
             doctorLink.Text = "Built your own EFI? Check it (and fix it) with the same rules 1401 uses"; doctorLink.AutoSize = true;
             doctorLink.Location = new Point(24, 380); doctorLink.LinkColor = Theme.Cyan; doctorLink.Font = new Font("Verdana", 9.5f);
             doctorLink.LinkClicked += (s, e) => CheckOwnEfi();
@@ -110,7 +114,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, coffeeLink, drvLink, doctorLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, coffeeLink, drvLink, appLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             ResumeLayout(false); PerformLayout();
@@ -141,6 +145,54 @@ namespace A1401
                                           : "The driver could not be updated:\r\n\r\n" + text, "1401 - Update driver");
         }
 
+        // "Update 1401": the engine downloads the newest Windows app from the 1401 release, checks it against the release's
+        // SHA256SUMS.txt and unpacks it; a small script then waits for this window to close, keeps a copy of the current
+        // folder, mirrors the new files in (puts the copy back if that fails), and opens 1401 again. No reinstall.
+        async void UpdateApp()
+        {
+            if (busy) return;
+            busy = true; appLink.Enabled = false;
+            string have = Application.ProductVersion.Split('+')[0];
+            string work = Path.Combine(Engine.Work, "app-update");
+            var lines = new List<string>();
+            int rc = await Engine.Run("p1401.nullmoth appupdate " + Engine.Q(have) + " " + Engine.Q(work), l => { lock (lines) lines.Add(l); });
+            busy = false; appLink.Enabled = true;
+            string result = lines.LastOrDefault(l => l.StartsWith("RESULT ")) ?? "RESULT stop: the update check did not answer";
+            if (result.StartsWith("RESULT uptodate"))
+            { MessageBox.Show(this, "1401 " + have + " is the newest version.", "1401 - Update"); return; }
+            if (rc != 0 || !result.StartsWith("RESULT ready "))
+            { MessageBox.Show(this, "1401 could not update itself:\r\n\r\n" + result.Substring(7), "1401 - Update"); return; }
+            var parts = result.Split(new[] { ' ' }, 4);
+            string version = parts[2], src = parts[3], home = Engine.Home.TrimEnd('\\');
+            if (!File.Exists(Path.Combine(src, "1401.exe"))) { MessageBox.Show(this, "The downloaded 1401 has no 1401.exe; nothing was changed.", "1401 - Update"); return; }
+            if (MessageBox.Show(this, "1401 " + version + " is downloaded and checked. 1401 closes, updates itself and opens again.", "1401 - Update",
+                                MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+            string backup = Path.Combine(work, "previous"), script = Path.Combine(work, "swap.cmd");
+            // Only 1401's own files move: its top-level files are copied and its engine and NullMoth folders mirrored. A /MIR of
+            // the whole folder would delete everything else in it when someone runs 1401 from Downloads or the Desktop.
+            File.WriteAllText(script, string.Join("\r\n", new[] {
+                "@echo off",
+                ":wait",
+                "tasklist /FI \"PID eq %1\" 2>nul | find \"%1\" >nul && (timeout /t 1 /nobreak >nul & goto wait)",
+                "call :put \"%~3\" \"%~4\" || goto start",
+                "call :put \"%~2\" \"%~3\" || call :put \"%~4\" \"%~3\"",
+                ":start",
+                "start \"\" \"%~3\\1401.exe\"",
+                "exit /b 0",
+                ":put",
+                "robocopy \"%~1\" \"%~2\" 1401.exe 1401.exe.config README.txt LICENSE.txt BUILD-MANIFEST.json /R:2 /W:1 >nul",
+                "if %ERRORLEVEL% GEQ 8 exit /b 1",
+                "robocopy \"%~1\\engine\" \"%~2\\engine\" /MIR /R:2 /W:1 >nul",
+                "if %ERRORLEVEL% GEQ 8 exit /b 1",
+                "if exist \"%~1\\NullMoth\" robocopy \"%~1\\NullMoth\" \"%~2\\NullMoth\" /MIR /R:2 /W:1 >nul",
+                "if %ERRORLEVEL% GEQ 8 exit /b 1",
+                "exit /b 0",
+                "" }));
+            Process.Start(new ProcessStartInfo("cmd.exe", "/c \"\"" + script + "\" " + Process.GetCurrentProcess().Id + " \"" + src + "\" \"" + home + "\" \"" + backup + "\"\"")
+            { CreateNoWindow = true, UseShellExecute = false, WorkingDirectory = work });
+            Close();
+        }
+
         void Say(string s)
         {
             if (InvokeRequired) { BeginInvoke(new Action<string>(Say), s); return; }
@@ -152,6 +204,7 @@ namespace A1401
         {
             foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
+            appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
             doctorLink.Visible = logLink.Visible;
             firmwareLink.Visible = (page == 1 || page == 2) && firmwareGuideFile != null && File.Exists(firmwareGuideFile);

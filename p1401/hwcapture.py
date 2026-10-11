@@ -445,7 +445,7 @@ def gpu_inventory(report):
 
 CAPTURE_TIMEOUT = 12
 CAPTURE_MAX_BYTES = 2 * 1024 * 1024
-DEVICE_STAGES = ("platform_role", "devices", "display_paths", "cpu_native", "peripheral_caps", "graphics", "pci_resources", "nvidia_detail", "bios_settings")
+DEVICE_STAGES = ("platform_role", "devices", "display_paths", "cpu_native", "peripheral_caps", "graphics", "gpu_drivers", "pci_resources", "nvidia_detail", "bios_settings")
 
 
 def unavailable_device_map(reason):
