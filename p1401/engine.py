@@ -636,6 +636,12 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
             needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
             smbios = o.s.select_smbios_model(cust, mv)
+            # macOS 26 dropped iMacPro1,1, which the engine picks for a discrete-GPU desktop on macOS 15; that PC then stops
+            # at Apple's "not supported on this platform" (Mac-7BA5B2D9E42DDD94, 1.9 stick log 10-10) the day it takes
+            # macOS 26. MacPro7,1 runs both and is what the engine picks for 26 itself; its options (RestrictEvents) follow.
+            if smbios == "iMacPro1,1":
+                smbios = "MacPro7,1"
+                h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
             _nullmoth_amfipass(o, hw, mv, h)
