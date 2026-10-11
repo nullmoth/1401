@@ -72,12 +72,29 @@ def _known_machines():
         return []  # a missing or broken table never stops a build; it only means no machine-specific settings
 
 
+# Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11). Never shipped by 1401: rule 0.
+EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext")
+
+
 def apply(config_path, result, policy):
     """Mutates config.plist in place (atomic write). Returns the list of changes."""
     with open(config_path, "rb") as fh:
         cfg = plistlib.load(fh)
     changes = []
     nv = cfg["NVRAM"]["Add"].setdefault(BOOT, {})
+    # 0. The upstream builder picks NootedRed (AMD APU graphics), NootRX (Navi 22), SMCRadeonSensors and ForgedInvariant
+    # for some machines. Their licence
+    # forbids any use with AI tools and any derivative work, so 1401 never ships them: the entries and the files go, and
+    # those GPUs run on the firmware framebuffer (basic display) until NullMoth's own driver covers them.
+    gone = [k["BundlePath"] for k in cfg["Kernel"]["Add"] if k.get("BundlePath", "").split("/")[0] in EXCLUDED_KEXTS]
+    if gone:
+        cfg["Kernel"]["Add"] = [k for k in cfg["Kernel"]["Add"] if k.get("BundlePath", "").split("/")[0] not in EXCLUDED_KEXTS]
+        import shutil  # noqa: PLC0415
+        for name in EXCLUDED_KEXTS:
+            shutil.rmtree(os.path.join(os.path.dirname(config_path), "Kexts", name), ignore_errors=True)
+        change_early = {"rule": "excluded-kexts", "before": ", ".join(sorted(set(gone))), "after": "",
+                        "why": "licence forbids use with AI tools; this GPU gets basic display until NullMoth's own driver covers it"}
+        changes.append(change_early)
     kexts = cfg["Kernel"]["Add"]
     enabled = {k["BundlePath"].split("/")[-1] for k in kexts if k.get("Enabled")}
     tahoe = _darwin(result.macos_version) >= TAHOE
@@ -341,7 +358,6 @@ def apply(config_path, result, policy):
 
     # 6. The NullMoth boot logo (an OpenCore driver that draws it where boot.efi draws the Apple logo), on by default
     #    (maintainer 10-11). The Mac app turns it off; -nmlogooff in boot-args turns it off for one start.
-    import os  # noqa: PLC0415
     import shutil  # noqa: PLC0415
     logo_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "NullMothLogo.efi")
     drivers = cfg.setdefault("UEFI", {}).setdefault("Drivers", [])

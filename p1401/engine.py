@@ -645,6 +645,22 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
+            # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
+            # also removes them from any config that still names them).
+            from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
+            for k in o.k.kexts:
+                if k.checked and f"{k.name}.kext" in EXCLUDED_KEXTS:
+                    k.checked = False
+                    h.notices.append(f"{k.name} is not used by 1401 (its licence); "
+                                     + ("that GPU runs with basic display until NullMoth's own driver covers it."
+                                        if k.name in ("NootedRed", "NootRX") else "macOS runs without it."))
+                    # ForgedInvariant was the TSC sync for (ASUS) laptops; on Intel, acidanthera's CpuTscSync (BSD-3)
+                    # does that job. AMD CPUs keep the AMD Vanilla patches' own TSC handling.
+                    if k.name == "ForgedInvariant" and "AMD" not in str(hw.get("CPU", {}).get("Manufacturer", "")):
+                        for t in o.k.kexts:
+                            if t.name == "CpuTscSync":
+                                t.checked = True
+                                h.notices.append("TSC sync: CpuTscSync in place of ForgedInvariant.")
             _nullmoth_amfipass(o, hw, mv, h)
             o.s.smbios_specific_options(cust, smbios, mv, o.ac.patches, o.k)
             res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
