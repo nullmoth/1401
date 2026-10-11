@@ -338,6 +338,12 @@ Write-Output "LETTER=$letter"
     if not os.path.isdir(root):
         raise UsbError(f"diskpart finished but {root} did not appear")
     got = (apple.copy_local if recovery_info.get("local") else apple.download)(recovery_info, root, progress)
+    # the image checked out while it arrived; this checks what the stick actually kept (see apple.verify_written)
+    with open(got["chunklist"], "rb") as fh:
+        changed = apple.verify_written(got["image"], apple.parse_chunklist(fh.read()))
+    if changed:
+        raise UsbError(f"this stick changed the macOS image after it was written ({len(changed)} of {got['chunks']} parts "
+                       f"read back different). The stick is failing or not the size it claims: use another USB stick.")
     _copy_settled(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"), root)
     verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
     driver = None

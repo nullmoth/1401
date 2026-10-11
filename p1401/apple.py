@@ -327,6 +327,59 @@ def download(info, usb_root, progress=None):
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
 
 
+def _read_uncached(path, block=1 << 20):
+    """The file's bytes as the stick holds them. On Windows the read bypasses the file cache (FILE_FLAG_NO_BUFFERING),
+    so a stick that lost or changed data after taking it is seen, not the copy still in RAM. Elsewhere: a plain read."""
+    if os.name != "nt":
+        with open(path, "rb") as fh:
+            for b in iter(lambda: fh.read(block), b""):
+                yield b
+        return
+    import ctypes  # noqa: PLC0415 - Windows only
+    from ctypes import wintypes  # noqa: PLC0415
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.CreateFileW.restype = wintypes.HANDLE
+    k32.VirtualAlloc.restype = ctypes.c_void_p
+    h = k32.CreateFileW(path, 0x80000000, 0x1, None, 3, 0x20000000 | 0x08000000, None)  # GENERIC_READ, NO_BUFFERING|SEQUENTIAL
+    if h in (None, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "could not open the image on the stick for checking")
+    buf = k32.VirtualAlloc(None, block, 0x3000, 0x04)  # page-aligned, as unbuffered reads require
+    try:
+        n = wintypes.DWORD()
+        while True:
+            if not k32.ReadFile(h, ctypes.c_void_p(buf), block, ctypes.byref(n), None):
+                raise OSError(ctypes.get_last_error(), "reading the image back from the stick failed")
+            if not n.value:
+                return
+            yield ctypes.string_at(buf, n.value)
+    finally:
+        k32.VirtualFree(ctypes.c_void_p(buf), 0, 0x8000)
+        k32.CloseHandle(h)
+
+
+def verify_written(img, chunks, read=None):
+    """Read the written image back from the stick and check it chunk by chunk against Apple's signed chunklist.
+    Returns the 1-based numbers of the chunks that differ (a missing tail counts as one). Startup logs on 1.0.22 and 1.2.0
+    sticks said "OCB: DMG has been altered" / "Failed to retrieve boot file from DMG": the image had checked out while
+    downloading and changed on the stick, so the stick looked ready and could not boot."""
+    stream = (read or _read_uncached)(img)
+    bad, pending = [], b""
+    for i, (size, sha) in enumerate(chunks, 1):
+        while len(pending) < size:
+            more = next(stream, None)
+            if more is None:
+                break
+            pending += more
+        part, pending = pending[:size], pending[size:]
+        if len(part) != size or hashlib.sha256(part).digest() != sha:
+            bad.append(i)
+            if len(part) != size:
+                break
+    if not bad and (pending or next(stream, None)):
+        bad.append(len(chunks) + 1)  # more bytes than the chunklist signs (in the last read or after it)
+    return bad
+
+
 def local_image(folder):
     """A recovery image the user downloaded elsewhere (BaseSystem.dmg + BaseSystem.chunklist, e.g. macrecovery on another
     network), as an info dict for copy_local, or None. Apple refuses some networks outright (HTTP 403 on every session,

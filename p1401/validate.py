@@ -210,14 +210,88 @@ def release_components(efi_dir):
     return failures
 
 
+# Sections whose keys are names the user chooses (device paths, NVRAM GUIDs and variables): any key, values checked
+# against the sample's first entry only when the sample has one of the same type.
+FREE_KEY_SECTIONS = {("DeviceProperties", "Add"), ("DeviceProperties", "Delete"), ("NVRAM", "Add"), ("NVRAM", "Delete"),
+                     ("NVRAM", "LegacySchema")}
+
+
+def schema_problems(cfg, samples):
+    """The config's shape against OpenCore's own Sample.plist (and SampleCustom.plist) from the same verified release:
+    every key known to OpenCore and every value of the type OpenCore reads (a missing key takes its default). This is what
+    ocvalidate checks first; it is the check 1401 runs itself when Windows will not run ocvalidate."""
+    out = []
+
+    def kind(v):
+        return "bool" if isinstance(v, bool) else "int" if isinstance(v, int) else type(v).__name__
+
+    def walk(c, refs, path):
+        refs = [r for r in refs if isinstance(r, dict)]
+        if path in FREE_KEY_SECTIONS:
+            return
+        for k, v in c.items():
+            if k.startswith("#"):
+                continue
+            known = [r[k] for r in refs if k in r]
+            if not known:
+                out.append(f"{'.'.join(path + (k,))}: not a key OpenCore knows")
+                continue
+            if kind(v) not in {kind(x) for x in known}:
+                out.append(f"{'.'.join(path + (k,))}: is {kind(v)}, OpenCore reads {kind(known[0])}")
+                continue
+            if isinstance(v, dict):
+                walk(v, known, path + (k,))
+            elif isinstance(v, list):
+                tmpl = [x[0] for x in known if isinstance(x, list) and x and isinstance(x[0], dict)]
+                for i, e in enumerate(v):
+                    if isinstance(e, dict) and tmpl:
+                        walk(e, tmpl, path + (k, str(i)))
+        # A missing key is not checked: OpenCore reads its default and ocvalidate accepts it (measured on 1,064 uploaded
+        # configs: 301 lacked HideVerbose, written by older OpenCore releases, and boot fine).
+    walk(cfg, samples, ())
+    return out
+
+
+def release_samples():
+    """Sample.plist and SampleCustom.plist from the verified OpenCore release in the cache."""
+    url, expected = _opencore_release()
+    archive_path = os.path.join(CACHE, os.path.basename(url))
+    with open(archive_path, "rb") as stream:
+        data = stream.read()
+    if not expected or hashlib.sha256(data).hexdigest() != expected:
+        raise ValidatorUnavailable("The OpenCore archive changed before its sample config could be read.")
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        return [plistlib.loads(archive.read(n)) for n in ("Docs/Sample.plist", "Docs/SampleCustom.plist") if n in archive.namelist()]
+
+
 def validate(efi_dir):
-    """Returns a dict: ok, ocvalidate {ok, issues, text}, invariants [..], error."""
+    """Returns a dict: ok, ocvalidate {ok, issues, text}, invariants [..], error.
+    When Windows application control (Smart App Control / WDAC, error 4551) refuses to run ocvalidate, the config is
+    checked against OpenCore's own sample of the same verified release instead (schema_problems), with the same file
+    and boot-file checks; the result says so. WAS: the build stopped there and 8 PCs could not make a stick at all."""
     out = {"ok": False, "ocvalidate": None, "invariants": [], "error": ""}
+    cfg_path = os.path.join(efi_dir, "EFI", "OC", "config.plist")
     try:
-        ok, n, text = run_ocvalidate(os.path.join(efi_dir, "EFI", "OC", "config.plist"))
+        ok, n, text = run_ocvalidate(cfg_path)
         out["ocvalidate"] = {"ok": ok, "issues": n, "text": text[-2000:]}
         out["invariants"] = invariants(efi_dir) + release_components(efi_dir)
         out["ok"] = ok and not out["invariants"]
+    except ValidatorUnavailable as e:
+        if "application control blocked" not in str(e):
+            out["error"] = f"{type(e).__name__}: {e}"
+            return out
+        try:
+            with open(cfg_path, "rb") as fh:
+                cfg = plistlib.load(fh)
+            schema = schema_problems(cfg, release_samples())
+            out["ocvalidate"] = {"ok": None, "issues": len(schema), "text": "\n".join(schema)[-2000:],
+                                 "fallback": "Windows application control blocked ocvalidate (4551): checked against "
+                                             "OpenCore's Sample.plist from the same verified release"}
+            out["invariants"] = schema + invariants(efi_dir) + release_components(efi_dir)
+            out["ok"] = not out["invariants"]
+        except Exception as e2:  # noqa: BLE001 - the reason is the result: Windows' refusal first, then why the
+            out["ocvalidate"] = None  # fallback could not stand in for it
+            out["error"] = f"{type(e).__name__}: {e} The check against OpenCore's sample could not run either: {type(e2).__name__}"
     except Exception as e:  # couldn't validate, so not ok; keep the reason
         out["error"] = f"{type(e).__name__}: {e}"
     return out
