@@ -59,8 +59,15 @@ def verified(build, report_path=None):
         raise RuntimeError('The machine profile is not a verified build profile. Rebuild before writing the installer.')
     if report_path and value.get('scan_sha256') != sha256(report_path):
         raise RuntimeError('The scan changed after the EFI was built. Rebuild for the current scan before erasing the stick.')
-    if value.get('efi_sha256') != efi_hashes(build):
-        raise RuntimeError('The EFI changed after its machine profile was recorded. Rebuild before erasing the stick.')
+    want, have = value.get('efi_sha256') or {}, efi_hashes(build)
+    if want != have:
+        # 1.10 write log 10-11 (NM-3ZYK3JWK) said only "the EFI changed": neither the engine nor the app writes the EFI
+        # after this profile, so it is a hand edit or antivirus removing a file, and the files tell which.
+        diff = ([f'{p} removed' for p in sorted(set(want) - set(have))] + [f'{p} added' for p in sorted(set(have) - set(want))]
+                + [f'{p} edited' for p in sorted(set(want) & set(have)) if want[p] != have[p]])
+        raise RuntimeError('The EFI changed after its machine profile was recorded (' + ', '.join(diff[:6])
+                           + (f', {len(diff) - 6} more' if len(diff) > 6 else '') + '). If antivirus removed a file, '
+                           'allow the 1401 folder in it; then build again before erasing the stick.')
     return value
 
 
