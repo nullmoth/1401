@@ -625,8 +625,12 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             mv = o.select_macos_version(_wifi_prepass(hw, policy, h, o), native, oclp_versions)
             cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
             from . import panel_guard, scan_evidence
-            panel = panel_guard.active_panel_notice(disabled, scan_evidence.load_for_report(
-                report_path, res.raw_hardware, expected_report_sha256=res.report_sha256))
+            capture = scan_evidence.load_for_report(report_path, res.raw_hardware, expected_report_sha256=res.report_sha256)
+            keep = panel_guard.intel_panel_keys(disabled, capture)
+            for k in keep:   # the panel's own GPU stays on (no disable-gpu), so the built-in screen has a display in macOS
+                h.notices.append(panel_guard.KEEP_NOTE.format(dev=disabled[k].get("Device ID")))
+                disabled = {kk: vv for kk, vv in disabled.items() if kk != k}
+            panel = None if keep else panel_guard.active_panel_notice(disabled, capture)
             if panel:
                 h.notices.append(panel)
             _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.

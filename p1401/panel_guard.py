@@ -51,3 +51,41 @@ def active_panel_notice(disabled, capture):
                         '(the laptop maker documents which ports those are), or switch the display mode to discrete/dGPU in the '
                         'firmware if it offers one and scan again.')
     return None
+
+
+def intel_panel_keys(disabled, capture):
+    """Disabled-device keys of Intel iGPUs that drive the active built-in panel in the scan (QueryDisplayConfig routing).
+    10-10: 86 of 184 scans with an active built-in panel had it on the Intel GPU; every one of those builds marked that GPU
+    disable-gpu, so the panel had nothing to show macOS on. Kept on, macOS shows the panel through the firmware
+    framebuffer (no acceleration) until the Intel display driver takes it over. Windows may list one iGPU several times
+    (identical adapters with the same IDs), which still identifies it."""
+    if not isinstance(capture, dict) or not isinstance(disabled, dict):
+        return []
+    graph = ((capture.get('device_map') or {}).get('graphics') or {})
+    if graph.get('status') != 'measured' or not isinstance(graph.get('value'), list):
+        return []
+    lit = set()
+    for a in graph['value']:
+        if not isinstance(a, dict) or a.get('vendor_id') != '8086':
+            continue
+        for d in a.get('displays') or []:
+            if (isinstance(d, dict) and d.get('internal_panel') is True and d.get('active') is True and
+                    d.get('routing_source') == 'QueryDisplayConfig targetInfo.adapterId'):
+                lit.add(str(a.get('device_id', '')).upper())
+    keys = []
+    for k, p in disabled.items():
+        if not isinstance(p, dict) or p.get('Device Type') != 'Integrated GPU':
+            continue
+        # only an iGPU macOS has no driver for (Tiger Lake and newer: Compatibility (None, None)); an older Intel GPU with
+        # an Apple driver kept on without its framebuffer properties could load that driver wrongly
+        if any(p.get('Compatibility') or ()):
+            continue
+        dev = p.get('Device ID')
+        if isinstance(dev, str) and re.fullmatch(r'8086-[0-9A-Fa-f]{4}', dev) and dev[5:].upper() in lit:
+            keys.append(k)
+    return keys
+
+
+KEEP_NOTE = ('The built-in screen runs on the Intel graphics ({dev}). 1401 keeps that GPU on, so the built-in screen works '
+             'in macOS through the firmware display (no graphics acceleration on it yet); the NVIDIA card drives its own '
+             'ports. Turning the GPU off left this screen dark.')
