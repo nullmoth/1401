@@ -24,7 +24,7 @@ namespace A1401
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
-        readonly LinkLabel logLink = new LinkLabel();
+        readonly LinkLabel logLink = new LinkLabel(), coffeeLink = new LinkLabel();
         readonly LinkLabel drvLink = new LinkLabel();
         readonly LinkLabel doctorLink = new LinkLabel();
         readonly LinkLabel firmwareLink = new LinkLabel();
@@ -95,6 +95,9 @@ namespace A1401
             logLink.Text = "Something went wrong? Scan for logs and send them"; logLink.AutoSize = true;
             logLink.Location = new Point(24, 330); logLink.LinkColor = Theme.Cyan; logLink.Font = new Font("Verdana", 9.5f);
             logLink.LinkClicked += (s, e) => OfferStickLogs(true);
+            coffeeLink.Text = "Buy me a coffee"; coffeeLink.AutoSize = true;
+            coffeeLink.Location = new Point(440, 330); coffeeLink.LinkColor = Theme.Cyan; coffeeLink.Font = new Font("Verdana", 9.5f);
+            coffeeLink.LinkClicked += (s, e) => System.Diagnostics.Process.Start("https://buymeacoffee.com/nullmoth");
             drvLink.Text = "Update the NVIDIA driver (newest release, here and on your 1401 stick)"; drvLink.AutoSize = true;
             drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = new Font("Verdana", 9.5f);
             drvLink.LinkClicked += (s, e) => UpdateDriver();
@@ -107,7 +110,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, drvLink, doctorLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, coffeeLink, drvLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             ResumeLayout(false); PerformLayout();
@@ -149,6 +152,7 @@ namespace A1401
         {
             foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
+            coffeeLink.Visible = logLink.Visible;
             doctorLink.Visible = logLink.Visible;
             firmwareLink.Visible = (page == 1 || page == 2) && firmwareGuideFile != null && File.Exists(firmwareGuideFile);
             firmwareLink.Enabled = !busy;
