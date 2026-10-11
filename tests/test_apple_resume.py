@@ -164,5 +164,42 @@ class Resume(unittest.TestCase):
         self.assertEqual(len(tries), 1)
 
 
+
+class ExpiredToken(unittest.TestCase):
+    """1.13 write log NM-QFQE7G16: oscdn answered 403 when the next window opened, because the image token ran out."""
+    def forbidden(self, url):
+        return apple.AppleError(f"{url}: HTTPError: HTTP Error 403: Forbidden")
+
+    def test_a_403_on_a_window_gets_a_fresh_token_and_the_window_opens(self):
+        info, seen = dict(INFO), []
+        def asset(url, token, extra=None):
+            seen.append(token)
+            if token == "t":
+                raise self.forbidden(url)
+            return Stream(b"x" * 10, status=206, content_range="bytes 100-109/7234")
+        def refresh(i):
+            i["image_token"] = "fresh"
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", refresh):
+            r = apple._resume(info, 100, 10, delay=0)
+        self.assertEqual(r.status, 206)
+        self.assertEqual(seen, ["t", "fresh"])
+
+    def test_a_403_that_a_refresh_cannot_change_still_stops(self):
+        info = dict(INFO)
+        def asset(url, token, extra=None):
+            raise self.forbidden(url)
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", lambda i: None):
+            with self.assertRaises(apple.AppleError):
+                apple._resume(info, 100, 10, delay=0)
+
+    def test_other_errors_do_not_refresh(self):
+        calls = []
+        def asset(url, token, extra=None):
+            raise apple.AppleError(f"{url}: URLError: reset")
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", lambda i: calls.append(1)):
+            with self.assertRaises(apple.AppleError):
+                apple._resume(dict(INFO), 100, 10, delay=0)
+        self.assertEqual(calls, [])
+
 if __name__ == "__main__":
     unittest.main()

@@ -494,7 +494,19 @@ def _resume(info, offset, window=0, delay=2):
     if delay:
         time.sleep(delay)
     rng = f"bytes={offset}-{offset + window - 1}" if window else f"bytes={offset}-"
-    r = _asset(info["image_url"], info["image_token"], {"Range": rng})
+    try:
+        r = _asset(info["image_url"], info["image_token"], {"Range": rng})
+    except AppleError as e:
+        # 1.13 write log 10-11 (NM-QFQE7G16): a long windowed download got "HTTP Error 403: Forbidden" from oscdn when the
+        # next window opened - the image token had run out - and the write stopped. Ask osrecovery for a fresh URL and
+        # token once and try that window again; every byte is still checked against Apple's signed chunklist.
+        if "HTTP Error 403" not in str(e):
+            raise
+        old = info["image_token"]
+        _refresh(info)
+        if info["image_token"] == old:
+            raise
+        r = _asset(info["image_url"], info["image_token"], {"Range": rng})
     got = (r.headers.get("Content-Range") or "") if getattr(r, "headers", None) else ""
     if getattr(r, "status", None) != 206 or not got.startswith(f"bytes {offset}-"):
         r.close()
