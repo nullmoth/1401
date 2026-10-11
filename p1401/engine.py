@@ -94,6 +94,7 @@ class Policy:
     # user turns it on.
     import_wifi_passwords: bool = False
     force_load_unsupported_kexts: bool = False
+    boot_logo: bool = True          # the NullMoth boot logo driver in the EFI (policy.py rule 6)
     # Filled by 1401's pre-pass, never by the user: device kind ("WiFi") -> the device name 1401 picked.
     prefer: dict = field(default_factory=dict)
     # The stick's opencore-*.txt from a failed boot: bootfix.py changes the next build from what it shows.

@@ -327,9 +327,24 @@ def apply(config_path, result, policy):
         for note in bootfix.apply_after_handoff(cfg, texts, policy.stopped_at, change)["report"]:
             change("bootlog-note", "", note, "from the last failed start")
 
+    # 6. The NullMoth boot logo (an OpenCore driver that draws it where boot.efi draws the Apple logo), on by default
+    #    (maintainer 10-11). The Mac app turns it off; -nmlogooff in boot-args turns it off for one start.
+    import os  # noqa: PLC0415
+    import shutil  # noqa: PLC0415
+    logo_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "NullMothLogo.efi")
+    drivers = cfg.setdefault("UEFI", {}).setdefault("Drivers", [])
+    if getattr(policy, "boot_logo", True) and os.path.isfile(logo_src) and not any(d.get("Path") == "NullMothLogo.efi" for d in drivers):
+        ddir = os.path.join(os.path.dirname(config_path), "Drivers")
+        os.makedirs(ddir, exist_ok=True)
+        shutil.copyfile(logo_src, os.path.join(ddir, "NullMothLogo.efi"))
+        entry = {"Arguments": "", "Comment": "NullMoth boot logo", "Enabled": True, "LoadEarly": False, "Path": "NullMothLogo.efi"}
+        if drivers and "HideVerbose" in drivers[0]:   # only the keys this OpenCore's own entries carry
+            entry["HideVerbose"] = False
+        drivers.append(entry)
+        change("boot-logo", "Apple logo", "NullMoth logo", "on by default; Boot logo off in the Mac app, or -nmlogooff for one start")
+
     tmp = config_path + ".tmp"
     with open(tmp, "wb") as fh:
         plistlib.dump(cfg, fh)
-    import os  # noqa: PLC0415
     os.replace(tmp, config_path)
     return changes
