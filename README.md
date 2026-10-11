@@ -4,6 +4,8 @@
 
 Made by **NullMoth Systems**. Support the work: https://buymeacoffee.com/nullmoth
 
+**Something not working?** [Why a machine does not work, and how to fix it](docs/TROUBLESHOOTING.md) - every known problem, where it stops, why, and the fix.
+
 | Download (Releases) | What it is |
 |---|---|
 | `1401-Windows-1.0.24.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
