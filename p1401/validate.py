@@ -39,12 +39,42 @@ class ValidatorUnavailable(RuntimeError):
     pass
 
 
+DORTANIA_BUILDS = "https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json"
+
+
+def _opencore_from_builds(fetch=None):
+    """(url, sha256) of an OpenCore zip already in the cache whose SHA-256 Dortania's build list publishes - the list the
+    engine itself downloads OpenCore from. 1.9 build 10-10: the engine reused a cached OpenCorePkg ("already
+    downloaded") whose download was never written to its history, and the build stopped with "engine download history
+    names no OpenCorePkg" though the zip was right there."""
+    if fetch is None:
+        def fetch(url):
+            from . import tls  # noqa: PLC0415
+            tls.install()
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "1401"}), timeout=60) as r:
+                return json.loads(r.read())
+    listing = fetch(DORTANIA_BUILDS)
+    for v in (listing.get("OpenCorePkg") or {}).get("versions", []):
+        for kind in ("debug", "release"):
+            url = (v.get("links") or {}).get(kind)
+            sha = ((v.get("hashes") or {}).get(kind) or {}).get("sha256")
+            if not (isinstance(url, str) and url.startswith("https://") and isinstance(sha, str) and len(sha) == 64):
+                continue
+            cached = os.path.join(CACHE, os.path.basename(url))
+            if os.path.isfile(cached) and not os.path.islink(cached) and _sha256(cached) == sha:
+                return url, sha
+    raise ValidatorUnavailable("engine download history names no OpenCorePkg, and no cached OpenCore matches Dortania's list")
+
+
 def _opencore_release():
-    with open(os.path.join(_engine_cache(), "history.json")) as fh:
-        for x in json.load(fh):
-            if x["product_name"] == "OpenCorePkg":
-                return x["url"], x["sha256"]
-    raise ValidatorUnavailable("engine download history names no OpenCorePkg")
+    try:
+        with open(os.path.join(_engine_cache(), "history.json")) as fh:
+            for x in json.load(fh):
+                if x["product_name"] == "OpenCorePkg":
+                    return x["url"], x["sha256"]
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return _opencore_from_builds()
 
 
 def ocvalidate_path():

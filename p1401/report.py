@@ -17,6 +17,14 @@ DROPPABLE = {
 
 
 PCI_VENDORS = {"10DE": "NVIDIA", "1002": "AMD", "8086": "Intel"}
+# makers as their cards' names spell them, for a card Windows reports with neither a maker nor a PCI ID
+NAME_VENDORS = (("NVIDIA", ("nvidia", "geforce", "quadro", "tesla", "titan ")), ("AMD", ("radeon", "amd ", "ati ", "firepro")),
+                ("Intel", ("intel", "iris", "uhd graphics", "hd graphics", "arc ")))
+
+
+def vendor_from_name(name):
+    low = " " + (name or "").lower() + " "
+    return next((v for v, words in NAME_VENDORS if any(w in low for w in words)), None)
 
 
 def acpi_fingerprints(directory):
@@ -127,6 +135,17 @@ def normalize(report):
         if not isinstance(props, dict) or props.get("Manufacturer") in PCI_VENDORS.values():
             continue
         vendor = PCI_VENDORS.get((props.get("Device ID") or "")[:4].upper())
+        if not vendor and vendor_from_name(name):
+            # 1.10 builds 10-10 (5 times, one AMD PC): "The only graphics card Windows reports is 'NVIDIA GeForce GT 730',
+            # with no maker or PCI ID" - the name says who made it. Without an ID it is not a card the driver can claim,
+            # so the build goes on with macOS's basic display for it instead of stopping.
+            props["Manufacturer"] = vendor_from_name(name)
+            # the engine reads the GPU's Device ID (compatibility_checker slices it): device 0000 matches no card macOS or
+            # the driver supports, so the plan is basic display - which is all an unidentified card can get
+            props.setdefault("Device ID", {v: k for k, v in PCI_VENDORS.items()}[props["Manufacturer"]] + "-0000")
+            notes.append(f"GPU: {name!r} reported no maker or PCI ID; its name says {props['Manufacturer']} - planned with "
+                         "macOS's basic display. Installing the card's Windows driver and scanning again gives a fuller report.")
+            continue
         if vendor:
             props["Manufacturer"] = vendor
             notes.append(f"GPU: {name!r} has no Windows driver (maker read from its PCI ID {props['Device ID']}: {vendor}). "
