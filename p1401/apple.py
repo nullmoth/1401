@@ -278,6 +278,13 @@ def download(info, usb_root, progress=None):
                     try:
                         _read_into(r, part, size)
                         break
+                    except MemoryError:
+                        # 1.13 (10-11, NM-XPA7EXBN): a bare "MemoryError:" at 10 %, while one chunk (~10 MB) is held
+                        # at a time. The stop now says how much memory Windows had, which tells a full PC from a
+                        # 32-bit process.
+                        raise AppleError("Windows ran out of memory while downloading macOS recovery (" + _memory_note()
+                                         + "). Close other programs (browsers, games, other USB tools) and press Next; "
+                                         "if it happens again, restart the PC first.") from None
                     except (AppleError, OSError, http.client.HTTPException) as e:
                         pos = done + len(part)
                         if not (window and pos - conn_start >= window):
@@ -514,6 +521,30 @@ def _resume(info, offset, window=0, delay=2):
     return r
 
 
+def _memory_note():
+    """Free/total physical memory and this process's pointer width, for a MemoryError stop. Never raises."""
+    import struct  # noqa: PLC0415
+    bits = struct.calcsize("P") * 8
+    try:
+        import ctypes  # noqa: PLC0415
+
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong), ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong), ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong), ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        m = MEMORYSTATUSEX()
+        m.dwLength = ctypes.sizeof(m)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            mb = 1 << 20
+            return (f"free memory {m.ullAvailPhys // mb} of {m.ullTotalPhys // mb} MB, page file {m.ullAvailPageFile // mb}"
+                    f" MB free, {bits}-bit")
+    except Exception:  # noqa: BLE001 - only a description; the stop must still be raised
+        pass
+    return f"{bits}-bit"
+
+
 def _read_into(r, part, n):
     """Appends to `part` until it holds n bytes; what arrived before a drop stays in `part`."""
     while len(part) < n:
@@ -588,11 +619,14 @@ def selftest():
         def close(self):
             pass
     g = globals()
-    keep = {k: g[k] for k in ("fetch_chunklist", "parse_chunklist", "_asset", "_resume")}
+    keep = {k: g[k] for k in ("fetch_chunklist", "parse_chunklist", "_asset", "_resume", "_refresh")}
     g["fetch_chunklist"] = lambda info: b""
     g["parse_chunklist"] = lambda cl: [(64, hashlib.sha256(c).digest()) for c in data]
     g["_asset"] = lambda *a, **k: Drop(0)
-    g["_resume"] = lambda info, off: Drop(off // 64)
+    # the stubs take every argument the real ones do (window, delay since 1.14); a stub that refused them made this
+    # selftest stop at its first drop. _refresh would ask Apple for a new token: never from a test.
+    g["_resume"] = lambda info, off, *_a, **_k: Drop(off // 64)
+    g["_refresh"] = lambda info: None
     try:
         with tempfile.TemporaryDirectory() as tmp:
             info = {"image_url": "http://x/BaseSystem.dmg", "image_token": "", "product": "test"}
@@ -617,7 +651,7 @@ def selftest():
                 def close(self):
                     pass
             g["_asset"] = lambda *a, **k: Capped(0)
-            g["_resume"] = lambda info, off: Capped(off)
+            g["_resume"] = lambda info, off, *_a, **_k: Capped(off)
             try:
                 out = download(info, tmp)
                 ok, shown = out["bytes"] == 64 * 12, f"{out['bytes']} bytes, 16 per connection"
@@ -625,7 +659,7 @@ def selftest():
                 ok, shown = False, str(e)[:90]
             arm("a network that cuts every connection mid-chunk still finishes (resume from the last byte)", ok, shown)
             g["_asset"] = lambda *a, **k: Drop(0)
-            g["_resume"] = lambda info, off: Drop(len(data))  # every resume returns nothing: no progress
+            g["_resume"] = lambda info, off, *_a, **_k: Drop(len(data))  # every resume returns nothing: no progress
             try:
                 download(info, tmp)
                 ok, shown = False, "finished with no data"
@@ -673,6 +707,34 @@ def selftest():
             rows.append(f"{MAJOR[d]}:FAILED {e}")
     arm("Apple serves a recovery image for every target (Catalina -> Tahoe)", all("FAILED" not in r for r in rows), " ".join(rows))
     print(f"\n{sum(res)}/{len(res)} passed")
+    # a MemoryError while reading a chunk stops with what Windows had left, not a bare "MemoryError:" (1.13, 10-11)
+    class Oom:
+        headers, status = {}, 206
+
+        def read(self, n):
+            raise MemoryError()
+
+        def close(self):
+            pass
+    g = globals()
+    keep = {k: g[k] for k in ("fetch_chunklist", "parse_chunklist", "_asset")}
+    g["fetch_chunklist"] = lambda info: b""
+    g["parse_chunklist"] = lambda cl: [(64, b"\0" * 32)]
+    g["_asset"] = lambda *a, **k: Oom()
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                download({"image_url": "http://x/BaseSystem.dmg", "image_token": "", "product": "test"}, tmp)
+                shown = "no stop"
+            except AppleError as e:
+                shown = str(e)
+            except MemoryError:
+                shown = "bare MemoryError"
+    finally:
+        g.update(keep)
+    arm("running out of memory mid-download stops with the memory left and what to do", "ran out of memory" in shown
+        and "-bit" in shown and "Close other programs" in shown, shown[:90])
+    arm("the memory note never raises off Windows", _memory_note().endswith("-bit"), _memory_note())
     return all(res)
 
 
