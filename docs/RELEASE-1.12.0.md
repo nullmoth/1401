@@ -2,7 +2,7 @@
 
 **Something not working? [nullmothsystems.com/help](https://nullmothsystems.com/help) lists every known problem and exactly what to do.**
 
-- Dual GPU laptops: the NVIDIA GPU now works when the screen is wired to the Intel GPU, as a second Metal device for apps (as on Apple's two-GPU MacBook Pros). Laptops with 6th-10th generation or Ice Lake Intel graphics get both GPUs accelerated.
+- Dual GPU laptops: the NVIDIA GPU now works when the screen is wired to the Intel GPU, as a second Metal device for apps (as on Apple's two-GPU MacBook Pros). Laptops with 6th-10th generation or Ice Lake Intel graphics get both GPUs accelerated. New in 1.12: if the NVIDIA GPU does not appear in macOS, press Send logs in the Mac app.
 - Bundles the NVIDIA driver and Mac app 1.12.0: a display tracker that records flicker and black screens from every boot (Send logs uploads it), Live Text no longer crashes, the first WebGL fix, and old setup logs are no longer re-sent.
 - Laptops whose built-in panel runs on an Intel GPU macOS has no driver for keep that GPU on, so the panel shows macOS.
 - "The EFI changed after its machine profile was recorded" now names the files that changed, and says to allow the 1401 folder in your antivirus if it removed one.
