@@ -56,6 +56,28 @@ def reorder(cfg):
     cfg["Kernel"]["Add"] = sorted(add, key=lambda k: rank.get(k.get("BundlePath", "").split("/")[-1], 2))
 
 
+# Intel models Apple's macOS 15 / macOS 26 installers accept (boot.efi refuses any other with "This version of Mac OS X
+# is not supported on this platform!" - stick logs 10-10: Mac-7BA5B2D9E42DDD94 = iMacPro1,1 on 26, Mac-F42386C8 on 15).
+SEQUOIA_MODELS = {"iMac19,1", "iMac19,2", "iMac20,1", "iMac20,2", "iMacPro1,1", "MacPro7,1", "Macmini8,1", "MacBookAir9,1",
+                  "MacBookPro15,1", "MacBookPro15,2", "MacBookPro15,3", "MacBookPro15,4", "MacBookPro16,1", "MacBookPro16,2",
+                  "MacBookPro16,3", "MacBookPro16,4"}
+TAHOE_MODELS = {"iMac20,1", "iMac20,2", "MacPro7,1", "MacBookPro16,1", "MacBookPro16,2", "MacBookPro16,4"}
+
+
+def smbios_problems(cfg):
+    """The SMBIOS model against what Apple's installers accept: a problem for macOS 15, a note for macOS 26."""
+    model = ((cfg.get("PlatformInfo") or {}).get("Generic") or {}).get("SystemProductName") or ""
+    if not model:
+        return []
+    if model not in SEQUOIA_MODELS:
+        return [f"SMBIOS {model} is not a Mac that macOS 15 installs on: macOS stops with 'not supported on this platform'. "
+                "Use MacPro7,1 (desktop with a graphics card), iMac20,1 (desktop on its iGPU) or MacBookPro16,2 (laptop)."]
+    if model not in TAHOE_MODELS:
+        return [f"note: SMBIOS {model} runs macOS 15 but not macOS 26; move to MacPro7,1, iMac20,1 or MacBookPro16,2 before "
+                "updating to macOS 26 (new serial numbers with it)."]
+    return []
+
+
 def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
     cfg_path = find_oc(root)
     if not cfg_path:
@@ -68,6 +90,8 @@ def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
         problems += validate.invariants(efi_parent)
     except Exception as error:  # a malformed config still gets the other checks
         problems.append(f"file check could not run: {type(error).__name__}: {error}")
+    # notes, not problems: 1401 also plans older macOS for older PCs (macOS 12 on a MacBookPro13,1), where they do not apply
+    notes = smbios_problems(cfg)
     order = order_problems(cfg)
     if order:   # the order is a fix, not a problem: drop validate's own wording of it
         problems = [x for x in problems if "before Lilu" not in x]
@@ -115,7 +139,7 @@ def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
         except Exception as error:
             problems.append(f"file check could not run: {type(error).__name__}: {error}")
     return {"ok": not problems and (not fixes or bool(written)), "problems": problems,
-            ("fixed" if written else "would_fix"): fixes, "written": written}
+            ("fixed" if written else "would_fix"): fixes, "written": written, "notes": notes}
 
 
 def _plist_copy(cfg):
@@ -136,6 +160,8 @@ def main(argv=None):
         print("  problem: " + f)
     for f in out.get("fixed") or out.get("would_fix") or []:
         print(("  fixed: " if out["written"] else "  needs fixing (run with --fix): ") + f)
+    for f in out.get("notes") or []:
+        print("  note: " + f.removeprefix("note: "))
     if not out["problems"] and not (out.get("fixed") or out.get("would_fix")):
         print("  no problems found")
     print(json.dumps(out))
