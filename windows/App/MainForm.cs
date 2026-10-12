@@ -33,6 +33,9 @@ namespace A1401
         readonly LinkLabel firmwareLink = new LinkLabel();
         readonly ListView facts = new ListView();
         bool busy, scanned, built, written, listing, showingPrerequisites;
+        // The newest 1401 when this one is older (startup check), else null. 10-12: 61% of a day's 170 failed writes came
+        // from versions whose bugs were already fixed (1.1.0 alone: 59), so an old 1401 updates before it builds anything.
+        string mustUpdate;
         // Startup logs the last build read, and drive roots it must also read (the picked stick, which may not be Removable).
         readonly HashSet<string> buildLogFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         readonly List<string> stickRoots = new List<string>();
@@ -54,6 +57,7 @@ namespace A1401
             BackColor = Theme.Bg; ForeColor = Theme.Text; Font = Theme.Body;
             StartPosition = FormStartPosition.CenterScreen;
             if (!verificationMode) Shown += (o, e) => OfferStickLogs(false);
+            if (!verificationMode) Shown += (o, e) => CheckAppVersion();
 
             var head = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Panel };
             var mark = new PictureBox { Image = Theme.Mark(), SizeMode = PictureBoxSizeMode.Zoom, Bounds = new Rectangle(14, 9, 56, 56) };
@@ -329,9 +333,29 @@ namespace A1401
             return files;
         }
 
+        // Asks the 1401 release which version is newest. Offline or rate-limited ("unknown") never blocks anyone.
+        async void CheckAppVersion()
+        {
+            string have = Application.ProductVersion.Split('+')[0];
+            var lines = new List<string>();
+            int rc = await Engine.Run("p1401.nullmoth appcheck " + Engine.Q(have), l => { lock (lines) lines.Add(l); });
+            string result = lines.LastOrDefault(l => l.StartsWith("RESULT ")) ?? "";
+            if (rc != 0 || !result.StartsWith("RESULT newer ")) return;
+            mustUpdate = result.Substring("RESULT newer ".Length).Trim();
+            AskToUpdate(have);
+        }
+
+        void AskToUpdate(string have)
+        {
+            if (MessageBox.Show(this, "This is 1401 " + have + ". 1401 " + mustUpdate + " is out, and it fixes problems that stop older " +
+                                "versions. 1401 has to update before it builds or writes anything.\r\n\r\nUpdate now?",
+                                "1401 - Update needed", MessageBoxButtons.OKCancel) == DialogResult.OK) UpdateApp();
+        }
+
         async void OnNext()
         {
             if (busy) return;
+            if (mustUpdate != null) { AskToUpdate(Application.ProductVersion.Split('+')[0]); return; }
             if (page == 3 && showingPrerequisites)
             {
                 showingPrerequisites = false; Go(prerequisiteReturnPage); return;

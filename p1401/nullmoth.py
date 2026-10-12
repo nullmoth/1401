@@ -476,6 +476,9 @@ def selftest():
     arm("the newest Windows app listed in SHA256SUMS.txt is picked (an unlisted 9.0.0 is not)", wrel[0] == "1.14.0", wrel[:2])
     wt = tempfile.mkdtemp(prefix="1401-selftest-")
     arm("the same version is not an update", app_update("1.14.0", os.path.join(wt, "a"), wrel, None) is None, "1.14.0")
+    arm("startup check: 1.1.0 is outdated against 1.14.2, 1.14.2 and 1.15.0 are not",
+        outdated("1.1.0", "1.14.2") and outdated("1.13.0", "1.14.2") and not outdated("1.14.2", "1.14.2")
+        and not outdated("1.15.0", "1.14.2"), "1.1.0 / 1.13.0 vs 1.14.2")
     got = app_update("1.13.0", os.path.join(wt, "b"), wrel, lambda u, p: open(p, "wb").write(good))
     arm("a newer, verified app unpacks to a folder holding 1401.exe", got and os.path.isfile(os.path.join(got, "1401.exe")), got)
     for label, blob in (("a tampered download", b"tampered"), ("a zip with a ../ entry",
@@ -521,6 +524,32 @@ def _cli_update(dirs):
         return 1
 
 
+def outdated(current, latest):
+    """True when `latest` is newer than `current`: the startup check (10-12: 61% of a day's failed writes came from
+    1401 versions whose bugs were already fixed, 1401 1.1.0 alone 59 of 170)."""
+    return _vkey(latest) > _vkey(current)
+
+
+def _cli_appcheck(current):
+    """python -m p1401.nullmoth appcheck <this app's version>: RESULT newer <v> / uptodate <v> / unknown <reason>.
+    Only reads the release; downloads nothing. "unknown" (offline, GitHub's rate limit) never blocks anyone."""
+    import urllib.request  # noqa: PLC0415
+    from p1401 import tls  # noqa: PLC0415
+    tls.install()
+
+    def get(url):
+        rq = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": "1401"})
+        with urllib.request.urlopen(rq, timeout=15) as r:
+            return r.read()
+    try:
+        rel = latest_windows(lambda u: json.loads(get(u)), lambda u: get(u).decode("utf-8", "replace"))
+    except Exception as e:  # noqa: BLE001
+        print(f"RESULT unknown {type(e).__name__}")
+        return 0
+    print(f"RESULT {'newer' if outdated(current, rel[0]) else 'uptodate'} {rel[0]}")
+    return 0
+
+
 def _cli_appupdate(current, work):
     """python -m p1401.nullmoth appupdate <this app's version> <work dir>: RESULT uptodate / ready <v> <dir> / stop."""
     import shutil  # noqa: PLC0415
@@ -552,6 +581,8 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) == 4 and sys.argv[1] == "appupdate":
         raise SystemExit(_cli_appupdate(sys.argv[2], sys.argv[3]))
+    if len(sys.argv) == 3 and sys.argv[1] == "appcheck":
+        raise SystemExit(_cli_appcheck(sys.argv[2]))
     if len(sys.argv) > 2 and sys.argv[1] == "update":
         raise SystemExit(_cli_update(sys.argv[2:]))
     raise SystemExit(selftest())
