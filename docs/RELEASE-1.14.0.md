@@ -20,6 +20,11 @@ Bundles the NVIDIA driver and Mac app 1.14.0 (their notes list the driver fixes)
   DisableVariableWrite on, which a 9800X3D owner confirmed lets the install finish. Make the stick again with 1.14.
 - **"HTTP Error 502: Bad Gateway" from osrecovery.apple.com.** A proxy on some networks breaks plain HTTP to Apple's
   recovery service. 1401 now asks it over HTTPS when that happens; the image is still checked against Apple's signed list.
+- **"Windows could not erase the stick (diskpart exit 2147942405)".** That code is Windows refusing access to the
+  stick: it is write-protected (a lock switch on it or its card adapter) or another program has it open (an Explorer
+  window, Rufus, balenaEtcher, Ventoy, an antivirus scan). 1401 now says exactly that and what to do.
+- **"MemoryError:" during the macOS download.** Windows ran out of memory. The stop now says so, with how much memory
+  and page file were free, and what to do (close other programs, or restart the PC and try again).
 - **The NullMoth boot logo** is in every EFI 1401 builds, on by default (Mac app → Boot logo off).
 - **1401 updates itself**: *Update 1401 (this app)* downloads the newest version, checks it, and replaces itself.
 - **The hardware capture** records the installed Windows driver of every graphics adapter, any brand.
