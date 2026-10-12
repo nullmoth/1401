@@ -133,7 +133,16 @@ def ocvalidate_path():
             with os.fdopen(fd, "wb") as stream:
                 stream.write(expected)
             os.chmod(temporary, 0o755)
-            os.replace(temporary, out)
+            # Antivirus holds a just-written .exe while it scans it: the rename failed with "[WinError 5] Access is
+            # denied" and the write stopped (1.14.2 write logs). Retry for a few seconds; a lock that never clears
+            # still stops before anything is launched.
+            for attempt in range(12):
+                try:
+                    os.replace(temporary, out)
+                    break
+                except PermissionError:
+                    if attempt == 11: raise
+                    time.sleep(0.5)
         finally:
             if os.path.exists(temporary): os.unlink(temporary)
     if os.path.islink(out) or _sha256(out) != digest:

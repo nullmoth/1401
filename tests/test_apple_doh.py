@@ -70,8 +70,8 @@ class DohFallback(unittest.TestCase):
             raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
         with mock.patch("urllib.request.urlopen", urlopen):
             with self.assertRaises(apple.AppleError):
-                apple._open("http://oscdn.apple.com/content/x.dmg", {}, sleep=lambda s: None)
-        self.assertTrue(seen and all(u.startswith("http://oscdn.apple.com/") for u in seen))
+                apple._open("http://oscdn.apple.com/content/x.dmg", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+        self.assertTrue(seen and all(u.startswith("http://") for u in seen))
 
     def test_a_dns_failure_on_osrecovery_still_takes_the_doh_route(self):
         seen = []
@@ -116,6 +116,33 @@ class DohFallback(unittest.TestCase):
         with mock.patch("urllib.request.urlopen", urlopen):
             with self.assertRaises(apple.AppleError):
                 apple._open("http://oscdn.apple.com/x.dmg", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+
+    def test_a_cdn_that_keeps_answering_502_is_asked_at_another_edge(self):
+        # 1.14.2 write logs: oscdn 502 on every try; the DoH address is a different edge
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            if "oscdn.apple.com" in req.full_url:
+                raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
+            return Resp()
+        with mock.patch("urllib.request.urlopen", urlopen):
+            r = apple._open("http://oscdn.apple.com/x.chunklist", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+        self.assertIsNotNone(r)
+        self.assertEqual(seen, ["http://oscdn.apple.com/x.chunklist", "http://oscdn.apple.com/x.chunklist",
+                                "http://17.253.1.2/x.chunklist"])
+
+    def test_one_502_is_just_retried_where_it_was(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            if len(seen) == 1:
+                raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
+            return Resp()
+        with mock.patch("urllib.request.urlopen", urlopen):
+            apple._open("http://oscdn.apple.com/x.chunklist", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+        self.assertEqual(seen, ["http://oscdn.apple.com/x.chunklist"] * 2)
 
     def test_doh_answer_parsing_takes_the_first_ipv4_a_record(self):
         body = json.dumps({"Answer": [{"type": 5, "data": "cdn.apple.com."}, {"type": 1, "data": "17.253.1.2"}]}).encode()

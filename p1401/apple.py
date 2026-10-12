@@ -159,12 +159,18 @@ def _open(url, headers, data=None, sleep=None, doh=None):
                 req = urllib.request.Request("https://" + url[len("http://"):],
                                              headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
                 continue
-            if not rerouted and not secured and url.startswith("http://") and _dns_failure(e):
+            # The image CDN has no HTTPS to fall back to. 1.14.2 write logs: oscdn answered "502 Bad Gateway" on every
+            # try - the edge server (or a proxy in front of it) this network's DNS picked. After two 5xx in a row the
+            # request goes to the address DNS-over-HTTPS gives, a different edge; Apple's signed chunklist still checks it.
+            edge_5xx = (isinstance(e, urllib.error.HTTPError) and e.code in (502, 503, 504) and attempt >= 1
+                        and not url.startswith(OSRECOVERY_HTTP))
+            if not rerouted and not secured and url.startswith("http://") and (_dns_failure(e) or edge_5xx):
                 host = urlparse(url).hostname
                 ip = (doh or _doh)(host)
                 if ip:
                     rerouted = True
-                    print(f"(could not reach {host} through this network's DNS; using {ip} from DNS-over-HTTPS)", flush=True)
+                    why = "answered %s" % e.code if edge_5xx else "could not be reached through this network's DNS"
+                    print(f"({host} {why}; using {ip} from DNS-over-HTTPS)", flush=True)
                     req = urllib.request.Request(url.replace("//" + host, "//" + ip, 1),
                                                  headers={"Connection": "close", "User-Agent": UA, **headers, "Host": host}, data=data)
                     continue

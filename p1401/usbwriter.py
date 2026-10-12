@@ -318,6 +318,19 @@ for ($i = 0; $i -lt 5 -and -not $letter; $i++) {{
   try {{ Set-Partition -DiskNumber $p.DiskNumber -PartitionNumber 1 -NewDriveLetter {letter} -ErrorAction Stop; $letter = '{letter}' }}
   catch {{ Start-Sleep 2; Update-HostStorageCache; $d = Find-Stick; if ($d) {{ $p = Get-Partition -DiskNumber $d.Number -PartitionNumber 1 -ErrorAction SilentlyContinue; $letter = Letter-Of $p }} }}
 }}
+# The one letter picked earlier can be refused (taken since, or reserved): 4 sticks on 1.14.2 stopped here. Let Windows
+# choose any free letter, then diskpart's assign, before giving up.
+if (-not $letter -and $p) {{
+  try {{ Add-PartitionAccessPath -DiskNumber $p.DiskNumber -PartitionNumber 1 -AssignDriveLetter -ErrorAction Stop }} catch {{ }}
+  Start-Sleep 2; Update-HostStorageCache; $p = Get-Partition -DiskNumber $p.DiskNumber -PartitionNumber 1 -ErrorAction SilentlyContinue; $letter = Letter-Of $p
+}}
+if (-not $letter -and $p) {{
+  $dp = Join-Path $env:TEMP ('1401-assign-' + [guid]::NewGuid().ToString() + '.txt')
+  Set-Content -Path $dp -Encoding ASCII -Value ("select disk " + $p.DiskNumber + "`r`nselect partition 1`r`nassign`r`n")
+  & (Join-Path $env:SystemRoot 'System32\diskpart.exe') /s $dp | Out-Null
+  Remove-Item $dp -ErrorAction SilentlyContinue
+  Start-Sleep 2; Update-HostStorageCache; $p = Get-Partition -DiskNumber $p.DiskNumber -PartitionNumber 1 -ErrorAction SilentlyContinue; $letter = Letter-Of $p
+}}
 if (-not $letter) {{ throw '1401: Windows would not give the stick a drive letter. Unplug it, plug it in again and write again.' }}
 # Format-Volume failed with "Invalid Parameter", "Access Denied" or "Failed" on 12 sticks through 1.1: the new volume
 # was not published yet, or an indexer/antivirus held it for a moment. Three tries, then format.com, which Windows
