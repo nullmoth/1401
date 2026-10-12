@@ -334,8 +334,7 @@ def apply(config_path, result, policy):
         nv["csr-active-config"] = want
 
     # 4b. Known machines (known_machines.json): a board + CPU whose own boots showed the settings it needs gets them on
-    # every build, so its owner does not have to fail, send logs and rebuild again (maintainer 10-09: keep each machine that
-    # works and build it in). Checked before 5, so a newer failed boot's own log still wins.
+    # every build, so a verified setup remains reproducible. Checked before 5, so a newer failed boot's own log still wins.
     mb = ((result.hardware or {}).get("Motherboard") or {}).get("Name", "").lower()
     cpu_name = ((result.hardware or {}).get("CPU") or {}).get("Processor Name", "").lower()
     for known in _known_machines():
@@ -356,12 +355,12 @@ def apply(config_path, result, policy):
         for note in bootfix.apply_after_handoff(cfg, texts, policy.stopped_at, change)["report"]:
             change("bootlog-note", "", note, "from the last failed start")
 
-    # 6. The NullMoth boot logo (an OpenCore driver that draws it where boot.efi draws the Apple logo), on by default
-    #    (maintainer 10-11). The Mac app turns it off; -nmlogooff in boot-args turns it off for one start.
+    # 6. The cosmetic EFI logo is an explicit opt-in. Default builds disable an existing entry
+    # after reported firmware hangs; no other boot driver or recovery entry is changed.
     import shutil  # noqa: PLC0415
     logo_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "NullMothLogo.efi")
     drivers = cfg.setdefault("UEFI", {}).setdefault("Drivers", [])
-    if getattr(policy, "boot_logo", True) and os.path.isfile(logo_src) and not any(d.get("Path") == "NullMothLogo.efi" for d in drivers):
+    if getattr(policy, "boot_logo", False) and os.path.isfile(logo_src) and not any(d.get("Path") == "NullMothLogo.efi" for d in drivers):
         ddir = os.path.join(os.path.dirname(config_path), "Drivers")
         os.makedirs(ddir, exist_ok=True)
         shutil.copyfile(logo_src, os.path.join(ddir, "NullMothLogo.efi"))
@@ -369,7 +368,22 @@ def apply(config_path, result, policy):
         if drivers and "HideVerbose" in drivers[0]:   # only the keys this OpenCore's own entries carry
             entry["HideVerbose"] = False
         drivers.append(entry)
-        change("boot-logo", "Apple logo", "NullMoth logo", "on by default; Boot logo off in the Mac app, or -nmlogooff for one start")
+        change("boot-logo", "Apple logo", "NullMoth logo", "explicit diagnostic opt-in; default builds leave the cosmetic EFI driver disabled")
+
+    if getattr(policy, "boot_logo", False) and os.path.isfile(logo_src):
+        for entry in drivers:
+            if isinstance(entry, dict) and entry.get("Path") == "NullMothLogo.efi" and not entry.get("Enabled"):
+                ddir = os.path.join(os.path.dirname(config_path), "Drivers")
+                os.makedirs(ddir, exist_ok=True)
+                shutil.copyfile(logo_src, os.path.join(ddir, "NullMothLogo.efi"))
+                entry["Enabled"] = True
+                change("boot-logo", "disabled", "enabled", "explicit diagnostic opt-in")
+
+    if not getattr(policy, "boot_logo", False):
+        for entry in drivers:
+            if isinstance(entry, dict) and entry.get("Path") == "NullMothLogo.efi" and entry.get("Enabled"):
+                entry["Enabled"] = False
+                change("boot-logo", "enabled", "disabled", "cosmetic EFI driver implicated in firmware boot hangs; normal boot drivers preserved")
 
     tmp = config_path + ".tmp"
     with open(tmp, "wb") as fh:

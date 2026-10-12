@@ -1,5 +1,4 @@
-"""A machine whose own boots showed what it needs gets those settings on every build (maintainer 10-09: keep each machine
-that works and build it in). The table is known_machines.json; a non-matching machine is untouched."""
+"""Verified board and CPU settings remain reproducible; non-matching machines are untouched."""
 import os
 import plistlib
 import tempfile
