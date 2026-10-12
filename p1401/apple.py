@@ -365,13 +365,15 @@ def _read_uncached(path, block=1 << 20):
     k32.VirtualAlloc.restype = ctypes.c_void_p
     h = k32.CreateFileW(path, 0x80000000, 0x1, None, 3, 0x20000000 | 0x08000000, None)  # GENERIC_READ, NO_BUFFERING|SEQUENTIAL
     if h in (None, wintypes.HANDLE(-1).value):
-        raise OSError(ctypes.get_last_error(), "could not open the image on the stick for checking")
+        raise ctypes.WinError(ctypes.get_last_error(), "could not open the image on the stick for checking")
     buf = k32.VirtualAlloc(None, block, 0x3000, 0x04)  # page-aligned, as unbuffered reads require
     try:
         n = wintypes.DWORD()
         while True:
             if not k32.ReadFile(h, ctypes.c_void_p(buf), block, ctypes.byref(n), None):
-                raise OSError(ctypes.get_last_error(), "reading the image back from the stick failed")
+                # WinError, not OSError(code): a Windows error number passed as errno was shown as a POSIX error -
+                # Windows 21 "device not ready" (the stick stopped answering) read as "IsADirectoryError [Errno 21]"
+                raise ctypes.WinError(ctypes.get_last_error(), "reading the image back from the stick failed")
             if not n.value:
                 return
             yield ctypes.string_at(buf, n.value)

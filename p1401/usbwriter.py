@@ -48,11 +48,19 @@ def _system_tool(*parts):
     return path if os.path.isfile(path) else parts[-1]
 
 
+# diskpart prints in the OEM code page; "oem" is that codec on Windows (absent elsewhere, where diskpart never runs)
+_OEM = "oem" if os.name == "nt" else "utf-8"
+
+
 def _ps(script):
     if platform.system() != "Windows":
         raise UsbError("the USB writer runs on Windows only")
-    p = subprocess.run([_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
-                       capture_output=True, text=True, timeout=TIMEOUT)
+    # PowerShell writes in the console's code page (GBK, cp866, ...), not UTF-8: on a Chinese Windows reading its output
+    # as UTF-8 raised UnicodeDecodeError and the write stopped with an empty "UsbError:" (1.14.1 write logs). It is told
+    # to write UTF-8, and anything that still is not is replaced instead of stopping the write.
+    p = subprocess.run([_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+                        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT)
     if p.returncode != 0:
         raise UsbError((p.stderr or p.stdout).strip()[-1500:])
     return p.stdout
@@ -237,12 +245,14 @@ def _diskpart(script):
     try:
         with os.fdopen(fd, "w", encoding="ascii", newline="") as fh:
             fh.write(script)
-        p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
+        p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True,
+                           encoding=_OEM, errors="replace", timeout=TIMEOUT)
         for _ in range(3):  # a just-released stick can refuse clean ("not ready"/"access denied") for a few seconds
             if p.returncode == 0:
                 break
             time.sleep(5)
-            p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True, timeout=TIMEOUT)
+            p = subprocess.run([_system_tool("diskpart.exe"), "/s", sp], capture_output=True, text=True,
+                           encoding=_OEM, errors="replace", timeout=TIMEOUT)
         if p.returncode != 0:
             raise UsbError(_diskpart_failure(p.returncode, (p.stdout or p.stderr).strip()[-1200:]))
     finally:

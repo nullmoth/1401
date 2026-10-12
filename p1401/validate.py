@@ -153,7 +153,7 @@ def run_ocvalidate(config_path):
     """Returns (ok, issues:int, text)."""
     exe = ocvalidate_path()
     try:
-        p = subprocess.run([exe, config_path], capture_output=True, text=True, timeout=TIMEOUT)
+        p = subprocess.run([exe, config_path], capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
     except OSError as error:
         if getattr(error, "winerror", None) == 4551:
             raise ValidatorUnavailable("Windows application control blocked the verified OpenCore validator (4551). "
