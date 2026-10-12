@@ -1,6 +1,6 @@
 {
-  "baseline_url": "https://github.com/nullmoth/1401/releases/download/v1.0.21/1401-Windows-1.0.21.zip",
-  "baseline_sha256": "2b42a8be7db8b9fd3a85ee4093d21e5c6aa1ea98592fc212d3ffcd52544e5a37",
+  "baseline_url": "https://github.com/nullmoth/1401/releases/download/v1.14.3/1401-Windows-1.14.3.zip",
+  "baseline_sha256": "e287bf4b09805dbf697f915fa6867a15a422764c46b8733dfd9f46bc0e6043b6",
   "driver_release": "v1.14.4",
   "mac_asset": "1401-Mac-1.14.4.zip",
   "mac_sha256": "fbc3804482e9f9521fbd33953d922618d1d6ecdc19d99f0b0b8d34a6ccb3479c",
