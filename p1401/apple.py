@@ -141,7 +141,10 @@ def _open(url, headers, data=None, sleep=None, doh=None):
     # still checked chunk by chunk against Apple's signed chunklist.
     req = urllib.request.Request(url, headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
     rerouted = secured = False
-    for attempt in range(OPEN_TRIES):
+    # +2: each reroute (HTTPS, DNS-over-HTTPS) happens at most once and gets its own try. WAS range(OPEN_TRIES): a reroute
+    # on the last try ended the loop and _open returned None ("'NoneType' object has no attribute 'headers'", NM-SMXYWG2M).
+    # Back-off retries are still limited by OPEN_TRIES below.
+    for attempt in range(OPEN_TRIES + 2):
         try:
             return urllib.request.urlopen(req, timeout=TIMEOUT)
         except Exception as e:  # keep the URL so the UI can show what failed
@@ -169,6 +172,7 @@ def _open(url, headers, data=None, sleep=None, doh=None):
                 (sleep or time.sleep)(2 ** (attempt + 1))
                 continue
             raise AppleError(f"{url}: {type(e).__name__}: {e}") from e
+    raise AppleError(f"{url}: no answer after {OPEN_TRIES + 2} tries")  # never return None to a caller
 
 
 def _hex(n):

@@ -93,6 +93,30 @@ class DohFallback(unittest.TestCase):
                 apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
         self.assertIn("502", str(cm.exception))
 
+    def test_a_reroute_on_the_last_try_still_gets_its_own_try(self):
+        # 1.13 write log NM-SMXYWG2M: timeouts used up every try, the DNS failure on the last one rerouted to DoH and the
+        # loop ended there - _open returned None and the write stopped with "'NoneType' object has no attribute 'headers'"
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            if "17.253.1.2" in req.full_url:
+                return Resp()
+            if len(seen) < apple.OPEN_TRIES:
+                raise urllib.error.URLError(TimeoutError("timed out"))
+            raise urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))
+        with mock.patch("urllib.request.urlopen", urlopen):
+            r = apple._open("http://oscdn.apple.com/x.dmg", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+        self.assertIsNotNone(r)
+        self.assertEqual(seen[-1], "http://17.253.1.2/x.dmg")
+
+    def test_open_never_returns_none(self):
+        def urlopen(req, timeout=0):
+            raise urllib.error.URLError(TimeoutError("timed out"))
+        with mock.patch("urllib.request.urlopen", urlopen):
+            with self.assertRaises(apple.AppleError):
+                apple._open("http://oscdn.apple.com/x.dmg", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
+
     def test_doh_answer_parsing_takes_the_first_ipv4_a_record(self):
         body = json.dumps({"Answer": [{"type": 5, "data": "cdn.apple.com."}, {"type": 1, "data": "17.253.1.2"}]}).encode()
         self.assertEqual(apple._doh("osrecovery.apple.com", fetch=lambda url: body), "17.253.1.2")
