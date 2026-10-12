@@ -148,7 +148,7 @@ class Resume(unittest.TestCase):
                 apple.copy_local(apple.local_image(src), usb)
             self.assertIsNone(apple.local_image(os.path.join(src, "missing")))
 
-    def test_a_reset_while_opening_is_retried_but_an_http_refusal_is_not(self):
+    def test_reset_retries_and_recovery_refusal_has_one_https_attempt(self):
         tries = []
         def urlopen(req, timeout=None):
             tries.append(1)
@@ -161,7 +161,7 @@ class Resume(unittest.TestCase):
             tries.append(1); raise urllib.error.HTTPError(req.full_url, 403, "no", email.message.Message(), None)
         with patch("urllib.request.urlopen", refuse), self.assertRaises(apple.AppleError):
             apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
-        self.assertEqual(len(tries), 1)
+        self.assertEqual(len(tries), 2)
 
 
 

@@ -153,7 +153,9 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # also answers over HTTPS (measured 10-11: session, RecoveryImage and an HTTPS session cookie on HTTP all work),
             # which such a proxy cannot touch. oscdn has no valid HTTPS certificate, so the image itself stays on HTTP and
             # is checked against Apple's signed chunklist as before. A DNS failure keeps the DNS-over-HTTPS route below.
-            if not (secured or rerouted) and url.startswith(OSRECOVERY_HTTP) and _transient(e) and not _dns_failure(e):
+            recovery_http_refused = isinstance(e, urllib.error.HTTPError) and e.code == 403
+            if (not (secured or rerouted) and url.startswith(OSRECOVERY_HTTP)
+                    and (_transient(e) or recovery_http_refused) and not _dns_failure(e)):
                 secured = True
                 print("(osrecovery.apple.com failed over HTTP on this network; asking it over HTTPS)", flush=True)
                 req = urllib.request.Request("https://" + url[len("http://"):],

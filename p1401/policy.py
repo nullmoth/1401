@@ -84,7 +84,7 @@ def apply(config_path, result, policy):
     nv = cfg["NVRAM"]["Add"].setdefault(BOOT, {})
     # 0. The upstream builder picks NootedRed (AMD APU graphics), NootRX (Navi 22), SMCRadeonSensors and ForgedInvariant
     # for some machines. Their licence
-    # forbids any use with AI tools and any derivative work, so 1401 never ships them: the entries and the files go, and
+    # restricts the use and distribution of derivative packages, so 1401 never ships them: the entries and the files go, and
     # those GPUs run on the firmware framebuffer (basic display) until NullMoth's own driver covers them.
     gone = [k["BundlePath"] for k in cfg["Kernel"]["Add"] if k.get("BundlePath", "").split("/")[0] in EXCLUDED_KEXTS]
     if gone:
@@ -93,7 +93,7 @@ def apply(config_path, result, policy):
         for name in EXCLUDED_KEXTS:
             shutil.rmtree(os.path.join(os.path.dirname(config_path), "Kexts", name), ignore_errors=True)
         change_early = {"rule": "excluded-kexts", "before": ", ".join(sorted(set(gone))), "after": "",
-                        "why": "licence forbids use with AI tools; this GPU gets basic display until NullMoth's own driver covers it"}
+                        "why": "licence restrictions prevent inclusion; this GPU gets basic display until NullMoth's own driver covers it"}
         changes.append(change_early)
     kexts = cfg["Kernel"]["Add"]
     enabled = {k["BundlePath"].split("/")[-1] for k in kexts if k.get("Enabled")}

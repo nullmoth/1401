@@ -1,4 +1,4 @@
-"""Kexts whose licence forbids use with AI tools (NootedRed, NootRX, SMCRadeonSensors, ForgedInvariant) never reach a
+"""Kexts excluded by dependency licence restrictions (NootedRed, NootRX, SMCRadeonSensors, ForgedInvariant) never reach a
 1401 EFI: the policy pass removes their config entries and their files, and leaves every other kext alone."""
 import os
 import plistlib

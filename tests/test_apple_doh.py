@@ -73,6 +73,47 @@ class DohFallback(unittest.TestCase):
                 apple._open("http://oscdn.apple.com/content/x.dmg", {}, sleep=lambda s: None, doh=lambda h: "17.253.1.2")
         self.assertTrue(seen and all(u.startswith("http://") for u in seen))
 
+    def test_http_recovery_403_gets_one_verified_https_attempt(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append((req.full_url, req.data, req.get_header("Cookie")))
+            if req.full_url.startswith("http://"):
+                raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+            return Resp()
+
+        url = "http://osrecovery.apple.com/InstallationPayload/RecoveryImage"
+        with mock.patch("urllib.request.urlopen", urlopen):
+            result = apple._open(url, {"Cookie": "session=test"}, b"request", sleep=lambda s: None)
+        self.assertIsInstance(result, Resp)
+        self.assertEqual(seen, [(url, b"request", "session=test"),
+                                (url.replace("http://", "https://", 1), b"request", "session=test")])
+
+    def test_https_recovery_403_still_stops_without_an_ip_reroute(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+        with mock.patch("urllib.request.urlopen", urlopen), mock.patch.object(apple, "_doh") as resolver:
+            with self.assertRaises(apple.AppleError):
+                apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
+        self.assertEqual(seen, ["http://osrecovery.apple.com/", "https://osrecovery.apple.com/"])
+        resolver.assert_not_called()
+
+    def test_cdn_403_is_not_sent_to_unverified_https(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+        with mock.patch("urllib.request.urlopen", urlopen):
+            with self.assertRaises(apple.AppleError):
+                apple._open("http://oscdn.apple.com/content/image.dmg", {}, sleep=lambda s: None)
+        self.assertEqual(seen, ["http://oscdn.apple.com/content/image.dmg"])
+
     def test_a_dns_failure_on_osrecovery_still_takes_the_doh_route(self):
         seen = []
 
