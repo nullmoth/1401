@@ -71,6 +71,9 @@ def findings(texts):
         out["startimage_aborted"] |= "StartImage failed - Aborted" in t
         out["stop16"] |= bool(re.search(r"EB\.MM\.AKM|Couldn't allocate runtime area|STOP 0x16", t))
         out["secureboot_dmg"] |= "Cannot use Secure Boot with Any DmgLoading" in t
+        # UEFI Secure Boot (the BIOS setting) refuses every driver OpenCore loads: nine logs since 1.11 end at
+        # "OC: Driver HfsPlus.efi at 0 cannot be loaded - Access Denied!" and the PC hangs there
+        out["uefi_secureboot"] = out.get("uefi_secureboot", False) or bool(re.search(r"OC: Driver \S+ at \d+ cannot be loaded - Access Denied", t))
         out["devirt_ran"] |= "OCABC: MMIO devirt" in t
         out["no_slide"] = out.get("no_slide", False) or "No slide values are usable" in t
         vm = re.search(r"OCABC: .*\bVMAP ([01])\b", t)  # the quirk line: SetupVirtualMap as that boot ran it
@@ -191,6 +194,11 @@ def apply(cfg, result, texts, change, stopped_at=""):
             change("bootlog-note", "", "every hand-off setting the log allows has frozen on this PC. In the BIOS: Above 4G "
                    "Decoding on, CSM off, Secure Boot off, VT-d off (or keep it and leave DisableIoMapper on), then send the logs",
                    "it froze at EXITBS:START with each hand-off setting")
+    if f.get("uefi_secureboot"):
+        change("bootlog-note", "", "Secure Boot is on in this PC's BIOS: it refused OpenCore's drivers ('Access Denied') and "
+               "the start stopped there. Turn Secure Boot off in the BIOS (on ASUS boards: Boot -> Secure Boot -> OS Type "
+               "'Other OS'), then start from the stick again",
+               "every driver OpenCore loaded was refused with Access Denied")
     if f["secureboot_dmg"]:
         sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
         if sec.get("SecureBootModel") != "Disabled" and sec.get("DmgLoading") != "Signed":
@@ -342,6 +350,15 @@ def selftest():
     arm("control: an Intel PC is not given the AMD steps", not c["Booter"]["Quirks"]["DevirtualiseMmio"] and not log)
     c, log = run(amd, "OCB: Saved mode 0/0/0 - Success\nAAPL: #[EB|LOG:EXITBS:START]\n")
     arm("negative control: a log with no failure changes nothing", not log and not c["Booter"]["Quirks"]["DevirtualiseMmio"])
+    def said(text):
+        got = []
+        apply({}, amd, [text], lambda *a: got.append(" ".join(map(str, a))))
+        return got
+    sb = said("OC: Driver HfsPlus.efi at 0 cannot be loaded - Access Denied!\n")
+    arm("UEFI Secure Boot refusing OpenCore's drivers tells the user to turn it off in the BIOS",
+        any("Secure Boot is on in this PC's BIOS" in x for x in sb), sb)
+    ok_ = said("OC: Driver HfsPlus.efi at 0 is successfully loaded!\n")
+    arm("a driver that loaded is not read as Secure Boot", not any("Secure Boot is on" in x for x in ok_), ok_)
     c, log = run(amd, "OC: Cannot use Secure Boot with Any DmgLoading!\n", {"Misc": {"Security": {"SecureBootModel": "Default"}}})
     arm("Secure Boot recovery requires Signed without disabling its model", c["Misc"]["Security"]["DmgLoading"] == "Signed" and c["Misc"]["Security"]["SecureBootModel"] == "Default")
     panic = ("panic(cpu 2 caller 0xffffff8001): Kernel trap at 0x..., type 14=page fault\n"
