@@ -351,9 +351,15 @@ Write-Output "LETTER=$letter"
     except UsbError as e:
         # 1.8 log 10-10 (a "VendorCo ProductCode" stick): the raw erase succeeded but Windows never showed the new
         # partition. Windows' own diskpart erase makes Windows re-read the stick, then the same find-and-format runs again.
-        if "did not show its new partition" not in str(e):
+        # 1.15 logs 10-13 (General UDisk, SanDisk 3.2Gen1, TOSHIBA TransMemory): the raw erase left a lettered partition
+        # with no volume behind it - Format-Volume found no MSFT_Volume for the letter and format.com said "Invalid media
+        # or Track 0 bad" / "Specified drive does not exist". diskpart's own clean + format rebuilds the volume through the
+        # volume manager, the same rescue as for a partition Windows never showed.
+        unshown = "did not show its new partition" in str(e)
+        if not unshown and "Format-Volume:" not in str(e):
             raise
-        print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)", flush=True)
+        print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)" if unshown else
+              "(Windows could not format the erased stick; erasing it with Windows' diskpart instead)", flush=True)
         release(n)
         _diskpart(diskpart_script(disk, letter))
         # diskpart has already made, formatted and lettered the partition. Five 1.8/1.9 logs (10-10, all the same
