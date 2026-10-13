@@ -37,3 +37,21 @@ class Renumbered(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PowerShellTimeout(unittest.TestCase):
+    """A PowerShell step that runs past the limit is a UsbError the format step falls back from, not a raw TimeoutExpired."""
+
+    def test_timeout_is_a_usb_error(self):
+        import subprocess
+        def boom(*a, **k):
+            raise subprocess.TimeoutExpired(cmd="powershell", timeout=300)
+        with mock.patch.object(usbwriter.platform, "system", return_value="Windows"), \
+             mock.patch.object(usbwriter.subprocess, "run", boom):
+            with self.assertRaises(usbwriter.UsbError) as cm:
+                usbwriter._ps("Format-Volume ...")
+        self.assertIn("did not finish preparing", str(cm.exception))
+
+    def test_the_format_fallback_accepts_a_timeout(self):
+        src = inspect.getsource(usbwriter.write)
+        self.assertIn('"did not finish preparing" not in str(e)', src)

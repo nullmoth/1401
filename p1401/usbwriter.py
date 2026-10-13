@@ -58,9 +58,14 @@ def _ps(script):
     # PowerShell writes in the console's code page (GBK, cp866, ...), not UTF-8: on a Chinese Windows reading its output
     # as UTF-8 raised UnicodeDecodeError and the write stopped with an empty "UsbError:" (1.14.1 write logs). It is told
     # to write UTF-8, and anything that still is not is replaced instead of stopping the write.
-    p = subprocess.run([_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
-                        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT)
+    try:
+        p = subprocess.run([_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+                            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT)
+    except subprocess.TimeoutExpired:
+        # 1.15 write log (10-13, a 500 GB hard disk in a USB case): Format-Volume ran past the limit and the raw
+        # TimeoutExpired, PowerShell command line and all, was the STOP. It is a UsbError the format step can recover from.
+        raise UsbError(f"Windows did not finish preparing the stick within {TIMEOUT} s") from None
     if p.returncode != 0:
         raise UsbError((p.stderr or p.stdout).strip()[-1500:])
     return p.stdout
@@ -375,7 +380,7 @@ Write-Output "LETTER=$letter"
         # or Track 0 bad" / "Specified drive does not exist". diskpart's own clean + format rebuilds the volume through the
         # volume manager, the same rescue as for a partition Windows never showed.
         unshown = "did not show its new partition" in str(e)
-        if not unshown and "Format-Volume:" not in str(e):
+        if not unshown and "Format-Volume:" not in str(e) and "did not finish preparing" not in str(e):
             raise
         print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)" if unshown else
               "(Windows could not format the erased stick; erasing it with Windows' diskpart instead)", flush=True)
