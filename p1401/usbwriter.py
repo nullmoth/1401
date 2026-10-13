@@ -386,9 +386,19 @@ Write-Output "LETTER=$letter"
     # the image checked out while it arrived; this checks what the stick actually kept (see apple.verify_written)
     with open(got["chunklist"], "rb") as fh:
         changed = apple.verify_written(got["image"], apple.parse_chunklist(fh.read()))
+    if changed and len(changed) <= 16:
+        # A few parts read back wrong: write those parts once more (fetched again and hash-checked) and check again.
+        # Many parts wrong is a stick smaller than it claims or a dying one; that is not retried.
+        print(f"(parts {', '.join(map(str, changed[:16]))} of {got['chunks']} read back different; writing them again)", flush=True)
+        try:
+            with open(got["chunklist"], "rb") as fh:
+                changed = apple.repair_written(recovery_info, got["image"], apple.parse_chunklist(fh.read()), changed)
+        except (apple.AppleError, OSError, apple.http.client.HTTPException) as e:
+            print(f"(writing them again failed: {type(e).__name__}: {str(e)[-160:]})", flush=True)
     if changed:
         raise UsbError(f"this stick changed the macOS image after it was written ({len(changed)} of {got['chunks']} parts "
-                       f"read back different). The stick is failing or not the size it claims: use another USB stick.")
+                       f"read back different: {', '.join(map(str, changed[:12]))}{' ...' if len(changed) > 12 else ''}). "
+                       f"The stick is failing or not the size it claims: use another USB stick.")
     _copy_settled(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"), root)
     verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
     driver = None

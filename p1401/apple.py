@@ -413,6 +413,44 @@ def verify_written(img, chunks, read=None):
     return bad
 
 
+def repair_written(info, img, chunks, bad, fetch=None, read=None):
+    """Writes the chunks that read back different once more, in place, and checks the whole image again. Returns the
+    chunks that still differ. Twenty-four 1.15 write logs in two days stopped on "changed the macOS image after it was
+    written", most with 1-8 of 85 chunks wrong: a stick that misses a write now and then gets one more try per chunk,
+    and a stick that keeps losing data (or is smaller than it claims) still stops. Every rewritten chunk comes again from
+    Apple (a byte range) or from the local image, and is checked against Apple's signed chunklist before it is written.
+    A tail longer than the chunklist is not repaired."""
+    if not bad or any(i > len(chunks) for i in bad):
+        return bad
+    offsets = [0]
+    for size, _ in chunks:
+        offsets.append(offsets[-1] + size)
+
+    def from_source(offset, size):
+        if info.get("local"):
+            with open(info["image_path"], "rb") as src:
+                src.seek(offset)
+                return src.read(size)
+        r = _resume(info, offset, size, delay=0)
+        try:
+            return _read_exact(r, size)
+        finally:
+            r.close()
+
+    fetch = fetch or from_source
+    with open(img, "r+b") as fh:
+        for i in bad:
+            size, sha = chunks[i - 1]
+            buf = fetch(offsets[i - 1], size)
+            if hashlib.sha256(buf).digest() != sha:
+                raise AppleError(f"chunk {i}/{len(chunks)} fetched again fails Apple's hash - refused")
+            fh.seek(offsets[i - 1])
+            fh.write(buf)
+        fh.flush()
+        os.fsync(fh.fileno())
+    return verify_written(img, chunks, read)
+
+
 def local_image(folder):
     """A recovery image the user downloaded elsewhere (BaseSystem.dmg + BaseSystem.chunklist, e.g. macrecovery on another
     network), as an info dict for copy_local, or None. Apple refuses some networks outright (HTTP 403 on every session,
