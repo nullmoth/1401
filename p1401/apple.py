@@ -252,8 +252,22 @@ def parse_chunklist(data):
     return [CHUNK.unpack_from(data, coff + i * CHUNK.size) for i in range(count)]
 
 
+def unwrap_chunklist(data, limit=1 << 20):
+    """A chunklist some networks deliver gzip-compressed although 1401 asks for none (eight 1.14.7 write logs:
+    "not an Apple chunklist (magic=b'\\x1f\\x8b\\x08\\x00' ...)"). Unpacked here, up to 1 MB; parse_chunklist still
+    refuses anything Apple did not sign, so this cannot let another file through."""
+    if data[:2] != b"\x1f\x8b":
+        return data
+    import zlib  # noqa: PLC0415
+    d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    out = d.decompress(data, limit)
+    if d.unconsumed_tail:
+        raise AppleError("compressed chunklist unpacks to more than 1 MB - refused")
+    return out
+
+
 def fetch_chunklist(info):
-    return _asset(info["chunklist_url"], info["chunklist_token"]).read()
+    return unwrap_chunklist(_asset(info["chunklist_url"], info["chunklist_token"]).read())
 
 
 def download(info, usb_root, progress=None):
