@@ -1,38 +1,29 @@
 # 1401
 
-**macOS on the PC you already own: the reverse of Boot Camp.** Free of charge, never for sale. Hardware reports stay local until a log submission is explicitly approved.
+Install macOS on the PC you already own: the reverse of Boot Camp. 1401 runs on Windows, checks your hardware, builds
+an OpenCore setup for it and writes a macOS install stick. It is free and open source.
 
-Made by **NullMoth Systems**. Support the work: https://buymeacoffee.com/nullmoth
+- Download: [releases page](https://github.com/nullmoth/1401/releases) (`1401-Windows-<version>.zip`)
+- Changes: [CHANGELOG.md](CHANGELOG.md)
+- Problems: [troubleshooting](docs/TROUBLESHOOTING.md)
+- How it works: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md)
+- NVIDIA driver for macOS: [nvidia-macos-driver](https://github.com/nullmoth/nvidia-macos-driver)
 
-**Something not working?** [Why a machine does not work, and how to fix it](docs/TROUBLESHOOTING.md) - every known problem, where it stops, why, and the fix.
-
-| Download (Releases) | What it is |
-|---|---|
-| `1401-Windows-1.0.24.zip` | the Windows app: checks your PC, builds its OpenCore setup, writes a macOS install stick |
-| `1401-Mac-1.14.7.dmg` (in the [driver repo](https://github.com/nullmoth/nvidia-macos-driver) releases) | the Mac installer for the NVIDIA driver: open it and run **1401**; the helper package is a separate verified download or the copy staged on the USB stick |
-
-> **1401 is new and may not work on every PC.** It has been tested end to end on one PC (Intel Core Ultra 5 225F,
-> B860 board, GeForce RTX 5060). If it does not work on yours, set up OpenCore by hand with the
-> [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/)
-> ([OpenCore releases](https://github.com/acidanthera/OpenCorePkg/releases)). The Mac installer targets macOS 15 on OpenCore; individual GPU, display and application support requires validation.
-
-How the code works, step by step: [`docs/HOW-IT-WORKS.md`](docs/HOW-IT-WORKS.md).
-
-Maintenance changes: [`Windows 1.0.24 companion refresh`](docs/RELEASE-1.0.24.md).
+1401 has been tested end to end on a small number of PCs, so expect problems on others. If it doesn't work on yours,
+the [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/) covers setting OpenCore up by hand.
 
 ## Using it
 
-1. Unzip `1401-Windows-1.0.24.zip` and keep the `1401` folder together. Run `1401.exe` (it asks for administrator
-   rights: it reads the hardware and writes the stick).
-2. **Check this PC**, **Build the Mac setup**, read **Your BIOS steps**, then **Create the macOS stick** on a USB stick of
-   4 GB or more that can be erased. You need internet.
-3. Restart, change the BIOS settings 1401 showed you, boot the stick, and pick the macOS installer in the OpenCore menu.
-   In the installer, choose only the intended macOS partition or volume. Do not erase a whole disk containing Windows or other data. Prepare verified backups and recovery media before changing partitions. Format only the intended macOS destination as APFS with Disk Utility, then choose Reinstall macOS. The installer
-   downloads the rest of macOS from Apple.
-4. With a supported Turing-or-later NVIDIA card: when macOS is running, open the `NullMoth` folder on the stick, unzip `1401-Mac-1.0.18.zip`
-   and run **1401.app** (or download `1401-Mac-1.14.7.dmg`). It installs the NVIDIA driver and updates the driver-related OpenCore settings. Keep the 1401 stick plugged in while it runs and every time you start
-   the Mac: OpenCore on that stick is what starts macOS, and it is the config 1401.app changes.
-The Mac companion does not copy OpenCore onto an internal EFI. Keep its startup stick attached for every restart until that boot setup is separately reviewed.
+1. Unzip the release and keep the `1401` folder together. Run `1401.exe` as administrator (it reads the hardware and
+   writes the stick).
+2. Click Check this PC, Build the Mac setup, read Your BIOS steps, then Create the macOS stick. You need a USB stick of
+   4 GB or more that can be erased, and an internet connection.
+3. Restart, change the BIOS settings 1401 showed you, boot the stick and pick the macOS installer in the OpenCore menu.
+   In Disk Utility, erase only the partition or disk meant for macOS (APFS), never a disk with Windows or data you
+   want to keep. Then choose Reinstall macOS; the rest of macOS downloads from Apple.
+4. With an NVIDIA card (GTX 16 or newer): once macOS is running, open the `NullMoth` folder on the stick and run
+   1401.app, or download `1401-Mac-<version>.dmg` from the driver's releases page. It installs the driver and updates
+   the OpenCore settings on the stick. Keep the stick plugged in: OpenCore on it is what starts macOS.
 
 5. Something went wrong? If the build fails, 1401 shows why and sends the log to nullmothsystems.com after telling you
    (Cancel keeps it on your PC). If macOS does not start from the stick, boot back into Windows, plug the stick in and open
