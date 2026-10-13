@@ -182,6 +182,24 @@ def letters_on(n):
     return [c.strip() for c in out.split() if len(c.strip()) == 1 and c.strip().isalpha()]
 
 
+def current_number(disk):
+    """The stick's disk number now. Taking a stick offline and online (the write's own retry, release()) can give it a
+    new number: a 1.15 write log (10-13, ADATA USB Flash Drive) then sent diskpart "select disk 3" and got "The disk
+    you specified is not valid". Found again by serial; by size and model when the serial does not identify exactly one
+    disk (some controllers report a new serial on every read); the number the user picked when neither does."""
+    n = int(disk["Number"])
+    if platform.system() != "Windows":
+        return n
+    out = _ps(f"""$sn = {_q((disk.get('SerialNumber') or '').strip())}; $sz = {int(disk['Size'])}; $fn = {_q(disk.get('FriendlyName'))}
+$all = @(Get-Disk -ErrorAction SilentlyContinue)
+$hit = @($all | Where-Object {{ $sn -and (($_.SerialNumber + '').Trim() -eq $sn) }})
+if ($hit.Count -ne 1) {{ $hit = @($all | Where-Object {{ $_.Size -eq $sz -and $_.FriendlyName -eq $fn -and $_.BusType -eq 'USB' }}) }}
+if ($hit.Count -eq 1) {{ Write-Output "NUMBER=$($hit[0].Number)" }}
+""")
+    got = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("NUMBER=")), "")
+    return int(got) if got.isdigit() else n
+
+
 def release(n):
     """Frees the stick before diskpart clean: drops its drive letters and cycles it offline/online so no process holds a
     handle (diskpart's "Access is denied" on clean, ). Every step may fail harmlessly; clean reports the real error."""
@@ -287,8 +305,9 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         if "Windows error 5" not in str(e):
             raise
         print("(this stick refuses direct writes; erasing it with Windows' diskpart instead)", flush=True)
+        n = current_number(disk)
         release(n)
-        _diskpart(diskpart_script(disk, letter))
+        _diskpart(diskpart_script({**disk, "Number": n}, letter))
     script = (f"""$ErrorActionPreference = 'Stop'
 # After the raw erase Windows re-detects the stick: its disk number can change and the partition objects it had are
 # gone ("The requested object could not be found" from Get-/Set-Partition and Remove-PartitionAccessPath, 1.2.0).
@@ -360,8 +379,9 @@ Write-Output "LETTER=$letter"
             raise
         print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)" if unshown else
               "(Windows could not format the erased stick; erasing it with Windows' diskpart instead)", flush=True)
+        n = current_number(disk)
         release(n)
-        _diskpart(diskpart_script(disk, letter))
+        _diskpart(diskpart_script({**disk, "Number": n}, letter))
         # diskpart has already made, formatted and lettered the partition. Five 1.8/1.9 logs (10-10, all the same
         # "VendorCo ProductCode" stick) passed diskpart and then failed the second search, which looks the stick up by
         # bus type, size and serial that this stick does not report the same way twice. The letter diskpart assigned
@@ -451,23 +471,44 @@ def _pinned_package(path):
     return pinned if os.path.isfile(pinned) else path
 
 
-def _fetch(url, path, tries=3):
-    """Downloads url to path; a body shorter than its Content-Length (a dropped connection, 10-10 log) is fetched again."""
+def _fetch(url, path, tries=8, sleep=None):
+    """Downloads url to path, resuming a dropped connection from the bytes already on disk (a Range request); a server
+    that ignores the range starts the file over. WAS: three tries, each from byte 0 of a 371 MB package, and a body that
+    stayed short on every try returned as if done (1.15 write log 10-13: two drops, then "STOP RemoteDisconnected").
+    The package's SHA-256 is still checked by the caller before anything reaches the stick."""
+    import re as _re  # noqa: PLC0415
     import urllib.request  # noqa: PLC0415
+    sleep = sleep or time.sleep
+    if os.path.exists(path):
+        os.remove(path)
+    want = 0
     for attempt in range(tries):
+        have = os.path.getsize(path) if os.path.exists(path) else 0
         try:
-            with urllib.request.urlopen(url, timeout=60) as r, open(path, "wb") as fh:
-                want = int(r.headers.get("Content-Length") or 0)
-                shutil.copyfileobj(r, fh, 1 << 20)
-            if not want or os.path.getsize(path) == want:
+            req = urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                rng = (r.headers.get("Content-Range") or "") if have else ""
+                m = _re.match(r"bytes (\d+)-\d+/(\d+)", rng)
+                if have and not (m and int(m.group(1)) == have):
+                    have = 0  # the server sent the whole file, not the rest
+                if m and have:
+                    want = int(m.group(2))
+                elif not have:
+                    want = int(r.headers.get("Content-Length") or 0)
+                with open(path, "ab" if have else "wb") as fh:
+                    shutil.copyfileobj(r, fh, 1 << 20)
+            size = os.path.getsize(path)
+            if not want or size == want:
                 return
-            print(f"(the driver download stopped at {os.path.getsize(path)} of {want} bytes; downloading it again)", flush=True)
+            print(f"(the driver download stopped at {size} of {want} bytes; resuming)", flush=True)
         except OSError as error:
             if attempt == tries - 1:
                 raise
-            print(f"(the driver download failed: {type(error).__name__}; downloading it again)", flush=True)
-        time.sleep(5)
-
+            print(f"(the driver download failed: {type(error).__name__}; resuming)", flush=True)
+        sleep(min(5 * (attempt + 1), 30))
+    size = os.path.getsize(path) if os.path.exists(path) else 0
+    raise OSError(f"the driver download stopped at {size} of {want} bytes after {tries} tries - check the connection "
+                  f"and write again")
 
 def selftest():
     res = []

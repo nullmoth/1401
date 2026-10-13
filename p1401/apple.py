@@ -291,7 +291,18 @@ def download(info, usb_root, progress=None):
     def note(s):
         trail.append(f"{time.monotonic() - t0:.0f}s {s}")
         del trail[1:-7]  # the first cut (how much one full stream got) plus the last seven
-    r = _asset(info["image_url"], info["image_token"])
+    try:
+        r = _asset(info["image_url"], info["image_token"])
+    except AppleError as e:
+        # 1.15 write log (10-13): "HTTP Error 403: Forbidden" on the very first image request, before any byte. The
+        # resume path already swaps in a fresh URL and token on a 403; the first request now does the same, once.
+        if "HTTP Error 403" not in str(e):
+            raise
+        old = info["image_token"]
+        _refresh(info)
+        if info["image_token"] == old:
+            raise
+        r = _asset(info["image_url"], info["image_token"])
     # WAS: fh was first bound inside the with, so a stick that refused the file made the finally raise
     # UnboundLocalError and hid the real error (1.9.0 write log, 10-10)
     fh = None

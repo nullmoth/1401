@@ -203,3 +203,15 @@ class ExpiredToken(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FirstRequest403(unittest.TestCase):
+    """A 403 on the first image request gets one fresh URL and token, like a resume does."""
+
+    def test_a_403_before_any_byte_refreshes_once(self):
+        import inspect
+        from p1401 import apple
+        src = inspect.getsource(apple.download)
+        first = src[:src.index("with open(img + \".part\", \"wb\") as fh:")]
+        self.assertIn('"HTTP Error 403" not in str(e)', first)
+        self.assertIn("_refresh(info)", first)
