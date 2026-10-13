@@ -81,10 +81,10 @@ namespace A1401
 
             // --- step: done ---
             { "The macOS stick is ready.\r\n\r\n1. Restart and open your board's boot menu (the key is in your BIOS steps), then choose the stick.\r\n" +
-              "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer.\r\n" +
+              "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer. The screen can stay still for up to two minutes while macOS is read from the stick: do not restart.\r\n" +
               "3. When macOS is running, open the NullMoth folder on the stick and run 1401.app to finish the NVIDIA driver.",
               "macOS 启动盘已就绪。\r\n\r\n1. 重启并打开主板的启动菜单（按键见 BIOS 设置步骤），然后选择该 U 盘。\r\n" +
-              "2. 在 1401 启动菜单中选择 \"Install macOS\"，按 Apple 安装程序的提示操作。\r\n" +
+              "2. 在 1401 启动菜单中选择 \"Install macOS\"，按 Apple 安装程序的提示操作。从 U 盘读取 macOS 时屏幕可能最多静止两分钟：请不要重启。\r\n" +
               "3. macOS 启动后，打开 U 盘上的 NullMoth 文件夹，运行 1401.app 完成 NVIDIA 驱动的安装。" },
 
             // --- progress and log lines ---

@@ -274,7 +274,7 @@ namespace A1401
                     next.Text = Loc.T(written ? "Continue >" : "Erase and create"); Show(disks, refresh, bar, log); next.Enabled = true; FillDisks(); break;
                 case 5:
                     note.Text = Loc.T("The macOS stick is ready.\r\n\r\n1. Restart and open your board's boot menu (the key is in your BIOS steps), then choose the stick.\r\n" +
-                        "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer.\r\n" +
+                        "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer. The screen can stay still for up to two minutes while macOS is read from the stick: do not restart.\r\n" +
                         "3. When macOS is running, open the NullMoth folder on the stick and run 1401.app to finish the NVIDIA driver.");
                     next.Text = Loc.T("Close"); Show(); next.Enabled = true; break;
             }
