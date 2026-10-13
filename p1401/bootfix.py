@@ -169,7 +169,14 @@ def apply(cfg, result, texts, change, stopped_at=""):
             nomat = {"DevirtualiseMmio": True, "SetupVirtualMap": True, **nomat}
         keys = list(dict.fromkeys(list(nomat) + ["DevirtualiseMmio"]))
         before = ", ".join(f"{k}={quirks.get(k)}" for k in keys)
-        if not stuck["wrunprot"]:
+        if cpu == "Intel" and f.get("no_slide") and not stuck["devmmio"]:
+            # "No slide values are usable" on the frozen boot: OpenCore had no room for the kernel and loaded it at slide 0
+            # over memory the firmware still uses. DevirtualiseMmio frees the firmware's MMIO regions for the slide search
+            # (Dortania KASLR guide); seen on an i7-13700H laptop with DevirtualiseMmio off (10-12 stick log).
+            quirks["DevirtualiseMmio"] = True
+            change("bootlog-intel-no-slide", before, "DevirtualiseMmio=True",
+                   "the frozen boot found no kernel slide with DevirtualiseMmio off")
+        elif not stuck["wrunprot"]:
             quirks.update(nomat)
             change("bootlog-handoff-nomat" if cpu == "Intel" else "bootlog-amd-exitbs", before,
                    ", ".join(f"{k}={v}" for k, v in nomat.items()),
@@ -398,6 +405,14 @@ def selftest():
     qa, la = ladder(amd, [boot("2026-10-09T10:00", 1, 1), boot("2026-10-09T10:30", 1, 1)])
     arm("AMD frozen with the measured five-quirk set: DevirtualiseMmio comes off next, the rest stays",
         la == ["bootlog-handoff-devirt"] and qa["DevirtualiseMmio"] is False and qa["EnableWriteUnprotector"], la)
+    noslide = "OCABC: No slide values are usable! Falling back to 0 with 0x1F00000 bytes!\n"
+    qi, li = ladder(intel, [noslide + boot("2026-10-12T07:27", 0, 0)], "the screen froze at EXITBS:START")
+    arm("Intel frozen with 'No slide values are usable' and DevirtualiseMmio off: DevirtualiseMmio on first",
+        li == ["bootlog-intel-no-slide"] and qi["DevirtualiseMmio"] is True and qi["EnableWriteUnprotector"] == q0["EnableWriteUnprotector"], li)
+    qi, li = ladder(intel, [noslide + boot("2026-10-12T07:27", 1, 0)], "the screen froze at EXITBS:START")
+    arm("Intel no-slide with DevirtualiseMmio already on: the normal ladder (no-MAT) runs instead", li == ["bootlog-handoff-nomat"], li)
+    qi, li = ladder(intel, [boot("2026-10-12T07:27", 0, 0)], "the screen froze at EXITBS:START")
+    arm("control: Intel frozen WITHOUT the no-slide line keeps step 1 (no-MAT)", li == ["bootlog-handoff-nomat"], li)
     qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0)])
     arm("control: ONE installer boot that reached the hand-off is not called frozen (good boots log the same)", not li and qi == q0, li)
     qi, li = ladder(intel, [boot("2026-10-09T10:00", 0, 0), boot("2026-10-09T10:20", 0, 0, macos_disk=True)])
