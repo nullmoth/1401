@@ -385,6 +385,20 @@ def apply(config_path, result, policy):
                 entry["Enabled"] = False
                 change("boot-logo", "enabled", "disabled", "cosmetic EFI driver implicated in firmware boot hangs; normal boot drivers preserved")
 
+    # 7. Tahoe + the IOSkywalkFamily downgrade (Broadcom or Intel Wi-Fi) + a Realtek 2.5G/5G port on Lucy: macOS 26 adds
+    #    its own Realtek driver (AppleEthernetRL, RTL8124-8127), which loads at boot to probe the port and links against
+    #    Tahoe's IOSkywalkFamily. With that family blocked for the downgrade, the machine stops at the Apple logo with no
+    #    panic. Lucy drives the port, so Apple's driver is blocked too; macOS 15 has no such driver and is left alone.
+    lucy = {"RTL812xLucy.kext", "LucyRTL8125Ethernet.kext"} & enabled
+    blocks = cfg["Kernel"].setdefault("Block", [])
+    skywalk_downgrade = any(b.get("Identifier") == "com.apple.iokit.IOSkywalkFamily" and b.get("Enabled") for b in blocks)
+    if tahoe and skywalk_downgrade and lucy and not any(b.get("Identifier") == "com.apple.driver.AppleEthernetRL" for b in blocks):
+        blocks.append({"Arch": "x86_64", "Comment": "Apple Realtek Ethernet on 26 (Lucy drives the port)", "Enabled": True,
+                       "Identifier": "com.apple.driver.AppleEthernetRL", "MaxKernel": "", "MinKernel": "25.0.0",
+                       "Strategy": "Exclude"})
+        change("tahoe-realtek-ethernet", "AppleEthernetRL", "blocked (" + ", ".join(sorted(lucy)) + " drives the port)",
+               "with the IOSkywalkFamily downgrade, Apple's Realtek driver stops macOS 26 at the Apple logo")
+
     tmp = config_path + ".tmp"
     with open(tmp, "wb") as fh:
         plistlib.dump(cfg, fh)
