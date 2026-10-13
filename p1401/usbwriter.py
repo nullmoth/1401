@@ -438,8 +438,10 @@ Write-Output "LETTER=$letter"
     return {"root": root, "nullmoth": driver, **got}
 
 
-def verify_efi_copy(source, destination):
-    """Read the written EFI files back before reporting a ready installer."""
+def verify_efi_copy(source, destination, copy=None):
+    """Read the written EFI files back before reporting a ready installer. A file that differs is copied once more and
+    checked again: a 1.15 write (10-13) stopped on OC/Kexts/itlwm.kext alone, the shape of an antivirus scan holding or
+    changing one file, or one bad write. Still different after that, the write stops and says which files."""
     import hashlib
 
     def digest(path):
@@ -449,14 +451,32 @@ def verify_efi_copy(source, destination):
                 hasher.update(block)
         return hasher.digest()
 
-    for folder, _, files in os.walk(source):
-        for name in files:
-            original = os.path.join(folder, name)
-            relative = os.path.relpath(original, source)
-            target = os.path.join(destination, relative)
-            if not os.path.isfile(target) or digest(original) != digest(target):
-                raise UsbError('The written EFI did not match the build: ' + relative + '. The stick is not ready.')
+    def differing():
+        bad = []
+        for folder, _, files in os.walk(source):
+            for name in files:
+                original = os.path.join(folder, name)
+                relative = os.path.relpath(original, source)
+                target = os.path.join(destination, relative)
+                if not os.path.isfile(target) or digest(original) != digest(target):
+                    bad.append(relative)
+        return bad
 
+    bad = differing()
+    if bad:
+        copy = copy or shutil.copy2
+        print(f"(the stick kept {len(bad)} EFI file(s) different from the build; copying them again)", flush=True)
+        for relative in bad:
+            target = os.path.join(destination, relative)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            try:
+                copy(os.path.join(source, relative), target)
+            except OSError as error:
+                print(f"(copying {relative} again failed: {type(error).__name__})", flush=True)
+        bad = differing()
+    if bad:
+        raise UsbError('The written EFI did not match the build: ' + ', '.join(bad[:4]) + (' ...' if len(bad) > 4 else '')
+                       + '. The stick is not ready. If an antivirus is running, let it allow the 1401 folder and write again.')
 
 def needs_nullmoth(efi_build_dir):
     """True when the built config carries the NullMoth driver's boot-args (only nullmoth.apply writes nvaccel=1)."""
