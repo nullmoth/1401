@@ -1,9 +1,14 @@
-"""Let iasl disassemble a DSDT that defines the same Device twice.
+"""Let iasl disassemble a DSDT that defines the same Device or Method twice.
 
 Some AMI firmware (seen on AM5 boards) builds the DSDT with one Device declared in several If/Else branches, for
 example \\_SB.PCI0.GPP7.UP00 three times. The firmware's own interpreter only runs one branch, but iasl loads them all
 and stops with AE_ALREADY_EXISTS, so the build stopped at "dsdt.aml could not be disassembled" (15 builds on 1.1.0).
 iasl 20260930 refuses it the same way, and neither -df nor -f helps.
+
+The same AE_ALREADY_EXISTS also appears on a Method declared twice, for example a GPE handler \\_GPE._L02 that the
+firmware defines in more than one branch (BIOSTAR B650MT-E PRO, 1401 #1 / driver #7). A Method opens with 0x14, not
+5B 82, so the Device-only scan found nothing and the build stopped the same way; the leaf after the clash is renamed
+whether it is a Device (5B 82) or a Method (0x14).
 
 The upstream loader copies the tables into a temp folder and runs iasl there. When a run fails this way, the later
 definitions of that name in the temp copy of the DSDT are renamed (Z000, Z001, ...) and the run is repeated. The first
@@ -29,26 +34,42 @@ def _pkglen(data, i):
     return value, extra + 1
 
 
-def device_names(data, name):
-    """Offsets of NameSeg `name` (4 bytes) directly after a Device op (5B 82 PkgLength)."""
+def _defs_after(data, op, oplen, name):
+    """Offsets of NameSeg `name` (4 bytes) directly after `op` + PkgLength (op is `oplen` bytes)."""
     out = []
-    i = data.find(b"\x5b\x82")
+    i = data.find(op)
     while i >= 0:
-        j = i + 2
+        j = i + oplen
         if j < len(data):
             _, n = _pkglen(data, j)
             if data[j + n:j + n + 4] == name:
                 out.append(j + n)
-        i = data.find(b"\x5b\x82", i + 1)
+        i = data.find(op, i + 1)
     return out
 
 
+def device_names(data, name):
+    """Offsets of NameSeg `name` (4 bytes) directly after a Device op (5B 82 PkgLength)."""
+    return _defs_after(data, b"\x5b\x82", 2, name)
+
+
+def method_names(data, name):
+    """Offsets of NameSeg `name` (4 bytes) directly after a Method op (14 PkgLength)."""
+    return _defs_after(data, b"\x14", 1, name)
+
+
+def name_defs(data, name):
+    """Offsets where `name` is defined as a Device or a Method, in table order. A clash on \\_GPE._L02 is a Method,
+    on \\_SB.PCI0.GPP7.UP00 a Device, so both opcodes are scanned and the first definition keeps its name."""
+    return sorted(set(device_names(data, name)) | set(method_names(data, name)))
+
+
 def rename_later(data, name, serial):
-    """Renames every definition of `name` after the first. Returns how many, 0 when it is defined once."""
-    spots = device_names(data, name)
+    """Renames every Device/Method definition of `name` after the first. Returns how many, 0 when it is defined once."""
+    spots = name_defs(data, name)
     for k, off in enumerate(spots[1:]):
         data[off:off + 4] = ("Z%03X" % (serial + k)).encode()
-    return max(len(spots) - 1, 0)  # WAS len - 1: a name that is not a Device gave -1, and the retry loop never ended
+    return max(len(spots) - 1, 0)  # WAS len - 1: a name that is not a Device/Method gave -1, and the loop never ended
 
 
 @contextlib.contextmanager
@@ -138,6 +159,21 @@ def selftest():
     long_body = b"\x00" * 100
     big = bytearray(b"\x5b\x82" + bytes([0x40 | ((len(long_body) + 6) & 0x0F), (len(long_body) + 6) >> 4]) + b"GPP7" + long_body)
     arm("a two-byte PkgLength is decoded", device_names(big, b"GPP7") == [4])
+
+    def meth(name, body=b""):  # Method op: 14 PkgLength NameSeg MethodFlags body
+        inner = name + b"\x00" + body
+        return b"\x14" + bytes([len(inner) + 1]) + inner
+
+    maml = bytearray(b"HDR" + meth(b"_L02") + b"\xa0\x01" + meth(b"_L02", b"\x00") + meth(b"_L08"))
+    arm("two Method definitions of _L02 are found (\\_GPE._L02 declared twice: 1401 #1 / driver #7)",
+        len(method_names(maml, b"_L02")) == 2, len(method_names(maml, b"_L02")))
+    arm("a Method clash is renamed just like a Device, the first _L02 keeps its name",
+        rename_later(maml, b"_L02", 0) == 1 and len(method_names(maml, b"_L02")) == 1 and
+        len(method_names(maml, b"Z000")) == 1, maml)
+    arm("a Method defined once (_L08) is left alone", rename_later(maml, b"_L08", 5) == 0)
+    mixed = bytearray(b"HDR" + dev(b"UP00") + meth(b"UP00"))
+    arm("a name used as both a Device and a Method is ordered and the later one renamed",
+        rename_later(mixed, b"UP00", 0) == 1)
 
     class Runner:
         def __init__(self, path):
