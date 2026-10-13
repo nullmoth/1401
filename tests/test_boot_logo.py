@@ -48,4 +48,23 @@ class BootLogo(unittest.TestCase):
         logos = [d for d in drivers if d.get('Path') == 'NullMothLogo.efi']
         self.assertEqual(len(logos), 1); self.assertTrue(logos[0]['Enabled'] and copied)
         self.assertIn('HideVerbose', logos[0]); self.assertEqual(len(changes), 1)
+    def refused(self, entries, opt=True):
+        with tempfile.TemporaryDirectory() as d:
+            log = pathlib.Path(d) / 'opencore-2026-10-13-120000.txt'
+            log.write_text('23:209 00:016 OC: Driver NullMothLogo.efi at 3 cannot be loaded - Unsupported!\n')
+            with tempfile.TemporaryDirectory() as directory:
+                root = pathlib.Path(directory); config = root / 'config.plist'
+                before = copy.deepcopy(BASE); before['UEFI']['Drivers'] += entries
+                config.write_bytes(plistlib.dumps(before))
+                result = engine.BuildResult(ok=True, out_dir=directory, macos_version='24.6.0', hardware={})
+                changes = policy.apply(str(config), result, engine.Policy(boot_logo=opt, boot_logs=[str(log)]))
+                return plistlib.loads(config.read_bytes())['UEFI']['Drivers'], [c for c in changes if c['rule'] == 'boot-logo']
+    def test_a_logo_the_firmware_refused_is_turned_off_even_when_opted_in(self):
+        entry = {'Path': 'NullMothLogo.efi', 'Enabled': True, 'Arguments': ''}
+        drivers, changes = self.refused([entry])
+        self.assertFalse(drivers[2]['Enabled'])
+        self.assertTrue(any('refused' in str(c) for c in changes))
+    def test_a_refused_logo_is_not_added_again(self):
+        drivers, _ = self.refused([])
+        self.assertFalse(any(d.get('Path') == 'NullMothLogo.efi' for d in drivers))
 if __name__ == '__main__': unittest.main()

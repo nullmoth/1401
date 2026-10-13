@@ -348,6 +348,7 @@ def apply(config_path, result, policy):
             break
 
     # 5. A failed boot's own log (the stick's opencore-*.txt), when the app passed one: see bootfix.py.
+    texts = []
     if getattr(policy, "boot_logs", None) or getattr(policy, "stopped_at", ""):
         from . import bootfix  # noqa: PLC0415
         texts = bootfix.read_logs(policy.boot_logs)
@@ -360,7 +361,15 @@ def apply(config_path, result, policy):
     import shutil  # noqa: PLC0415
     logo_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "NullMothLogo.efi")
     drivers = cfg.setdefault("UEFI", {}).setdefault("Drivers", [])
-    if getattr(policy, "boot_logo", False) and os.path.isfile(logo_src) and not any(d.get("Path") == "NullMothLogo.efi" for d in drivers):
+    # A firmware that refused the logo driver at the stick's last start (a Gigabyte AORUS: "NullMothLogo.efi at 3 cannot
+    # be loaded - Unsupported!", and OpenCore went no further) gets it turned off, opt-in or not.
+    refused = any(re.search(r"NullMothLogo\.efi at \d+ cannot be (loaded|found)", t or "") for t in (texts or []))
+    if refused:
+        for entry in drivers:
+            if isinstance(entry, dict) and entry.get("Path") == "NullMothLogo.efi" and entry.get("Enabled"):
+                entry["Enabled"] = False
+                change("boot-logo", "enabled", "disabled", "this PC's firmware refused the logo driver at the last start")
+    if not refused and getattr(policy, "boot_logo", False) and os.path.isfile(logo_src) and not any(d.get("Path") == "NullMothLogo.efi" for d in drivers):
         ddir = os.path.join(os.path.dirname(config_path), "Drivers")
         os.makedirs(ddir, exist_ok=True)
         shutil.copyfile(logo_src, os.path.join(ddir, "NullMothLogo.efi"))
@@ -370,7 +379,7 @@ def apply(config_path, result, policy):
         drivers.append(entry)
         change("boot-logo", "Apple logo", "NullMoth logo", "explicit diagnostic opt-in; default builds leave the cosmetic EFI driver disabled")
 
-    if getattr(policy, "boot_logo", False) and os.path.isfile(logo_src):
+    if not refused and getattr(policy, "boot_logo", False) and os.path.isfile(logo_src):
         for entry in drivers:
             if isinstance(entry, dict) and entry.get("Path") == "NullMothLogo.efi" and not entry.get("Enabled"):
                 ddir = os.path.join(os.path.dirname(config_path), "Drivers")
