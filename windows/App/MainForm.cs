@@ -23,6 +23,8 @@ namespace A1401
         readonly TextBox log = new TextBox();
         readonly ProgressBar bar = new ProgressBar();
         readonly ComboBox disks = new ComboBox();
+        // The macOS the user picks: index 0 = macOS 15 Sequoia (Darwin 24), 1 = macOS 26 Tahoe (Darwin 25).
+        readonly ComboBox osPick = new ComboBox();
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
@@ -95,6 +97,11 @@ namespace A1401
             disks.BackColor = Theme.Panel; disks.ForeColor = Theme.Text; disks.Font = Theme.Picker;
             refresh.Text = Loc.T("Refresh"); refresh.Bounds = new Rectangle(534, 168, 110, 30); Theme.Style(refresh, false);
             refresh.Click += (s, e) => FillDisks();
+            osPick.DropDownStyle = ComboBoxStyle.DropDownList; osPick.Bounds = new Rectangle(24, 300, 300, 28);
+            osPick.BackColor = Theme.Panel; osPick.ForeColor = Theme.Text; osPick.Font = Theme.Picker;
+            osPick.Items.AddRange(new object[] { Loc.T("macOS 15 Sequoia"), Loc.T("macOS 26 Tahoe") }); osPick.SelectedIndex = 0;
+            // A different pick needs different startup files: drop the finished build so Build runs again.
+            osPick.SelectedIndexChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
             guide.Bounds = new Rectangle(24, 110, 620, 360); guide.ScriptErrorsSuppressed = true;
             ocLink.Text = Loc.T("OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"); ocLink.AutoSize = true;
             ocLink.Location = new Point(24, 300); ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
@@ -120,7 +127,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, guide, ocLink, logLink, coffeeLink, drvLink, appLink, doctorLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, guide, ocLink, logLink, coffeeLink, drvLink, appLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             ResumeLayout(false); PerformLayout();
@@ -242,8 +249,8 @@ namespace A1401
                     note.Text = Loc.T(scanned ? "This PC was checked. Continue, or check again." : "1401 reads this PC's hardware (processor, board, graphics, network, storage) and its ACPI tables. This takes about a minute.");
                     next.Text = Loc.T(scanned ? "Continue >" : "Check this PC"); Show(facts, log); next.Enabled = true; break;
                 case 2:
-                    note.Text = Loc.T(built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "1401 now picks the newest macOS your hardware runs and builds the startup files (OpenCore EFI) for it, then checks them with OpenCore's own validator. Downloads OpenCore and drivers.");
-                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log); next.Enabled = scanned;
+                    note.Text = Loc.T(built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "Pick macOS 15 Sequoia or macOS 26 Tahoe below. 1401 builds the startup files (OpenCore EFI) for that version and checks them with OpenCore's own validator. Downloads OpenCore and drivers.");
+                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick); next.Enabled = scanned;
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
@@ -400,7 +407,7 @@ namespace A1401
                 var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
                 try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say(Loc.T("Using the last startup log on the stick to adjust this build."));
-                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json" + bootLogs, l => { lines.Add(l); });
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));

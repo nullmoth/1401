@@ -58,6 +58,10 @@ namespace A1401
             // --- step: build ---
             { "1401 now picks the newest macOS your hardware runs and builds the startup files (OpenCore EFI) for it, then checks them with OpenCore's own validator. Downloads OpenCore and drivers.",
               "1401 现在会挑选你的硬件能运行的最新 macOS 版本，为它构建启动文件（OpenCore EFI），然后用 OpenCore 自带的校验器检查。需要下载 OpenCore 和驱动。" },
+            { "Pick macOS 15 Sequoia or macOS 26 Tahoe below. 1401 builds the startup files (OpenCore EFI) for that version and checks them with OpenCore's own validator. Downloads OpenCore and drivers.",
+              "在下面选择 macOS 15 Sequoia 或 macOS 26 Tahoe。1401 为该版本构建启动文件（OpenCore EFI），然后用 OpenCore 自带的校验器检查。需要下载 OpenCore 和驱动。" },
+            { "macOS 15 Sequoia", "macOS 15 Sequoia" },
+            { "macOS 26 Tahoe", "macOS 26 Tahoe" },
             { " for this PC, as a ", "，为本机生成的机型为 " },
             { ". The startup files passed OpenCore's own check.", "。启动文件已通过 OpenCore 自带的检查。" },
 
