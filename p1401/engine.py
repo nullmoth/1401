@@ -52,6 +52,13 @@ def _macos_answer(prompt, ctx, pol):
     if pol.macos:
         return pol.macos
     offered = re.findall(r"^\s*(\d+)\.\s+macOS (.+?)(?:\s+\(|$)", ctx, re.M)
+    # A card the NullMoth driver runs has only macOS 15, but the engine's default follows its own advice: on AMD Ryzen
+    # laptops "we suggest you to use only macOS Ventura 13 or older", which is on the menu and was taken as is.
+    # 15 NVIDIA builds (1.x to 1.15, Ryzen 4800H/5800H/5600H, GTX 1650/1660 Ti, RTX 2060/3050 Ti/3060) installed
+    # Ventura or Sonoma, where the driver does not load.
+    want = pol.prefer.get("macOS")
+    if want and any(n == want for n, _ in offered):
+        return want
     m = re.search(r"\(default: macOS (.+?)\)", prompt)
     if not offered or (m and any(name.strip() == m.group(1).strip() for _, name in offered)):
         return ""
@@ -648,6 +655,7 @@ def _nullmoth_gpu_pass(checker, h):
             checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
             h.notices.append(nullmoth.BASIC_NOTE.format(name=basic))
             return
+        h.policy.prefer["macOS"] = nullmoth.SEQUOIA[0].split(".")[0]
         mux = nullmoth.mux_help(checker.hardware_report)
         if mux:
             h.notices.append(mux)
