@@ -75,6 +75,32 @@ class DohRefused(unittest.TestCase):
         self.assertNotIn("VPN", str(cm.exception))
 
 
+class BadGatewayEverywhere(unittest.TestCase):
+    def setUp(self):
+        apple._doh_cache.clear()
+
+    def open_502(self, doh_ip):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            raise urllib.error.HTTPError(req.full_url, 502, "Bad Gateway", {}, None)
+        with mock.patch("urllib.request.urlopen", urlopen), self.assertRaises(apple.AppleError) as cm:
+            apple._open(CDN, {}, sleep=lambda s: None, doh=lambda h: doh_ip)
+        return str(cm.exception), seen
+
+    def test_502_from_both_edges_names_the_network(self):
+        msg, seen = self.open_502("17.253.1.2")
+        self.assertTrue(any("17.253.1.2" in u for u in seen))
+        self.assertIn("two different Apple download servers answered 502", msg)
+        self.assertIn("phone hotspot or a VPN", msg)
+
+    def test_negative_control_502_without_a_second_edge_keeps_the_bare_error(self):
+        msg, seen = self.open_502(None)
+        self.assertFalse(any("17.253.1.2" in u for u in seen))
+        self.assertNotIn("two different", msg)
+
+
 class SilentPowerShell(unittest.TestCase):
     def ps(self, rc, out="", err=""):
         done = subprocess.CompletedProcess([], rc, stdout=out, stderr=err)

@@ -204,6 +204,13 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             if by_name_again:
                 advice = (" - this network's DNS could not find Apple's download server and the network refused it by "
                           "address too. Connect through another network or a VPN (or a phone hotspot) and press Next again.")
+            # 1.15 write log: oscdn answered 502 by name, then 502 again at the DNS-over-HTTPS address - two different
+            # edge servers failing the same way points at a proxy or web scanner on this network, and the bare
+            # "Bad Gateway" told the user nothing to do.
+            elif rerouted and isinstance(e, urllib.error.HTTPError) and e.code in (502, 503, 504):
+                advice = (f" - two different Apple download servers answered {e.code} through this network, so something "
+                          "on the way (a proxy, or web/HTTP scanning in an antivirus) is breaking the download. Turn that "
+                          "scanning off, or connect through a phone hotspot or a VPN, and press Next again.")
             raise AppleError(f"{url}: {type(e).__name__}: {e}{advice}") from e
     raise AppleError(f"{url}: no answer after {OPEN_TRIES + 3} tries")  # never return None to a caller
 
