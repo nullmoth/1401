@@ -540,6 +540,24 @@ def _keep_identity(out_dir, prior, machine_key, h):
                      "and iCloud still see the same Mac.")
 
 
+APP_BUILD_DIR = ("nullmoth", "1401", "efi")  # the app's own build folder, under the user's local app data
+LEFTOVER_TOP = {"EFI", "manifest.json", MARKER, IDENTITY_FOR}  # all an upstream build leaves at the top
+
+
+def _adopt_leftover_build(out_dir):
+    """A build that stopped inside the upstream step (before this fix) left the app's build folder without its marker.
+    Only the app's own folder is adopted, and only when it holds nothing but an upstream build; any other folder is
+    still refused, so a folder of the user's own is never wiped."""
+    parts = tuple(p.lower() for p in os.path.normpath(out_dir).replace("\\", "/").split("/")[-3:])
+    if parts != APP_BUILD_DIR or not os.path.isdir(out_dir) or os.path.exists(os.path.join(out_dir, MARKER)):
+        return False
+    top = set(os.listdir(out_dir))
+    if not top or not top <= LEFTOVER_TOP or not os.path.isdir(os.path.join(out_dir, "EFI", "OC")):
+        return False
+    open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
+    return True
+
+
 def _prepare_out(out_dir):
     """The engine wipes its result dir. Only ever hand it a folder that is empty or one we made."""
     out_dir = os.path.abspath(out_dir)
@@ -646,6 +664,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     policy = policy or Policy()
     policy = dataclasses.replace(policy, prefer=dict(policy.prefer))  # the Wi-Fi pre-pass writes to prefer
     out_dir = os.path.abspath(out_dir)
+    _adopt_leftover_build(out_dir)
     if os.path.exists(out_dir) and os.listdir(out_dir) and not os.path.exists(os.path.join(out_dir, MARKER)):
         raise RuntimeError("refusing to build into an unowned nonempty folder")
     scratch = tempfile.mkdtemp(prefix="1401-report-")
@@ -745,8 +764,14 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 if not o.o.gather_bootloader_kexts(o.k.kexts, mv):
                     raise RuntimeError('Dependency gathering stopped before the EFI was ready. '
                                        'Check the preceding download error and rebuild; no installable EFI was produced.')
-                o.build_opencore_efi(cust, disabled, smbios, mv, needs_oclp)
-                open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
+                # The upstream build empties out_dir (our marker with it) before copying OpenCore in, so a build that
+                # stopped inside it left a folder without the marker, and every later Build on that PC was refused as
+                # "unowned" (106 uploads, every version from 1.0 to 1.15). The marker goes back even when it raises.
+                try:
+                    o.build_opencore_efi(cust, disabled, smbios, mv, needs_oclp)
+                finally:
+                    if os.path.isdir(out_dir):
+                        open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
                 _keep_identity(out_dir, prior_identity, machine_key, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
