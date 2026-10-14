@@ -146,14 +146,26 @@ def _open(url, headers, data=None, sleep=None, doh=None):
     # same request goes to the address DNS-over-HTTPS gives, with the real Host header; the image is still Apple's and is
     # still checked chunk by chunk against Apple's signed chunklist.
     req = urllib.request.Request(url, headers={"Connection": "close", "User-Agent": UA, **headers}, data=data)
-    rerouted = secured = False
-    # +2: each reroute (HTTPS, DNS-over-HTTPS) happens at most once and gets its own try. WAS range(OPEN_TRIES): a reroute
-    # on the last try ended the loop and _open returned None ("'NoneType' object has no attribute 'headers'", NM-SMXYWG2M).
-    # Back-off retries are still limited by OPEN_TRIES below.
-    for attempt in range(OPEN_TRIES + 2):
+    rerouted = secured = by_name_again = False
+    by_name = req
+    # +3: each reroute (HTTPS, DNS-over-HTTPS, back to the name) happens at most once and gets its own try. WAS
+    # range(OPEN_TRIES): a reroute on the last try ended the loop and _open returned None ("'NoneType' object has no
+    # attribute 'headers'", NM-SMXYWG2M). Back-off retries are still limited by OPEN_TRIES below.
+    for attempt in range(OPEN_TRIES + 3):
         try:
             return urllib.request.urlopen(req, timeout=TIMEOUT)
         except Exception as e:  # keep the URL so the UI can show what failed
+            # Write logs 1.13 (x2) and 1.15 (10-14): every oscdn request sent to the DNS-over-HTTPS address answered
+            # "HTTP Error 400: Bad Request" on that network, while the same three edge addresses served the file with the
+            # same headers from elsewhere (measured 10-14, 200 OK each). Something on the network rejects a request
+            # addressed by IP. In the 1.15 log DNS had worked for 99% of the image and failed once, so the name is asked
+            # again before stopping.
+            if (rerouted and not by_name_again and isinstance(e, urllib.error.HTTPError) and e.code == 400):
+                by_name_again = True
+                print("(the DNS-over-HTTPS address was refused on this network; asking by name again)", flush=True)
+                req = by_name
+                (sleep or time.sleep)(2)
+                continue
             # 1.13 write logs 10-11: one PC got "HTTP Error 502: Bad Gateway" from http://osrecovery.apple.com/ six times
             # in 17 minutes while Apple answered 200 everywhere else: a proxy on that network breaks plain HTTP. osrecovery
             # also answers over HTTPS (measured 10-11: session, RecoveryImage and an HTTPS session cookie on HTTP all work),
@@ -189,8 +201,11 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # UNEXPECTED_EOF_WHILE_READING" on every try): something between the PC and Apple drops both, and the bare
             # error left the user nothing to do.
             advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and _transient(e) else ""
+            if by_name_again:
+                advice = (" - this network's DNS could not find Apple's download server and the network refused it by "
+                          "address too. Connect through another network or a VPN (or a phone hotspot) and press Next again.")
             raise AppleError(f"{url}: {type(e).__name__}: {e}{advice}") from e
-    raise AppleError(f"{url}: no answer after {OPEN_TRIES + 2} tries")  # never return None to a caller
+    raise AppleError(f"{url}: no answer after {OPEN_TRIES + 3} tries")  # never return None to a caller
 
 
 def _hex(n):

@@ -199,10 +199,16 @@ def stage(usb_root, cache_dir, fetch=None):
     d = os.path.join(usb_root, "NullMoth")
     os.makedirs(d, exist_ok=True)
     dst = os.path.join(d, PACKAGE["name"])
-    shutil.copyfile(src, dst + ".part")
-    if sha(dst + ".part") != PACKAGE["sha256"]:
+    # The source was just checked against its SHA-256, so a copy that reads back wrong is the stick. Copied once more
+    # first, like an EFI file (24fdc83); a second mismatch stops with the stick advice (1.15 write logs 10-14).
+    for attempt in range(2):
+        shutil.copyfile(src, dst + ".part")
+        if sha(dst + ".part") == PACKAGE["sha256"]:
+            break
         os.remove(dst + ".part")
-        raise RuntimeError("driver package changed while copying to the stick")
+        if attempt:
+            raise RuntimeError("the driver package read back different from the stick after two copies")
+        print("(the driver package read back wrong from the stick; copying it again)", flush=True)
     os.replace(dst + ".part", dst)
     with open(os.path.join(d, "README.txt"), "w") as fh:
         fh.write("NullMoth NVIDIA driver for macOS 15.\n"

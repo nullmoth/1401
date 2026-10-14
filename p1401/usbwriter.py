@@ -67,7 +67,11 @@ def _ps(script):
         # TimeoutExpired, PowerShell command line and all, was the STOP. It is a UsbError the format step can recover from.
         raise UsbError(f"Windows did not finish preparing the stick within {TIMEOUT} s") from None
     if p.returncode != 0:
-        raise UsbError((p.stderr or p.stdout).strip()[-1500:])
+        # 1.15 write log (10-14, a "General UDisk"): PowerShell exited non-zero and printed nothing, and the STOP read
+        # just "UsbError:". The exit code is the only trace left, so it is named.
+        raise UsbError((p.stderr or p.stdout).strip()[-1500:]
+                       or f"Windows PowerShell stopped with exit code {p.returncode} (0x{p.returncode & 0xFFFFFFFF:08X}) "
+                          "and printed no reason while preparing the stick")
     return p.stdout
 
 
@@ -227,6 +231,12 @@ def _copy_settled(src, dst, root, tries=6, sleep=time.sleep):
             return
         except (shutil.Error, OSError) as error:
             if attempt == tries - 1:
+                # shutil.Error carries one (source, destination, reason) per file: the STOP was that whole list with
+                # the user's paths in it (1.15 write log 10-14, WinError 433 on every BlueToolFixup file). One line.
+                if isinstance(error, shutil.Error) and error.args and isinstance(error.args[0], list) and error.args[0]:
+                    bad = error.args[0]
+                    first = bad[0][2] if isinstance(bad[0], tuple) and len(bad[0]) == 3 else str(bad[0])
+                    raise UsbError(f"copying the EFI to the stick failed for {len(bad)} file(s): {first}") from error
                 raise
             print(f"(the stick was busy: {type(error).__name__}; trying the copy again)", flush=True)
             for _ in range(20):
@@ -610,8 +620,11 @@ def stick_hint(e):
     EINVAL copying the driver package after a full download, PermissionError/OSError mid-image ("the stick's file could
     not be reopened"), and the disk vanishing all reached users as bare errors with nothing to do about them."""
     s = str(e)
+    # WinError 433 "a device which does not exist" / 1167 "the device is not connected": the stick dropped off the bus
+    # mid-copy (1.15 write logs 10-14). "read back different" = the bytes on the stick are not the bytes written.
     if isinstance(e, OSError) and getattr(e, "errno", None) in (5, 22) or "could not be reopened" in s \
-            or "Track 0 bad" in s or "Invalid media" in s or "not attached any more" in s:
+            or "Track 0 bad" in s or "Invalid media" in s or "not attached any more" in s \
+            or "WinError 433" in s or "WinError 1167" in s or "read back different from the stick" in s:
         return STICK_ADVICE
     return ""
 
