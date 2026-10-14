@@ -36,6 +36,49 @@ class ScanError(RuntimeError):
     pass
 
 
+# WBEM_E_PROVIDER_LOAD_FAILURE. Two scans (1.13 and 1.15, different PCs) stopped on it while listing Win32_PnPEntity:
+# Windows could not load the WMI provider behind the query, and the Sniffer has no answer for a failed step, so the
+# whole scan was lost. The provider often loads on a second try; a WMI repository that stays broken needs Windows' own
+# repair, and the message says how.
+WMI_PROVIDER_LOAD_FAILURE = (-2147217389, "0x80041013")
+WMI_TRIES = 3
+# The Sniffer's own step list (Scripts/platforms/windows.py hardware_collector). It looks each method up on the instance
+# when it builds that list, so a wrapper set on the instance is the one that runs.
+WMI_COLLECTORS = ("pnp_devices", "motherboard", "bios", "cpu", "gpu", "monitor", "network", "sound", "usb_controllers",
+                  "input", "storage_controllers", "biometric", "bluetooth", "sd_controller", "system_devices")
+WMI_REPAIR = ("Windows could not load its device database (WMI error 0x80041013) %d times in a row, so this PC can't be "
+              "scanned yet. Open Command Prompt as administrator, run  winmgmt /verifyrepository  and, if it says the "
+              "repository is inconsistent,  winmgmt /salvagerepository . Restart the PC and press Scan again.")
+
+
+def _wmi_provider_failed(e):
+    seen = repr(e) + repr(getattr(e, "com_error", ""))
+    return any(str(code) in seen for code in WMI_PROVIDER_LOAD_FAILURE)
+
+
+def retry_wmi(obj, names, tries=WMI_TRIES, sleep=None):
+    """Wraps each collector method in names so a provider load failure is tried again; any other error passes through."""
+    import time  # noqa: PLC0415
+    sleep = sleep or time.sleep
+    for name in names:
+        fn = getattr(obj, name, None)
+        if fn is None:
+            continue
+
+        def wrapped(*a, _fn=fn, **k):
+            for n in range(tries):
+                try:
+                    return _fn(*a, **k)
+                except Exception as e:
+                    if not _wmi_provider_failed(e):
+                        raise
+                    if n + 1 == tries:
+                        raise ScanError(WMI_REPAIR % tries) from e
+                    print(f"(Windows' device database did not answer; trying again, {n + 2} of {tries})", flush=True)
+                    sleep(5 * (n + 1))
+        setattr(obj, name, wrapped)
+
+
 def _sha256(p):
     with open(p, "rb") as fh:
         return hashlib.sha256(fh.read()).hexdigest()
@@ -196,6 +239,7 @@ def _sniffer_body(out_dir, token):
         scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
         return original_progress(*args, **kwargs)
     h.hardware_info.utils.progress_bar = checkpoint_progress
+    retry_wmi(h.hardware_info, WMI_COLLECTORS)
     try:
         h.hardware_info.hardware_collector()
     finally:
