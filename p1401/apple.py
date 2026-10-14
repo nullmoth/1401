@@ -73,6 +73,8 @@ class AppleError(RuntimeError):
 # "RemoteDisconnected", oscdn reset the chunklist request (WinError 10054), or the image stream ended mid-chunk. Each
 # was a whole failed stick. Transient connection errors are retried; HTTP errors (a refused token, a 404) are not.
 OSRECOVERY_HTTP = "http://osrecovery.apple.com/"
+RECOVERY_NETWORK = (" - this network cuts the connection to Apple's recovery server. Turn off web/HTTPS scanning in your "
+                    "antivirus, or connect through a phone hotspot or a VPN, and press Next")
 OPEN_TRIES = 6  # WAS 4: osrecovery answered 502 and timed out past 4 tries on 1.7 (10-10); 6 tries back off ~2 min in all
 FORBIDDEN_TRIES = 3
 # drops in a row with no new chunk verified. WAS 8 for the whole image: 78 writes in two days failed "after 8 resumed
@@ -179,7 +181,11 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             if attempt + 1 < OPEN_TRIES and _transient(e):
                 (sleep or time.sleep)(2 ** (attempt + 1))
                 continue
-            raise AppleError(f"{url}: {type(e).__name__}: {e}") from e
+            # Eight write logs ended here with osrecovery cut off over HTTP and then over HTTPS too ("SSL:
+            # UNEXPECTED_EOF_WHILE_READING" on every try): something between the PC and Apple drops both, and the bare
+            # error left the user nothing to do.
+            advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and _transient(e) else ""
+            raise AppleError(f"{url}: {type(e).__name__}: {e}{advice}") from e
     raise AppleError(f"{url}: no answer after {OPEN_TRIES + 2} tries")  # never return None to a caller
 
 

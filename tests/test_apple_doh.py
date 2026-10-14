@@ -2,6 +2,7 @@
 the request goes to the address DNS-over-HTTPS gives, keeping the real Host header. Anything else is unchanged."""
 import json
 import socket
+import ssl
 import unittest
 import urllib.error
 from unittest import mock
@@ -193,6 +194,27 @@ class DohFallback(unittest.TestCase):
         def fetch(url):
             raise OSError("blocked")
         self.assertIsNone(apple._doh("osrecovery.apple.com", fetch=fetch))
+
+    def test_osrecovery_cut_off_over_http_and_https_names_what_to_do(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            raise urllib.error.URLError(ssl.SSLEOFError(8, "EOF occurred in violation of protocol"))
+        with mock.patch("urllib.request.urlopen", urlopen):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
+        self.assertIn("https://osrecovery.apple.com/", seen)
+        self.assertIn("EOF occurred", str(cm.exception))
+        self.assertIn("hotspot or a VPN", str(cm.exception))
+
+    def test_negative_control_a_refusal_from_osrecovery_gets_no_network_advice(self):
+        def urlopen(req, timeout=0):
+            raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+        with mock.patch("urllib.request.urlopen", urlopen):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
+        self.assertNotIn("hotspot", str(cm.exception))
 
 
 if __name__ == "__main__":
