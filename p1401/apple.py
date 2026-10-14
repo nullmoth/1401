@@ -75,6 +75,10 @@ class AppleError(RuntimeError):
 OSRECOVERY_HTTP = "http://osrecovery.apple.com/"
 RECOVERY_NETWORK = (" - this network cuts the connection to Apple's recovery server. Turn off web/HTTPS scanning in your "
                     "antivirus, or connect through a phone hotspot or a VPN, and press Next")
+# 1.15 write log (10-14): oscdn answered 403 mid-download on a network where osrecovery also failed over HTTP, and the
+# stop showed only the bare 403 - not whether a fresh token had been tried, nor what to change.
+CDN_REFUSED = (" Apple's download server refused this network. Connect through a phone hotspot or a VPN, or turn off "
+               "web/HTTPS scanning in your antivirus, and press Next")
 OPEN_TRIES = 6  # WAS 4: osrecovery answered 502 and timed out past 4 tries on 1.7 (10-10); 6 tries back off ~2 min in all
 FORBIDDEN_TRIES = 3
 # drops in a row with no new chunk verified. WAS 8 for the whole image: 78 writes in two days failed "after 8 resumed
@@ -304,11 +308,7 @@ def download(info, usb_root, progress=None):
         # resume path already swaps in a fresh URL and token on a 403; the first request now does the same, once.
         if "HTTP Error 403" not in str(e):
             raise
-        old = info["image_token"]
-        _refresh(info)
-        if info["image_token"] == old:
-            raise
-        r = _asset(info["image_url"], info["image_token"])
+        r = _after_403(info, e, lambda: _asset(info["image_url"], info["image_token"]))
     # WAS: fh was first bound inside the with, so a stick that refused the file made the finally raise
     # UnboundLocalError and hid the real error (1.9.0 write log, 10-10)
     fh = None
@@ -596,6 +596,21 @@ def _refresh(info):
         info["image_url"], info["image_token"] = fresh["image_url"], fresh["image_token"]
 
 
+def _after_403(info, e, fetch):
+    """oscdn refused the image token: ask osrecovery for a fresh one once and fetch again. The stop says which of the two
+    failed, so a report tells a token that could not be renewed from a network that refuses every token."""
+    old = info["image_token"]
+    _refresh(info)
+    if info["image_token"] == old:
+        raise AppleError(f"{e} - osrecovery gave no fresh token to try again.{CDN_REFUSED}") from e
+    try:
+        return fetch()
+    except AppleError as e2:
+        if "HTTP Error 403" not in str(e2):
+            raise
+        raise AppleError(f"{e2} - refused again with a fresh token.{CDN_REFUSED}") from e2
+
+
 def _resume(info, offset, window=0, delay=2):
     if delay:
         time.sleep(delay)
@@ -608,11 +623,7 @@ def _resume(info, offset, window=0, delay=2):
         # token once and try that window again; every byte is still checked against Apple's signed chunklist.
         if "HTTP Error 403" not in str(e):
             raise
-        old = info["image_token"]
-        _refresh(info)
-        if info["image_token"] == old:
-            raise
-        r = _asset(info["image_url"], info["image_token"], {"Range": rng})
+        r = _after_403(info, e, lambda: _asset(info["image_url"], info["image_token"], {"Range": rng}))
     got = (r.headers.get("Content-Range") or "") if getattr(r, "headers", None) else ""
     if getattr(r, "status", None) != 206 or not got.startswith(f"bytes {offset}-"):
         r.close()

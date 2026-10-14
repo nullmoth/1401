@@ -209,6 +209,41 @@ class ExpiredToken(unittest.TestCase):
             with self.assertRaises(apple.AppleError):
                 apple._resume(info, 100, 10, delay=0)
 
+    def test_a_fresh_token_refused_again_stops_naming_the_network(self):
+        # 1.15 write log 10-14: the stop was the bare 403, with no word on the retry or what to change
+        info, seen = dict(INFO), []
+        def asset(url, token, extra=None):
+            seen.append(token)
+            raise self.forbidden(url)
+        def refresh(i):
+            i["image_token"] = "fresh"
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", refresh):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._resume(info, 100, 10, delay=0)
+        self.assertEqual(seen, ["t", "fresh"])
+        self.assertIn("refused again with a fresh token", str(cm.exception))
+        self.assertIn("hotspot or a VPN", str(cm.exception))
+
+    def test_a_token_osrecovery_cannot_renew_says_so(self):
+        def asset(url, token, extra=None):
+            raise self.forbidden(url)
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", lambda i: None):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._resume(dict(INFO), 100, 10, delay=0)
+        self.assertIn("gave no fresh token", str(cm.exception))
+
+    def test_negative_control_another_error_after_a_fresh_token_is_passed_through(self):
+        def asset(url, token, extra=None):
+            if token == "t":
+                raise self.forbidden(url)
+            raise apple.AppleError(f"{url}: URLError: reset")
+        def refresh(i):
+            i["image_token"] = "fresh"
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", refresh):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._resume(dict(INFO), 100, 10, delay=0)
+        self.assertNotIn("download server refused", str(cm.exception))
+
     def test_other_errors_do_not_refresh(self):
         calls = []
         def asset(url, token, extra=None):
@@ -231,4 +266,4 @@ class FirstRequest403(unittest.TestCase):
         src = inspect.getsource(apple.download)
         first = src[:src.index("with open(img + \".part\", \"wb\") as fh:")]
         self.assertIn('"HTTP Error 403" not in str(e)', first)
-        self.assertIn("_refresh(info)", first)
+        self.assertIn("_after_403(info, e,", first)
