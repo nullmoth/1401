@@ -335,7 +335,7 @@ def download(info, usb_root, progress=None):
     # UnboundLocalError and hid the real error (1.9.0 write log, 10-10)
     fh = None
     try:
-        with open(img + ".part", "wb") as fh:
+        with _open_part(img + ".part", dest) as fh:
             for i, (size, sha) in enumerate(chunks, 1):
                 part = bytearray()
                 while True:
@@ -420,7 +420,7 @@ def download(info, usb_root, progress=None):
         r.close()
         if fh is not None:
             fh.close()  # the handle may be a reopened one (_write_settled); the with only closed the first
-    with open(cnk + ".part", "wb") as fh:
+    with _open_part(cnk + ".part", dest) as fh:
         fh.write(cl)
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
@@ -563,6 +563,31 @@ def copy_local(info, usb_root, progress=None):
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+
+
+def _open_part(path, dest, tries=6, sleep=None):
+    """Creates a .part file in dest, making dest again if the stick's volume dropped it. 1.15 write log: the folder was
+    made on the freshly erased stick, the chunklist arrived, and opening the image file then failed "No such file or
+    directory" because Windows had re-mounted the stick in between and the new volume did not have the folder."""
+    sleep = sleep or time.sleep
+    for attempt in range(tries):
+        try:
+            return open(path, "wb")
+        except FileNotFoundError:
+            if attempt == tries - 1:
+                raise
+            print("(the stick's folder disappeared; making it again)", flush=True)
+            for _ in range(20):
+                if os.path.isdir(os.path.dirname(dest)):
+                    break
+                sleep(1)
+            sleep(2)
+            # Only the folder is made again: a stick whose volume never came back must still fail, not get a new root.
+            if os.path.isdir(os.path.dirname(dest)) and not os.path.isdir(dest):
+                try:
+                    os.mkdir(dest)
+                except OSError:
+                    pass
 
 
 def _write_settled(fh, path, offset, buf, tries=6, sleep=time.sleep):

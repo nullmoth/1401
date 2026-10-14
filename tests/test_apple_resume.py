@@ -264,6 +264,6 @@ class FirstRequest403(unittest.TestCase):
         import inspect
         from p1401 import apple
         src = inspect.getsource(apple.download)
-        first = src[:src.index("with open(img + \".part\", \"wb\") as fh:")]
+        first = src[:src.index("with _open_part(img + \".part\", dest) as fh:")]
         self.assertIn('"HTTP Error 403" not in str(e)', first)
         self.assertIn("_after_403(info, e,", first)
