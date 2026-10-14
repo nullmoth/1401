@@ -78,9 +78,35 @@ class KeepIdentity(unittest.TestCase):
         with tempfile.TemporaryDirectory() as out:
             self.assertIsNone(engine._prior_identity(out, engine._machine_key(HW)))
 
+    def test_asking_for_a_new_identity_keeps_nothing_and_says_so(self):
+        with tempfile.TemporaryDirectory() as out:
+            key = engine._machine_key(HW)
+            write_build(out, OLD, key)
+            h = H()
+            self.assertIsNone(engine._identity_to_keep(out, key, engine.Policy(new_identity=True), h))
+            self.assertTrue(any("new serial number" in n for n in h.notices))
+
+    def test_negative_control_without_the_ask_the_identity_is_kept(self):
+        with tempfile.TemporaryDirectory() as out:
+            key = engine._machine_key(HW)
+            write_build(out, OLD, key)
+            h = H()
+            self.assertEqual(engine._identity_to_keep(out, key, engine.Policy(), h)["SystemSerialNumber"], "C02OLDSERIAL")
+            self.assertEqual(h.notices, [])
+
+    def test_the_command_line_flag_reaches_the_policy(self):
+        from unittest import mock  # noqa: PLC0415
+        from p1401 import __main__ as cli  # noqa: PLC0415
+        seen = []
+        with mock.patch.object(engine, "build", side_effect=lambda *a, **k: seen.append(a[3]) or engine.BuildResult(ok=True, out_dir="out")), \
+                mock.patch("builtins.print"):
+            cli.main(["build", "r.json", "acpi", "out", "--new-identity"])
+            cli.main(["build", "r.json", "acpi", "out"])
+        self.assertEqual([p.new_identity for p in seen], [True, False])
+
     def test_build_reads_the_identity_before_the_wipe_and_restores_it_after_the_engine(self):
         src = inspect.getsource(engine.build)
-        self.assertLess(src.index("_prior_identity(out_dir"), src.index("_prepare_out(out_dir)"))
+        self.assertLess(src.index("_identity_to_keep(out_dir"), src.index("_prepare_out(out_dir)"))
         self.assertLess(src.index("o.build_opencore_efi("), src.index("_keep_identity(out_dir"))
         self.assertLess(src.index("_keep_identity(out_dir"), src.index("policy_mod.apply("))
 

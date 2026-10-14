@@ -36,8 +36,9 @@ def main(argv=None):
         p.add_argument("--json", action="store_true")
         p.add_argument("--boot-log", action="append", default=[], help="a failed boot's opencore-*.txt or panic-*.txt from the stick")
         p.add_argument("--stopped-at", default="", help="the line the screen stopped on")
+        p.add_argument("--new-identity", action="store_true", help="a new serial number instead of the previous build's")
     a = ap.parse_args(argv)
-    pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log, stopped_at=a.stopped_at[:500])
+    pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log, stopped_at=a.stopped_at[:500], new_identity=a.new_identity)
     out = getattr(a, "out", None)
     if out is None:
         import tempfile  # noqa: PLC0415

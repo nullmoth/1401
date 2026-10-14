@@ -108,6 +108,10 @@ class Policy:
     boot_logs: list = field(default_factory=list)
     # The line the screen stopped on, as the user typed or pasted it when sending logs (bootfix.after_handoff).
     stopped_at: str = ""
+    # A rebuild keeps the previous build's serial number (_keep_identity). The user asks for a new one when that serial
+    # is the problem: macOS Setup saying "this Mac belongs to an organization" (the generated serial matches a Mac
+    # enrolled in a company's device management; chat 10-14), or Apple refusing it for iMessage.
+    new_identity: bool = False
 
 
 @dataclass
@@ -521,6 +525,15 @@ def _prior_identity(out_dir, machine_key):
     return ident
 
 
+def _identity_to_keep(out_dir, machine_key, policy, h):
+    """The previous build's identity to carry over, or None when there is none or the user asked for a new serial."""
+    if policy.new_identity:
+        h.notices.append("SMBIOS: a new serial number, board serial, UUID and ROM, as asked; sign in to iCloud again "
+                         "after installing this build.")
+        return None
+    return _prior_identity(out_dir, machine_key)
+
+
 def _keep_identity(out_dir, prior, machine_key, h):
     """Puts the previous build's identity into the new config when the Mac model is unchanged, and records the PC."""
     import plistlib  # noqa: PLC0415
@@ -729,7 +742,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if panel:
                 h.notices.append(panel)
             machine_key = _machine_key(res.raw_hardware)
-            prior_identity = _prior_identity(out_dir, machine_key)
+            prior_identity = _identity_to_keep(out_dir, machine_key, policy, h)
             _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
             needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
             smbios = o.s.select_smbios_model(cust, mv)
