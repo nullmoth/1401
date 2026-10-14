@@ -49,6 +49,23 @@ class Resume(unittest.TestCase):
         self.assertEqual(got, IMAGE)
         self.assertEqual(calls, [None, f"bytes=4000-{4000 + apple.WINDOW - 1}"])
 
+    def test_a_chunk_that_arrives_wrong_is_fetched_once_more_and_the_download_finishes(self):
+        # 1.15: one chunk of 85 arrived whole but wrong and the whole download stopped
+        bad = bytearray(IMAGE); bad[3500] ^= 0xFF
+        got, calls, err = self.run_download([lambda e: Stream(bytes(bad)),
+                                             lambda e: Stream(IMAGE[3000:6000], status=206, content_range=f"bytes 3000-5999/{len(IMAGE)}")])
+        self.assertIsNone(err)
+        self.assertEqual(got, IMAGE)
+        self.assertEqual(calls, [None, "bytes=3000-5999"])
+
+    def test_negative_control_a_chunk_wrong_on_both_fetches_still_stops(self):
+        bad = bytearray(IMAGE); bad[3500] ^= 0xFF
+        got, calls, err = self.run_download([lambda e: Stream(bytes(bad)),
+                                             lambda e: Stream(bytes(bad[3000:6000]), status=206, content_range=f"bytes 3000-5999/{len(IMAGE)}")])
+        self.assertIsNone(got)
+        self.assertIn("chunk 2/3 of test fails Apple's hash twice", err)
+        self.assertIn("antivirus", err)
+
     def test_a_network_that_cuts_every_connection_mid_chunk_still_finishes(self):
         cap = 700  # each connection ends after 700 bytes; chunks are 3000
         def opener(e):

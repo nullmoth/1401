@@ -364,7 +364,23 @@ def download(info, usb_root, progress=None):
                         conn_start = pos
                 buf = bytes(part)
                 if hashlib.sha256(buf).digest() != sha:
-                    raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash - download refused")
+                    # A chunk can arrive whole but wrong with no dropped connection before it (six 1.15 write logs, one
+                    # chunk of 85 each). That chunk is asked for once more on its own connection and checked again;
+                    # the stream already in progress carries on after it. Bytes that are still wrong stop the download.
+                    note(f"chunk {i} failed Apple's hash, fetched again")
+                    try:
+                        again = _resume(info, done, size, delay=0)
+                        try:
+                            buf = _read_exact(again, size)
+                        finally:
+                            again.close()
+                    except (AppleError, OSError, http.client.HTTPException):
+                        buf = b""
+                    if hashlib.sha256(buf).digest() != sha:
+                        raise AppleError(f"chunk {i}/{len(chunks)} of {info['product']} fails Apple's hash twice - download "
+                                         f"refused. Something on this network or computer changes the download: turn off "
+                                         f"web/HTTP scanning in your antivirus, or connect through a phone hotspot or a VPN, "
+                                         f"and press Next")
                 fh = _write_settled(fh, img + ".part", done, buf)
                 done += size
                 stalled = 0
