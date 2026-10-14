@@ -1,4 +1,5 @@
 import unittest
+import unittest.mock
 
 from p1401 import scan
 
@@ -33,6 +34,21 @@ class WmiRetryTest(unittest.TestCase):
         scan.retry_wmi(c, ["pnp_devices"], sleep=lambda s: None)
         with self.assertRaises(scan.ScanError) as cm:
             c.pnp_devices()
+        self.assertIn("winmgmt /verifyrepository", str(cm.exception))
+        self.assertEqual(c.calls, scan.WMI_TRIES)
+
+    def test_a_class_whose_path_cannot_be_read_gets_the_same_retry_and_repair(self):
+        # 1.15 scan: DISP_E_EXCEPTION wrapping 0x80004001 while reading Win32_PnPEntity's own path
+        c = Collector(fails=99, code=-2147352567)
+        orig = ComError.__init__
+
+        def init(self, code):
+            orig(self, code)
+            self.com_error = (code, "DISP_E_EXCEPTION", (0, None, None, None, 0, -2147467263), None)
+        with unittest.mock.patch.object(ComError, "__init__", init):
+            scan.retry_wmi(c, ["pnp_devices"], sleep=lambda s: None)
+            with self.assertRaises(scan.ScanError) as cm:
+                c.pnp_devices()
         self.assertIn("winmgmt /verifyrepository", str(cm.exception))
         self.assertEqual(c.calls, scan.WMI_TRIES)
 

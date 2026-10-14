@@ -40,13 +40,15 @@ class ScanError(RuntimeError):
 # Windows could not load the WMI provider behind the query, and the Sniffer has no answer for a failed step, so the
 # whole scan was lost. The provider often loads on a second try; a WMI repository that stays broken needs Windows' own
 # repair, and the message says how.
-WMI_PROVIDER_LOAD_FAILURE = (-2147217389, "0x80041013")
+# -2147467263 (0x80004001) inside DISP_E_EXCEPTION: a 1.15 scan stopped the same way in Win32_PnPEntity, with Windows
+# unable to read even the class's own path - the same broken device database, so it gets the same retry and repair steps.
+WMI_PROVIDER_LOAD_FAILURE = (-2147217389, "0x80041013", -2147467263)
 WMI_TRIES = 3
 # The Sniffer's own step list (Scripts/platforms/windows.py hardware_collector). It looks each method up on the instance
 # when it builds that list, so a wrapper set on the instance is the one that runs.
 WMI_COLLECTORS = ("pnp_devices", "motherboard", "bios", "cpu", "gpu", "monitor", "network", "sound", "usb_controllers",
                   "input", "storage_controllers", "biometric", "bluetooth", "sd_controller", "system_devices")
-WMI_REPAIR = ("Windows could not load its device database (WMI error 0x80041013) %d times in a row, so this PC can't be "
+WMI_REPAIR = ("Windows could not read its device database (WMI) %d times in a row, so this PC can't be "
               "scanned yet. Open Command Prompt as administrator, run  winmgmt /verifyrepository  and, if it says the "
               "repository is inconsistent,  winmgmt /salvagerepository . Restart the PC and press Scan again.")
 
