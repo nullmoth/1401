@@ -473,6 +473,73 @@ def _patient_downloads():
     cls._1401_patient = True
 
 
+# Bug report 10-14: every Build ran macserial again, so rebuilding a PC's EFI (to recover from a failed driver update)
+# gave its Mac a new serial number, board serial, UUID and ROM - a different Mac to iCloud, iMessage and the App Store.
+# A rebuild for the same PC and the same Mac model keeps the previous build's identity.
+IDENTITY_KEYS = ("SystemSerialNumber", "MLB", "SystemUUID", "ROM")
+IDENTITY_FOR = ".1401-identity-for"  # which PC the build folder's identity belongs to (board and CPU, hashed)
+PLACEHOLDER_SERIALS = ("A" + "0" * 10 + "9", "A" + "0" * 15 + "Z")  # the engine's values when macserial fails
+
+
+def _machine_key(raw_hardware):
+    board = ((raw_hardware or {}).get("Motherboard") or {}).get("Name") or ""
+    cpu = ((raw_hardware or {}).get("CPU") or {}).get("Processor Name") or ""
+    if not board.strip() or not cpu.strip():
+        return ""
+    return hashlib.sha256(f"{board.strip()}\n{cpu.strip()}".encode()).hexdigest()
+
+
+def _prior_identity(out_dir, machine_key):
+    """The SMBIOS identity of this PC's previous 1401 build, read before the folder is wiped. None when there is no
+    previous build, it was made for another PC, or its values are unusable."""
+    import plistlib  # noqa: PLC0415
+    if not os.path.exists(os.path.join(out_dir, MARKER)):
+        return None
+    try:
+        with open(os.path.join(out_dir, IDENTITY_FOR)) as f:
+            if f.read().strip() != machine_key:
+                return None
+    except FileNotFoundError:
+        pass  # builds before this file existed were made by this PC's own scan, like every build
+    except OSError:
+        return None
+    try:
+        with open(os.path.join(out_dir, "EFI", "OC", "config.plist"), "rb") as f:
+            generic = plistlib.load(f)["PlatformInfo"]["Generic"]
+    except (OSError, ValueError, KeyError, TypeError, plistlib.InvalidFileException):
+        return None
+    ident = {k: generic.get(k) for k in IDENTITY_KEYS + ("SystemProductName",)}
+    if not all(ident.values()) or ident["SystemSerialNumber"] in PLACEHOLDER_SERIALS or ident["MLB"] in PLACEHOLDER_SERIALS:
+        return None
+    return ident
+
+
+def _keep_identity(out_dir, prior, machine_key, h):
+    """Puts the previous build's identity into the new config when the Mac model is unchanged, and records the PC."""
+    import plistlib  # noqa: PLC0415
+    if machine_key:
+        with open(os.path.join(out_dir, IDENTITY_FOR), "w") as f:
+            f.write(machine_key + "\n")
+    if not prior:
+        return
+    path = os.path.join(out_dir, "EFI", "OC", "config.plist")
+    with open(path, "rb") as f:
+        cfg = plistlib.load(f)
+    generic = cfg["PlatformInfo"]["Generic"]
+    if generic.get("SystemProductName") != prior["SystemProductName"]:
+        h.notices.append(f"SMBIOS: the Mac model changed ({prior['SystemProductName']} to {generic.get('SystemProductName')}), "
+                         "so this build has a new serial number; sign in to iCloud again after installing it.")
+        return
+    for k in IDENTITY_KEYS:
+        generic[k] = prior[k]
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        plistlib.dump(cfg, f)
+    os.replace(tmp, path)
+    h.notices.append("SMBIOS: kept the serial number, board serial, UUID and ROM of this PC's previous build, so macOS "
+                     "and iCloud still see the same Mac.")
+
+
 def _prepare_out(out_dir):
     """The engine wipes its result dir. Only ever hand it a folder that is empty or one we made."""
     out_dir = os.path.abspath(out_dir)
@@ -634,6 +701,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             panel = None if keep else panel_guard.active_panel_notice(disabled, capture)
             if panel:
                 h.notices.append(panel)
+            machine_key = _machine_key(res.raw_hardware)
+            prior_identity = _prior_identity(out_dir, machine_key)
             _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
             needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
             smbios = o.s.select_smbios_model(cust, mv)
@@ -678,6 +747,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                                        'Check the preceding download error and rebuild; no installable EFI was produced.')
                 o.build_opencore_efi(cust, disabled, smbios, mv, needs_oclp)
                 open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
+                _keep_identity(out_dir, prior_identity, machine_key, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
                 # 10-10: 43 of 233 users' DSDTs are discarded whole by macOS's ACPICA (forward Scope targets in pass 1);
