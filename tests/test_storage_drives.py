@@ -58,11 +58,12 @@ class Classify(unittest.TestCase):
         self.assertIn("PM9C1a", w)
         self.assertIn("different SSD", w)
 
-    def test_a_raw_model_number_is_still_captured_even_when_not_classified(self):
-        # Windows may report PM9C1a as its model number; the capture records it so a log can name it, and the
-        # classifier simply does not claim a verdict it cannot back.
-        r = raw(("Disk 0", {"Model": "MZVL2512HCJQ-00B00", "Bus Type": "NVMe"}))
+    def test_an_unrecognized_model_is_still_captured_without_a_verdict(self):
+        # A drive family the classifier does not know is recorded all the same, so a "no disk" log still names it and
+        # the classifier does not claim a verdict it cannot back.
+        r = raw(("Disk 0", {"Model": "UMIS RPJTJ512MGE1QDQ", "Bus Type": "NVMe"}))
         self.assertEqual(storage_drives.unseen_drives(r), [])
+        self.assertFalse(storage_drives.wants_nvmefix(r))
         self.assertIn("Disk 0", r["Storage Drives"])
 
 
@@ -105,6 +106,40 @@ class PolicyStorage(unittest.TestCase):
         _, changes = build_with_drives([("Disk 0", {"Model": "WD Black SN850X", "Bus Type": "NVMe"})])
         self.assertNotIn("storage-nvmefix", rules(changes))
         self.assertNotIn("storage-drive-warning", rules(changes))
+
+
+class PartNumberPrefixes(unittest.TestCase):
+    """Windows reports OEM drives by part number, not marketing name. These strings are taken from uploaded reports;
+    the verdict for each is the vendor's own part-number scheme."""
+
+    def verdict(self, model):
+        r = raw(("Disk 0", {"Model": model, "Bus Type": "NVMe"}))
+        if storage_drives.unseen_drives(r):
+            return "unseen"
+        return "nvmefix" if storage_drives.wants_nvmefix(r) else "none"
+
+    def test_pm9c1a_part_numbers_are_unseen(self):
+        for m in ("MZVL2512HCJQ-00B00", "SAMSUNG MZVL2512HCJQ", "MZAL8512HDLU-00BL1"):
+            self.assertEqual(self.verdict(m), "unseen", m)
+
+    def test_pm9a1_on_the_same_mzvl2_prefix_is_not_flagged(self):
+        # PM9A1 (MZVL2...HCLR/HDLU) boots; only the HCJQ suffix is PM9C1a. The prefix alone must not condemn it.
+        for m in ("MZVL21T0HCLR-00B00", "MZVL21T0HDLU"):
+            self.assertEqual(self.verdict(m), "none", m)
+
+    def test_nvmefix_part_numbers(self):
+        for m in ("SAMSUNG MZVLB512HBJQ-000L7", "MZVLB256HBHQ",       # PM981
+                  "MZALQ512HBLU-00BL1", "MZVLQ512", "PM991a",          # PM991
+                  "MZ1LB960HAJQ", "MZQLB1T9HAJR",                      # PM983
+                  "MTFDKBA512TFH", "MTFDHBA256", "Micron 2450",        # Micron
+                  "HFS512GEJ9X125N", "HFM512GD3JX013N",                # SK hynix
+                  "KBG40ZNS512G", "KBG50ZNV512G", "KXG60ZNV512G"):     # Kioxia
+            self.assertEqual(self.verdict(m), "nvmefix", m)
+
+    def test_filesystem_and_retail_strings_are_not_matched(self):
+        # HFSPLUS is the file system, not an SK hynix part; the prefix needs a digit, so it is excluded.
+        for m in ("HFSPLUS", "Microsoft HFSPLUS volume", "Samsung SSD 990 PRO 2TB", "WD Blue SN580"):
+            self.assertEqual(self.verdict(m), "none", m)
 
 
 class ReportCarries(unittest.TestCase):

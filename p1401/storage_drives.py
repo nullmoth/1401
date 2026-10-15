@@ -10,18 +10,23 @@ upstream schema drops it from the cleaned copy.
 import re
 
 # OEM NVMe families reported unseen by the macOS installer (no disk in Disk Utility / "Recovery doesn't detect my
-# drive"). There is no software fix; the install target has to be a different SSD.
+# drive"). There is no software fix; the install target has to be a different SSD. Windows reports the drive by its
+# part number, not the marketing name, so these match the part number too. Samsung PM9C1a is MZVL2...HCJQ (client) and
+# MZAL8... (BGA): the HCJQ suffix is the distinguishing part - the PM9A1 (MZVL2...HC{LR,JR}) on the same MZVL2 prefix
+# boots, so the prefix alone must not be used.
 _UNSEEN = (
-    (re.compile(r"\bPM9C1a\b", re.I), "Samsung PM9C1a"),
+    (re.compile(r"\bPM9C1a\b|\bMZVL2\w*HCJQ|\bMZAL8", re.I), "Samsung PM9C1a"),
 )
 # OEM NVMe that reaches the installer but stalls or drops out under macOS's power management; NVMeFix (bundled with
-# OpenCore) applies the APST/power-state fix these need.
+# OpenCore) applies the APST/power-state fix these need. Matched by marketing name and by part-number prefix, each
+# verified against the strings in uploaded reports and the vendors' own part-number schemes.
 _NVMEFIX = (
-    (re.compile(r"\bPM98[13]\b|\bPM981a\b", re.I), "Samsung PM981/PM983"),
-    (re.compile(r"\bPM991\b", re.I), "Samsung PM991"),
-    (re.compile(r"\bMicron\b.*\b(2200|2210|2450|3400)\b|\bMTFDHBA\b", re.I), "Micron OEM NVMe"),
-    (re.compile(r"\bBC501\b|\bBC511\b|\bBC711\b", re.I), "SK hynix BC-series"),
-    (re.compile(r"\bKBG4\d|\bKBG5\d|\bKXG\d", re.I), "Kioxia BG/XG-series"),
+    (re.compile(r"\bPM981a?\b|\bMZVLB", re.I), "Samsung PM981"),            # MZVLB...
+    (re.compile(r"\bPM983\b|\bMZ1LB|\bMZQLB", re.I), "Samsung PM983"),      # MZ1LB.../MZQLB...
+    (re.compile(r"\bPM991a?\b|\bMZALQ|\bMZVLQ", re.I), "Samsung PM991"),    # MZALQ.../MZVLQ...
+    (re.compile(r"\bMicron\b.*\b(2200|2300|2400|2450|3400)\b|\bMTFD[HK]BA", re.I), "Micron OEM NVMe"),  # MTFDHBA/MTFDKBA
+    (re.compile(r"\bBC50[15]\b|\bBC711\b|\bHF[MS]\d", re.I), "SK hynix BC-series"),  # HFM.../HFS... (not HFSPLUS)
+    (re.compile(r"\bKBG[45]\w|\bKXG\d", re.I), "Kioxia BG/XG-series"),      # KBG4.../KBG5.../KXG6...
     (re.compile(r"\bOM[38]P[DG]P[34]\b", re.I), "Kingston OM-series"),
 )
 
