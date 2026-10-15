@@ -3,6 +3,11 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.0.1
+- PCs with an NVIDIA card can build for macOS 26 Tahoe. 2.0.0 offered only macOS 15 for them, so picking
+  Tahoe stopped the build
+- Bundle driver 2.0.1 (the same driver as 2.0.0)
+
 ## 2.0.0
 - Pick macOS 15 Sequoia or macOS 26 Tahoe before the build
 - Bundle driver 2.0.0 (security fixes, GeForce RTX 50 compute, flicker, refresh-rate and black-screen fixes)
