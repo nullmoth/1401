@@ -63,6 +63,22 @@ def is_zen4_or_later(cpu):
     return bool(_ZEN45_NAME.search(str(cpu.get("Processor Name") or "")))
 
 
+# Hybrid-core Intel: Core Ultra (Meteor, Arrow, Lunar Lake) and 12th/13th/14th-generation Core (Alder, Raptor Lake).
+# They carry a mix of performance and efficiency cores and stop at the kernel hand-off (EXITBS:START) with a type-14
+# page fault far more often than earlier Intel; the levers below are keyed on this class.
+_INTEL_HYBRID_CODENAMES = ("meteor lake", "arrow lake", "lunar lake", "alder lake", "raptor lake")
+_INTEL_HYBRID_NAME = re.compile(r"Core\(TM\) Ultra|1[234]th Gen.*Core\(TM\)", re.I)
+
+
+def is_intel_hybrid(cpu):
+    if (cpu or {}).get("Manufacturer") != "Intel":
+        return False
+    code = str((cpu or {}).get("Codename") or "").lower()
+    if any(c in code for c in _INTEL_HYBRID_CODENAMES):
+        return True
+    return bool(_INTEL_HYBRID_NAME.search(str((cpu or {}).get("Processor Name") or "")))
+
+
 def _known_machines():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "known_machines.json")
     try:
@@ -145,11 +161,16 @@ def apply(config_path, result, policy):
     # installer froze right after "PCI configuration end". npci, IOPCIFamily patches and ProvideCurrentCpuInfo were
     # never in it, so they are not added here either.
     cpu = (result.hardware or {}).get("CPU", {})
-    if "Arrow Lake" in (cpu.get("Codename") or ""):
+    platform = ((result.hardware or {}).get("Motherboard") or {}).get("Platform", "")
+    is_laptop = platform == "Laptop"
+    # The desktop Arrow Lake config that installed and runs macOS 15 does not load CpuTopologyRebuild. Laptops are the
+    # exception: their firmware usually hides the Hyper-Threading and E-core switches, so CpuTopologyRebuild is the only
+    # way to re-map the cores for the kernel, and it stays on there.
+    if "Arrow Lake" in (cpu.get("Codename") or "") and not is_laptop:
         for k in kexts:
             if k["BundlePath"].split("/")[-1] == "CpuTopologyRebuild.kext" and k.get("Enabled"):
                 k["Enabled"] = False
-                change("arrow-lake-ctr", "CpuTopologyRebuild", "off", "the proven Arrow Lake config does not load it")
+                change("arrow-lake-ctr", "CpuTopologyRebuild", "off", "the desktop Arrow Lake config that boots does not load it")
         args = _args(nv)
         if any(a.startswith("ctrsmt") for a in args):
             nv["boot-args"] = " ".join(a for a in args if not a.startswith("ctrsmt"))
@@ -172,6 +193,27 @@ def apply(config_path, result, policy):
         if kq.get("DisableIoMapper") is not True:
             kq["DisableIoMapper"] = True
             change("core-ultra-iomapper", "DisableIoMapper=False", "True", "VT-d stays out of macOS on Core Ultra")
+
+    # 2b''. Hybrid-core Intel (Core Ultra and 12th/13th/14th-gen Core): the kernel hand-off faults (EXITBS:START,
+    # type 14) before macOS starts. On stuck machines, limiting the kernel to one CPU reached the installer's APFS
+    # volume, and so did turning DevirtualiseMmio off - boot.efi faults on the firmware's devirtualised MMIO. The
+    # Intel baseline keeps DevirtualiseMmio off, so turn it off when the engine left it on.
+    if is_intel_hybrid(cpu):
+        bq = cfg.setdefault("Booter", {}).setdefault("Quirks", {})
+        if bq.get("DevirtualiseMmio") is True:
+            bq["DevirtualiseMmio"] = False
+            change("hybrid-intel-devmmio", "DevirtualiseMmio=True", "DevirtualiseMmio=False",
+                   "hybrid-core Intel faults in boot.efi (EXITBS:START, type 14) with firmware MMIO devirtualised")
+        # CpuTopologyRebuild re-maps the performance and efficiency cores so the kernel accepts the topology; it is the
+        # software stand-in for the BIOS "disable Hyper-Threading / E-cores" that many laptops hide. The kext does not
+        # always clear the stop on its own, so name the BIOS switch too when it is available.
+        ctr_on = any(k["BundlePath"].split("/")[-1] == "CpuTopologyRebuild.kext" and k.get("Enabled") for k in kexts)
+        note = ("If this PC stops at EXITBS:START before macOS starts, turn off Hyper-Threading (or the E-cores) in the "
+                "BIOS. " + ("This build re-maps the cores in software (CpuTopologyRebuild) for firmware that hides the "
+                            "switch, but the BIOS setting is the surest fix when it is there."
+                            if ctr_on else
+                            "This build does not re-map the cores, so the BIOS setting is required."))
+        change("hybrid-intel-bios", "", note, "hybrid-core Intel stops at the kernel hand-off (EXITBS:START)")
 
     # 2c. The stick listed boot-args in NVRAM->Delete, so booting it once replaced the boot flags of a machine that
     # already runs macOS (its -no_compat_check went with them and macOS refused to boot). Without Delete, OpenCore still
