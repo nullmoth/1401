@@ -760,7 +760,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
             netsupport.apply_kexts(o, cust, mv, h.notices)   # MediaTek Wi-Fi/BT, if this machine has one
-            netsupport.support_from_pci(cust, h.notices)     # warn if the installer will have no internet
+            net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
             # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
             # also removes them from any config that still names them).
             from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
@@ -800,6 +800,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 finally:
                     if os.path.isdir(out_dir):
                         open(os.path.join(out_dir, MARKER), "w").write("built by 1401\n")
+                # Tell the writer, without re-scanning, whether this machine can reach the internet in the installer,
+                # so it can default to the offline (local-image) path for a PC that has no supported network adapter.
+                netsupport.write_marker(out_dir, net_status)
                 _keep_identity(out_dir, prior_identity, machine_key, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)

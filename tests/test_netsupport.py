@@ -7,6 +7,7 @@ a non-MediaTek machine (must get no MediaTek kext).
 """
 import os
 import sys
+import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -100,6 +101,26 @@ class MediaTekKexts(unittest.TestCase):
         want = {kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT],
                 kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]}
         self.assertFalse(set(km.checked) & want)
+
+
+class OfflineMarker(unittest.TestCase):
+    """The build leaves a marker so the writer defaults to the offline image path on a PC with no installer network."""
+
+    def test_offline_build_makes_the_writer_require_a_local_image(self):
+        with tempfile.TemporaryDirectory() as d:
+            netsupport.write_marker(d, {"offline_recommended": True, "wifi": "none", "ethernet": False})
+            self.assertTrue(netsupport.needs_local_image(d))
+
+    def test_online_build_does_not_block_the_writer(self):
+        # NEGATIVE CONTROL: a machine with a supported adapter must not be forced onto the offline path.
+        with tempfile.TemporaryDirectory() as d:
+            netsupport.write_marker(d, {"offline_recommended": False, "wifi": "native", "ethernet": True})
+            self.assertFalse(netsupport.needs_local_image(d))
+
+    def test_missing_marker_does_not_block(self):
+        # An older build (no marker) must keep the previous behaviour, not stop the writer.
+        with tempfile.TemporaryDirectory() as d:
+            self.assertFalse(netsupport.needs_local_image(d))
 
 
 if __name__ == "__main__":

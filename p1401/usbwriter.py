@@ -632,7 +632,7 @@ def stick_hint(e):
 def cli_write(argv):
     """write <disk number> <EFI build dir> <darwin major> [--driver <tar.gz>] [--extra <file>]... [--profile <Report.json>] [--allow-large]
     The Windows app's write step. Every line printed is "STEP|OK|PROGRESS|STOP ..." so the window can show it."""
-    from . import apple, nullmoth  # noqa: PLC0415
+    from . import apple, nullmoth, netsupport  # noqa: PLC0415
     num, efi, darwin = int(argv[0]), argv[1], int(argv[2])
     def opt(n): return [argv[i + 1] for i, a in enumerate(argv) if a == n and i + 1 < len(argv)]
     disk = next((d for d in list_disks() if int(d.get("Number", -1)) == num), None)
@@ -656,6 +656,11 @@ def cli_write(argv):
     info = apple.local_image(rec)
     if info:
         print(f"OK using {info['name']} (checked against Apple's signed chunklist while copying)", flush=True)
+    elif netsupport.needs_local_image(efi) and "--allow-online" not in argv:
+        # No local image and the build found no network adapter the macOS installer can use. An online recovery
+        # stick would strand the user at "no internet" in the installer, so the offline path is the default here.
+        print("STOP " + netsupport.OFFLINE_INSTALLER_MESSAGE, flush=True)
+        return 1
     else:
         print("STEP asking Apple for the macOS recovery image", flush=True)
         try:

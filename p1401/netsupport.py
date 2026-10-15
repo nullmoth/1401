@@ -17,6 +17,20 @@ Two jobs, both outside the upstream engine so upstream stays pinned and unpatche
 
 network_support() is pure (it takes the ID sets, not the engine) so it can be tested without the engine loaded.
 """
+import json
+import os
+
+# The build leaves this beside the EFI so the USB writer knows, without re-scanning, that this machine has no
+# network the macOS installer can use - the writer then defaults to the offline (local-image) path instead of
+# silently writing an online-only recovery stick that strands the user at "no internet" in the installer.
+NETWORK_MARKER = "installer-network.json"
+
+OFFLINE_INSTALLER_MESSAGE = (
+    "This PC has no network adapter that works in the macOS installer, so an online recovery stick cannot finish "
+    "the install. Put a macOS recovery image (BaseSystem.dmg and BaseSystem.chunklist, made with macrecovery on "
+    "any computer) into the Recovery folder next to the app and press Next again, or connect a supported Ethernet "
+    "or Wi-Fi adapter. To write the online recovery stick anyway, re-run with --allow-online."
+)
 
 # MediaTek device IDs, "VENDOR-DEVICE" upper-case to match the probe and upstream pci_data.
 # Wi-Fi is PCIe under MediaTek's own vendor 14C3; Bluetooth is a USB function, mostly under 0E8D with the usual
@@ -162,3 +176,24 @@ def support_from_pci(customization, notices):
     if status["notice"]:
         notices.append(status["notice"])
     return status
+
+
+def write_marker(build_dir, status):
+    """Record the network-support status beside the EFI for the writer. Fail-safe: a write that cannot happen just
+    means the writer falls back to its old behaviour, never a failed build."""
+    try:
+        with open(os.path.join(build_dir, NETWORK_MARKER), "w") as fh:
+            json.dump({"offline_recommended": bool(status.get("offline_recommended")),
+                       "wifi": status.get("wifi"), "ethernet": bool(status.get("ethernet"))}, fh)
+    except OSError:
+        pass
+
+
+def needs_local_image(build_dir):
+    """True only when the build left a marker saying this machine has no installer network. A missing or unreadable
+    marker returns False, so an older build or a read error never blocks the writer."""
+    try:
+        with open(os.path.join(build_dir, NETWORK_MARKER)) as fh:
+            return bool(json.load(fh).get("offline_recommended"))
+    except (OSError, ValueError):
+        return False
