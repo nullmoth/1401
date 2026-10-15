@@ -155,6 +155,20 @@ def apply(config_path, result, policy):
         nv["boot-args"] = " ".join(_args(nv) + ["-ibtcompatbeta"])
         change("tahoe-intel-bt", "", "-ibtcompatbeta", "Dortania Tahoe page: Intel Bluetooth on macOS 26 needs -ibtcompatbeta")
 
+    # 2a. Tahoe refuses to boot, and refuses to finish an update from Sequoia, on a Mac model Apple did not ship it for:
+    # the installer and the upgrade both end at the prohibited sign. macOS 26 added a secure-boot model-version check;
+    # RestrictEvents answers it with revpatch=sbvmm (the same bypass OCLP applies on unsupported Macs). RestrictEvents is
+    # already in a 26 build (it follows the SMBIOS the engine picks), so this only sets the boot argument that turns it on.
+    if tahoe and "RestrictEvents.kext" in enabled:
+        args = _args(nv)
+        rev = next((a for a in args if a.startswith("revpatch=")), None)
+        vals = [v for v in (rev.split("=", 1)[1].split(",") if rev else []) if v]
+        if "sbvmm" not in vals:
+            vals.append("sbvmm")
+            nv["boot-args"] = " ".join([a for a in args if not a.startswith("revpatch=")] + ["revpatch=" + ",".join(vals)]).strip()
+            change("tahoe-sbvmm", rev or "", "revpatch=" + ",".join(vals),
+                   "Tahoe's secure-boot model-version check stops an unsupported Mac model at boot and during an update")
+
     # 2b. Arrow Lake (Core Ultra 200): match the config that installed and runs macOS 15 on a Core Ultra 5 225F
     # (its live OpenCore config, read off the machine ). It keeps the upstream Comet Lake CPUID spoof (without it the
     # kernel never starts: hang at EXITBS:START) and does NOT load CpuTopologyRebuild or pass ctrsmt; with them the
