@@ -16,10 +16,11 @@ if REPO not in sys.path:
 
 from p1401 import netsupport
 
-NATIVE = {"8086-2723"}          # Intel AX200
-EXPERIMENTAL = set(netsupport.MEDIATEK_WIFI_IDS)
-BT = {"8087-0029"}              # Intel BT
-ETH = {"10EC-8168"}             # Realtek RTL8111
+NATIVE = {"8086-2723"}                                   # Intel AX200
+EXPERIMENTAL = set(netsupport.MEDIATEK_WIFI_KEXT_IDS)    # MediaTek IDs the SimpleMtkWlan kext matches
+UNSUPPORTED = set(netsupport.MEDIATEK_WIFI_IDS) - EXPERIMENTAL  # MediaTek Wi-Fi with no driver (RZ616, MT7925)
+BT = {"8087-0029"}                                       # Intel BT
+ETH = {"10EC-8168"}                                      # Realtek RTL8111
 
 
 def _report(net=None, bt=None):
@@ -28,7 +29,7 @@ def _report(net=None, bt=None):
 
 
 def _classify(net=None, bt=None):
-    return netsupport.network_support(_report(net, bt), NATIVE, EXPERIMENTAL, BT, ETH)
+    return netsupport.network_support(_report(net, bt), NATIVE, EXPERIMENTAL, BT, ETH, UNSUPPORTED)
 
 
 class Classifier(unittest.TestCase):
@@ -43,10 +44,17 @@ class Classifier(unittest.TestCase):
         self.assertTrue(s["ethernet"])
         self.assertFalse(s["offline_recommended"])
 
-    def test_mediatek_only_is_experimental_and_offline(self):
+    def test_mediatek_supported_is_experimental_and_offline(self):
         # NEGATIVE CONTROL: if MediaTek were treated as native this would say the installer has internet.
-        s = _classify(net={"wifi": "14C3-0616"})  # MT7922
+        s = _classify(net={"wifi": "14C3-7922"})  # MT7922, matched by the kext
         self.assertEqual(s["wifi"], "experimental")
+        self.assertTrue(s["offline_recommended"])
+        self.assertIn("offline installer", s["notice"])
+
+    def test_mediatek_unsupported_card_is_offline(self):
+        # RZ616 (0616) has no driver: present, but no macOS Wi-Fi, so the installer is offline-only.
+        s = _classify(net={"wifi": "14C3-0616"})
+        self.assertEqual(s["wifi"], "unsupported")
         self.assertTrue(s["offline_recommended"])
         self.assertIn("offline installer", s["notice"])
 
@@ -73,30 +81,38 @@ class MediaTekKexts(unittest.TestCase):
         netsupport.register()
         netsupport.register()  # twice: must stay idempotent
 
-    def test_register_pins_the_bt_asset_and_does_not_add_wlan(self):
+    def test_register_pins_both_kext_assets(self):
         from Scripts.datasets import kext_data, pci_data
-        bt_idx = kext_data.kext_index_by_name.get(netsupport.MTK_BT_KEXT)
-        self.assertIsNotNone(bt_idx)
-        # The pin the build fetches: the exact 1.0.0 RELEASE asset and its SHA-256 (verified live, see netsupport).
-        dl = kext_data.kexts[bt_idx].download_info
-        self.assertEqual(dl.get("url"), netsupport.MTK_BT_URL)
-        self.assertEqual(dl.get("sha256"), netsupport.MTK_BT_SHA256)
-        self.assertEqual([k.name for k in kext_data.kexts].count(netsupport.MTK_BT_KEXT), 1)
-        # SimpleMtkWlan publishes no release, so it must NOT be registered - auto-installing it would fail the build.
-        self.assertIsNone(kext_data.kext_index_by_name.get(netsupport.MTK_WIFI_KEXT))
-        self.assertIn("14C3-0616", pci_data.WirelessCardIDs)
+        # The pins the build fetches: each kext's exact URL and SHA-256.
+        bt = kext_data.kexts[kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]].download_info
+        self.assertEqual(bt.get("url"), netsupport.MTK_BT_URL)
+        self.assertEqual(bt.get("sha256"), netsupport.MTK_BT_SHA256)
+        wlan = kext_data.kexts[kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT]].download_info
+        self.assertEqual(wlan.get("url"), netsupport.MTK_WIFI_URL)
+        self.assertEqual(wlan.get("sha256"), netsupport.MTK_WIFI_SHA256)
+        self.assertEqual([k.name for k in kext_data.kexts].count(netsupport.MTK_WIFI_KEXT), 1)
+        self.assertIn("14C3-7922", pci_data.WirelessCardIDs)
 
-    def test_apply_enables_bt_and_only_notes_wifi(self):
+    def test_apply_enables_wlan_for_a_matched_card(self):
         from Scripts.datasets import kext_data
         km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
         km.checked = []
         o = type("O", (), {"k": km})()
         notices = []
-        netsupport.apply_kexts(o, _report(net={"w": "14C3-0616"}, bt={"b": "0E8D-0616"}), "24.0.0", notices)
+        netsupport.apply_kexts(o, _report(net={"w": "14C3-7922"}, bt={"b": "0E8D-0616"}), "24.0.0", notices)
+        self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
         self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
-        # MediaTek Wi-Fi is detected but has no kext to install; it must only produce a notice.
+
+    def test_apply_does_not_enable_wlan_for_an_unsupported_card(self):
+        # NEGATIVE CONTROL: RZ616 (0616) is a MediaTek Wi-Fi card the kext does NOT match - no kext, only a notice.
+        from Scripts.datasets import kext_data
+        km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
+        km.checked = []
+        o = type("O", (), {"k": km})()
+        notices = []
+        netsupport.apply_kexts(o, _report(net={"w": "14C3-0616"}), "24.0.0", notices)
+        self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
         self.assertTrue(any("MediaTek Wi-Fi" in n for n in notices))
-        self.assertIsNone(kext_data.kext_index_by_name.get(netsupport.MTK_WIFI_KEXT))
 
     def test_common_bt_rebrands_enable_the_bt_kext(self):
         # 13D3-3585 is the most common MediaTek BT id in the field; it and the other re-brands below are in
@@ -129,6 +145,7 @@ class MediaTekKexts(unittest.TestCase):
         o = type("O", (), {"k": km})()
         netsupport.apply_kexts(o, _report(net={"w": "8086-2723"}), "24.0.0", [])
         self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
+        self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
 
 
 @unittest.skipUnless(os.path.isdir(os.path.join(REPO, "upstream", "OpCore-Simplify")),
@@ -166,6 +183,17 @@ class BtHashVerified(unittest.TestCase):
         # The pin recorded in netsupport must be the real 1.0.0 RELEASE asset's hash (verified live 2026-10-14).
         self.assertEqual(netsupport.MTK_BT_SHA256,
                          "b6afbe453db5827e7e2c8cdd045374f4fa6760f63e6ae26a3f322aa75dc84954")
+
+    def test_pinned_wlan_pin_is_the_built_artifact(self):
+        # Guards the Wi-Fi pin against accidental edits: the hash/size/url of the kext 1401 built and hosts.
+        self.assertEqual(netsupport.MTK_WIFI_SHA256,
+                         "da0ef98222f7d29a6e3cdde91185348b7fe8abdf5c324c5e2349295996ee18f9")
+        self.assertEqual(netsupport.MTK_WIFI_SIZE, 1822103)
+        self.assertEqual(netsupport.MTK_WIFI_URL, "https://nullmothsystems.com/mirror/" + netsupport.MTK_WIFI_SHA256)
+        # The mirror manifest must carry the same pin, or a blocked-network build could not fetch it.
+        from p1401 import mirror
+        self.assertIn(netsupport.MTK_WIFI_URL, mirror.entries())
+        self.assertEqual(mirror.entries()[netsupport.MTK_WIFI_URL]["sha256"], netsupport.MTK_WIFI_SHA256)
 
 
 class OfflineMarker(unittest.TestCase):

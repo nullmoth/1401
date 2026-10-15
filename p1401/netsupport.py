@@ -4,10 +4,12 @@ Two jobs, both outside the upstream engine so upstream stays pinned and unpatche
 
 1. MediaTek Wi-Fi/Bluetooth. The upstream engine carries no MediaTek IDs and no MediaTek kext, so an MT7921/
    MT7922/MT7925 laptop gets an EFI with no wireless at all - the largest "Wi-Fi does not work" group in the user
-   chat after Intel. register() adds the device IDs and, for Bluetooth, the laobamac/SimpleMtkBtFw kext (a pinned
-   release asset, SHA-256 verified on download); apply_kexts() turns it on when the machine has a MediaTek radio.
-   MediaTek Wi-Fi has no prebuilt driver to ship (SimpleMtkWlan publishes no release), so a MediaTek Wi-Fi card is
-   only detected - the user is pointed at the experimental project and the installer is treated as offline-only.
+   chat after Intel. register() adds the device IDs and two pinned kexts (SHA-256 verified on download): the
+   SimpleMtkWlan Wi-Fi kext, which 1401 builds itself and hosts on its mirror (SimpleMtkWlan publishes no release),
+   and the SimpleMtkBtFw Bluetooth kext from its GitHub release. apply_kexts() turns the Wi-Fi kext on only for the
+   three IDs its Info.plist matches (MT7921/MT7922); other MediaTek Wi-Fi cards (RZ616, MT7925) have no driver and
+   get the honest Ethernet/offline-installer notice. The installer is treated as offline-only either way, since an
+   experimental Wi-Fi driver is not relied on during install.
 
 2. A plain reading of what the machine can do for networking, so the app can tell the user - before they are
    stranded at the installer with no internet and no idea why - whether this build will have Wi-Fi, needs
@@ -59,14 +61,27 @@ MEDIATEK_BT_IDS = [
 MTK_WIFI_KEXT = "SimpleMtkWlan"
 MTK_BT_KEXT = "SimpleMtkBtFw"
 
-# SimpleMtkWlan ships NO release and NO tag (verified live 2026-10-14, `gh api repos/laobamac/SimpleMtkWlan/releases`
-# returns []), so there is no prebuilt kext to fetch; auto-installing it would fail every MediaTek-Wi-Fi build. A
-# MediaTek Wi-Fi card is therefore detected and the user is pointed at the project, and the installer-internet
-# classifier already treats such a card as experimental/offline. SimpleMtkBtFw does ship a built kext: pin the exact
-# 1.0.0 RELEASE asset and verify its SHA-256 on download (gathering_files passes download_info["sha256"] to the
-# fetcher, so a mirror or a changed asset is rejected). Licences, checked live with `gh api repos/.../license`:
-# SimpleMtkWlan GPL-2.0, SimpleMtkBtFw GPL-3.0 - both redistributable, and the kext is fetched from upstream at build
-# time, not bundled.
+# The three device IDs SimpleMtkWlan's Info.plist actually matches (IOPCIPrimaryMatch 0x7961/0x0608/0x7922, vendor
+# 14c3). Only these get the Wi-Fi kext; the other MediaTek Wi-Fi IDs above (RZ616 0616, MT7925 0717/7925) have no
+# driver that matches them and get the honest "no macOS Wi-Fi - use Ethernet/USB or the offline installer" path.
+MEDIATEK_WIFI_KEXT_IDS = ["14C3-7961", "14C3-0608", "14C3-7922"]
+
+# SimpleMtkWlan publishes no release, so 1401 builds it itself from a pinned commit against acidanthera's
+# MacKernelSDK (the kext's own project configuration; that SDK supplies the version-stable kernel headers, including
+# IONetworkController::outputStart, which Apple dropped from the public macOS SDK headers). The built kext and the
+# matching GPL-2.0 source are hosted on NullMoth's own content-addressed mirror and pinned here by URL + SHA-256,
+# which gathering_files verifies on download (a changed or substituted file is refused and the build fails). Built on
+# the macOS 15 SDK; see tools/build_mtkwlan.sh and p1401/mirror.json. Licences (checked live with `gh api .../license`):
+# SimpleMtkWlan GPL-2.0, SimpleMtkBtFw GPL-3.0 - both redistributable.
+MTK_WIFI_COMMIT = "37ba676ad18273b7e622ec6db45afc25db238109"
+MTK_WIFI_MKSDK_COMMIT = "3f750085caa17ec3a7880f11c11bf4f48cd6a164"
+MTK_WIFI_SHA256 = "da0ef98222f7d29a6e3cdde91185348b7fe8abdf5c324c5e2349295996ee18f9"
+MTK_WIFI_SIZE = 1822103
+MTK_WIFI_URL = "https://nullmothsystems.com/mirror/" + MTK_WIFI_SHA256
+MTK_WIFI_SRC_SHA256 = "3109381a2db4a9d77053bbc0fe86079c7f45382be8e8c4378012c07be5cd49fa"
+MTK_WIFI_SRC_SIZE = 3074903
+MTK_WIFI_SRC_URL = "https://nullmothsystems.com/mirror/" + MTK_WIFI_SRC_SHA256
+
 MTK_BT_ASSET_ID = 433233966
 MTK_BT_URL = "https://github.com/laobamac/SimpleMtkBtFw/releases/download/1.0.0/SimpleMtkBtFw-1.0.0-RELEASE.zip"
 MTK_BT_SHA256 = "b6afbe453db5827e7e2c8cdd045374f4fa6760f63e6ae26a3f322aa75dc84954"
@@ -81,10 +96,12 @@ def _devices(hardware_report, section):
     return out
 
 
-def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_known, ethernet_known):
+def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_known, ethernet_known,
+                     wifi_unsupported=()):
     """What this machine can do for networking, from the device IDs the probe found.
 
     The ID sets are passed in (built from pci_data by the caller, or by a test) so this stays pure.
+    wifi_unsupported = Wi-Fi cards we recognise but have no driver for (present, but no macOS Wi-Fi).
     Returns a dict with:
       wifi:     "native" | "experimental" | "unsupported" | "none"  (none = no Wi-Fi card at all)
       ethernet: True if a supported wired NIC is present
@@ -92,9 +109,9 @@ def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_k
       notice:   one line for the user, or "" when everything is covered
     """
     wifi_native, wifi_experimental = set(wifi_native), set(wifi_experimental)
-    bluetooth_known, ethernet_known = set(bluetooth_known), set(ethernet_known)
+    bluetooth_known, ethernet_known, wifi_unsupported = set(bluetooth_known), set(ethernet_known), set(wifi_unsupported)
     net = _devices(hardware_report, "Network")
-    wifi_ids = [d for d in net if d in wifi_native or d in wifi_experimental]
+    wifi_ids = [d for d in net if d in wifi_native or d in wifi_experimental or d in wifi_unsupported]
     eth = any(d in ethernet_known for d in net)
 
     if not wifi_ids:
@@ -145,9 +162,13 @@ def register():
             pci_data.BluetoothIDs.append(i)
 
     KextInfo = kext_data.KextInfo
-    # Only SimpleMtkBtFw is auto-installed; SimpleMtkWlan has no prebuilt release (see the note above). The exact
-    # asset and its SHA-256 are pinned so the build fetches a known binary, not whatever "latest" becomes.
+    # Each kext is pinned to an exact file and SHA-256, so the build fetches a known binary (never "latest"):
+    # SimpleMtkWlan from NullMoth's mirror (we build it), SimpleMtkBtFw from its own GitHub release.
     new = [
+        KextInfo(name=MTK_WIFI_KEXT,
+                 description="MediaTek Wi-Fi (MT7921/MT7922) - experimental",
+                 category="Wi-Fi", conflict_group_id="MediaTekWiFi",
+                 download_info={"id": MTK_WIFI_SIZE, "url": MTK_WIFI_URL, "sha256": MTK_WIFI_SHA256}),
         KextInfo(name=MTK_BT_KEXT,
                  description="MediaTek Bluetooth firmware (MT7921/MT7922/MT7925)",
                  category="Bluetooth", requires_kexts=["BlueToolFixup"],
@@ -167,11 +188,17 @@ def apply_kexts(ocpe, customization, macos_version, notices):
         km = ocpe.k
         net = _devices(customization, "Network")
         bt = _devices(customization, "Bluetooth")
-        if any(d in MEDIATEK_WIFI_IDS for d in net):
-            # No prebuilt SimpleMtkWlan release exists, so nothing is auto-installed; name the project and rely on
-            # the classifier having already flagged the installer as offline-only for this machine.
-            notices.append("MediaTek Wi-Fi: no macOS driver is installed automatically - the only project is "
-                           "experimental (github.com/laobamac/SimpleMtkWlan). Use Ethernet for the install.")
+        if any(d in MEDIATEK_WIFI_KEXT_IDS for d in net):
+            idx = kext_data.kext_index_by_name.get(MTK_WIFI_KEXT)
+            if idx is not None:
+                km.check_kext(idx, macos_version)
+                notices.append("MediaTek Wi-Fi: added the experimental SimpleMtkWlan driver (MT7921/MT7922). It may "
+                               "be unstable and may not work inside the macOS installer - have Ethernet ready for the "
+                               "install.")
+        elif any(d in MEDIATEK_WIFI_IDS for d in net):
+            # A MediaTek Wi-Fi card SimpleMtkWlan does not match (RZ616 0616, MT7925 0717/7925): no driver to install.
+            notices.append("MediaTek Wi-Fi: this card (RZ616 / MT7925 class) has no macOS driver. Use Ethernet or a "
+                           "USB Wi-Fi adapter, or write a full offline installer.")
         if any(d in MEDIATEK_BT_IDS for d in bt):
             idx = kext_data.kext_index_by_name.get(MTK_BT_KEXT)
             if idx is not None:
@@ -185,7 +212,9 @@ def support_from_pci(customization, notices):
     """Run network_support() against the engine's real ID tables and append its notice. Returns the dict."""
     from Scripts.datasets import pci_data  # noqa: PLC0415
     native = set(pci_data.WirelessCardIDs) - set(MEDIATEK_WIFI_IDS)
-    status = network_support(customization, native, MEDIATEK_WIFI_IDS, pci_data.BluetoothIDs, pci_data.EthernetIDs)
+    unsupported = set(MEDIATEK_WIFI_IDS) - set(MEDIATEK_WIFI_KEXT_IDS)  # RZ616/MT7925: recognised, no driver
+    status = network_support(customization, native, MEDIATEK_WIFI_KEXT_IDS, pci_data.BluetoothIDs,
+                             pci_data.EthernetIDs, unsupported)
     if status["notice"]:
         notices.append(status["notice"])
     return status
