@@ -684,12 +684,13 @@ def _nullmoth_gpu_pass(checker, h):
             if amd_gpu.classify(gpus.get(basic, {})) is None:
                 h.notices.append(nullmoth.BASIC_NOTE.format(name=basic))
             return
-        h.policy.prefer["macOS"] = nullmoth.SEQUOIA[0].split(".")[0]
+        h.policy.prefer["macOS"] = h.policy.macos or nullmoth.DEFAULT_DARWIN
         mux = nullmoth.mux_help(checker.hardware_report)
         if mux:
             h.notices.append(mux)
         checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
-        h.notices.append("NullMoth driver: " + ", ".join(hit) + " selected for macOS 15 Sequoia."
+        target = "macOS 26 Tahoe" if h.policy.prefer["macOS"] == "25" else "macOS 15 Sequoia"
+        h.notices.append("NullMoth driver: " + ", ".join(hit) + f" selected for {target}."
                          + ("" if nullmoth.tested(checker.hardware_report) else
                             " This card is in NVIDIA's supported list but has not been tested with the driver yet."))
     checker.check_gpu_compatibility = wrapped

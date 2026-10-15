@@ -1,11 +1,12 @@
 """NullMoth NVIDIA driver support: lets 1401 build for a PC whose graphics card is a supported Turing-or-later NVIDIA card.
 
 The engine underneath marks every NVIDIA card after Kepler unsupported, disables it, and refuses a machine that has no
-other GPU ("You cannot install macOS without a supported GPU"). The NullMoth driver runs these cards on macOS 15, so:
+other GPU ("You cannot install macOS without a supported GPU"). The NullMoth driver runs these cards on macOS 15 and
+macOS 26, so:
 
 1. `mark()` runs right after the engine's GPU check. A card in NVIDIA's own supported-GPU table for the firmware the
-   driver ships (nvidia_gsp_ids.json, from open-gpu-kernel-modules 610.57.04) gets Compatibility = macOS 15 only.
-   The engine's version picker then suggests Sequoia by itself, and the card is kept instead of disabled.
+   driver ships (nvidia_gsp_ids.json, from open-gpu-kernel-modules 610.57.04) gets Compatibility = macOS 15 to 26.
+   The engine's version picker then offers both, and the card is kept instead of disabled.
 2. `apply()` runs in the policy pass: the boot-args and SIP/AMFI settings the driver was tested with.
 3. The driver itself is installed after macOS by the 1401 Mac companion, from the package `stage()` puts on the stick.
 
@@ -16,7 +17,10 @@ import re
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SEQUOIA = ("24.99.99", "24.0.0")  # (max, min) Darwin: the only macOS the driver is built for
+# (max, min) Darwin the driver is built for: macOS 15 Sequoia and macOS 26 Tahoe. Was 24 only, which left Tahoe off
+# the engine's menu for every NVIDIA PC, so picking macOS 26 in 1401 2.0 failed the build (NM-RRSB2644).
+SEQUOIA = ("25.99.99", "24.0.0")
+DEFAULT_DARWIN = "24"  # when the user did not pick: Sequoia, the release with the longest testing on the driver
 # The working machine's OpenCore config before it was changed for dtrace (2026-): kexts, FS, NVRAM, recovery, root.
 SIP_DRIVER = bytes.fromhex("430A0000")
 # nvfb/nvaccel switch the framebuffer and accelerator on; nvfbheads=4 = the card's display heads; the smooth boot
@@ -211,7 +215,7 @@ def stage(usb_root, cache_dir, fetch=None):
         print("(the driver package read back wrong from the stick; copying it again)", flush=True)
     os.replace(dst + ".part", dst)
     with open(os.path.join(d, "README.txt"), "w") as fh:
-        fh.write("NullMoth NVIDIA driver for macOS 15.\n"
+        fh.write("NullMoth NVIDIA driver for macOS 15 and macOS 26.\n"
                  "After macOS finishes installing, the 1401 Mac companion installs this package.\n"
                  "By hand: tar -xzf " + PACKAGE["name"] + " && cd pkgroot && sudo ./install.sh\n")
     return dst

@@ -62,7 +62,19 @@ class MacosPick(unittest.TestCase):
         engine._nullmoth_gpu_pass(c, h)
         c.check_gpu_compatibility()
         self.assertEqual(h.policy.prefer.get("macOS"), "24")
-        self.assertEqual(nullmoth.SEQUOIA[0].split(".")[0], "24")
+
+    def test_a_marked_card_keeps_tahoe_on_the_menu(self):
+        # NM-RRSB2644: an RTX 4060 PC that picked macOS 26 got a menu of "24. macOS Sequoia 15" only and failed
+        lo, hi = (int(x.split(".")[0]) for x in (nullmoth.SEQUOIA[1], nullmoth.SEQUOIA[0]))
+        self.assertEqual((lo, hi), (24, 25))
+
+    def test_the_gpu_pass_asks_for_tahoe_when_the_user_picked_it(self):
+        c, h = FakeChecker({"RTX 5060": dict(RTX)}), FakeHeadless()
+        h.policy.macos = "25"
+        engine._nullmoth_gpu_pass(c, h)
+        c.check_gpu_compatibility()
+        self.assertEqual(h.policy.prefer.get("macOS"), "25")
+        self.assertTrue(any("macOS 26 Tahoe" in n for n in h.notices), h.notices)
 
     def test_negative_control_no_driver_card_sets_no_version(self):
         c, h = FakeChecker({"AMD Radeon(TM) Graphics": dict(AMD_IGPU)}), FakeHeadless()
