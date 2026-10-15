@@ -70,13 +70,20 @@ class RegisterAndApply(unittest.TestCase):
         amd_rdna4.register()  # idempotent
         self.assertEqual(kext_data.kext_index_by_name.get(amd_rdna4.KEXT), idx)
 
-    def test_apply_turns_the_kext_on_for_a_navi48_machine_and_adds_the_notice(self):
+    def test_apply_turns_the_kext_on_for_a_navi48_machine_when_experimental_drivers_are_on(self):
         amd_rdna4.register()
         from Scripts.datasets import kext_data
         ocpe, notices = FakeOcpe(), []
-        amd_rdna4.apply_kexts(ocpe, {"GPU": {"RX 9070 XT": amd("7550")}}, "24.0.0", notices)
+        amd_rdna4.apply_kexts(ocpe, {"GPU": {"RX 9070 XT": amd("7550")}}, "24.0.0", notices, experimental=True)
         self.assertEqual(ocpe.k.checked, [(kext_data.kext_index_by_name[amd_rdna4.KEXT], "24.0.0")])
         self.assertTrue(any("RX 9070" in n for n in notices), notices)
+
+    def test_by_default_a_navi48_machine_gets_no_kext_but_is_told_how_to_ask_for_it(self):
+        amd_rdna4.register()
+        ocpe, notices = FakeOcpe(), []
+        amd_rdna4.apply_kexts(ocpe, {"GPU": {"RX 9070 XT": amd("7550")}}, "24.0.0", notices)
+        self.assertEqual(ocpe.k.checked, [])
+        self.assertTrue(any("Include experimental drivers" in n for n in notices), notices)
 
     def test_negative_control_no_navi48_means_no_kext_and_no_notice(self):
         amd_rdna4.register()
@@ -87,7 +94,8 @@ class RegisterAndApply(unittest.TestCase):
 
     def test_fail_safe_a_broken_engine_object_never_raises(self):
         notices = []
-        amd_rdna4.apply_kexts(object(), {"GPU": {"RX 9070": amd("7550")}}, "24.0.0", notices)  # object() has no .k
+        amd_rdna4.apply_kexts(object(), {"GPU": {"RX 9070": amd("7550")}}, "24.0.0", notices,
+                              experimental=True)  # object() has no .k
         self.assertTrue(any("could not be applied" in n for n in notices), notices)
 
 

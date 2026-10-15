@@ -93,15 +93,27 @@ class MediaTekKexts(unittest.TestCase):
         self.assertEqual([k.name for k in kext_data.kexts].count(netsupport.MTK_WIFI_KEXT), 1)
         self.assertIn("14C3-7922", pci_data.WirelessCardIDs)
 
-    def test_apply_enables_wlan_for_a_matched_card(self):
+    def test_apply_enables_wlan_for_a_matched_card_when_experimental_drivers_are_on(self):
+        from Scripts.datasets import kext_data
+        km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
+        km.checked = []
+        o = type("O", (), {"k": km})()
+        notices = []
+        netsupport.apply_kexts(o, _report(net={"w": "14C3-7922"}, bt={"b": "0E8D-0616"}), "24.0.0", notices,
+                               experimental=True)
+        self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
+        self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
+
+    def test_by_default_a_matched_card_gets_bluetooth_but_not_the_wlan_kext(self):
         from Scripts.datasets import kext_data
         km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
         km.checked = []
         o = type("O", (), {"k": km})()
         notices = []
         netsupport.apply_kexts(o, _report(net={"w": "14C3-7922"}, bt={"b": "0E8D-0616"}), "24.0.0", notices)
-        self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
+        self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
         self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
+        self.assertTrue(any("Include experimental drivers" in n for n in notices), notices)
 
     def test_apply_does_not_enable_wlan_for_an_unsupported_card(self):
         # NEGATIVE CONTROL: RZ616 (0616) is a MediaTek Wi-Fi card the kext does NOT match - no kext, only a notice.
