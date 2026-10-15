@@ -50,6 +50,11 @@ MEDIATEK_BT_IDS = [
     "0E8D-0717", "0E8D-7925",  # MT7925
     "13D3-3563",               # Azurewave MT7921
     "0489-E0C8", "0489-E0CD", "0489-E0E2",  # Foxconn MT7921/MT7922
+    # OEM Bluetooth re-brands the probe actually finds in the field and that SimpleMtkBtFw's Info.plist matches, so
+    # the kext was never enabled for them before: 13D3-3585 is the most common MediaTek BT id in the scans.
+    "13D3-3585", "13D3-3567", "13D3-3568", "13D3-3614",  # Azurewave MT7922/MT7925
+    "0489-E0F6",                                          # Foxconn MT7922
+    "04CA-3802",                                          # Lite-On MT7921
 ]
 
 MTK_WIFI_KEXT = "SimpleMtkWlan"
