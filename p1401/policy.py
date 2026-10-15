@@ -426,6 +426,22 @@ def apply(config_path, result, policy):
         for note in bootfix.apply_after_handoff(cfg, texts, policy.stopped_at, change)["report"]:
             change("bootlog-note", "", note, "from the last failed start")
 
+    # 5b. NVRAM writes through a rewritten memory map. Boards stopped POSTing after macOS wrote NVRAM through the firmware
+    # with SetupVirtualMap or DevirtualiseMmio on (AM5 X870/B650 and an AM4 5600X, chat 10-10..10-15, some needing BIOS
+    # flashback or an RMA). Every report was an EFI without DisableVariableWrite: built before 1.14, hand-edited, or not
+    # Zen 4/5 by name. The rule follows the risk, not the CPU name, and runs after the boot-log ladder, which can turn
+    # either quirk on. It needs OpenRuntime.efi, which hosts the quirk.
+    if cpu.get("Manufacturer") == "AMD":
+        bq = cfg.setdefault("Booter", {}).setdefault("Quirks", {})
+        remapped = bq.get("SetupVirtualMap") is True or bq.get("DevirtualiseMmio") is True
+        ort = any(isinstance(d, dict) and d.get("Path") == "OpenRuntime.efi" and d.get("Enabled", True)
+                  for d in cfg.get("UEFI", {}).get("Drivers", []))
+        if remapped and ort and bq.get("DisableVariableWrite") is not True:
+            before = f"DisableVariableWrite={bq.get('DisableVariableWrite')}"
+            bq["DisableVariableWrite"] = True
+            change("amd-nvram-write-guard", before, "DisableVariableWrite=True",
+                   "AMD with the firmware memory map rewritten: macOS NVRAM writes have stopped boards from POSTing")
+
     # 6. The cosmetic EFI logo is an explicit opt-in. Default builds disable an existing entry
     # after reported firmware hangs; no other boot driver or recovery entry is changed.
     import shutil  # noqa: PLC0415
