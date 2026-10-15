@@ -65,7 +65,73 @@ namespace A1401
                     list.Add(d);
                 }
             }
+            // Some USB sticks do not reach us as BusType USB: a USB-SATA or UASP bridge makes MSFT_Disk report the
+            // bridge's bus (SATA, SAS or Unknown), so the stick shows in Windows Explorer but was only ever skipped
+            // above with "connected by SATA, not USB", and the user tries several sticks and gives up. Win32_DiskDrive
+            // still calls those InterfaceType "USB"; add any we have not already listed. A USB interface is never an
+            // internal boot disk, and the OS disk is excluded by index as a second guard, so this cannot offer the
+            // system drive. MakeProbeStick still re-identifies the disk by id and size before anything is erased.
+            AddUsbInterfaceDisks(scope, list);
             return list.OrderBy(d => d.Number).ToList();
+        }
+
+        /// <summary>Appends USB-interface disks (Win32_DiskDrive) that MSFT_Disk did not report as BusType USB.</summary>
+        static void AddUsbInterfaceDisks(ManagementScope storageScope, List<UsbDisk> list)
+        {
+            uint osDisk = OsDiskNumber();
+            var seen = new HashSet<uint>(list.Select(d => d.Number));
+            try
+            {
+                using (var q = new ManagementObjectSearcher(@"\\.\root\cimv2",
+                    "SELECT Index, Model, Size, InterfaceType, PNPDeviceID FROM Win32_DiskDrive WHERE InterfaceType='USB'"))
+                {
+                    foreach (ManagementObject o in q.Get())
+                    {
+                        uint number = Convert.ToUInt32(o["Index"]);
+                        if (number == osDisk || seen.Contains(number)) continue;
+                        // Win32_DiskDrive has no MSFT_Disk UniqueId. PNPDeviceID is stable for the same device across
+                        // the two ListUsb calls MakeProbeStick makes, so the re-identification check still holds.
+                        string pnp = ("" + o["PNPDeviceID"]).Trim();
+                        var d = new UsbDisk
+                        {
+                            Number = number,
+                            Name = ("" + o["Model"]).Trim(),
+                            Size = o["Size"] == null ? 0UL : Convert.ToUInt64(o["Size"]),
+                            UniqueId = pnp.Length > 0 ? pnp : "Win32DiskDrive\\" + number,
+                        };
+                        d.Letters = LettersOf(storageScope, d.Number);
+                        list.Add(d);
+                        seen.Add(number);
+                    }
+                }
+            }
+            // Never let the fallback's own failure hide the sticks the primary path did find.
+            catch (ManagementException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        /// <summary>The disk number Windows booted from, so the fallback never offers it. uint.MaxValue if unknown.</summary>
+        static uint OsDiskNumber()
+        {
+            try
+            {
+                string sysDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+                string sysLetter = (sysDir.Length > 0 ? sysDir[0] : 'C') + ":";
+                using (var part = new ManagementObjectSearcher(@"\\.\root\cimv2",
+                    "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='" + sysLetter +
+                    "'} WHERE AssocClass=Win32_LogicalDiskToPartition"))
+                {
+                    foreach (ManagementObject p in part.Get())
+                    {
+                        // DiskIndex on Win32_DiskPartition is the same number as Win32_DiskDrive.Index.
+                        var di = p["DiskIndex"];
+                        if (di != null) return Convert.ToUInt32(di);
+                    }
+                }
+            }
+            catch (ManagementException) { }
+            catch (UnauthorizedAccessException) { }
+            return uint.MaxValue;
         }
 
         static string LettersOf(ManagementScope scope, uint disk)
