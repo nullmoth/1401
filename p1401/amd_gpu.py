@@ -32,13 +32,13 @@ AMD_VENDOR = "1002"
 
 # (lo, hi, family label, path). Inclusive 16-bit device-id ranges, narrowest first.
 _RANGES = (
-    # --- Pre-Polaris GCN: dropped by modern macOS ---
+    # --- Pre-Polaris GCN: dropped by modern macOS (Bonaire is listed before Mars: its range sits inside Mars's) ---
+    (0x6640, 0x665F, "Bonaire (GCN 2)", NATIVE_LEGACY),
     (0x6600, 0x6667, "Mars / Oland / Hainan (GCN 1)", NATIVE_LEGACY),
     (0x6780, 0x679F, "Tahiti (GCN 1)", NATIVE_LEGACY),
     (0x6800, 0x681F, "Pitcairn (GCN 1)", NATIVE_LEGACY),
     (0x6820, 0x684F, "Cape Verde (GCN 1)", NATIVE_LEGACY),
     (0x67A0, 0x67BF, "Hawaii (GCN 2)", NATIVE_LEGACY),
-    (0x6640, 0x665F, "Bonaire (GCN 2)", NATIVE_LEGACY),
     (0x6900, 0x693F, "Tonga / Iceland (GCN 3)", NATIVE_LEGACY),
     (0x7300, 0x730F, "Fiji (GCN 3)", NATIVE_LEGACY),
     # --- Polaris / Vega: native on current macOS ---
