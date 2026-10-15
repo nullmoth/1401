@@ -115,6 +115,10 @@ class Policy:
     # is the problem: macOS Setup saying "this Mac belongs to an organization" (the generated serial matches a Mac
     # enrolled in a company's device management; chat 10-14), or Apple refusing it for iMessage.
     new_identity: bool = False
+    # The experimental community drivers (AMD RDNA 4 display, MediaTek Wi-Fi) are OFF unless the user turns them on.
+    # They are unproven on the hardware they claim, so a build that silently carried them could take a machine that
+    # installs fine on the firmware framebuffer and leave it with no picture. Off, the build still says they exist.
+    experimental_drivers: bool = False
 
 
 @dataclass
@@ -773,8 +777,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
-            netsupport.apply_kexts(o, cust, mv, h.notices)   # MediaTek Wi-Fi/BT, if this machine has one
-            amd_rdna4.apply_kexts(o, cust, mv, h.notices)    # RX 9070 display driver, if this machine has a Navi 48
+            netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
+            amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
             net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
             # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
             # also removes them from any config that still names them).

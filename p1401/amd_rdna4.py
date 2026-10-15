@@ -74,12 +74,22 @@ def register():
     kext_data.kext_index_by_name[KEXT] = len(kext_data.kexts) - 1
 
 
-def apply_kexts(ocpe, customization, macos_version, notices):
-    """Turn on AMDRadeonRDNA4 when the machine has a Navi 48 GPU, and add the honest notice. Fail-safe: any problem is
-    reported as a notice, never raised, so it can never turn a good build into a failed one (the card still installs on
-    the firmware framebuffer without the kext)."""
+def apply_kexts(ocpe, customization, macos_version, notices, experimental=False):
+    """Turn on AMDRadeonRDNA4 when the machine has a Navi 48 GPU AND the user opted into experimental drivers, and add
+    the honest notice. Fail-safe: any problem is reported as a notice, never raised, so it can never turn a good build
+    into a failed one (the card still installs on the firmware framebuffer without the kext).
+
+    Off by default: this is a community display driver, unproven on most of the cards it claims, and it takes over the
+    screen. A machine that would have installed on the firmware framebuffer could end up with no picture at all, which
+    is a worse failure than having no acceleration."""
     try:
         if not applies(customization):
+            return
+        if not experimental:
+            notices.append("Graphics: AMD Radeon RX 9070 (RDNA 4 / Navi 48) - macOS has no built-in driver. This build "
+                           "installs on the firmware framebuffer (desktop and apps work, no acceleration). An "
+                           "experimental community display driver (AMDRadeonRDNA4, BSD-3) exists and is NOT included; "
+                           "to try it, turn on \"Include experimental drivers\" and build again.")
             return
         from Scripts.datasets import kext_data  # noqa: PLC0415
         idx = kext_data.kext_index_by_name.get(KEXT)

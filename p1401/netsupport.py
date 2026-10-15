@@ -180,9 +180,13 @@ def register():
             kext_data.kext_index_by_name[k.name] = len(kext_data.kexts) - 1
 
 
-def apply_kexts(ocpe, customization, macos_version, notices):
+def apply_kexts(ocpe, customization, macos_version, notices, experimental=False):
     """After the engine has chosen its kexts, turn on the MediaTek kexts if the machine has a MediaTek radio.
-    Fail-safe: any problem is reported as a notice, never raised, so it cannot turn a good build into an error."""
+    Fail-safe: any problem is reported as a notice, never raised, so it cannot turn a good build into an error.
+
+    The Wi-Fi kext is experimental and unproven, so it is only added when the user opted in (experimental=True);
+    otherwise the build says the driver exists and how to ask for it. Bluetooth is not gated: SimpleMtkBtFw is a
+    firmware uploader for a USB radio and cannot cost the machine its display or its network."""
     try:
         from Scripts.datasets import kext_data  # noqa: PLC0415
         km = ocpe.k
@@ -190,11 +194,18 @@ def apply_kexts(ocpe, customization, macos_version, notices):
         bt = _devices(customization, "Bluetooth")
         if any(d in MEDIATEK_WIFI_KEXT_IDS for d in net):
             idx = kext_data.kext_index_by_name.get(MTK_WIFI_KEXT)
-            if idx is not None:
+            if idx is None:
+                pass
+            elif not experimental:
+                notices.append("MediaTek Wi-Fi: this card (MT7921/MT7922) has an experimental driver, SimpleMtkWlan, "
+                               "which is NOT included in this build. It can be unstable and may not work inside the "
+                               "macOS installer. Use Ethernet for the install; to try the driver anyway, turn on "
+                               "\"Include experimental drivers\" and build again.")
+            else:
                 km.check_kext(idx, macos_version)
-                notices.append("MediaTek Wi-Fi: added the experimental SimpleMtkWlan driver (MT7921/MT7922). It may "
-                               "be unstable and may not work inside the macOS installer - have Ethernet ready for the "
-                               "install.")
+                notices.append("MediaTek Wi-Fi: added the experimental SimpleMtkWlan driver (MT7921/MT7922) because "
+                               "experimental drivers are turned on. It may be unstable and may not work inside the "
+                               "macOS installer - have Ethernet ready for the install.")
         elif any(d in MEDIATEK_WIFI_IDS for d in net):
             # A MediaTek Wi-Fi card SimpleMtkWlan does not match (RZ616 0616, MT7925 0717/7925): no driver to install.
             notices.append("MediaTek Wi-Fi: this card (RZ616 / MT7925 class) has no macOS driver. Use Ethernet or a "

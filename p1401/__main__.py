@@ -37,8 +37,11 @@ def main(argv=None):
         p.add_argument("--boot-log", action="append", default=[], help="a failed boot's opencore-*.txt or panic-*.txt from the stick")
         p.add_argument("--stopped-at", default="", help="the line the screen stopped on")
         p.add_argument("--new-identity", action="store_true", help="a new serial number instead of the previous build's")
+        p.add_argument("--experimental-drivers", action="store_true",
+                       help="include the experimental community drivers (AMD RDNA 4 display, MediaTek Wi-Fi) - off by default, unproven")
     a = ap.parse_args(argv)
-    pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log, stopped_at=a.stopped_at[:500], new_identity=a.new_identity)
+    pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log, stopped_at=a.stopped_at[:500], new_identity=a.new_identity,
+                        experimental_drivers=a.experimental_drivers)
     out = getattr(a, "out", None)
     if out is None:
         import tempfile  # noqa: PLC0415

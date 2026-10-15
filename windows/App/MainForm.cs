@@ -25,6 +25,9 @@ namespace A1401
         readonly ComboBox disks = new ComboBox();
         // The macOS the user picks: index 0 = macOS 15 Sequoia (Darwin 24), 1 = macOS 26 Tahoe (Darwin 25).
         readonly ComboBox osPick = new ComboBox();
+        // Off unless the user ticks it: the community AMD RDNA 4 display driver and the MediaTek Wi-Fi driver are
+        // unproven on most of the hardware they claim, and each takes over something the machine needs to be usable.
+        readonly CheckBox expDrivers = new CheckBox();
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
@@ -102,6 +105,11 @@ namespace A1401
             osPick.Items.AddRange(new object[] { Loc.T("macOS 15 Sequoia"), Loc.T("macOS 26 Tahoe") }); osPick.SelectedIndex = 0;
             // A different pick needs different startup files: drop the finished build so Build runs again.
             osPick.SelectedIndexChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
+            expDrivers.Text = Loc.T("Include experimental drivers (AMD RDNA 4 graphics, MediaTek Wi-Fi)");
+            expDrivers.Bounds = new Rectangle(24, 334, 620, 24); expDrivers.Checked = false;
+            expDrivers.BackColor = Theme.Panel; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
+            // Including them changes which kexts the build carries, so a finished build is no longer the right one.
+            expDrivers.CheckedChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
             guide.Bounds = new Rectangle(24, 110, 620, 360); guide.ScriptErrorsSuppressed = true;
             ocLink.Text = Loc.T("OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"); ocLink.AutoSize = true;
             ocLink.Location = new Point(24, 300); ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
@@ -127,7 +135,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, guide, ocLink, logLink, coffeeLink, drvLink, appLink, doctorLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, drvLink, appLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             ResumeLayout(false); PerformLayout();
@@ -250,7 +258,7 @@ namespace A1401
                     next.Text = Loc.T(scanned ? "Continue >" : "Check this PC"); Show(facts, log); next.Enabled = true; break;
                 case 2:
                     note.Text = Loc.T(built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "Pick macOS 15 Sequoia or macOS 26 Tahoe below. 1401 builds the startup files (OpenCore EFI) for that version and checks them with OpenCore's own validator. Downloads OpenCore and drivers.");
-                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick); next.Enabled = scanned;
+                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick, expDrivers); next.Enabled = scanned;
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
@@ -407,7 +415,7 @@ namespace A1401
                 var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
                 try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say(Loc.T("Using the last startup log on the stick to adjust this build."));
-                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + bootLogs, l => { lines.Add(l); });
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + (expDrivers.Checked ? " --experimental-drivers" : "") + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
