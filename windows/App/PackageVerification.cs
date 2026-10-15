@@ -53,6 +53,7 @@ namespace A1401
                 result["support_notices_visible"] = MainForm.IsSupportNotice("Laptop display note: unsupported panel") &&
                                                     MainForm.IsSupportNotice("Intel I225-LM vP requires link testing") &&
                                                     MainForm.IsSupportNotice("NullMoth driver selected") &&
+                                                    MainForm.IsSupportNotice("Graphics: Radeon RX 7900 XTX basic display") &&
                                                     !MainForm.IsSupportNotice("ACPI loader transcript");
                 using (var form = new MainForm(true))
                 using (var timer = new Timer { Interval = 250 })

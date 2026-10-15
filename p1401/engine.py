@@ -25,6 +25,7 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 
+from . import amd_gpu
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
@@ -659,21 +660,28 @@ def _nullmoth_gpu_pass(checker, h):
         except EngineExit as e:
             exited = e
         hit = nullmoth.mark(checker.hardware_report)
+        # Per-AMD-GPU notice (family -> the macOS path it gets), independent of the NVIDIA path above. It names the
+        # card so the user sees before building whether this AMD GPU gets full acceleration, basic display with an
+        # opt-in/experimental route, or no driver at all.
+        gpus = checker.hardware_report.get("GPU", {})
+        amd_notes = amd_gpu.notes(checker.hardware_report)
+        h.notices.extend(amd_notes)
         if not hit:
             basic = nullmoth.basic_display(checker.hardware_report) if exited else None
             if not basic:
                 if exited:
                     raise exited
                 return
-            gpus = checker.hardware_report.get("GPU", {})
             checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
-            h.notices.append(nullmoth.BASIC_NOTE.format(name=basic))
+            # The AMD notice for this card is more specific than the generic BASIC_NOTE, so skip the generic one when
+            # the card kept on the firmware framebuffer is the AMD GPU already described above.
+            if amd_gpu.classify(gpus.get(basic, {})) is None:
+                h.notices.append(nullmoth.BASIC_NOTE.format(name=basic))
             return
         h.policy.prefer["macOS"] = nullmoth.SEQUOIA[0].split(".")[0]
         mux = nullmoth.mux_help(checker.hardware_report)
         if mux:
             h.notices.append(mux)
-        gpus = checker.hardware_report.get("GPU", {})
         checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
         h.notices.append("NullMoth driver: " + ", ".join(hit) + " selected for macOS 15 Sequoia."
                          + ("" if nullmoth.tested(checker.hardware_report) else
