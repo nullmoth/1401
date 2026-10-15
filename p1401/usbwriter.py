@@ -404,6 +404,9 @@ Write-Output "LETTER=$letter"
             raise
         print("(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)" if unshown else
               "(Windows could not format the erased stick; erasing it with Windows' diskpart instead)", flush=True)
+        # 2.0.2 write logs 10-15 (3 x an "F8 T5" USB SSD): diskpart then failed "The request is not supported" and the log
+        # never said why Format-Volume failed first, so nothing could be done about it. The first error rides along now.
+        print(f"(the format error was: {str(e)[:400]})", flush=True)
         n = current_number(disk)
         release(n)
         _diskpart(diskpart_script({**disk, "Number": n}, letter))
