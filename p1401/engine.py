@@ -25,6 +25,7 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 
+from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
 from . import report as report_mod
@@ -694,6 +695,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     try:
         mod, utils_mod = _load_engine()
         h = Headless(utils_mod, policy, echo)
+        try:
+            netsupport.register()   # MediaTek Wi-Fi/BT device IDs + kexts upstream does not carry
+        except Exception as e:  # noqa: BLE001 - a networking add-on must never stop a build from starting
+            h.notices.append(f"MediaTek support not loaded: {type(e).__name__}: {e}")
         with h:
             # 10-07: Build ran with no Report.json and failed with a bare FileNotFoundError.
             if not os.path.isfile(report_path):
@@ -754,6 +759,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
+            netsupport.apply_kexts(o, cust, mv, h.notices)   # MediaTek Wi-Fi/BT, if this machine has one
+            netsupport.support_from_pci(cust, h.notices)     # warn if the installer will have no internet
             # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
             # also removes them from any config that still names them).
             from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
