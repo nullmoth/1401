@@ -3,6 +3,29 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.0.0
+- Pick macOS 15 Sequoia or macOS 26 Tahoe before the build
+- Bundle driver 2.0.0 (security fixes, GeForce RTX 50 compute, flicker, refresh-rate and black-screen fixes)
+- Tahoe boots and updates on PC models Apple did not ship it for, and boards with a Realtek 2.5G/5G port and Intel or
+  Broadcom Wi-Fi no longer stop at the Apple logo
+- Hybrid-core Intel PCs that stopped at EXITBS:START boot, and Intel PCs that froze with "No slide values are usable"
+  get the matching memory-map setting
+- Every AMD graphics card is identified, with what macOS can do on it shown in the build summary
+- Experimental drivers are off unless you tick "Include experimental drivers": the AMD RX 9070 display driver and the
+  MediaTek MT7921/MT7922 Wi-Fi driver. With it off, the build says which one your PC could use
+- MediaTek Bluetooth works on the OEM versions people have; PCs with no supported network adapter get the offline
+  installer by default
+- NVMe drives macOS cannot install to are named before you start
+- A rebuild for the same PC keeps its serial number, board serial, UUID and ROM; ask for a new one if macOS Setup
+  says the Mac belongs to an organization
+- A PC with a NullMoth-driver card is built for macOS 15 even when the engine suggests Ventura
+- A build that stopped in the EFI step no longer locks out every later build
+- Apple download errors (403, 502, cut-off downloads, a bad chunk) are retried where they can be and explained where
+  they cannot
+- USB stick writing: sticks Windows could not format are erased with diskpart, a renumbered stick is found again, and
+  files that read back wrong are written again
+- The Remove NVIDIA driver startup entry stays visible in the boot picker
+
 ## 1.15.0
 - Fix the build stopping on ACPI tables that declare a method twice (BIOSTAR B650 and similar)
 - Bundle driver 1.15.0 (fixes the GTX 16 black screen that started in 1.14)
