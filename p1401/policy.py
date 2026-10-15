@@ -243,6 +243,20 @@ def apply(config_path, result, policy):
         boot["HideAuxiliary"] = False
         change("show-installer-entry", f"HideAuxiliary={before}", "HideAuxiliary=False",
                "the macOS installer on the stick is a recovery entry; it was hidden in the boot picker")
+    # 2d3. The same entries have to be reachable later, when the driver adds "Remove NVIDIA driver" as an OpenCore tool:
+    # the picker must appear on its own (ShowPicker), and it has to be a picker that lists tools. Apple's own picker
+    # (PickerMode Apple) shows only bootable OSes, so a user whose desktop the driver broke could not find the Remove
+    # entry even after pressing Space ("remove nvidia driver doesnt exist even when i press space"). Builtin and
+    # External (OpenCanopy) both list tools; only Apple is moved off, to the always-present Builtin text picker.
+    if boot.get("ShowPicker") is not True:
+        before = str(boot.get("ShowPicker"))
+        boot["ShowPicker"] = True
+        change("show-picker", f"ShowPicker={before}", "ShowPicker=True",
+               "the boot picker has to appear so the macOS installer and the driver's Remove entry can be chosen")
+    if boot.get("PickerMode") == "Apple":
+        boot["PickerMode"] = "Builtin"
+        change("picker-lists-tools", "PickerMode=Apple", "PickerMode=Builtin",
+               "Apple's boot picker never lists OpenCore tools, so the driver's Remove entry could not appear in it")
     # 2e. The Mac app proves which partition OpenCore started from by OpenCore's boot-path variable, which OpenCore
     # publishes only with Misc > Security > ExposeSensitiveData bit 0x1; the usual 6 leaves it out, and the Mac app then
     # stopped with one OpenCore partition in sight. Bit 0x1 exposes the booter path only - no serials.
