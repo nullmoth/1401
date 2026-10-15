@@ -42,9 +42,14 @@ class GpuPassNotice(unittest.TestCase):
         self.assertTrue(any(n.startswith("Graphics:") and "RX 7900 XTX" in n and "opt-in NullMoth test driver" in n
                             for n in notes), notes)
 
-    def test_rdna4_card_names_the_community_projects(self):
+    def test_navi48_is_left_to_the_rdna4_driver_pass_not_announced_twice(self):
+        # The GPU pass skips Navi 48 (amd_rdna4.NAVI48_IDS); the RDNA 4 kext pass emits the full notice instead.
         notes = run({"AMD Radeon RX 9070 XT": amd("7550")})
-        self.assertTrue(any("RX 9070 XT" in n and "community" in n and "Cobalt64" in n for n in notes), notes)
+        self.assertFalse(any(n.startswith("Graphics:") for n in notes), notes)
+
+    def test_rdna4_navi44_still_gets_the_generic_notice(self):
+        notes = run({"AMD Radeon RX 9060": amd("7590")})
+        self.assertTrue(any(n.startswith("Graphics:") and "RDNA 4" in n for n in notes), notes)
 
     def test_native_card_is_confirmed_supported(self):
         notes = run({"AMD Radeon RX 6800": amd("73BF")})
