@@ -90,6 +90,29 @@ class MediaTekKexts(unittest.TestCase):
                 kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]}
         self.assertTrue(want.issubset(set(km.checked)))
 
+    def test_common_bt_rebrands_enable_the_bt_kext(self):
+        # 13D3-3585 is the most common MediaTek BT id in the field; it and the other re-brands below are in
+        # SimpleMtkBtFw's Info.plist, so the kext must now be enabled for them.
+        from Scripts.datasets import kext_data
+        bt_idx = kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]
+        for did in ("13D3-3585", "0489-E0F6", "13D3-3568", "13D3-3567", "13D3-3614", "04CA-3802"):
+            km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
+            km.checked = []
+            o = type("O", (), {"k": km})()
+            netsupport.apply_kexts(o, _report(bt={"b": did}), "24.0.0", [])
+            self.assertIn(bt_idx, km.checked, f"{did} should enable the MediaTek BT kext")
+
+    def test_unsupported_bt_rebrand_is_not_enabled(self):
+        # NEGATIVE CONTROL: a MediaTek-named re-brand that SimpleMtkBtFw does NOT match (not in its Info.plist)
+        # must not turn the kext on, or the build would promise Bluetooth the driver cannot bring up.
+        from Scripts.datasets import kext_data
+        bt_idx = kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]
+        km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
+        km.checked = []
+        o = type("O", (), {"k": km})()
+        netsupport.apply_kexts(o, _report(bt={"b": "13D3-3596"}), "24.0.0", [])
+        self.assertNotIn(bt_idx, km.checked)
+
     def test_no_mediatek_device_adds_no_mediatek_kext(self):
         # NEGATIVE CONTROL.
         from Scripts.datasets import kext_data
