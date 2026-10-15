@@ -131,9 +131,9 @@ _NOTE = {
             "(basic display: desktop and apps work, no acceleration, firmware resolution). Acceleration is available "
             "only through the opt-in NullMoth test driver, which is experimental and unproven on this card."),
     RDNA4: ("Graphics: {name} ({family}) has no Apple driver. macOS installs and runs on the firmware framebuffer "
-            "(basic display: desktop and apps work, no acceleration). Experimental community drivers exist (" +
-            ", ".join(RDNA4_COMMUNITY) + ") that have reached about 1080p; they are not bundled and full acceleration "
-            "is not yet available."),
+            "(basic display: desktop and apps work, no acceleration). The experimental community RDNA 4 drivers (" +
+            ", ".join(RDNA4_COMMUNITY) + ") currently cover only the RX 9070 (Navi 48), not this card; full "
+            "acceleration is not yet available for any RDNA 4 GPU."),
     APU_VEGA: ("Graphics: {name} ({family}) AMD integrated graphics has no Apple driver. macOS installs on the "
                "firmware framebuffer (basic display). The community NootedRed kext supports this iGPU, but its licence "
                "stops 1401 from bundling it; install NootedRed yourself for acceleration."),
@@ -154,11 +154,16 @@ def note(name, gpu):
     return _NOTE[path].format(name=name, family=family)
 
 
-def notes(report):
-    """Every AMD GPU's build notice, in scan order. Non-AMD GPUs are skipped."""
+def notes(report, skip_ids=()):
+    """Every AMD GPU's build notice, in scan order. Non-AMD GPUs are skipped, and so is any GPU whose device ID is in
+    skip_ids (upper-case "VENDOR-DEVICE") - used for cards another pass describes in full, e.g. the Navi 48 cards the
+    RDNA 4 display-driver pass covers, so they are not announced twice."""
+    skip = {s.upper() for s in skip_ids}
     out = []
     for name, gpu in (report.get("GPU") or {}).items():
         if not isinstance(gpu, dict):
+            continue
+        if (gpu.get("Device ID") or "").upper() in skip:
             continue
         n = note(name, gpu)
         if n:

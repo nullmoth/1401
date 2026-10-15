@@ -26,6 +26,7 @@ import tempfile
 from dataclasses import dataclass, field
 
 from . import amd_gpu
+from . import amd_rdna4
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
@@ -664,7 +665,8 @@ def _nullmoth_gpu_pass(checker, h):
         # card so the user sees before building whether this AMD GPU gets full acceleration, basic display with an
         # opt-in/experimental route, or no driver at all.
         gpus = checker.hardware_report.get("GPU", {})
-        amd_notes = amd_gpu.notes(checker.hardware_report)
+        # Navi 48 cards are described in full by the RDNA 4 display-driver pass (amd_rdna4), so skip them here.
+        amd_notes = amd_gpu.notes(checker.hardware_report, skip_ids=amd_rdna4.NAVI48_IDS)
         h.notices.extend(amd_notes)
         if not hit:
             basic = nullmoth.basic_display(checker.hardware_report) if exited else None
@@ -707,6 +709,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             netsupport.register()   # MediaTek Wi-Fi/BT device IDs + kexts upstream does not carry
         except Exception as e:  # noqa: BLE001 - a networking add-on must never stop a build from starting
             h.notices.append(f"MediaTek support not loaded: {type(e).__name__}: {e}")
+        try:
+            amd_rdna4.register()    # the RDNA 4 (RX 9070) community display driver, built and mirrored by us
+        except Exception as e:  # noqa: BLE001 - a GPU add-on must never stop a build from starting
+            h.notices.append(f"AMD RDNA 4 support not loaded: {type(e).__name__}: {e}")
         with h:
             # 10-07: Build ran with no Report.json and failed with a bare FileNotFoundError.
             if not os.path.isfile(report_path):
@@ -768,6 +774,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
             netsupport.apply_kexts(o, cust, mv, h.notices)   # MediaTek Wi-Fi/BT, if this machine has one
+            amd_rdna4.apply_kexts(o, cust, mv, h.notices)    # RX 9070 display driver, if this machine has a Navi 48
             net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
             # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
             # also removes them from any config that still names them).
