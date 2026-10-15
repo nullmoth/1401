@@ -683,6 +683,7 @@ namespace A1401
         internal static bool IsSupportNotice(string text)
         {
             return text.StartsWith("NullMoth", StringComparison.Ordinal) ||
+                   text.StartsWith("Graphics:", StringComparison.Ordinal) ||
                    text.StartsWith("Laptop display note:", StringComparison.Ordinal) ||
                    text.StartsWith("Intel I225-LM vP", StringComparison.Ordinal);
         }
