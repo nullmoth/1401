@@ -3,6 +3,13 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.0.2
+- A PC with no network adapter that works in the macOS installer gets its stick written, with a note to connect a
+  supported Ethernet or Wi-Fi adapter before installing. 2.0.0 stopped the write and asked for a recovery image that
+  would not have helped
+- A stick that Windows gives a new disk number just before the erase is found again and written
+- Bundle driver 2.0.2 (the same driver as 2.0.0)
+
 ## 2.0.1
 - PCs with an NVIDIA card can build for macOS 26 Tahoe. 2.0.0 offered only macOS 15 for them, so picking
   Tahoe stopped the build
