@@ -24,6 +24,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          # Full history: some tests compare against an earlier commit as their negative control, and the default
+          # single-commit checkout leaves that commit missing, so they fail instead of measuring anything.
+          fetch-depth: 0
       - name: Set up the pinned SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
         with:
