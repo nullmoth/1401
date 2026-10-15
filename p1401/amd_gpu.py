@@ -88,7 +88,7 @@ _APUS = {
 }
 
 # The community RDNA 4 projects, named so the notice can point users at them. Both are source-only (no release asset to
-# pin, checked 2026-10-15) and the authors report roughly 1080p, so 1401 does not bundle or auto-install either one.
+# pin) and the authors report roughly 1080p, so 1401 does not bundle or auto-install either one.
 RDNA4_COMMUNITY = ("RX4Darwin/AMDRadeonRDNA4 (BSD-3)", "Almosst-DEV/Cobalt64 (MIT)")
 
 

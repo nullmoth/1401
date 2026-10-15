@@ -75,7 +75,7 @@ class AppleError(RuntimeError):
 OSRECOVERY_HTTP = "http://osrecovery.apple.com/"
 RECOVERY_NETWORK = (" - this network cuts the connection to Apple's recovery server. Turn off web/HTTPS scanning in your "
                     "antivirus, or connect through a phone hotspot or a VPN, and press Next")
-# 1.15 write log (10-14): oscdn answered 403 mid-download on a network where osrecovery also failed over HTTP, and the
+# A 1.15 write log: oscdn answered 403 mid-download on a network where osrecovery also failed over HTTP, and the
 # stop showed only the bare 403 - not whether a fresh token had been tried, nor what to change.
 CDN_REFUSED = (" Apple's download server refused this network. Connect through a phone hotspot or a VPN, or turn off "
                "web/HTTPS scanning in your antivirus, and press Next")
@@ -155,7 +155,7 @@ def _open(url, headers, data=None, sleep=None, doh=None):
         try:
             return urllib.request.urlopen(req, timeout=TIMEOUT)
         except Exception as e:  # keep the URL so the UI can show what failed
-            # Write logs 1.13 (x2) and 1.15 (10-14): every oscdn request sent to the DNS-over-HTTPS address answered
+            # Write logs from 1.13 (two) and 1.15: every oscdn request sent to the DNS-over-HTTPS address answered
             # "HTTP Error 400: Bad Request" on that network, while the same three edge addresses served the file with the
             # same headers from elsewhere (measured 10-14, 200 OK each). Something on the network rejects a request
             # addressed by IP. In the 1.15 log DNS had worked for 99% of the image and failed once, so the name is asked
@@ -326,7 +326,7 @@ def download(info, usb_root, progress=None):
     try:
         r = _asset(info["image_url"], info["image_token"])
     except AppleError as e:
-        # 1.15 write log (10-13): "HTTP Error 403: Forbidden" on the very first image request, before any byte. The
+        # A 1.15 write log: "HTTP Error 403: Forbidden" on the very first image request, before any byte. The
         # resume path already swaps in a fresh URL and token on a 403; the first request now does the same, once.
         if "HTTP Error 403" not in str(e):
             raise

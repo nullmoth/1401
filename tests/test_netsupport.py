@@ -180,7 +180,7 @@ class BtHashVerified(unittest.TestCase):
             self.assertFalse(rf.download_and_save_file("https://example/SimpleMtkBtFw.zip", p, "0" * 64))
 
     def test_pinned_bt_sha_matches_the_live_asset(self):
-        # The pin recorded in netsupport must be the real 1.0.0 RELEASE asset's hash (verified live 2026-10-14).
+        # The pin recorded in netsupport must be the real 1.0.0 RELEASE asset's hash (verified against the live release).
         self.assertEqual(netsupport.MTK_BT_SHA256,
                          "b6afbe453db5827e7e2c8cdd045374f4fa6760f63e6ae26a3f322aa75dc84954")
 

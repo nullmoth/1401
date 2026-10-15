@@ -25,7 +25,7 @@ NAVI48_IDS = ["1002-7550", "1002-7551"]
 
 KEXT = "AMDRadeonRDNA4"
 
-# The exact bytes built on the build Mac from the pinned commit (cross-compiled x86_64, min macOS 11.0). "url" is where the
+# The exact bytes built from the pinned commit (cross-compiled x86_64, min macOS 11.0). "url" is where the
 # release hosts them; mirror.json records the same url -> {sha256,size} so a GitHub-blocked network gets them from the
 # nullmothsystems.com mirror, byte-verified. If the host is unreachable and the bytes are not in the mirror manifest,
 # the kext is simply not added (apply_kexts is fail-safe) - the RX 9070 still installs on the firmware framebuffer.
