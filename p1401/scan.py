@@ -229,6 +229,72 @@ def scan(out_dir):
     return out_dir
 
 
+def _storage_drives_section(rows):
+    """Build the Storage Drives report section from Get-Disk rows. Pure: each row is a dict with FriendlyName/Model,
+    BusType, MediaType, Size, IsBoot, IsSystem. The model string is the whole point - it lets a 'no disk' report name
+    the exact drive, which the scan never recorded before."""
+    section = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        model = str(row.get("Model") or row.get("FriendlyName") or "").strip()
+        if not model:
+            continue
+        number = row.get("Number")
+        name = "Disk %s" % number if number is not None else model
+        entry = {"Model": model[:256], "Bus Type": str(row.get("BusType") or "").strip()[:32]}
+        media = str(row.get("MediaType") or "").strip()
+        if media and media.lower() != "unspecified":
+            entry["Media Type"] = media[:32]
+        try:
+            entry["Size"] = int(row.get("Size") or 0)
+        except (TypeError, ValueError):
+            pass
+        if row.get("IsSystem") or row.get("IsBoot"):
+            entry["System"] = True
+        section[name] = entry
+    return section
+
+
+def collect_storage_drives():
+    """Windows only: the installed drives and their models, via PowerShell Get-Disk (FriendlyName is the model, BusType
+    tells USB from internal). Fail-safe: any error returns no rows, so the scan is never held up by this extra read."""
+    if platform.system() != "Windows":
+        return []
+    try:
+        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+               "Get-Disk | Select-Object Number,FriendlyName,Model,BusType,Size,IsBoot,IsSystem | ConvertTo-Json -Compress"]
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=30).stdout.strip()
+        if not out:
+            return []
+        data = json.loads(out)
+        return data if isinstance(data, list) else [data]
+    except Exception:  # noqa: BLE001 - an optional read; never block the scan
+        return []
+
+
+def _add_storage_drives(out_dir):
+    """Merge the Storage Drives section into Report.json after the Sniffer wrote it. 1401's own section (the upstream
+    report has no drive models); it travels on the raw report, which the build keeps apart from the cleaned copy."""
+    rows = collect_storage_drives()
+    section = _storage_drives_section(rows)
+    if not section:
+        return
+    rp = os.path.join(out_dir, "Report.json")
+    try:
+        with open(rp, "r", encoding="utf-8") as fh:
+            report = json.load(fh)
+        if not isinstance(report, dict):
+            return
+        report["Storage Drives"] = section
+        tmp = rp + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(report, fh)
+        os.replace(tmp, rp)
+    except Exception:  # noqa: BLE001 - the report stands without the extra section
+        return
+
+
 def _sniffer_body(out_dir, token):
     sys.path.insert(0, SNIFFER)
     import HardwareSniffer  # noqa: PLC0415 - only importable with SNIFFER on the path, in this process only
@@ -247,6 +313,7 @@ def _sniffer_body(out_dir, token):
     finally:
         scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
     h.export_hardware_report()
+    _add_storage_drives(out_dir)  # record drive models so a "no disk" report can name the exact SSD
     h.dump_acpi_tables()
     acpi = os.path.join(out_dir, "ACPI")
     if platform.system() == "Windows":

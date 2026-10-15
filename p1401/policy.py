@@ -450,6 +450,22 @@ def apply(config_path, result, policy):
         change("tahoe-realtek-ethernet", "AppleEthernetRL", "blocked (" + ", ".join(sorted(lucy)) + " drives the port)",
                "with the IOSkywalkFamily downgrade, Apple's Realtek driver stops macOS 26 at the Apple logo")
 
+    # 8. NVMe drives macOS struggles with: the install target is only found missing at install time, after the long
+    # download and build. The scan now records the drive models (Storage Drives on the raw report); warn up front, and
+    # enable NVMeFix for the OEM families whose drop-outs a power-state fix is known to clear.
+    from . import storage_drives  # noqa: PLC0415
+    raw = getattr(result, "raw_hardware", None) or (result.hardware or {})
+    if storage_drives.wants_nvmefix(raw):
+        for k in kexts:
+            if k.get("BundlePath", "").split("/")[-1] == "NVMeFix.kext" and not k.get("Enabled"):
+                k["Enabled"] = True
+                change("storage-nvmefix", "NVMeFix off", "NVMeFix on",
+                       "this PC has an OEM NVMe drive that can drop out under macOS power management")
+    sd_warning = storage_drives.warning(raw)
+    if sd_warning:
+        change("storage-drive-warning", "", sd_warning,
+               "the scan recorded an NVMe drive macOS is known to have trouble with")
+
     tmp = config_path + ".tmp"
     with open(tmp, "wb") as fh:
         plistlib.dump(cfg, fh)

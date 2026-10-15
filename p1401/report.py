@@ -69,6 +69,7 @@ def diagnostic_hardware(report):
         "USB Controllers": ("Device ID", "Subsystem ID", "PCI Path", "ACPI Path", "Bus Type"),
         "Monitor": ("Connected GPU", "Connector Type"),
         "Storage Controllers": ("Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
+        "Storage Drives": ("Model", "Bus Type", "Media Type", "Size", "System"),
         "Input": ("Device ID", "Bus Type", "ACPI Path", "PCI Path"),
         "Sound": ("Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path"),
         "Bluetooth": ("Device ID", "Bus Type", "PCI Path", "ACPI Path"),
