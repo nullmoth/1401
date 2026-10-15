@@ -42,6 +42,7 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 |---|---|---|
 | OpenCorePkg release (bootloader, drivers, `ocvalidate`) | acidanthera, via the engine's pinned build repo | sha256 recorded in the engine's download history. `ocvalidate` refuses to run without one. |
 | Kexts (Lilu, WhateverGreen, AppleALC, itlwm, ...) | Each author's release, chosen by the engine | Each keeps its own license. **Two currently have no sha256 in the engine's manifest (AppleIGB, AppleMCEReporterDisabler), which is an open 1401 issue.** |
+| SimpleMtkBtFw (MediaTek Bluetooth), by laobamac | The project's `1.0.0` GitHub release (`SimpleMtkBtFw-1.0.0-RELEASE.zip`) | **GPL-3.0** (`LICENSE` in the repo). Pinned to the exact asset and sha256 `b6afbe45…dc84954`, verified on download. Source for this binary is the tagged release at `github.com/laobamac/SimpleMtkBtFw` (tag `1.0.0`). |
 | `acpidump.exe` (ACPICA R2024_12_12) | Intel ACPICA GitHub release | sha256 pinned in `p1401/scan.py`. ACPICA is dual BSD-3 / GPL-2. |
 | macOS recovery image | **Apple**, from `osrecovery.apple.com` to the user's own USB stick | Apple's RSA-signed chunklist, with every chunk hash-checked as it streams |
 

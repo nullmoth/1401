@@ -131,6 +131,43 @@ class MediaTekKexts(unittest.TestCase):
         self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
 
 
+@unittest.skipUnless(os.path.isdir(os.path.join(REPO, "upstream", "OpCore-Simplify")),
+                     "engine datasets not present")
+class BtHashVerified(unittest.TestCase):
+    """The pinned MediaTek BT asset is fetched only when its SHA-256 matches: a good hash passes, a tampered one is
+    refused (the build then fails rather than shipping unknown bytes). Exercises the engine's real download path."""
+
+    def _fetcher(self, data):
+        up = os.path.join(REPO, "upstream", "OpCore-Simplify")
+        if up not in sys.path:
+            sys.path.insert(0, up)
+        from Scripts import resource_fetcher
+        from p1401 import mirror
+        rf = resource_fetcher.ResourceFetcher()
+        rf._make_request = lambda url, timeout=10: mirror.Response(data, url)
+        return rf
+
+    def test_good_hash_passes_tampered_refused(self):
+        import hashlib, io, zipfile
+        # A real (minimal) kext archive, so the download path's ZIP validation is satisfied and only the hash decides.
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("SimpleMtkBtFw-x/SimpleMtkBtFw.kext/Contents/Info.plist", "<plist></plist>")
+        data = buf.getvalue()
+        good = hashlib.sha256(data).hexdigest()
+        rf = self._fetcher(data)
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "SimpleMtkBtFw.zip")
+            self.assertTrue(rf.download_and_save_file("https://example/SimpleMtkBtFw.zip", p, good))
+            # NEGATIVE CONTROL: the same bytes under a wrong (tampered) hash must be refused.
+            self.assertFalse(rf.download_and_save_file("https://example/SimpleMtkBtFw.zip", p, "0" * 64))
+
+    def test_pinned_bt_sha_matches_the_live_asset(self):
+        # The pin recorded in netsupport must be the real 1.0.0 RELEASE asset's hash (verified live 2026-10-14).
+        self.assertEqual(netsupport.MTK_BT_SHA256,
+                         "b6afbe453db5827e7e2c8cdd045374f4fa6760f63e6ae26a3f322aa75dc84954")
+
+
 class OfflineMarker(unittest.TestCase):
     """The build leaves a marker so the writer defaults to the offline image path on a PC with no installer network."""
 
