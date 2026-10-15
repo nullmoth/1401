@@ -118,7 +118,7 @@ check("Policy() defaults experimental_drivers to off", engine.Policy().experimen
 # Read from the commit before the gate rather than from a .bak file beside the source: a stray backup can be deleted
 # or edited and the control would quietly stop measuring anything. PRE_GATE is the merge that release-2.0 sat on when
 # the gate went in.
-PRE_GATE = "16bc269"
+PRE_GATE = "a451dd7"
 tmp = pathlib.Path(tempfile.mkdtemp(prefix="1401-expdrv-control-"))
 for fn, name, hardware, kext in (("amd_rdna4.py", "c_amd", NAVI48, "AMDRadeonRDNA4"),
                                  ("netsupport.py", "c_net", MT7922, "SimpleMtkWlan")):

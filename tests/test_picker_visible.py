@@ -16,7 +16,7 @@ import zipfile
 from p1401 import engine, policy, validate
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
-OLD_REV = 'a68ccdd'
+OLD_REV = '93a64a3'
 
 
 def result_for(directory):
