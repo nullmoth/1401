@@ -3,6 +3,13 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.0.3
+- Intel PCs (12th gen and newer) that stop at EB.MM.AKM because no kernel slide fit: rebuilding with the stick plugged
+  in reads its startup log and turns on DevirtualiseMmio for the next start
+- Bundle driver 2.0.3: the driver saves and restores the GPU across system sleep, diagnostic sysctls are gone from
+  normal builds, and the Mac app explains a hidden NVIDIA card, lets AMD/Intel-only Macs try the test GPU driver, and
+  adds an opt-in laptop brightness switch
+
 ## 2.0.2
 - A PC with no network adapter that works in the macOS installer gets its stick written, with a note to connect a
   supported Ethernet or Wi-Fi adapter before installing. 2.0.0 stopped the write and asked for a recovery image that
