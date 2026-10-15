@@ -136,7 +136,15 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
     offline = None
     try:
         for v in _volumes_on(k, disk):
-            h = _open(k, v)
+            try:
+                h = _open(k, v)
+            except DiskError as e:
+                # A 2.0.2 write log: "cannot open \\?\Volume{...} (Windows error 2)". The volume was listed and was gone a
+                # moment later (Windows remounting the stick). A volume that no longer exists holds nothing to lock.
+                if "Windows error 2" not in str(e):
+                    raise
+                say(f"(a volume on the stick went away before it was locked: {v}; nothing to lock)")
+                continue
             held.append(h)
             if not _lock_volume(k, h):
                 # Still held after the lock retries and a forced dismount (18 machines on 1.1-1.2: Explorer, antivirus,

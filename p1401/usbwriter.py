@@ -647,7 +647,11 @@ def cli_write(argv):
     def opt(n): return [argv[i + 1] for i, a in enumerate(argv) if a == n and i + 1 < len(argv)]
     disk = next((d for d in list_disks() if int(d.get("Number", -1)) == num), None)
     if not disk:
-        print(f"STOP disk {num} is not attached any more{STICK_ADVICE}"); return 1
+        # The number came from the window's list, and Windows hands USB sticks new numbers (after an earlier attempt, or a
+        # re-plug). 2.0.2 blamed the stick here, before anything was written, and users retried the same stale number
+        # 3-4 times (11 write logs in two hours on 10-15). The window now reloads its list when it reads this.
+        print(f"STOP 1401-DISK-RENUMBERED: Windows gave the stick a new disk number after it was picked (disk {num} is gone). "
+              "Nothing was erased. The list of disks was reloaded: pick the stick again and press Write."); return 1
     ok, why = eligible(disk, "--allow-large" in argv)
     if not ok:
         print("STOP " + "; ".join(why)); return 1

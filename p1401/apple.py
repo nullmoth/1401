@@ -201,6 +201,11 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # UNEXPECTED_EOF_WHILE_READING" on every try): something between the PC and Apple drops both, and the bare
             # error left the user nothing to do.
             advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and _transient(e) else ""
+            # 2.0.2 write logs 10-15 (3 PCs): oscdn reset the chunklist request on every try, at the DNS-over-HTTPS edge
+            # too (WinError 10054), and the stop said only "ConnectionResetError" with nothing to do about it.
+            if not advice and _transient(e):
+                advice = (" - this network keeps cutting the connection to Apple's download server. Turn off web/HTTPS "
+                          "scanning in your antivirus, or connect through a phone hotspot or a VPN, and press Next again.")
             if by_name_again:
                 advice = (" - this network's DNS could not find Apple's download server and the network refused it by "
                           "address too. Connect through another network or a VPN (or a phone hotspot) and press Next again.")

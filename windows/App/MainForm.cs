@@ -487,6 +487,8 @@ namespace A1401
                 }
                 ReportSaveStatus();
                 busy = false; next.Enabled = true; refresh.Enabled = true;
+                // Windows renumbers USB sticks; a stale number in this list made every retry fail the same way (10-15).
+                if (rc != 0 && writeLines.Any(l => l.Contains("1401-DISK-RENUMBERED"))) FillDisks();
                 if (rc != 0) { Say(Loc.T("Writing the stick did not finish. The saved report includes the writer output; partial changes to the selected stick may remain.")); OfferOperationReport("write"); return; }
                 written = true; bar.Value = 100; Go(5); return;
             }
