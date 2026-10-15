@@ -43,6 +43,12 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 | OpenCorePkg release (bootloader, drivers, `ocvalidate`) | acidanthera, via the engine's pinned build repo | sha256 recorded in the engine's download history. `ocvalidate` refuses to run without one. |
 | Kexts (Lilu, WhateverGreen, AppleALC, itlwm, ...) | Each author's release, chosen by the engine | Each keeps its own license. **Two currently have no sha256 in the engine's manifest (AppleIGB, AppleMCEReporterDisabler), which is an open 1401 issue.** |
 | SimpleMtkBtFw (MediaTek Bluetooth), by laobamac | The project's `1.0.0` GitHub release (`SimpleMtkBtFw-1.0.0-RELEASE.zip`) | **GPL-3.0** (`LICENSE` in the repo). Pinned to the exact asset and sha256 `b6afbe45…dc84954`, verified on download. Source for this binary is the tagged release at `github.com/laobamac/SimpleMtkBtFw` (tag `1.0.0`). |
+
+## Built and redistributed by 1401 (with source), verified by hash
+
+| What | Upstream | License and source |
+|---|---|---|
+| SimpleMtkWlan (MediaTek Wi-Fi) kext, by laobamac | `github.com/laobamac/SimpleMtkWlan` at commit `37ba676`, built by 1401 against acidanthera/MacKernelSDK (BSD-3) at commit `3f75008` with the macOS 15 SDK (`tools/build_mtkwlan.sh`) | **GPL-2.0** (`LICENSE` in the repo). 1401 distributes the built kext because the project ships no release, so it also hosts the exact matching source: the kext is `nullmothsystems.com/mirror/da0ef982…ee18f9` (sha256) and its GPL-2.0 source is `nullmothsystems.com/mirror/3109381a…cd49fa` (sha256), both pinned in `p1401/mirror.json` and `p1401/netsupport.py` and verified on download. MacKernelSDK is BSD-3 and keeps its own notice. |
 | `acpidump.exe` (ACPICA R2024_12_12) | Intel ACPICA GitHub release | sha256 pinned in `p1401/scan.py`. ACPICA is dual BSD-3 / GPL-2. |
 | macOS recovery image | **Apple**, from `osrecovery.apple.com` to the user's own USB stick | Apple's RSA-signed chunklist, with every chunk hash-checked as it streams |
 

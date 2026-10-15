@@ -560,6 +560,14 @@
    "sha256": "86a866d92d9c7cb1ba9613ffbe6675ed1742ed9e8490f01b83fca06098ef4388",
    "size": 103134
   },
+  "https://nullmothsystems.com/mirror/3109381a2db4a9d77053bbc0fe86079c7f45382be8e8c4378012c07be5cd49fa": {
+   "sha256": "3109381a2db4a9d77053bbc0fe86079c7f45382be8e8c4378012c07be5cd49fa",
+   "size": 3074903
+  },
+  "https://nullmothsystems.com/mirror/da0ef98222f7d29a6e3cdde91185348b7fe8abdf5c324c5e2349295996ee18f9": {
+   "sha256": "da0ef98222f7d29a6e3cdde91185348b7fe8abdf5c324c5e2349295996ee18f9",
+   "size": 1822103
+  },
   "https://raw.githubusercontent.com/CaseySJ/Aquantia-macOS-Patches/refs/heads/main/CaseySJ-Aquantia-Patch-Sets-1-and-2.plist": {
    "sha256": "d16a2874849e33f662e92ef5e1c6fa90aa243cd152d9952f6406c8638f31fc87",
    "size": 9189
