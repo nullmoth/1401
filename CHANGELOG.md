@@ -4,6 +4,10 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
 ## 2.0.3
+- When Windows gives the stick a new disk number after you pick it, 1401 says so and reloads the list, instead of
+  stopping with "the USB stick stopped accepting writes" on every retry
+- A volume on the stick that Windows removes while the erase starts no longer stops the write
+- When Apple's download server keeps cutting the connection, the stop says what to change on your network
 - Intel PCs (12th gen and newer) that stop at EB.MM.AKM because no kernel slide fit: rebuilding with the stick plugged
   in reads its startup log and turns on DevirtualiseMmio for the next start
 - Bundle driver 2.0.3: the driver saves and restores the GPU across system sleep, diagnostic sysctls are gone from
