@@ -73,23 +73,30 @@ class MediaTekKexts(unittest.TestCase):
         netsupport.register()
         netsupport.register()  # twice: must stay idempotent
 
-    def test_register_adds_kexts_and_ids_once(self):
+    def test_register_pins_the_bt_asset_and_does_not_add_wlan(self):
         from Scripts.datasets import kext_data, pci_data
-        self.assertIsNotNone(kext_data.kext_index_by_name.get(netsupport.MTK_WIFI_KEXT))
-        self.assertIsNotNone(kext_data.kext_index_by_name.get(netsupport.MTK_BT_KEXT))
-        names = [k.name for k in kext_data.kexts]
-        self.assertEqual(names.count(netsupport.MTK_WIFI_KEXT), 1)
+        bt_idx = kext_data.kext_index_by_name.get(netsupport.MTK_BT_KEXT)
+        self.assertIsNotNone(bt_idx)
+        # The pin the build fetches: the exact 1.0.0 RELEASE asset and its SHA-256 (verified live, see netsupport).
+        dl = kext_data.kexts[bt_idx].download_info
+        self.assertEqual(dl.get("url"), netsupport.MTK_BT_URL)
+        self.assertEqual(dl.get("sha256"), netsupport.MTK_BT_SHA256)
+        self.assertEqual([k.name for k in kext_data.kexts].count(netsupport.MTK_BT_KEXT), 1)
+        # SimpleMtkWlan publishes no release, so it must NOT be registered - auto-installing it would fail the build.
+        self.assertIsNone(kext_data.kext_index_by_name.get(netsupport.MTK_WIFI_KEXT))
         self.assertIn("14C3-0616", pci_data.WirelessCardIDs)
 
-    def test_apply_enables_kexts_for_a_mediatek_machine(self):
+    def test_apply_enables_bt_and_only_notes_wifi(self):
         from Scripts.datasets import kext_data
         km = type("M", (), {"checked": None, "check_kext": lambda s, i, mv, f=False: s.checked.append(i)})()
         km.checked = []
         o = type("O", (), {"k": km})()
-        netsupport.apply_kexts(o, _report(net={"w": "14C3-0616"}, bt={"b": "0E8D-0616"}), "24.0.0", [])
-        want = {kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT],
-                kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]}
-        self.assertTrue(want.issubset(set(km.checked)))
+        notices = []
+        netsupport.apply_kexts(o, _report(net={"w": "14C3-0616"}, bt={"b": "0E8D-0616"}), "24.0.0", notices)
+        self.assertIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
+        # MediaTek Wi-Fi is detected but has no kext to install; it must only produce a notice.
+        self.assertTrue(any("MediaTek Wi-Fi" in n for n in notices))
+        self.assertIsNone(kext_data.kext_index_by_name.get(netsupport.MTK_WIFI_KEXT))
 
     def test_common_bt_rebrands_enable_the_bt_kext(self):
         # 13D3-3585 is the most common MediaTek BT id in the field; it and the other re-brands below are in
@@ -121,9 +128,7 @@ class MediaTekKexts(unittest.TestCase):
         km.checked = []
         o = type("O", (), {"k": km})()
         netsupport.apply_kexts(o, _report(net={"w": "8086-2723"}), "24.0.0", [])
-        want = {kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT],
-                kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT]}
-        self.assertFalse(set(km.checked) & want)
+        self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_BT_KEXT], km.checked)
 
 
 class OfflineMarker(unittest.TestCase):

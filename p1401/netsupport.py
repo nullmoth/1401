@@ -4,11 +4,10 @@ Two jobs, both outside the upstream engine so upstream stays pinned and unpatche
 
 1. MediaTek Wi-Fi/Bluetooth. The upstream engine carries no MediaTek IDs and no MediaTek kext, so an MT7921/
    MT7922/MT7925 laptop gets an EFI with no wireless at all - the largest "Wi-Fi does not work" group in the user
-   chat after Intel. register() adds the device IDs and two community kexts (laobamac/SimpleMtkWlan for Wi-Fi,
-   laobamac/SimpleMtkBtFw for Bluetooth, both derived from itlwm/GPLv2 and downloaded from their own releases at
-   build time, as every other third-party kext here is), and apply_kexts() turns them on when the machine has one.
-   MediaTek Wi-Fi on macOS is experimental - the notice says so - but a user with an MT7921 confirmed it working,
-   and it is the only wireless option those machines have.
+   chat after Intel. register() adds the device IDs and, for Bluetooth, the laobamac/SimpleMtkBtFw kext (a pinned
+   release asset, SHA-256 verified on download); apply_kexts() turns it on when the machine has a MediaTek radio.
+   MediaTek Wi-Fi has no prebuilt driver to ship (SimpleMtkWlan publishes no release), so a MediaTek Wi-Fi card is
+   only detected - the user is pointed at the experimental project and the installer is treated as offline-only.
 
 2. A plain reading of what the machine can do for networking, so the app can tell the user - before they are
    stranded at the installer with no internet and no idea why - whether this build will have Wi-Fi, needs
@@ -59,6 +58,18 @@ MEDIATEK_BT_IDS = [
 
 MTK_WIFI_KEXT = "SimpleMtkWlan"
 MTK_BT_KEXT = "SimpleMtkBtFw"
+
+# SimpleMtkWlan ships NO release and NO tag (verified live 2026-10-14, `gh api repos/laobamac/SimpleMtkWlan/releases`
+# returns []), so there is no prebuilt kext to fetch; auto-installing it would fail every MediaTek-Wi-Fi build. A
+# MediaTek Wi-Fi card is therefore detected and the user is pointed at the project, and the installer-internet
+# classifier already treats such a card as experimental/offline. SimpleMtkBtFw does ship a built kext: pin the exact
+# 1.0.0 RELEASE asset and verify its SHA-256 on download (gathering_files passes download_info["sha256"] to the
+# fetcher, so a mirror or a changed asset is rejected). Licences, checked live with `gh api repos/.../license`:
+# SimpleMtkWlan GPL-2.0, SimpleMtkBtFw GPL-3.0 - both redistributable, and the kext is fetched from upstream at build
+# time, not bundled.
+MTK_BT_ASSET_ID = 433233966
+MTK_BT_URL = "https://github.com/laobamac/SimpleMtkBtFw/releases/download/1.0.0/SimpleMtkBtFw-1.0.0-RELEASE.zip"
+MTK_BT_SHA256 = "b6afbe453db5827e7e2c8cdd045374f4fa6760f63e6ae26a3f322aa75dc84954"
 
 
 def _devices(hardware_report, section):
@@ -134,15 +145,13 @@ def register():
             pci_data.BluetoothIDs.append(i)
 
     KextInfo = kext_data.KextInfo
+    # Only SimpleMtkBtFw is auto-installed; SimpleMtkWlan has no prebuilt release (see the note above). The exact
+    # asset and its SHA-256 are pinned so the build fetches a known binary, not whatever "latest" becomes.
     new = [
-        KextInfo(name=MTK_WIFI_KEXT,
-                 description="MediaTek Wi-Fi (MT7921/MT7922/MT7925) - experimental",
-                 category="Wi-Fi", conflict_group_id="MediaTekWiFi",
-                 github_repo={"owner": "laobamac", "repo": "SimpleMtkWlan"}),
         KextInfo(name=MTK_BT_KEXT,
                  description="MediaTek Bluetooth firmware (MT7921/MT7922/MT7925)",
                  category="Bluetooth", requires_kexts=["BlueToolFixup"],
-                 github_repo={"owner": "laobamac", "repo": "SimpleMtkBtFw"}),
+                 download_info={"id": MTK_BT_ASSET_ID, "url": MTK_BT_URL, "sha256": MTK_BT_SHA256}),
     ]
     for k in new:
         if k.name not in kext_data.kext_index_by_name:
@@ -159,11 +168,10 @@ def apply_kexts(ocpe, customization, macos_version, notices):
         net = _devices(customization, "Network")
         bt = _devices(customization, "Bluetooth")
         if any(d in MEDIATEK_WIFI_IDS for d in net):
-            idx = kext_data.kext_index_by_name.get(MTK_WIFI_KEXT)
-            if idx is not None:
-                km.check_kext(idx, macos_version)
-                notices.append("MediaTek Wi-Fi: added the experimental SimpleMtkWlan driver. It may be unstable and "
-                               "may not work inside the macOS installer - have Ethernet ready for the install.")
+            # No prebuilt SimpleMtkWlan release exists, so nothing is auto-installed; name the project and rely on
+            # the classifier having already flagged the installer as offline-only for this machine.
+            notices.append("MediaTek Wi-Fi: no macOS driver is installed automatically - the only project is "
+                           "experimental (github.com/laobamac/SimpleMtkWlan). Use Ethernet for the install.")
         if any(d in MEDIATEK_BT_IDS for d in bt):
             idx = kext_data.kext_index_by_name.get(MTK_BT_KEXT)
             if idx is not None:
