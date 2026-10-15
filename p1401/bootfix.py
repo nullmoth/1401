@@ -156,6 +156,21 @@ def apply(cfg, result, texts, change, stopped_at=""):
             booter["MmioWhitelist"] = wl
             change("bootlog-amd-memory-map-exhausted", before, "DevirtualiseMmio=False, SetupVirtualMap=False",
                    "every memory-map step the log allows has failed on this board; send the logs so it can be looked at")
+    # Intel stops in boot.efi the same way when the firmware's runtime MMIO leaves no room for the kernel: OpenCore
+    # prints "No slide values are usable", loads at slide 0 and boot.efi stops at EB.MM.AKM. Six stick logs on 10-15
+    # (i5-12400F, i7-12700K, i5-12500 desktops; i5-13420H and i5-13450HX laptops before them), every one with
+    # DevirtualiseMmio off - the hybrid-core policy turns it off for PCs that fault at EXITBS:START with it on. So the
+    # stick's own log decides: off and no slide -> on (Dortania KASLR guide); on and still no slide -> say so.
+    if cpu == "Intel" and failed and f.get("no_slide"):
+        before = f"DevirtualiseMmio={quirks.get('DevirtualiseMmio')}"
+        if not f["devirt_ran"]:
+            quirks["DevirtualiseMmio"] = True
+            change("bootlog-intel-akm-devirt", before, "DevirtualiseMmio=True",
+                   "the stick's last boot found no kernel slide and stopped in boot.efi (EB.MM.AKM) with DevirtualiseMmio off")
+        else:
+            change("bootlog-note", "", "this PC found no kernel slide even with the firmware's MMIO devirtualised. In the BIOS: "
+                   "Above 4G Decoding on, CSM off, and if there is a setting for it, a smaller iGPU memory size (DVMT); "
+                   "then send the logs", "it stopped at EB.MM.AKM with DevirtualiseMmio on")
     # Stuck right after the hand-off (the screen freezes on EXITBS:START, the kernel never prints). Dortania's list for
     # this stop is the booter's memory-map handling, and the log of the frozen boot says which settings it ran with, so
     # each frozen boot moves one step and the next build never repeats a set that already froze:
