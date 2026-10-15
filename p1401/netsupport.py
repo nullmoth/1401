@@ -22,15 +22,17 @@ import json
 import os
 
 # The build leaves this beside the EFI so the USB writer knows, without re-scanning, that this machine has no
-# network the macOS installer can use - the writer then defaults to the offline (local-image) path instead of
-# silently writing an online-only recovery stick that strands the user at "no internet" in the installer.
+# network the macOS installer can use, and says so before it writes instead of letting the user find out at
+# "no internet" in the installer.
 NETWORK_MARKER = "installer-network.json"
 
+# A warning, not a stop. 2.0.0 stopped the write here and asked for BaseSystem.dmg in the Recovery folder, but that
+# file is the same recovery image the writer downloads, and it still fetches macOS over the network during the
+# install, so the advice could not help; the window also had no way past the stop. 26 write logs in one morning.
 OFFLINE_INSTALLER_MESSAGE = (
-    "This PC has no network adapter that works in the macOS installer, so an online recovery stick cannot finish "
-    "the install. Put a macOS recovery image (BaseSystem.dmg and BaseSystem.chunklist, made with macrecovery on "
-    "any computer) into the Recovery folder next to the app and press Next again, or connect a supported Ethernet "
-    "or Wi-Fi adapter. To write the online recovery stick anyway, re-run with --allow-online."
+    "This PC has no network adapter that works in the macOS installer. The stick is written anyway, but the "
+    "installer downloads macOS from Apple: before you install, connect a supported Ethernet or Wi-Fi adapter, "
+    "such as a USB Ethernet adapter sold for Macs."
 )
 
 # MediaTek device IDs, "VENDOR-DEVICE" upper-case to match the probe and upstream pci_data.

@@ -312,7 +312,17 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     n = int(disk["Number"])
     letter = _free_letter()
     try:
-        rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
+        try:
+            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
+        except rawdisk.DiskError as e:
+            # A 2.0.1 write log: "cannot open \\.\PhysicalDrive1 (Windows error 2)" right after its volume was locked;
+            # the stick had come back under another disk number. Find it again by serial and erase that one, once.
+            moved = current_number(disk) if "Windows error 2" in str(e) else n
+            if moved == n:
+                raise
+            print(f"(Windows renumbered the stick: disk {n} is now disk {moved}; erasing that one)", flush=True)
+            n = moved
+            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
     except rawdisk.DiskError as e:
         # Some sticks refuse raw sector writes outright (1.7 logs 10-10: Lexar, "Windows error 5" with nothing else
         # using them). Windows' own diskpart erase goes through the volume manager and works on them; it was the
@@ -654,13 +664,11 @@ def cli_write(argv):
     # networks on every session (HTTP 403 in 1.2.0 logs) and some PCs have no internet at all.
     rec = (opt("--recovery-dir") or [RECOVERY_DIR])[0]
     info = apple.local_image(rec)
+    if netsupport.needs_local_image(efi):
+        # The build found no network adapter the macOS installer can use: say what the install will need, then write.
+        print("NOTE " + netsupport.OFFLINE_INSTALLER_MESSAGE, flush=True)
     if info:
         print(f"OK using {info['name']} (checked against Apple's signed chunklist while copying)", flush=True)
-    elif netsupport.needs_local_image(efi) and "--allow-online" not in argv:
-        # No local image and the build found no network adapter the macOS installer can use. An online recovery
-        # stick would strand the user at "no internet" in the installer, so the offline path is the default here.
-        print("STOP " + netsupport.OFFLINE_INSTALLER_MESSAGE, flush=True)
-        return 1
     else:
         print("STEP asking Apple for the macOS recovery image", flush=True)
         try:
