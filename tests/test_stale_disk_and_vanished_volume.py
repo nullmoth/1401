@@ -16,6 +16,7 @@ class StaleNumber(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("1401-DISK-RENUMBERED", line)
         self.assertNotIn(usbwriter.STICK_ADVICE.strip()[:40], line)
+        self.assertIn("USB: 3: ? 14.9 GiB", line)   # the log names where the stick went (2.0.3 logs could not)
 
     def test_the_window_reloads_its_list_on_that_stop(self):
         import pathlib

@@ -648,11 +648,17 @@ def cli_write(argv):
     from . import apple, nullmoth, netsupport  # noqa: PLC0415
     num, efi, darwin = int(argv[0]), argv[1], int(argv[2])
     def opt(n): return [argv[i + 1] for i, a in enumerate(argv) if a == n and i + 1 < len(argv)]
-    disk = next((d for d in list_disks() if int(d.get("Number", -1)) == num), None)
+    disks = list_disks()
+    disk = next((d for d in disks if int(d.get("Number", -1)) == num), None)
     if not disk:
         # The number came from the window's list, and Windows hands USB sticks new numbers (after an earlier attempt, or a
         # re-plug). 2.0.2 blamed the stick here, before anything was written, and users retried the same stale number
         # 3-4 times (11 write logs in two hours on 10-15). The window now reloads its list when it reads this.
+        # 2.0.3 logs from two PCs said only "disk 1 is gone": what Windows lists instead is printed first, so the next
+        # log shows whether the stick came back under another number or was not listed at all.
+        usb = [f"{d.get('Number')}: {d.get('FriendlyName') or '?'} {int(d.get('Size') or 0) / GiB:.1f} GiB"
+               for d in disks if d.get("BusType") == "USB"]
+        print(f"OK Windows lists {len(disks)} disk(s) now; USB: {', '.join(usb) or 'none'}")
         print(f"STOP 1401-DISK-RENUMBERED: Windows gave the stick a new disk number after it was picked (disk {num} is gone). "
               "Nothing was erased. The list of disks was reloaded: pick the stick again and press Write."); return 1
     ok, why = eligible(disk, "--allow-large" in argv)
