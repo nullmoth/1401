@@ -7,7 +7,7 @@ import CryptoKit
 // The AMD/Intel test program. A tester gets the newest signed test build of the AMD/Intel driver, and after every
 // restart 1401 sends what that start did: the driver's kernel messages from the previous start and this one, any
 // kernel panic since the last report, and which GPUs and builds were in play. The GPU drivers are brought up on
-// testers' machines (there is no AMD or Intel GPU on the bench), and a start that panics or hangs is exactly when
+// testers' machines, and a start that panics or hangs is exactly when
 // nobody opens 1401 to press Send logs, so the report has to happen on its own. It only runs while the user has
 // joined, as their own login item; leaving removes it.
 enum Tester {
