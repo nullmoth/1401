@@ -3,6 +3,12 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.0.4
+- When the stick's disk number is gone at write time, the log now lists the USB disks Windows shows, so the cause
+  can be found
+- Bundles driver and Mac app 2.0.4 (Prepare this Mac for Tahoe is back; the AMD / Intel test driver turns on for an
+  Intel or AMD GPU switched off in OpenCore)
+
 ## 2.0.3
 - When Windows gives the stick a new disk number after you pick it, 1401 says so and reloads the list, instead of
   stopping with "the USB stick stopped accepting writes" on every retry
