@@ -195,6 +195,11 @@ arm("the NVIDIA installer installs no NPU userland and no AMD/Intel kexts",
 arm("the NVIDIA uninstaller removes the NVIDIA driver only", 'KEXTS="NVRM NVAccel NVRMFB NVRMAGDC";' in unin
     and "NMXGPU" not in unin and "/Library/NullMoth/npu" not in unin)
 arm("turning it off clears the NPU opt-in", "ga del nmxnpu=1" in src)
+# the AMD/Intel driver is its own package: setup takes only its kexts, never the NVIDIA driver's cached accelerators
+arm("setup takes the AMD/Intel kexts from their own package, one by one",
+    'for k in NMXGPU NMXAccel NMXNPU; do for m in 15 26;' in src and 'for d in kexts gpu-userland npu;' not in src)
+arm("the app downloads the AMD/Intel package against its own pin, not the NVIDIA one",
+    '"--pkg", path, "--sha", GPUPackage.sha256' in (ROOT / "Sources/main.swift").read_text())
 
 
 # An Intel GPU switched off in OpenCore is not on macOS's PCI list (Lilu terminates it), so the scan finds no GPU: "on"

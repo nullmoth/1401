@@ -910,24 +910,27 @@ if [ -n "${GPUTEST:-}" ]; then
   fi
   if [ "$GPUTEST" = on ]; then
     [ -n "$WANT" ] || stop "this Mac has no AMD or Intel GPU for this driver (none is on macOS's PCI list, and no disable-gpu on ${IGPU:-the processor GPU} in OpenCore to undo)"
-    # A Mac with only an AMD or Intel GPU never ran the NVIDIA install (it stops at "no NVIDIA GPU"), so the test driver
-    # was never on disk and this switch could not work for the very Macs it is for. The app passes the downloaded,
-    # checksum-verified package: its AMD/Intel kexts, GPU userland and NPU files are taken from a root-owned copy.
-    if [ ! -d "$GK" ] && [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
-      step "Taking the AMD/Intel test driver from the downloaded package"
+    # The AMD/Intel driver is its own product (the nmx package, not part of the NVIDIA driver). The app passes the
+    # downloaded, checksum-verified package: its AMD/Intel kexts, GPU userland and NPU files are taken from a root-owned
+    # copy every time, so turning it on again also brings a newer package's build.
+    if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
+      step "Taking the AMD/Intel driver from its package"
       PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
       cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
       PK=$PKGDIR/$(basename "$PKG")
       [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
       tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
       PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
-      [ -d "$PR/Library/NullMoth/kexts/$KMAJ/NMXGPU.kext" ] || stop "this driver package has no AMD/Intel GPU driver for macOS $KMAJ"
+      [ -d "$PR/Library/NullMoth/kexts/$KMAJ/NMXGPU.kext" ] || stop "this AMD/Intel driver package has no build for macOS $KMAJ"
       mkdir -p /Library/NullMoth
-      for d in kexts gpu-userland npu; do [ ! -d "$PR/Library/NullMoth/$d" ] || ditto "$PR/Library/NullMoth/$d" "/Library/NullMoth/$d" || stop "could not copy $d"; done
+      for d in gpu-userland npu; do [ ! -d "$PR/Library/NullMoth/$d" ] || { rm -rf "/Library/NullMoth/$d" && ditto "$PR/Library/NullMoth/$d" "/Library/NullMoth/$d"; } || stop "could not copy $d"; done
+      # only the AMD/Intel and NPU kexts: the NVIDIA driver's own cached accelerators in the same folder stay as they are
+      for k in NMXGPU NMXAccel NMXNPU; do for m in 15 26; do s="$PR/Library/NullMoth/kexts/$m/$k.kext"; [ -d "$s" ] || continue
+        mkdir -p "/Library/NullMoth/kexts/$m" && rm -rf "/Library/NullMoth/kexts/$m/$k.kext" && ditto "$s" "/Library/NullMoth/kexts/$m/$k.kext" || stop "could not copy $k for macOS $m"; done; done
       chown -R root:wheel /Library/NullMoth/kexts && chmod -R go-w /Library/NullMoth/kexts
-      ok "AMD/Intel test driver taken from the package (no NVIDIA driver installed)"
+      ok "AMD/Intel driver taken from its package"
     fi
-    [ -d "$GK" ] || stop "this driver package has no AMD/Intel GPU driver (NMXGPU) - download the driver package first"
+    [ -d "$GK" ] || stop "the AMD/Intel driver package is not downloaded yet - download it in 1401 first"
     [ -f "$MAN" ] || stop "this copy of the app has no GPU firmware list"
     step "Downloading the GPU firmware (linux-firmware, every file checked)"
     COMMIT=$(awk 'NR==2{print}' "$MAN" | grep -oE 'raw/[0-9a-f]{40}' | cut -d/ -f2); [ -n "$COMMIT" ] || stop "the GPU firmware list names no commit"

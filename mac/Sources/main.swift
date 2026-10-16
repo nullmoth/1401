@@ -14,6 +14,14 @@ struct Package {
     static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.1.0/nullmoth-nvidia-2.1.0.tar.gz")!
     static let sha256 = "ee52792d8ae3fbeb0fca733627febb9580dc06a6ceeb3b444d8e96e6493e2831"
 }
+// The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
+// means no build of it is published yet.
+struct GPUPackage {
+    static let version = ""
+    static let name = ""
+    static let url: URL? = nil
+    static let sha256 = ""
+}
 let uploadPage = URL(string: "https://nullmothsystems.com/#send")!
 let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("NullMoth")
 let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0].appendingPathComponent("Logs/NullMoth")
@@ -441,11 +449,14 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // a Mac with no NVIDIA card has no driver install behind it: the checked package rides along so setup can take
         // the AMD/Intel test driver from it (setup verifies the SHA-256 again on a root-owned copy)
         case "gputest":
-            let pk = (b["pkg"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto",
-                extra: ["--gpu-test", (b["on"] as? Bool ?? false) ? "on" : "off",
-                        "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
-                    + (pk.map { ["--pkg", $0, "--sha", Package.sha256] } ?? []))
+            let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
+            let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
+            guard on else { run(mode: "verbose", pkg: "", efi: efi, extra: extra); break }
+            // turning it on takes the AMD/Intel driver's own package (downloaded once, checked against its pin)
+            DispatchQueue.global().async {
+                guard let path = self.gpuPackage() else { return }
+                DispatchQueue.main.async { self.run(mode: "verbose", pkg: "", efi: efi, extra: extra + ["--pkg", path, "--sha", GPUPackage.sha256]) }
+            }
         // macOS 15 -> 26: setup's one-button path ("--update prepare" with the package) installs or updates the driver,
         // then parks it and sets the installer's small BAR; "--update cancel" puts it all back before the update
         case "osupdate":
@@ -729,6 +740,25 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     }
     func download() {
         startDownload(name: Package.name, sha: Package.sha256, url: Package.url, efi: nil)
+    }
+    /// The AMD/Intel driver package on disk, matching its pin: the copy already downloaded, else a fresh download.
+    /// nil (and the reason sent to the window) when none is published or the download does not match.
+    func gpuPackage() -> String? {
+        let fail: (String) -> String? = { self.send("dl", ["state": "error", "why": $0]); return nil }
+        guard let url = GPUPackage.url, !GPUPackage.sha256.isEmpty else {
+            return fail("the AMD/Intel driver has no published package yet") }
+        let dst = support.appendingPathComponent(GPUPackage.name)
+        if sha256(dst) == GPUPackage.sha256 { return dst.path }
+        send("dl", ["state": "start", "name": GPUPackage.name])
+        guard let data = syncGet(url, timeout: 600) else { return fail("the AMD/Intel driver package did not download") }
+        do {
+            try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+            try data.write(to: dst, options: .atomic)
+        } catch { return fail(error.localizedDescription) }
+        guard sha256(dst) == GPUPackage.sha256 else {
+            try? FileManager.default.removeItem(at: dst)
+            return fail("the AMD/Intel driver package does not match its SHA-256, so it was thrown away") }
+        return dst.path
     }
     // "Update the app": the newest 1401 Mac app from the same release, checked against SHA256SUMS.txt, unpacked, checked
     // again (bundle id, the version the release names, a valid signature), then swapped in place by a small script that

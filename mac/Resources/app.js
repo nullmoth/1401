@@ -51,14 +51,12 @@ function render(m) {
     && !(m.gpuHiding || []).some((a) => a !== "-wegnoigpu");   // -wegnoegpu & co. hide the NVIDIA card: their advice stays
   if (hiddenOwn) {
     const pk3 = m.packages.find((p) => p.ok === "yes"); if (pk3) S.pkg = pk3.path;
-    $("verdict").innerHTML = `<p class="warn">macOS sees no GPU at all on this Mac.</p><p>OpenCore most likely switches it off (a disable-gpu property${(m.gpuHiding || []).includes("-wegnoigpu") ? ", and -wegnoigpu in boot-args" : ""}). For the processor's own Intel or AMD GPU, <b>AMD / Intel GPU and NPU driver (test)</b> below turns it back on with the test driver, and <b>Turn it off</b> switches it off again. ${S.pkg ? "The driver package is here and checked." : "Get the driver package first (it carries the test driver):"}</p>` + (S.pkg ? "" : '<p><button type="button" class="b" id="dl4">Download the driver package</button></p>');
-    const d4 = $("dl4"); if (d4) d4.onclick = () => $("dl").click();
+    $("verdict").innerHTML = `<p class="warn">macOS sees no GPU at all on this Mac.</p><p>OpenCore most likely switches it off (a disable-gpu property${(m.gpuHiding || []).includes("-wegnoigpu") ? ", and -wegnoigpu in boot-args" : ""}). For the processor's own Intel or AMD GPU, <b>AMD / Intel GPU and NPU driver (test)</b> below turns it back on with the test driver, and <b>Turn it off</b> switches it off again. Turning it on downloads the AMD / Intel driver's own package and checks it.</p>`;
     $("steps").hidden = true; return;
   }
   if (why && other) {
     const pk2 = m.packages.find((p) => p.ok === "yes"); if (pk2) S.pkg = pk2.path;
-    $("verdict").innerHTML = `<p class="warn">No NVIDIA card, so the NVIDIA driver does not apply here.</p><p>This Mac's ${esc(m.gpus.filter((g) => g.vendor !== "10DE").map((g) => g.name).join(", "))} can try the experimental AMD / Intel GPU driver: see <b>AMD / Intel GPU and NPU driver (test)</b> below. ${S.pkg ? "The driver package is here and checked." : "Get the driver package first (it carries the test driver):"}</p>` + (S.pkg ? "" : '<p><button type="button" class="b" id="dl2">Download the driver package</button></p>');
-    const d2 = $("dl2"); if (d2) d2.onclick = () => $("dl").click();
+    $("verdict").innerHTML = `<p class="warn">No NVIDIA card, so the NVIDIA driver does not apply here.</p><p>This Mac's ${esc(m.gpus.filter((g) => g.vendor !== "10DE").map((g) => g.name).join(", "))} can try the experimental AMD / Intel GPU driver: see <b>AMD / Intel GPU and NPU driver (test)</b> below. Turning it on downloads that driver's own package and checks it.</p>`;
     $("steps").hidden = true; return;
   }
   if (why) { $("verdict").innerHTML = `<p class="bad">Can't install here.</p><p>${why}</p>`; $("steps").hidden = true; return; }
@@ -187,7 +185,7 @@ $("vbon").onclick = () => post({ act: "verbose", on: true, efi: efi() });
 $("vboff").onclick = () => post({ act: "verbose", on: false, efi: efi() });
 $("blon").onclick = () => post({ act: "backlight", on: true, efi: efi() });
 $("bloff").onclick = () => post({ act: "backlight", on: false, efi: efi() });
-$("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi(), pkg: S.pkg });
+$("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
