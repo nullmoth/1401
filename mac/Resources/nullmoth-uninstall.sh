@@ -1,5 +1,9 @@
 #!/bin/bash
 set -u
+# This script runs as root and calls cp, rm, mv and kmutil by name. Without a
+# fixed PATH those resolve through whatever the caller exported, and kmutil
+# rebuilds the auxiliary kernel collection.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
 # the NVIDIA driver only: the AMD/Intel GPU driver, the NPU driver and the audio driver are separate products with
 # their own uninstallers
 KEXTS="NVRM NVAccel NVRMFB NVRMAGDC"; EXT=/Library/Extensions; GB=/Library/GPUBundles
