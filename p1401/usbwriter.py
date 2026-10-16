@@ -58,10 +58,23 @@ def _ps(script):
     # PowerShell writes in the console's code page (GBK, cp866, ...), not UTF-8: on a Chinese Windows reading its output
     # as UTF-8 raised UnicodeDecodeError and the write stopped with an empty "UsbError:" (1.14.1 write logs). It is told
     # to write UTF-8, and anything that still is not is replaced instead of stopping the write.
+    cmd = [_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+           "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script]
     try:
-        p = subprocess.run([_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
-                            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT)
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT)
+        except PermissionError:
+            # 2.0.4 write logs (10-16, nine runs on one PC, same stick): PowerShell had just erased the stick, and Windows
+            # then refused to START it again ("[WinError 5] Access is denied" in CreateProcess) - security software
+            # blocking a script host it had let run a moment before. One retry after a pause, then a STOP that says so
+            # instead of a raw PermissionError.
+            time.sleep(3)
+            try:
+                p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TIMEOUT)
+            except PermissionError:
+                raise UsbError("Windows refused to start PowerShell (access denied) while preparing the stick. Security "
+                               "software is blocking it: allow 1401 (and PowerShell) in your antivirus or Windows Security "
+                               "> Controlled folder access, then try again") from None
     except subprocess.TimeoutExpired:
         # 1.15 write log (10-13, a 500 GB hard disk in a USB case): Format-Volume ran past the limit and the raw
         # TimeoutExpired, PowerShell command line and all, was the STOP. It is a UsbError the format step can recover from.
