@@ -33,7 +33,7 @@ OS_TYPES = "'{7c3457ef-0000-11aa-aa11-00306543ecac}','{48465300-0000-11aa-aa11-0
 TIMEOUT = 300  # seconds, so a hung format fails instead of waiting forever
 # 1401\\Recovery beside 1401.exe: a recovery image the user brings (see cli_write)
 RECOVERY_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "Recovery"))
-FIELDS = "Number,FriendlyName,SerialNumber,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
+FIELDS = "Number,FriendlyName,SerialNumber,UniqueId,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
 
 
 class UsbError(RuntimeError):
@@ -655,6 +655,21 @@ def stick_hint(e):
     return ""
 
 
+def refind(disks, uid, size, name):
+    """The stick the user picked, by what it is rather than its number: Windows renumbers USB disks (an offline/online
+    cycle, a re-plug, another drive), and 26 PCs on 2.1.0 stopped with 1401-DISK-RENUMBERED. Its UniqueId first; size and
+    model when the id does not name exactly one USB disk (some controllers report a new id on every read). None when
+    neither names exactly one, so a different disk is never taken for it."""
+    uid = (uid or "").strip()
+    if uid:
+        hit = [d for d in disks if (d.get("UniqueId") or "").strip() == uid]
+        if len(hit) == 1:
+            return hit[0]
+    hit = [d for d in disks if d.get("BusType") == "USB" and int(d.get("Size") or 0) == int(size or -1)
+           and (d.get("FriendlyName") or "").strip() == (name or "").strip()]
+    return hit[0] if len(hit) == 1 else None
+
+
 def cli_write(argv):
     """write <disk number> <EFI build dir> <darwin major> [--driver <tar.gz>] [--extra <file>]... [--profile <Report.json>] [--allow-large]
     The Windows app's write step. Every line printed is "STEP|OK|PROGRESS|STOP ..." so the window can show it."""
@@ -663,6 +678,15 @@ def cli_write(argv):
     def opt(n): return [argv[i + 1] for i, a in enumerate(argv) if a == n and i + 1 < len(argv)]
     disks = list_disks()
     disk = next((d for d in disks if int(d.get("Number", -1)) == num), None)
+    ident = (opt("--stick-id") or [""])[0], (opt("--stick-size") or [""])[0], (opt("--stick-name") or [""])[0]
+    if any(ident):
+        # the window says which stick it means: that stick wins over the number, and a disk that took the number is
+        # never written
+        found = refind(disks, *ident)
+        if found is not None and int(found.get("Number", -1)) != num:
+            print(f"OK the stick is disk {found.get('Number')} now (it was disk {num} when it was picked)")
+            num = int(found["Number"])
+        disk = found
     if not disk:
         # The number came from the window's list, and Windows hands USB sticks new numbers (after an earlier attempt, or a
         # re-plug). 2.0.2 blamed the stick here, before anything was written, and users retried the same stale number

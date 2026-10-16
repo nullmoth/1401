@@ -466,6 +466,8 @@ namespace A1401
                 if (ok != DialogResult.Yes) return;
                 busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
                 var args = "p1401.usbwriter write " + d.Number + " " + Engine.Q(efiDir) + " " + darwin;
+                // the stick itself, not only its number: Windows can renumber it before or during the write
+                args += " --stick-id " + Engine.Q(d.UniqueId) + " --stick-size " + d.Size + " --stick-name " + Engine.Q(d.Name);
                 var pkg = Companion("nullmoth-nvidia-", ".tar.gz");
                 if (pkg != null) args += " --driver " + Engine.Q(pkg);
                 var mac = Companion("1401-Mac-", ".zip");

@@ -24,6 +24,53 @@ class StaleNumber(unittest.TestCase):
         self.assertIn('l.Contains("1401-DISK-RENUMBERED"))) FillDisks();', src)
 
 
+STICK = {"Number": 2, "BusType": "USB", "Size": 16 * 10**9, "FriendlyName": "SanDisk Ultra", "UniqueId": "USBSTOR-AAA"}
+OTHER = {"Number": 2, "BusType": "USB", "Size": 32 * 10**9, "FriendlyName": "Kingston", "UniqueId": "USBSTOR-BBB"}
+IDENT = ["--stick-id", "USBSTOR-AAA", "--stick-size", str(16 * 10**9), "--stick-name", "SanDisk Ultra"]
+
+
+class Renumbered(unittest.TestCase):
+    """26 PCs on 2.1.0 stopped with 1401-DISK-RENUMBERED: the window now names the stick, and the writer finds it again."""
+
+    def test_the_stick_is_found_under_its_new_number(self):
+        moved = dict(STICK, Number=5)
+        self.assertEqual(usbwriter.refind([OTHER, moved], "USBSTOR-AAA", STICK["Size"], "SanDisk Ultra")["Number"], 5)
+
+    def test_a_different_disk_that_took_the_number_is_never_chosen(self):
+        self.assertIsNone(usbwriter.refind([OTHER], "USBSTOR-AAA", STICK["Size"], "SanDisk Ultra"))
+
+    def test_size_and_model_find_it_when_the_id_changed(self):
+        moved = dict(STICK, Number=4, UniqueId="USBSTOR-NEW")
+        self.assertEqual(usbwriter.refind([OTHER, moved], "USBSTOR-AAA", STICK["Size"], "SanDisk Ultra")["Number"], 4)
+
+    def test_two_identical_sticks_without_the_id_are_not_guessed(self):
+        a, b = dict(STICK, Number=4, UniqueId="X1"), dict(STICK, Number=6, UniqueId="X2")
+        self.assertIsNone(usbwriter.refind([a, b], "USBSTOR-AAA", STICK["Size"], "SanDisk Ultra"))
+
+    def test_the_write_continues_on_the_new_number(self):
+        moved = dict(STICK, Number=5)
+        with patch.object(usbwriter, "list_disks", return_value=[moved]), \
+             patch.object(usbwriter, "eligible", side_effect=lambda d, a=False: (False, [f"STOPHERE {d['Number']}"])), \
+             patch("builtins.print") as out:
+            rc = usbwriter.cli_write(["2", "efi", "24"] + IDENT)
+        line = " ".join(str(c.args[0]) for c in out.call_args_list if c.args)
+        self.assertIn("the stick is disk 5 now (it was disk 2", line)
+        self.assertIn("STOPHERE 5", line)          # it went on with disk 5, not 2
+        self.assertNotIn("1401-DISK-RENUMBERED", line)
+
+    def test_the_number_now_held_by_another_disk_stops_instead_of_erasing_it(self):
+        with patch.object(usbwriter, "list_disks", return_value=[OTHER]), patch("builtins.print") as out:
+            rc = usbwriter.cli_write(["2", "efi", "24"] + IDENT)
+        line = " ".join(str(c.args[0]) for c in out.call_args_list if c.args)
+        self.assertEqual(rc, 1)
+        self.assertIn("1401-DISK-RENUMBERED", line)
+
+    def test_the_window_passes_the_stick_identity(self):
+        import pathlib
+        src = (pathlib.Path(__file__).resolve().parents[1] / "windows/App/MainForm.cs").read_text()
+        self.assertIn('args += " --stick-id " + Engine.Q(d.UniqueId)', src)
+
+
 class VanishedVolume(unittest.TestCase):
     def run_wipe(self, vol_error):
         said = []
