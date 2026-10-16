@@ -88,10 +88,34 @@ def _ps(script):
     return p.stdout
 
 
-def list_disks():
-    out = _ps(f"Get-Disk | Select-Object {FIELDS} | ConvertTo-Json -Compress")
+# MSFT_Disk's numeric codes, as Get-Disk names them (BusType and PartitionStyle are compared as text below)
+BUS_NAMES = {1: "SCSI", 3: "ATA", 7: "USB", 8: "RAID", 10: "SAS", 11: "SATA", 12: "SD", 13: "MMC", 17: "NVMe"}
+STYLE_NAMES = {0: "RAW", 1: "MBR", 2: "GPT"}
+
+
+def _as_list(out):
     d = json.loads(out or "[]")
     return d if isinstance(d, list) else [d]
+
+
+def list_disks():
+    """Every disk, with the fields eligible() and the write read. Get-Disk first; when it lists nothing at all (2.2.0
+    write logs, two PCs: "Windows lists 0 disk(s)" right after the window had listed the stick through WMI, so every
+    write stopped as DISK-RENUMBERED), the same MSFT_Disk class the window reads, with its numeric bus and partition
+    codes named the way Get-Disk names them."""
+    disks = _as_list(_ps(f"Get-Disk | Select-Object {FIELDS} | ConvertTo-Json -Compress"))
+    if disks:
+        return disks
+    raw = _as_list(_ps(f"Get-CimInstance -Namespace root/Microsoft/Windows/Storage -ClassName MSFT_Disk | "
+                       f"Select-Object {FIELDS} | ConvertTo-Json -Compress"))
+    for d in raw:
+        if isinstance(d.get("BusType"), int):
+            d["BusType"] = BUS_NAMES.get(d["BusType"], f"bus {d['BusType']}")
+        if isinstance(d.get("PartitionStyle"), int):
+            d["PartitionStyle"] = STYLE_NAMES.get(d["PartitionStyle"], "RAW")
+    if raw:
+        print(f"OK Get-Disk listed nothing; {len(raw)} disk(s) read from MSFT_Disk instead")
+    return raw
 
 
 def eligible(disk, allow_large=False):

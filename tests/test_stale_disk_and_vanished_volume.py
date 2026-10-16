@@ -71,6 +71,40 @@ class Renumbered(unittest.TestCase):
         self.assertIn('args += " --stick-id " + Engine.Q(d.UniqueId)', src)
 
 
+class GetDiskEmpty(unittest.TestCase):
+    """2.2.0: Get-Disk listed nothing on two PCs whose window had listed the stick through MSFT_Disk."""
+
+    def fake_ps(self, cim):
+        def ps(script):
+            return "" if script.startswith("Get-Disk") else cim
+        return ps
+
+    def test_msft_disk_is_used_and_its_codes_are_named(self):
+        cim = '[{"Number":5,"FriendlyName":"SanDisk Ultra","UniqueId":"USBSTOR-AAA","BusType":7,"Size":16000000000,"PartitionStyle":2}]'
+        with patch.object(usbwriter, "_ps", self.fake_ps(cim)), patch("builtins.print"):
+            d = usbwriter.list_disks()
+        self.assertEqual(d[0]["BusType"], "USB")
+        self.assertEqual(d[0]["PartitionStyle"], "GPT")
+
+    def test_the_write_finds_the_stick_through_msft_disk(self):
+        cim = '[{"Number":5,"FriendlyName":"SanDisk Ultra","UniqueId":"USBSTOR-AAA","BusType":7,"Size":16000000000}]'
+        with patch.object(usbwriter, "_ps", self.fake_ps(cim)), \
+             patch.object(usbwriter, "eligible", side_effect=lambda d, a=False: (False, [f"STOPHERE {d['Number']} {d['BusType']}"])), \
+             patch("builtins.print") as out:
+            usbwriter.cli_write(["2", "efi", "24"] + IDENT)
+        line = " ".join(str(c.args[0]) for c in out.call_args_list if c.args)
+        self.assertIn("STOPHERE 5 USB", line)
+        self.assertNotIn("1401-DISK-RENUMBERED", line)
+
+    def test_get_disk_results_are_used_when_present(self):
+        calls = []
+        def ps(script):
+            calls.append(script); return '[{"Number":1,"BusType":"USB"}]'
+        with patch.object(usbwriter, "_ps", ps):
+            usbwriter.list_disks()
+        self.assertEqual(len(calls), 1)   # no MSFT_Disk query when Get-Disk answered
+
+
 class VanishedVolume(unittest.TestCase):
     def run_wipe(self, vol_error):
         said = []
