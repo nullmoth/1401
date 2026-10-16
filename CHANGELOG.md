@@ -3,6 +3,15 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.2.1
+- Writing the installer stick: when Get-Disk lists no disks at all, 1401 reads them through Windows' storage WMI
+  instead of stopping
+- When Windows' storage management is missing or damaged, the USB stick list names the repair instead of only
+  "Invalid class"
+- Mac: the AMD and Intel GPU test program. Join from the AMD/Intel panel to get the newest signed test build; after
+  each restart 1401 sends what the AMD/Intel driver did. Leave from the same panel
+- Bundles NVIDIA driver 2.2.1 (see its changelog)
+
 ## 2.2.0
 - Writing the installer stick: when Windows gives the stick a new disk number after it was picked, 1401 finds the
   same stick again and keeps going (it used to stop with 1401-DISK-RENUMBERED); a different disk that took the old
