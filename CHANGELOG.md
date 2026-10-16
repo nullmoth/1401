@@ -3,9 +3,13 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
-## 2.1.1
-- Bundles driver and Mac app 2.1.1 (sound on macOS 26 through the new HD Audio driver, onboard and HDMI/DP; a
-  display whose boot timing was refused no longer crashes the login screen)
+## 2.2.0
+- Writing the installer stick: when Windows gives the stick a new disk number after it was picked, 1401 finds the
+  same stick again and keeps going (it used to stop with 1401-DISK-RENUMBERED); a different disk that took the old
+  number is never written
+- The Mac app is part of 1401 now. It installs the NVIDIA driver with that package's own installer, and the AMD/Intel
+  test driver comes from its own package
+- Bundles NVIDIA driver 2.2.0 (the NVIDIA driver only: no boot logo, no background jobs; see its changelog)
 
 ## 2.1.0
 - When Windows refuses to start PowerShell, 1401 retries once and the log says why it was refused
