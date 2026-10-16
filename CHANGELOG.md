@@ -3,6 +3,10 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.1.1
+- Bundles driver and Mac app 2.1.1 (sound on macOS 26 through the new HD Audio driver, onboard and HDMI/DP; a
+  display whose boot timing was refused no longer crashes the login screen)
+
 ## 2.1.0
 - When Windows refuses to start PowerShell, 1401 retries once and the log says why it was refused
 - Bundles driver and Mac app 2.1.0 (per-generation GPU support, Blender Eevee lighting, desktop no longer waits
