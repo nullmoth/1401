@@ -182,7 +182,6 @@ func utbMap(_ ctrls: [[String: Any]], _ sel: [String: [String: Int]]) -> ([Strin
 }
 
 let crashDirs = ["/Library/Logs/DiagnosticReports", NSHomeDirectory() + "/Library/Logs/DiagnosticReports"]
-let seenFile = support.appendingPathComponent("crash-seen.json")
 
 let driverImages = ["NVMTLDriver", "libnvmtl_translate", "libvulkan_nouveau", "NVIDIAShared"]
 let supportCrashProcesses = ["firefox", "plugin-container", "Blender"]
@@ -338,31 +337,6 @@ func writeReport(_ crashes: [URL], to dst: URL) -> Bool {
     (try? makeReport(crashes).write(to: dst, atomically: true, encoding: .utf8)) != nil
 }
 
-func crashCheck(ui: Bool) -> Int32 {
-    let seen = Set((try? JSONSerialization.jsonObject(with: Data(contentsOf: seenFile))) as? [String] ?? [])
-    let new = driverCrashes().filter { !seen.contains($0.lastPathComponent) }
-    print(json(["new": new.map(\.lastPathComponent)]))
-    guard !new.isEmpty else { return 0 }
-    try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-    if let d = try? JSONSerialization.data(withJSONObject: Array(seen) + new.map(\.lastPathComponent)) { try? d.write(to: seenFile, options: .atomic) }
-    guard ui else { return 0 }
-    let app = NSApplication.shared; app.setActivationPolicy(.accessory); app.activate(ignoringOtherApps: true)
-    let a = NSAlert()
-    a.messageText = "1401 noticed the NVIDIA driver crashed your system."
-    a.informativeText = "Would you like to send a report? 1401 makes a text file on your Desktop with your hardware and what failed. It leaves out your name, your Mac's name, serial numbers and addresses. You can read it first, then upload it on the NullMoth site. Nothing is sent unless you upload it."
-    a.addButton(withTitle: "Make the report"); a.addButton(withTitle: "Not now")
-    if let img = Bundle.main.image(forResource: "moth-mark") { a.icon = img }
-    if a.runModal() == .alertFirstButtonReturn {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd-HHmm"
-        let dst = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0].appendingPathComponent("1401-crash-\(f.string(from: Date())).txt")
-        if writeReport(new, to: dst) {
-            NSWorkspace.shared.activateFileViewerSelecting([dst])
-            NSWorkspace.shared.open(uploadPage)
-        }
-    }
-    return 0
-}
-
 final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDelegate, URLSessionDownloadDelegate {
     var window: NSWindow!
     var web: WKWebView!
@@ -448,6 +422,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // the opt-in AMD/Intel GPU driver (setup --gpu-test); --tool tells setup where the firmware list sits
         // a Mac with no NVIDIA card has no driver install behind it: the checked package rides along so setup can take
         // the AMD/Intel test driver from it (setup verifies the SHA-256 again on a root-owned copy)
+        case "tester":
+            let on = b["on"] as? Bool ?? false
+            if let why = Tester.set(on: on) { send("tester", ["ok": false, "why": why]) }
+            else { send("tester", ["ok": true, "on": on]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
@@ -455,7 +433,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             // turning it on takes the AMD/Intel driver's own package (downloaded once, checked against its pin)
             DispatchQueue.global().async {
                 guard let path = self.gpuPackage() else { return }
-                DispatchQueue.main.async { self.run(mode: "verbose", pkg: "", efi: efi, extra: extra + ["--pkg", path, "--sha", GPUPackage.sha256]) }
+                DispatchQueue.main.async { self.run(mode: "verbose", pkg: "", efi: efi, extra: extra + ["--pkg", path, "--sha", self.gpuPackageSha]) }
             }
         // macOS 15 -> 26: setup's one-button path ("--update prepare" with the package) installs or updates the driver,
         // then parks it and sets the installer's small BAR; "--update cancel" puts it all back before the update
@@ -743,10 +721,20 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     }
     /// The AMD/Intel driver package on disk, matching its pin: the copy already downloaded, else a fresh download.
     /// nil (and the reason sent to the window) when none is published or the download does not match.
+    var gpuPackageSha = ""   // the SHA-256 of the AMD/Intel package gpuPackage() last returned (release pin or test build)
     func gpuPackage() -> String? {
         let fail: (String) -> String? = { self.send("dl", ["state": "error", "why": $0]); return nil }
         guard let url = GPUPackage.url, !GPUPackage.sha256.isEmpty else {
-            return fail("the AMD/Intel driver has no published package yet") }
+            // no released package yet: the newest test build, signed by NullMoth (Tester.fetch checks both)
+            guard let b = Tester.latest() else { return fail("could not read the AMD/Intel test build list") }
+            send("dl", ["state": "start", "name": b.name])
+            let got = Tester.fetch(b)
+            guard let path = got.path else { return fail(got.why ?? "the test build could not be used") }
+            var s = Tester.state(); s["build"] = b.version; s["sha256"] = b.sha256; Tester.save(s)
+            gpuPackageSha = b.sha256
+            return path
+        }
+        gpuPackageSha = GPUPackage.sha256
         let dst = support.appendingPathComponent(GPUPackage.name)
         if sha256(dst) == GPUPackage.sha256 { return dst.path }
         send("dl", ["state": "start", "name": GPUPackage.name])
@@ -1211,7 +1199,8 @@ if let i = argv.firstIndex(of: "--crash-report"), i + 1 < argv.count {
     let ok = !cr.isEmpty && writeReport(cr, to: URL(fileURLWithPath: argv[i + 1]))
     print(json(["crashes": cr.map(\.lastPathComponent), "written": ok])); exit(ok ? 0 : 1)
 }
-if argv.contains("--crash-check") { exit(crashCheck(ui: !argv.contains("--no-ui"))) }
+// the AMD/Intel test program's once-per-start report (its login item runs this; see TesterLane.swift)
+if argv.contains("--tester-report") { exit(Tester.report()) }
 let app = NSApplication.shared
 let delegate = App()
 app.delegate = delegate

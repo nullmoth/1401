@@ -187,6 +187,8 @@ $("blon").onclick = () => post({ act: "backlight", on: true, efi: efi() });
 $("bloff").onclick = () => post({ act: "backlight", on: false, efi: efi() });
 $("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
+$("teston").onclick = () => post({ act: "tester", on: true });
+$("testoff").onclick = () => post({ act: "tester", on: false });
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
 $("logs").onclick = (e) => { e.preventDefault(); post({ act: "logs" }); };
@@ -249,6 +251,11 @@ NM.on = (m) => {
     usbRender(); return;
   }
   if (m.event === "usbErr") { $("uerr").textContent = m.data; return; }
+  if (m.event === "tester") {
+    $("testr").innerHTML = m.data.ok ? `<span class="good">${m.data.on ? "Joined: a report goes out after each restart." : "Left: nothing runs any more."}</span>`
+                                     : `<span class="warn">${esc(m.data.why)}</span>`;
+    return;
+  }
   if (m.event === "logsStatus") { $("slr").textContent = m.data.text; return; }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
   if (m.event === "logsDone") {

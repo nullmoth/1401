@@ -51,7 +51,9 @@
 <div class="panel"><p class="sh">AMD / Intel GPU and NPU driver (test)</p>
 <p>For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe / Arc graphics), and for the NPU in Intel Core Ultra (Meteor Lake, Arrow Lake, Lunar Lake) and AMD Ryzen AI processors. This is an early test build: your Send logs are how it gets fixed. It downloads only the firmware your Mac's GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.</p>
 <p>If that GPU drives your screen, the screen can stay dark. Then choose <b>1401: Start once without NVIDIA driver</b> in the boot picker (it parks this driver too) and turn it off here.</p>
-<p><button type="button" class="b" id="gpuon">Turn the test driver on</button> <button type="button" class="b" id="gpuoff">Turn it off</button></p></div>
+<p><button type="button" class="b" id="gpuon">Turn the test driver on</button> <button type="button" class="b" id="gpuoff">Turn it off</button></p>
+<p><b>Test program.</b> Join it and 1401 sends a short report after every restart while the test driver is on: the driver's kernel messages, any crash, and which GPU and test build you have (your name and serial numbers are removed, as in Send logs). That is how a start that crashes or hangs gets fixed without you doing anything. Leave it at any time; nothing runs after you leave.</p>
+<p><button type="button" class="b" id="teston">Join the test program</button> <button type="button" class="b" id="testoff">Leave it</button> <span id="testr"></span></p></div>
 <div class="panel"><p class="sh">Map my GPU (experimental)</p>
 <p>Runs a few minutes of measurements on this Mac's GPU, the same ones the driver was tuned with on its test card: what Metal reports, a correctness check, memory and compute speed, and a set of small test shaders. Nothing on the Mac is changed and no display mode is touched. The result is saved in the log folder, and Send logs (which asks first) uploads it so the next driver can be tuned for your card.</p>
 <p><button type="button" class="b" id="gpumap">Map my GPU</button> <span id="gpumapr"></span></p></div>
