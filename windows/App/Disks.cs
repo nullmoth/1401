@@ -43,6 +43,17 @@ namespace A1401
         /// <summary>`skipped`, when given, gets one line per disk that was left out and why, so "no stick found" can say what it saw.</summary>
         public static List<UsbDisk> ListUsb(List<string> skipped = null)
         {
+            try { return ListUsbStorage(skipped); }
+            catch (ManagementException e) when (e.ErrorCode == ManagementStatus.InvalidClass || e.ErrorCode == ManagementStatus.InvalidNamespace)
+            {
+                // Windows' storage provider is missing from WMI: the list showed only "Invalid class" (in the user's
+                // language). The writer needs the same provider (Get-Disk, Clear-Disk), so name the repair instead.
+                throw new InvalidOperationException(Loc.T("Windows' storage management (WMI class MSFT_Disk) is missing or damaged, and 1401 needs it to write the stick. Open Command Prompt as administrator, run  winmgmt /salvagerepository  then restart Windows and try again."), e);
+            }
+        }
+
+        static List<UsbDisk> ListUsbStorage(List<string> skipped)
+        {
             var list = new List<UsbDisk>();
             var scope = new ManagementScope(StorageNs);
             using (var q = new ManagementObjectSearcher(scope, new ObjectQuery(
