@@ -3,6 +3,11 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.1.0
+- When Windows refuses to start PowerShell, 1401 retries once and the log says why it was refused
+- Bundles driver and Mac app 2.1.0 (per-generation GPU support, Blender Eevee lighting, desktop no longer waits
+  on every frame, Map my GPU)
+
 ## 2.0.4
 - When the stick's disk number is gone at write time, the log now lists the USB disks Windows shows, so the cause
   can be found
