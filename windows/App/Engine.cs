@@ -19,6 +19,8 @@ namespace A1401
         // Never beside the exe: a OneDrive Desktop denies deleting there ("Access denied" on Check this PC)
         public static string Work { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NullMoth", "1401"); } }
         public static string NullMothDir { get { return Path.Combine(Home, "NullMoth"); } }
+        // Interpreter options for every engine process: isolated from the PC's own Python (see Run).
+        internal const string PythonFlags = "-E -s -B -X utf8 -u";
 
         public static string Missing()
         {
@@ -114,12 +116,22 @@ namespace A1401
                 try
                 {
                     context += InputFingerprints();
-                    var psi = new ProcessStartInfo(Python, "-u -m " + args)
+                    // The portable Python must see only its own packages. A PC with its own Python had PYTHONPATH and a
+                    // user site-packages with an old certifi and a half-installed pywin32, and the bundled engine imported
+                    // those ("module 'certifi' has no attribute 'where'", "win32com has no attribute '__gen_path__'").
+                    // -E ignores every PYTHON* variable, -s skips the user site; -I is not usable here because -m p1401
+                    // relies on the working directory being on the import path. -E also drops PYTHONIOENCODING and
+                    // PYTHONDONTWRITEBYTECODE, so -X utf8 and -B carry those two instead.
+                    var psi = new ProcessStartInfo(Python, PythonFlags + " -m " + args)
                     {
                         WorkingDirectory = AppDir, UseShellExecute = false, CreateNoWindow = true,
                         RedirectStandardOutput = true, RedirectStandardError = true,
                         StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
                     };
+                    foreach (var name in new[] { "PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE", "PYTHONEXECUTABLE", "PYTHONSAFEPATH" })
+                        psi.EnvironmentVariables.Remove(name);
+                    // The engine's own child processes (the scan worker) read the environment, so it says the same.
+                    psi.EnvironmentVariables["PYTHONNOUSERSITE"] = "1";
                     psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
                     psi.EnvironmentVariables["PYTHONDONTWRITEBYTECODE"] = "1";
                     using (var p = new Process { StartInfo = psi })

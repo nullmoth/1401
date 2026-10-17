@@ -53,6 +53,26 @@ WMI_REPAIR = ("Windows could not read its device database (WMI) %d times in a ro
               "repository is inconsistent,  winmgmt /salvagerepository . Restart the PC and press Scan again.")
 
 
+def interpreter_flags(flags=None):
+    """The isolation options this interpreter was started with, for the worker processes it starts. The app launches the
+    engine with -E -s (no PYTHONPATH, no user site-packages: a PC's own Python leaked an old certifi and a broken win32com
+    into the bundled one), and those options are not inherited through sys.executable - only the environment is."""
+    f = sys.flags if flags is None else flags
+    out = []
+    if getattr(f, "isolated", 0):
+        out.append("-I")
+    else:
+        if getattr(f, "ignore_environment", 0):
+            out.append("-E")
+        if getattr(f, "no_user_site", 0):
+            out.append("-s")
+    if getattr(f, "dont_write_bytecode", 0):
+        out.append("-B")
+    if getattr(f, "utf8_mode", 0):
+        out += ["-X", "utf8"]
+    return out
+
+
 def _wmi_provider_failed(e):
     seen = repr(e) + repr(getattr(e, "com_error", ""))
     return any(str(code) in seen for code in WMI_PROVIDER_LOAD_FAILURE)
@@ -221,7 +241,7 @@ def scan(out_dir):
     """Runs the Sniffer in a child process; returns out_dir or raises ScanError with the reason."""
     if platform.system() not in ("Windows", "Linux"):
         raise ScanError(f"scanning runs on Windows or Linux, not {platform.system()}")
-    p = subprocess.run([sys.executable, "-m", "p1401.scan", out_dir], cwd=REPO, capture_output=True, text=True,
+    p = subprocess.run([sys.executable] + interpreter_flags() + ["-m", "p1401.scan", out_dir], cwd=REPO, capture_output=True, text=True,
                        timeout=TIMEOUT + hwcapture.CAPTURE_TIMEOUT + 10)
     fails = check(out_dir)
     if p.returncode != 0 or fails:
@@ -349,7 +369,7 @@ def _child(out_dir, run_id=None):
         print("Hardware inventory unavailable (" + type(error).__name__ + "); the ordinary scan continues.", flush=True)
     ok, failure = False, None
     try:
-        p = subprocess.run([sys.executable, "-u", "-m", "p1401.scan", "--sniffer-worker", out_dir, token],
+        p = subprocess.run([sys.executable] + interpreter_flags() + ["-u", "-m", "p1401.scan", "--sniffer-worker", out_dir, token],
                            cwd=REPO, timeout=TIMEOUT)
         ok = p.returncode == 0 and not check(out_dir)
         if not ok: failure = "upstream_scan_failure"
