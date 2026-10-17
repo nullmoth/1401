@@ -99,7 +99,19 @@ enum ReachedDesktop {
         s += "display modes: \(displayModes())\n"
         for line in installedComponents() { s += line + "\n" }
         for line in loadedKextLines() { s += line + "\n" }
+        s += "boot guard: " + bootGuardLine() + "\n"
         return s
+    }
+
+    /// The boot guard's counters and the boot arguments, so a "driver loaded: no" says whether the driver switched
+    /// itself off after starts that never lit a display, or was never asked to load (-nvoff, nv_disable).
+    static func bootGuardLine() -> String {
+        func nv(_ name: String) -> String {
+            let out = sh("/usr/sbin/nvram", [name])
+            let value = out.split(separator: "\t").dropFirst().joined(separator: "\t").trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? "(unset)" : value
+        }
+        return "nv-starts \(nv("nullmoth-nv-starts")), nv-ok \(nv("nullmoth-nv-ok")), boot-args \(nv("boot-args"))"
     }
 
     /// What the kernel actually loaded, next to what is installed on disk. A kernel collection built by an earlier
