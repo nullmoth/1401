@@ -222,6 +222,24 @@ def invariants(efi_dir):
     return fails
 
 
+def release_archive():
+    """The verified OpenCore release zip's bytes, re-checked against the sha256 the engine recorded for this build.
+    This is the same zip ocvalidate and release_components read. Raises ValidatorUnavailable when it is not cached or
+    does not match, so a caller that extracts a driver from it (policy.py's emulated NVRAM) can keep the firmware guard
+    instead of shipping an unverified file."""
+    url, expected = _opencore_release()
+    if not expected:
+        raise ValidatorUnavailable(f"OpenCorePkg {url} has no recorded sha256")
+    path = os.path.join(CACHE, os.path.basename(url))
+    if not os.path.isfile(path) or os.path.islink(path):
+        raise ValidatorUnavailable(f"the verified OpenCore release is not cached at {path}")
+    with open(path, "rb") as stream:
+        data = stream.read(256 * 1024 * 1024 + 1)
+    if len(data) > 256 * 1024 * 1024 or hashlib.sha256(data).hexdigest() != expected:
+        raise ValidatorUnavailable("the cached OpenCore release does not match its recorded sha256")
+    return data
+
+
 def release_components(efi_dir):
     """The boot files must be from the release whose validator checked the config."""
     url, expected = _opencore_release()

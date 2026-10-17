@@ -119,6 +119,13 @@ class Policy:
     # They are unproven on the hardware they claim, so a build that silently carried them could take a machine that
     # installs fine on the firmware framebuffer and leave it with no picture. Off, the build still says they exist.
     experimental_drivers: bool = False
+    # Persistent NVRAM on AMD guard boards, through OpenCore's emulated NVRAM (OpenVariableRuntimeDxe + a LogoutHook that
+    # saves NVRAM to nvram.plist at shutdown). Off by default: the DisableVariableWrite guard exists because real AM5/AM4
+    # boards stopped POSTing after macOS wrote firmware NVRAM, and emulated NVRAM replaces that guard (writes go to an
+    # in-memory store and a file on the ESP, never the fragile firmware flash), so it is proven on a real AMD board
+    # through testers before it becomes the default. On, the guard boards keep iMessage, Apple ID and the startup-disk
+    # choice across reboots instead of losing every NVRAM write.
+    persistent_nvram_amd: bool = False
 
 
 @dataclass

@@ -91,6 +91,104 @@ def _known_machines():
 # Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11). Never shipped by 1401: rule 0.
 EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext")
 
+# Emulated NVRAM is set up exactly as OpenCore's Configuration doc (section 11.11, "Managing macOS updates when using
+# emulated NVRAM") requires. The three GUIDs are OpenCore's own permissive LegacySchema: with <string>*</string> every
+# variable macOS saves - including the fmm-mobileme tokens iMessage/Apple ID need - is captured to nvram.plist.
+EMULATED_NVRAM_DRIVER = "OpenVariableRuntimeDxe.efi"
+EMULATED_NVRAM_SCHEMA = ("36C28AB5-6566-4C50-9EBD-CBB920F83843", "7C436110-AB2A-4BBB-A880-FE41995C9F82",
+                         "8BE4DF61-93CA-11D2-AA0D-00E098032B8C")
+
+
+def _enable_emulated_nvram(cfg, config_path, change):
+    """OpenCore emulated NVRAM on an AMD guard board, opt-in only. Returns (True, None) once it is fully in place, or
+    (False, reason) when it is not - OpenVariableRuntimeDxe.efi ships only inside the verified OpenCore release, so a
+    release without it (or a release that cannot be verified) keeps the firmware-write guard instead. Three pieces,
+    all from the SAME sha256-checked zip the engine already downloaded (validate.release_archive):
+      - OpenVariableRuntimeDxe.efi with LoadEarly=true, ordered immediately before OpenRuntime.efi (also LoadEarly=true);
+        this is the order the doc requires for RequestBootVarRouting, and validate.release_components then re-checks the
+        driver's bytes against the release like every other boot file.
+      - LegacySchema populated with the three permissive GUIDs so the LogoutHook saves every variable macOS writes.
+      - the LogoutHook staged on the ESP at EFI/NullMoth/LogoutHook for the Mac app to install (it saves NVRAM to
+        nvram.plist at shutdown; without it the emulated store is never written back).
+    ExposeSensitiveData bit 0x1 (set earlier in this pass) makes the boot-path variable the LogoutHook reads available.
+    Any failure returns a reason and changes nothing a half-built driver could make OpenCore load; the caller keeps the
+    guard. The caller turns DisableVariableWrite OFF only on success, because it would otherwise block the same macOS
+    writes before they reached the emulated store."""
+    import io  # noqa: PLC0415
+    import zipfile  # noqa: PLC0415
+    from . import validate  # noqa: PLC0415
+    drivers = cfg.setdefault("UEFI", {}).setdefault("Drivers", [])
+    ort_i = next((i for i, d in enumerate(drivers)
+                  if isinstance(d, dict) and d.get("Path") == "OpenRuntime.efi"), None)
+    if ort_i is None:
+        return False, "OpenRuntime.efi is not in the driver list"
+    try:
+        data = validate.release_archive()
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            names = set(z.namelist())
+            member = "X64/EFI/OC/Drivers/" + EMULATED_NVRAM_DRIVER
+            if member not in names:
+                return False, f"{EMULATED_NVRAM_DRIVER} is not in this OpenCore release"
+            drv_bytes = z.read(member)
+            hook = {os.path.basename(n): z.read(n) for n in names
+                    if n.startswith("Utilities/LogoutHook/") and not n.endswith("/")}
+    except Exception as e:  # noqa: BLE001 - an opt-in enhancement must never stop a build; fall back to the guard
+        return False, f"the verified OpenCore release could not be read ({type(e).__name__}: {e})"
+    if "Launchd.command" not in hook or "nvramdump" not in hook:
+        return False, "the OpenCore release has no Utilities/LogoutHook to save NVRAM with"
+
+    oc_dir = os.path.dirname(config_path)          # .../EFI/OC
+    efi_dir = os.path.dirname(oc_dir)              # .../EFI
+
+    def _atomic_write(path, blob, mode=None):
+        tmp = path + ".tmp"
+        with open(tmp, "wb") as fh:
+            fh.write(blob)
+        if mode is not None:
+            os.chmod(tmp, mode)
+        os.replace(tmp, path)
+
+    # 1. the driver file beside OpenRuntime.efi
+    ddir = os.path.join(oc_dir, "Drivers")
+    os.makedirs(ddir, exist_ok=True)
+    _atomic_write(os.path.join(ddir, EMULATED_NVRAM_DRIVER), drv_bytes)
+
+    # 2. the driver entry (LoadEarly, immediately before OpenRuntime.efi, which also becomes LoadEarly). Mirror
+    #    OpenRuntime's own key shape so ocvalidate reads a known entry, whatever keys this OpenCore version carries.
+    if not any(isinstance(d, dict) and d.get("Path") == EMULATED_NVRAM_DRIVER for d in drivers):
+        entry = dict(drivers[ort_i])
+        entry["Path"] = EMULATED_NVRAM_DRIVER
+        entry["Comment"] = "1401 | emulated NVRAM (persistent NVRAM on AMD guard boards)"
+        entry["Enabled"] = True
+        entry["LoadEarly"] = True
+        entry["Arguments"] = ""
+        drivers.insert(ort_i, entry)
+        ort_i += 1
+        change("amd-emulated-nvram-driver", "", f"{EMULATED_NVRAM_DRIVER} (LoadEarly, before OpenRuntime.efi)",
+               "OpenCore emulated NVRAM gives these boards a writable NVRAM store without touching the fragile firmware flash")
+    if drivers[ort_i].get("LoadEarly") is not True:
+        drivers[ort_i]["LoadEarly"] = True
+        change("amd-emulated-openruntime-early", "OpenRuntime.efi LoadEarly=False", "OpenRuntime.efi LoadEarly=True",
+               "emulated NVRAM needs OpenRuntime loaded early, after OpenVariableRuntimeDxe (OpenCore Configuration 11.11)")
+
+    # 3. LegacySchema: the three permissive GUIDs
+    schema = cfg.setdefault("NVRAM", {}).setdefault("LegacySchema", {})
+    before = {g: schema.get(g) for g in EMULATED_NVRAM_SCHEMA}
+    if any(schema.get(g) != ["*"] for g in EMULATED_NVRAM_SCHEMA):
+        for g in EMULATED_NVRAM_SCHEMA:
+            schema[g] = ["*"]
+        change("amd-emulated-legacyschema", str(before), "three GUIDs -> *",
+               "lets the LogoutHook save every NVRAM variable macOS writes (incl. the iMessage/Apple ID tokens) to nvram.plist")
+
+    # 4. the LogoutHook staged on the ESP for the Mac app to install
+    hook_dir = os.path.join(efi_dir, "NullMoth", "LogoutHook")
+    os.makedirs(hook_dir, exist_ok=True)
+    for name, blob in hook.items():
+        _atomic_write(os.path.join(hook_dir, name), blob, 0o755 if name in ("Launchd.command", "nvramdump") else None)
+    change("amd-emulated-logouthook", "", "EFI/NullMoth/LogoutHook staged",
+           "the Mac app installs this OpenCore LaunchDaemon, which saves NVRAM to nvram.plist at shutdown")
+    return True, None
+
 
 def apply(config_path, result, policy):
     """Mutates config.plist in place (atomic write). Returns the list of changes."""
@@ -436,11 +534,31 @@ def apply(config_path, result, policy):
         remapped = bq.get("SetupVirtualMap") is True or bq.get("DevirtualiseMmio") is True
         ort = any(isinstance(d, dict) and d.get("Path") == "OpenRuntime.efi" and d.get("Enabled", True)
                   for d in cfg.get("UEFI", {}).get("Drivers", []))
-        if remapped and ort and bq.get("DisableVariableWrite") is not True:
-            before = f"DisableVariableWrite={bq.get('DisableVariableWrite')}"
-            bq["DisableVariableWrite"] = True
-            change("amd-nvram-write-guard", before, "DisableVariableWrite=True",
-                   "AMD with the firmware memory map rewritten: macOS NVRAM writes have stopped boards from POSTing")
+        if remapped and ort:
+            # Opt-in (Policy.persistent_nvram_amd): OpenCore's emulated NVRAM replaces the guard. macOS writes then reach
+            # an in-memory store that the LogoutHook saves to nvram.plist on the ESP, so iMessage, Apple ID and the
+            # startup-disk choice persist, while the fragile firmware flash is still never written. DisableVariableWrite
+            # is turned OFF only in that case, because it is implemented in OpenRuntime.efi - the OUTERMOST driver in the
+            # LoadEarly order the doc requires - so with it on it would reject the same macOS writes before they reached
+            # the emulated store, and nothing would persist. Default builds (and an opt-in build whose OpenCore release
+            # has no OpenVariableRuntimeDxe) keep the guard: switching it off is unproven on real AMD hardware until
+            # testers confirm it.
+            emulated, why_not = (False, None)
+            if getattr(policy, "persistent_nvram_amd", False):
+                emulated, why_not = _enable_emulated_nvram(cfg, config_path, change)
+            if emulated:
+                if bq.get("DisableVariableWrite") is True:
+                    bq["DisableVariableWrite"] = False
+                    change("amd-nvram-emulated-write", "DisableVariableWrite=True", "DisableVariableWrite=False",
+                           "emulated NVRAM replaces the guard: macOS writes go to the in-memory store and nvram.plist, "
+                           "never the fragile firmware flash")
+            elif bq.get("DisableVariableWrite") is not True:
+                before = f"DisableVariableWrite={bq.get('DisableVariableWrite')}"
+                bq["DisableVariableWrite"] = True
+                why = "AMD with the firmware memory map rewritten: macOS NVRAM writes have stopped boards from POSTing"
+                if why_not:
+                    why += f" (persistent-NVRAM opt-in kept the guard: {why_not})"
+                change("amd-nvram-write-guard", before, "DisableVariableWrite=True", why)
 
     # 6. The cosmetic EFI logo is an explicit opt-in. Default builds disable an existing entry
     # after reported firmware hangs; no other boot driver or recovery entry is changed.

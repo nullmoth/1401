@@ -186,6 +186,32 @@ boot_esp() {    # the EFI partition on the physical disk this macOS runs from
 on_usb() {      # true when the partition is on an external or removable disk (a 1401 stick)
   diskutil info "$1" 2>/dev/null | grep -q -E 'Removable Media: *(Removable|Yes)|Device Location: *External|Protocol: *USB'; }
 bidx() { local i=0 p; while p=$(plutil -extract Kernel.Block.$i.Identifier raw -o - "$C" 2>/dev/null); do [ "$p" = com.apple.iokit.IONDRVSupport ] && { echo $i; return; }; i=$((i+1)); done; }
+loads_emulated_nvram() {  # true when the OpenCore config at $C loads OpenVariableRuntimeDxe.efi (an opt-in 1401 build)
+  local i=0 p
+  while p=$(plutil -extract UEFI.Drivers.$i.Path raw -o - "$C" 2>/dev/null); do
+    [ "$p" = OpenVariableRuntimeDxe.efi ] && return 0; i=$((i+1)); done; return 1; }
+# Emulated NVRAM (opt-in builds only): OpenCore's OpenVariableRuntimeDxe keeps a writable NVRAM store that macOS can
+# write, so iMessage, Apple ID and the startup-disk choice survive a reboot on AMD boards whose firmware NVRAM is unsafe
+# to write. The store is saved to nvram.plist at shutdown only by OpenCore's own LogoutHook daemon, which 1401 staged on
+# the ESP at EFI/NullMoth/LogoutHook; this installs that daemon from a stable local copy (the ESP is not mounted at
+# shutdown). Nothing happens on a normal build - the config does not load the driver. Never fatal: a failed hook install
+# must not fail the driver install, it only means NVRAM changes will not persist.
+install_nvram_hook() {
+  loads_emulated_nvram || return 0
+  local src="$MP/EFI/NullMoth/LogoutHook" dst=/Library/NullMoth/LogoutHook out rc
+  [ -f "$src/Launchd.command" ] && [ -f "$src/nvramdump" ] && [ -f "$src/Launchd.command.plist" ] || {
+    note "this build uses emulated NVRAM but EFI/NullMoth/LogoutHook is not on the EFI partition; the startup-disk choice and iMessage will not persist until it is present"; return 0; }
+  mkdir -p "$dst" && cp -p "$src/Launchd.command" "$src/Launchd.command.plist" "$src/nvramdump" "$dst/" || {
+    note "could not stage the NVRAM save hook in $dst"; return 0; }
+  chmod 755 "$dst/Launchd.command" "$dst/nvramdump" 2>/dev/null
+  out=$(cd "$dst" && ./Launchd.command install 2>&1); rc=$?
+  if [ "$rc" = 0 ]; then ok "persistent NVRAM: the save-at-shutdown daemon is installed (the startup-disk choice and iMessage sign-in are kept across restarts)"
+  else echo "$out" | sed 's/^/NOTE /'; note "could not install the NVRAM save hook (exit $rc); the driver still works, but NVRAM changes will not persist"; fi; }
+remove_nvram_hook() {   # take the emulated-NVRAM save daemon back out, if an install put it in
+  local dst=/Library/NullMoth/LogoutHook
+  [ -x "$dst/Launchd.command" ] || return 0
+  (cd "$dst" && ./Launchd.command uninstall) 2>&1 | sed 's/^/NOTE /'
+  rm -rf "$dst"; ok "persistent NVRAM: the save-at-shutdown daemon is removed"; }
 
 # Every log query has its own time cap. Measured 10-12 on a 15.8.1 machine: three "--last 3d" queries took 85 s, 120 s
 # and over 230 s, so the 180 s collection limit killed the job before the kernel log was written (36 of 94 reports since
@@ -652,6 +678,7 @@ if [ $REMOVE = 1 ]; then
     [ -f "$j" ] && { launchctl bootout system "$j" >/dev/null 2>&1; rm -f "$j"; }
   done
   remove_reached_desktop
+  remove_nvram_hook
   ok "done - restart to finish"; cleanup; echo "RESULT ok"; exit 0
 fi
 
@@ -1551,5 +1578,6 @@ rm -rf /Library/NullMoth/nullmoth-wsreset.sh /Library/NullMoth/nullmoth-displayt
 # Clear any pending one-time "reached the desktop" item from an earlier install; the app re-arms it after this run only
 # if the user agreed this time, so a prior choice never carries over on its own.
 remove_reached_desktop
+install_nvram_hook
 if [ $INSTALL_THEN_PREPARE = 1 ]; then do_prepare; else ok "driver installed - restart to load it"; fi
 cleanup; echo "RESULT ok"
