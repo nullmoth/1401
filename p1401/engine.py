@@ -47,14 +47,44 @@ class EngineLoop(RuntimeError):
     pass
 
 
+class MacosNotOffered(RuntimeError):
+    """The macOS the user picked is not on the engine's version menu for this PC."""
+
+
+MACOS_NAMES = {"24": "macOS 15 Sequoia", "25": "macOS 26 Tahoe", "23": "macOS 14 Sonoma", "22": "macOS 13 Ventura"}
+
+
+def macos_not_offered_message(wanted, offered):
+    """offered: [(menu number, name)] as the engine printed them. Names the cap and the version to pick instead."""
+    numbers = [n for n, _ in offered]
+    top = max(numbers, key=int)
+    top_name = "macOS " + next(name.strip() for n, name in offered if n == top)  # the menu says "macOS Sequoia 15"
+    wanted_name = MACOS_NAMES.get(wanted, f"Darwin {wanted}")
+    if int(wanted) > int(top):
+        pick = MACOS_NAMES.get(top, top_name)
+        return (f"This PC is capped at {top_name}: OpenCore-Simplify's compatibility check offers macOS versions up to "
+                f"{top_name} for its hardware, and {wanted_name} is not among them. Pick {pick} in 1401 and build again.")
+    low = min(numbers, key=int)
+    low_name = "macOS " + next(name.strip() for n, name in offered if n == low)
+    return (f"This PC needs at least {low_name}: OpenCore-Simplify's compatibility check offers macOS versions from "
+            f"{low_name} up to {top_name} for its hardware, and {wanted_name} is not among them. Pick "
+            f"{MACOS_NAMES.get(low, low_name)} or newer in 1401 and build again.")
+
+
 def _macos_answer(prompt, ctx, pol):
     """The version menu. "" takes the engine's default, but the default is not always on the menu.
     10-07: a Broadcom card that tops out at Ventura plus a GeForce marked Sequoia-only
     left no native version; the menu offered only 23-25 (OCLP) while the default stayed "macOS Ventura 13", so the
     blank answer was refused three times. Then: Sequoia (24, the NullMoth driver's target) if listed, else the newest."""
-    if pol.macos:
-        return pol.macos
     offered = re.findall(r"^\s*(\d+)\.\s+macOS (.+?)(?:\s+\(|$)", ctx, re.M)
+    if pol.macos:
+        # The user's pick (macOS 15 or 26 in the app) is not negotiable here: the app hands that same version to the
+        # guide and the stick writer, and a different macOS has a different NVIDIA driver package. A menu that ends
+        # below it (Haswell + GTX 1070: the engine offered up to 24 and the answer 25 was refused three times) is a fact
+        # about the PC, so the build stops and says which version to pick instead of looping on a rejected answer.
+        if offered and re.fullmatch(r"\d+", pol.macos) and not any(n == pol.macos for n, _ in offered):
+            raise MacosNotOffered(macos_not_offered_message(pol.macos, offered))
+        return pol.macos
     # A card the NullMoth driver runs has only macOS 15, but the engine's default follows its own advice: on AMD Ryzen
     # laptops "we suggest you to use only macOS Ventura 13 or older", which is on the menu and was taken as is.
     # 15 NVIDIA builds (1.x to 1.15, Ryzen 4800H/5800H/5600H, GTX 1650/1660 Ti, RTX 2060/3050 Ti/3060) installed
