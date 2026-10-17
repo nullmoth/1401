@@ -3,6 +3,21 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.3.2
+- Checking a PC no longer fails when Python is installed on it: 1401's own Python ignores the PC's Python packages
+  ("certifi has no attribute where", "win32com ... __gen_path__")
+- Under Wine, 1401 stops at once and says it needs real Windows, instead of failing three times to read the hardware
+- A PC that can only run up to macOS Sequoia stops with that answer when Tahoe was picked, instead of looping on the
+  macOS version question
+- If something on the PC rewrites OpenCore's boot files after the build (security software), 1401 writes them back
+  from the verified release and says what changed them
+- After a BIOS change (for example turning VMD off), 1401 checks the PC again instead of using the old scan
+- A DSDT the ACPI compiler cannot read now travels in the build log, so it can be repaired
+- Mac: Send logs no longer times out on a broken GPU stack (every query has its own time limit); it also includes
+  how much video memory the driver uses
+- Bundles NVIDIA driver 2.3.2: installing and updating on macOS Sequoia works again, and screenshots and the lock
+  screen show windows again (see its changelog)
+
 ## 2.3.1
 - Writing the installer stick: on PCs where Windows' storage service lists no disks at all (the write stopped with
   1401-DISK-RENUMBERED, or the stick list said "Invalid class"), 1401 repairs the service itself and lists the disks
