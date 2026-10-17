@@ -58,6 +58,10 @@ with tempfile.TemporaryDirectory(prefix="nullmoth-card-log-tests-") as directory
     stop = '  n=0; collection_errors=0'
     assert source.count(start) == source.count(stop) == 1
     body = start + source.split(start, 1)[1].split(stop, 1)[0]
+    # the collection scope helper the sections call (defined above the sections in the script)
+    scope = "".join(l for l in source.splitlines(True) if l.startswith("SCOPE=${NULLMOTH_COLLECT_SCOPE") or l.startswith("want() {"))
+    assert scope.count("\n") == 2, scope
+    body = scope + body
     # Redirect the optional file-log source into the isolated fixture directory.
     assert body.count('/private/tmp/nvmtl.log') == 1
     filelog = tmp / "nvmtl.log"
@@ -87,7 +91,11 @@ with tempfile.TemporaryDirectory(prefix="nullmoth-card-log-tests-") as directory
     plugin = (collection / "driver-plugin-log.txt").read_text()
     assert "log show exit: 3" in kernel and "GSP ring fixture" in kernel
     assert "log show exit: 3" in plugin and "vkCreateDevice -> -8" in plugin
-    assert "-u nobody tail -c 262144 " + str(filelog) in (commands / "sudo-calls").read_text()
+    # root (Send logs) reads the world-writable /tmp log as nobody; the user (first-login report) reads it directly
+    plugin_log = (collection / "driver-plugin-log.txt").read_text()
+    assert "NVMTL: vkCreateDevice -> -8" in plugin_log, plugin_log[-400:]
+    sudo_calls = (commands / "sudo-calls").read_text() if (commands / "sudo-calls").exists() else ""
+    assert ("-u nobody tail -c 262144 " + str(filelog) in sudo_calls) or os.geteuid() != 0
     update = (collection / "driver-update-log.txt").read_text()
     assert "log show exit: 3" in update and "apfs: DONE reverting to snapshot fixture" in update
     print("PASS NVIDIA identifiers, BARs, query failures, kernel ring, plugin errors, and update context retained")

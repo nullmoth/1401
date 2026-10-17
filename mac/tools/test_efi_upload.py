@@ -31,7 +31,9 @@ class EfiUpload(unittest.TestCase):
             backup.write_bytes(config.read_bytes())
             os.utime(backup, (1000 + i, 1000 + i))
         body = s[s.index(START):s.index(END)]
-        r = subprocess.run(["/bin/bash", "-c", f'mp="{mp}"; COLLECT="{col}"; n=0; collection_errors=0\nfor d in disk9s1; do\n{body}\necho "n=$n"'],
+        scope = "".join(l for l in s.splitlines(True) if l.startswith("SCOPE=${NULLMOTH_COLLECT_SCOPE") or l.startswith("want() {"))
+        self.assertEqual(scope.count("\n"), 2, scope)
+        r = subprocess.run(["/bin/bash", "-c", f'{scope}mp="{mp}"; COLLECT="{col}"; n=0; collection_errors=0\nif want full; then\nfor d in disk9s1; do\n{body}\necho "n=$n"'],
                            capture_output=True, text=True, timeout=30)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("n=3", r.stdout)
