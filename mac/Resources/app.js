@@ -120,7 +120,8 @@ const NM = {
       if (data.state === "error") { $("updr").innerHTML = `<span class="bad">${esc(data.why)}</span>`; $("upddrv").hidden = true; }
       if (data.state === "checked") {
         const have = data.installed ? `installed ${esc(data.installed)}, ` : "";
-        $("updr").innerHTML = data.newer ? `${have}newest ${esc(data.latest)} - ready to update.` : `${have}you have the newest driver (${esc(data.latest)}).`;
+        const kind = data.prerelease ? "early release " : "";
+        $("updr").innerHTML = data.newer ? `${have}newest ${kind}${esc(data.latest)} - ready to update.` : `${have}you have the newest driver (${esc(data.latest)}).`;
         $("upddrv").hidden = !data.newer;
         $("upddrv").disabled = !data.newer;
         if (data.app) $("updr").innerHTML += data.appNewer ? ` App ${esc(data.appHave)} -> ${esc(data.app)} is ready.` : ` The app (${esc(data.appHave)}) is up to date.`;
@@ -189,6 +190,9 @@ $("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("teston").onclick = () => post({ act: "tester", on: true });
 $("testoff").onclick = () => post({ act: "tester", on: false });
+$("earlyon").onclick = () => post({ act: "early", on: true });
+$("earlyoff").onclick = () => post({ act: "early", on: false });
+post({ act: "early" });
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
 $("logs").onclick = (e) => { e.preventDefault(); post({ act: "logs" }); };
@@ -251,6 +255,11 @@ NM.on = (m) => {
     usbRender(); return;
   }
   if (m.event === "usbErr") { $("uerr").textContent = m.data; return; }
+  if (m.event === "early") {
+    $("earlyr").textContent = m.data.on ? "On: new drivers reach this Mac first, before they are offered to everyone." : "Off: this Mac gets releases once they have held up for everyone who went first.";
+    $("earlyon").hidden = m.data.on; $("earlyoff").hidden = !m.data.on;
+    return;
+  }
   if (m.event === "tester") {
     $("testr").innerHTML = m.data.ok ? `<span class="good">${m.data.on ? "Joined: a report goes out after each restart." : "Left: nothing runs any more."}</span>`
                                      : `<span class="warn">${esc(m.data.why)}</span>`;

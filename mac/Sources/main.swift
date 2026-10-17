@@ -508,6 +508,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             let on = b["on"] as? Bool ?? false
             if let why = Tester.set(on: on) { send("tester", ["ok": false, "why": why]) }
             else { send("tester", ["ok": true, "on": on]) }
+        // early updates: with "on" it is the switch; without, the page is asking where the switch stands
+        case "early":
+            if let on = b["on"] as? Bool { UpdateChannel.set(on: on) }
+            send("early", ["on": UpdateChannel.isOn])
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
@@ -740,13 +744,24 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     }
     func installedDriverVersion() -> String { App.recordedDriverVersion() }
     func checkUpdate() {
-        let api = URL(string: "https://api.github.com/repos/nullmoth/nvidia-macos-driver/releases/latest")!
-        var rq = URLRequest(url: api); rq.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept"); rq.timeoutInterval = 30
+        // early updates first ask the site's channels file which pre-release (if any) is offered; everyone else, and
+        // an early install whose channels file cannot be read, gets /releases/latest
+        guard UpdateChannel.isOn else { return checkRelease(UpdateChannel.latestURL, early: false) }
+        var crq = URLRequest(url: UpdateChannel.channelsURL); crq.timeoutInterval = 15
+        URLSession.shared.dataTask(with: crq) { data, resp, err in
+            let doc = (err == nil && (resp as? HTTPURLResponse)?.statusCode == 200) ? data.flatMap { try? JSONSerialization.jsonObject(with: $0) } : nil
+            self.checkRelease(UpdateChannel.releaseURL(early: true, channels: doc), early: true)
+        }.resume()
+    }
+    func checkRelease(_ url: URL, early: Bool) {
+        var rq = URLRequest(url: url); rq.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept"); rq.timeoutInterval = 30
         URLSession.shared.dataTask(with: rq) { data, resp, err in
             let fail: (String) -> Void = { self.send("upd", ["state": "error", "why": $0]) }
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let data,
-                  let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let payload = try? JSONSerialization.jsonObject(with: data),
+                  let j = UpdateChannel.pick(payload, early: early),
                   let assets = j["assets"] as? [[String: Any]] else { return fail("could not reach the release list (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
+            let prerelease = j["prerelease"] as? Bool ?? false
             var pkg: (String, String, URL)? = nil; var sums: URL? = nil; var appz: (String, String, URL)? = nil
             for a in assets {
                 guard let n = a["name"] as? String, let u = (a["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { continue }
@@ -779,7 +794,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 let appNewer = appz.map { appSha.count == 64 && App.newer($0.0, than: self.appVersion) } ?? false
                 self.send("upd", ["state": "checked", "latest": pkg.0, "installed": have,
                                   "newer": have.isEmpty || App.newer(pkg.0, than: have),
-                                  "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer])
+                                  "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer,
+                                  "channel": early ? "early" : "stable", "prerelease": prerelease])
             }.resume()
         }.resume()
     }
