@@ -77,6 +77,31 @@ namespace A1401
             return s;
         }
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi, ExactSpelling = true, SetLastError = true)]
+        static extern IntPtr GetProcAddress(IntPtr module, string name);
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern IntPtr GetModuleHandleW(string name);
+
+        /// <summary>True under Wine. Its WMI has no device database, so the scan fails three times on the first query
+        /// (a report from Z:\home\...). Wine's ntdll exports wine_get_version and its registry carries Software\Wine.</summary>
+        public static bool UnderWine()
+        {
+            try
+            {
+                var ntdll = GetModuleHandleW("ntdll.dll");
+                if (ntdll != IntPtr.Zero && GetProcAddress(ntdll, "wine_get_version") != IntPtr.Zero) return true;
+            }
+            catch (Exception) { }
+            foreach (var root in new[] { Registry.CurrentUser, Registry.LocalMachine })
+            {
+                try { using (var k = root.OpenSubKey(@"Software\Wine")) if (k != null) return true; }
+                catch (Exception) { }
+            }
+            return false;
+        }
+
+        public const string WineMessage = "1401 needs real Windows; Wine cannot read the hardware (its WMI has no device database). Start Windows on the PC you want macOS on and run 1401 there.";
+
         /// <summary>The one-time boot menu key for this maker, or null. Board maker first: a custom-built PC
         /// reports "To Be Filled By O.E.M." as the computer maker and the real vendor on the board.</summary>
         public static string BootKey(SystemInfo s)

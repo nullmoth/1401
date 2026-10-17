@@ -378,6 +378,7 @@ namespace A1401
             if (page == 0) { Go(1); return; }
             if (page == 1 && !scanned)
             {
+                if (SystemChecks.UnderWine()) { Say(Loc.T(SystemChecks.WineMessage)); return; }
                 busy = true; next.Enabled = false; log.Clear();
                 scanRunId = Guid.NewGuid().ToString("N");
                 scanDir = ScanEvidence.RunDirectory(Engine.Work, scanRunId);

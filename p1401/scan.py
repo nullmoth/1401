@@ -19,7 +19,7 @@ import platform
 import subprocess
 import sys
 from . import tls
-from . import hwcapture, scan_evidence
+from . import hwcapture, scan_evidence, wine
 tls.install()   # downloads verify against the OS certificate store + certifi
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -362,6 +362,14 @@ def _child(out_dir, run_id=None):
     """GUI and CLI share this controller: independent inventory first, bounded upstream scan second."""
     token = scan_evidence.begin(out_dir, run_id)
     print("Scan run " + token, flush=True)
+    under_wine = wine.version()
+    if under_wine:
+        print(wine.MESSAGE + f" (Wine {under_wine} detected)", flush=True)
+        try:
+            scan_evidence.finish(out_dir, token, False, "wine")
+        except Exception as error:
+            print("Scan evidence finalization unavailable (" + type(error).__name__ + ").", file=sys.stderr)
+        return 1
     try:
         scan_evidence.save_inventory(out_dir, token, hwcapture.collect({}))
     except Exception as error:
