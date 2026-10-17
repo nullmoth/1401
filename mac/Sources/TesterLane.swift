@@ -129,11 +129,18 @@ enum Tester {
         var sum = "macOS \(sh("/usr/bin/sw_vers", ["-productVersion"]).trimmingCharacters(in: .whitespacesAndNewlines))"
             + " (\(sh("/usr/bin/sw_vers", ["-buildVersion"]).trimmingCharacters(in: .whitespacesAndNewlines)))\n"
         sum += "test build: \(s["build"] as? String ?? "?")\n"
-        sum += "boot-args: \(sh("/usr/sbin/nvram", ["boot-args"]).trimmingCharacters(in: .whitespacesAndNewlines))\n"
+        let args = sh("/usr/sbin/nvram", ["boot-args"]).trimmingCharacters(in: .whitespacesAndNewlines)
+        sum += "boot-args: \(args)\n"
+        // turning the test driver on removes -wegnoigpu; one added back by hand hides the Intel GPU from macOS again,
+        // and the driver then never sees it
+        let words = Set(args.split(whereSeparator: { $0 == " " || $0 == "\t" }).map(String.init))
+        if words.contains("nmxintel=1") && words.contains("-wegnoigpu") {
+            sum += "note: -wegnoigpu is set, so the Intel GPU is switched off and the test driver cannot see it\n"
+        }
         sum += "guards: \(sh("/usr/sbin/nvram", ["-p"]).split(separator: "\n").filter { $0.contains("nullmoth") }.joined(separator: "; "))\n\n"
         sum += sh("/usr/sbin/ioreg", ["-r", "-c", "IOPCIDevice", "-l", "-w0"]).split(separator: "\n", omittingEmptySubsequences: false)
             .filter { $0.contains("+-o") || $0.contains("\"vendor-id\"") || $0.contains("\"device-id\"") || $0.contains("\"class-code\"")
-                || $0.contains("nmxgpu") }.joined(separator: "\n")
+                || $0.contains("nmxgpu") || $0.contains("nullmoth-gpu") }.joined(separator: "\n")
         sum += "\n\n" + sh("/usr/bin/kmutil", ["showloaded", "--list-only"]).split(separator: "\n").filter { $0.contains("com.nullmoth") }.joined(separator: "\n")
         add("tester-summary.txt", sum)
         let batch = newUploadBatch()
