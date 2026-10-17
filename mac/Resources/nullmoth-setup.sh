@@ -65,6 +65,16 @@ mount_efi() {   # $1 = device or partition UUID; sets MOUNT_POINT in this shell
   local mp; mp=$(mnt "$1")
   if [ -z "$mp" ]; then diskutil mount "$1" >/dev/null 2>&1 || return 1; MOUNTED="$MOUNTED $1"; mp=$(mnt "$1"); fi
   MOUNT_POINT=$mp; [ -n "$MOUNT_POINT" ]; }
+remove_reached_desktop() {   # take out any pending one-time "reached the desktop" login item the app armed (console user's home)
+  local cu ch rd
+  cu=$(stat -f %Su /dev/console 2>/dev/null)
+  [ -n "$cu" ] && [ "$cu" != root ] && [ "$cu" != loginwindow ] || return 0
+  ch=$(dscl . -read "/Users/$cu" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+  [ -n "$ch" ] || return 0
+  rd="$ch/Library/LaunchAgents/com.nullmoth.reacheddesktop.plist"
+  [ -f "$rd" ] && sudo -u "$cu" launchctl bootout "gui/$(id -u "$cu")" "$rd" >/dev/null 2>&1
+  sudo -u "$cu" rm -f "$rd" "$ch/Library/Application Support/NullMoth/reached-desktop.json" 2>/dev/null
+}
 owned_amfi_from_prior_record() (
   # Inherit only explicitly recorded shared-token ownership from the unchanged
   # configuration on the same identified partition. Legacy or changed records
@@ -641,6 +651,7 @@ if [ $REMOVE = 1 ]; then
   for j in /Library/LaunchDaemons/com.nullmoth.wsreset.plist /Library/LaunchDaemons/com.nullmoth.displaytrace.plist; do
     [ -f "$j" ] && { launchctl bootout system "$j" >/dev/null 2>&1; rm -f "$j"; }
   done
+  remove_reached_desktop
   ok "done - restart to finish"; cleanup; echo "RESULT ok"; exit 0
 fi
 
@@ -1537,5 +1548,8 @@ for j in /Library/LaunchAgents/com.nullmoth.crashcheck.plist /Library/LaunchDaem
 done
 rm -rf /Library/NullMoth/nullmoth-wsreset.sh /Library/NullMoth/nullmoth-displaytrace.sh /Library/NullMoth/display-trace \
        /Library/NullMoth/wsreset.log /Library/NullMoth/no-wsreset
+# Clear any pending one-time "reached the desktop" item from an earlier install; the app re-arms it after this run only
+# if the user agreed this time, so a prior choice never carries over on its own.
+remove_reached_desktop
 if [ $INSTALL_THEN_PREPARE = 1 ]; then do_prepare; else ok "driver installed - restart to load it"; fi
 cleanup; echo "RESULT ok"

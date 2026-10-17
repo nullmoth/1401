@@ -1072,6 +1072,18 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         guard ["dry", "install", "remove", "usbmap", "verbose", "tahoe", "tahoecancel"].contains(mode),
               !runningSetup, pendingDownload == nil else { return }
         runningSetup = true
+        // Ask once, at install time, whether to send a single confirmation when this Mac first reaches its desktop
+        // after the install (ReachedDesktop). Nothing today tells us whether an install actually booted through, so a
+        // working Mac and a dead one both go quiet. It is opt-in and the default is not to send: only a real install,
+        // and only if the user chooses Send, arms it, and it is armed below once the install has succeeded.
+        var reachedDesktopConsent = false
+        if mode == "install" {
+            let a = NSAlert()
+            a.messageText = "Tell NullMoth this install worked?"
+            a.informativeText = "After this Mac restarts and reaches its desktop, 1401 can send one small confirmation to nullmothsystems.com - the macOS version, this Mac's model and CPU, the graphics cards, whether the display and the NVIDIA driver came up, and 1401's and OpenCore's versions - so a working install can be told apart from one that failed silently. It is sent once, then removes itself. Your name, your Mac's name, serial numbers and addresses are removed first. Nothing is sent unless you choose Send."
+            a.addButton(withTitle: "Send once after it boots"); a.addButton(withTitle: "Don't send")
+            reachedDesktopConsent = a.runModal() == .alertFirstButtonReturn
+        }
         let log: URL
         do {
             let directory = try SavedReports.session(in: logs.appendingPathComponent("Reports"))
@@ -1164,6 +1176,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             let text = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
             let result = text.split(separator: "\n").last(where: { $0.hasPrefix("RESULT ") })
             let succeeded = err == nil && !captureFailed && result == "RESULT ok"
+            // Arm the one-time "reached the desktop" confirmation only when a real install succeeded and the user
+            // agreed above; it fires at the next login and then removes itself. A declined install leaves nothing.
+            if mode == "install" { ReachedDesktop.arm(consent: succeeded && reachedDesktopConsent) }
             DispatchQueue.main.async {
                 self.runningSetup = false
                 if cancelled { self.send("run", ["state": "cancelled", "mode": mode]) }
@@ -1201,6 +1216,9 @@ if let i = argv.firstIndex(of: "--crash-report"), i + 1 < argv.count {
 }
 // the AMD/Intel test program's once-per-start report (its login item runs this; see TesterLane.swift)
 if argv.contains("--tester-report") { exit(Tester.report()) }
+// the one-time "reached the desktop" confirmation, sent at the first login after an install (its login item runs this;
+// see ReachedDesktop.swift). It removes its own login item once it has sent, so nothing is left running.
+if argv.contains("--reached-desktop") { exit(ReachedDesktop.report()) }
 let app = NSApplication.shared
 let delegate = App()
 app.delegate = delegate
