@@ -3,6 +3,14 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.3.4
+- Bundles NVIDIA driver 2.3.4 (pre-release to the early-updates program first; see its changelog)
+- Mac: the first-login report names the kernel driver version the Mac is actually running next to the one installed
+  on disk, and says STALE when they differ. A Mac that kept running an older kernel driver after an update used to
+  report the new version
+- Mac: hybrid laptops with WhateverGreen next to the driver get the boot argument it needs (gfxrst=4), so the boot
+  screen is not copied from memory the other card has released
+
 ## 2.3.3
 - Bundles NVIDIA driver 2.3.3: the 2.3.1 driver on both macOS 15 and 26, installable on Sequoia; the 2.3.2 display
   changes that made some Macs worse are withdrawn until they pass a staged test (see its changelog)

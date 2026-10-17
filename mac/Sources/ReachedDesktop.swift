@@ -98,7 +98,35 @@ enum ReachedDesktop {
         s += "OpenCore: \(oc)\n"
         s += "display modes: \(displayModes())\n"
         for line in installedComponents() { s += line + "\n" }
+        for line in loadedKextLines() { s += line + "\n" }
         return s
+    }
+
+    /// What the kernel actually loaded, next to what is installed on disk. A kernel collection built by an earlier
+    /// install can still hold the previous kext while the files on disk are the new ones; a machine then reports the
+    /// new version while running the old driver. The report names both versions and says STALE when they differ.
+    static let kextNames = ["NVRM", "NVRMFB", "NVAccel", "NVRMAGDC"]
+    static func loadedKextLines() -> [String] {
+        let shown = sh("/usr/bin/kmutil", ["showloaded", "--list-only"])
+        return loadedKextLines(showloaded: shown) { name in
+            let plist = "/Library/Extensions/\(name).kext/Contents/Info.plist"
+            return (NSDictionary(contentsOfFile: plist)?["CFBundleVersion"] as? String)
+        }
+    }
+    /// `kmutil showloaded --list-only` prints one line per kext: "... com.nullmoth.NVRM (2.3.4) <uuid> ...".
+    static func loadedKextLines(showloaded: String, installedVersion: (String) -> String?) -> [String] {
+        return kextNames.map { name in
+            let id = "com.nullmoth.\(name) ("
+            let loaded = showloaded.split(separator: "\n").lazy.compactMap { line -> String? in
+                guard let open = line.range(of: id), let close = line[open.upperBound...].firstIndex(of: ")") else { return nil }
+                return String(line[open.upperBound..<close])
+            }.first
+            let installed = installedVersion(name)
+            var l = "loaded \(name): \(loaded ?? "(not loaded)")"
+            if let i = installed { l += ", installed \(i)" }
+            if let lv = loaded, let i = installed, lv != i { l += " STALE (the kernel runs a different build than the one on disk)" }
+            return l
+        }
     }
 
     /// The installed driver binaries by name, as the release gate counts them: a "reached desktop" on a macOS major is
