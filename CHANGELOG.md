@@ -3,6 +3,9 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.3.5
+- Bundles NVIDIA driver 2.3.5: the login screen no longer stays black for a minute after the display comes up
+
 ## 2.3.4
 - Bundles NVIDIA driver 2.3.4 (pre-release to the early-updates program first; see its changelog)
 - Mac: the first-login report names the kernel driver version the Mac is actually running next to the one installed
