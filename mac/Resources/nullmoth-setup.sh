@@ -331,6 +331,9 @@ if [ -n "$COLLECT" ]; then
       /"(vendor-id|device-id|subsystem-vendor-id|subsystem-id|class-code|model|assigned-addresses|reg|nvrm-[^"]*)"/ { block=block "\n" $0 }
       END { if (nv) print block }'
     echo; echo "== display bring-up"; sysctl kern.boottime debug.nvaccel_heads_published debug.nvaccelfb debug.nvrmfb_agdc debug.nvaccel_iop 2>&1
+    # The BAR1 window and what holds it. A 256 MB window full at the login screen (black, cursor only) cannot say
+    # whether it holds live surfaces, parked ones or a leak without these.
+    echo; echo "== video memory"; sysctl -a 2>/dev/null | grep -E '^debug\.(nvrmfb_vram|nvaccel_vm)'
     } > "$COLLECT/driver-state.txt" 2>&1
   # the kernel's own words from the last boots: NVRM/NVAccel/NVRMFB print why they stopped (GSP boot, BAR, display).
   # The AMD/Intel test driver (NMXGPU, NMXAccel, amdgpu/i915/xe and DRM inside it) is in here too: before 1.14.4 none of
