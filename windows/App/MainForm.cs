@@ -376,10 +376,14 @@ namespace A1401
                 showingPrerequisites = false; Go(prerequisiteReturnPage); return;
             }
             if (page == 0) { Go(1); return; }
+            // The PC restarted since Check this PC ran (a firmware change needs one): that report is history.
+            bool rechecking = page == 1 && scanned && ScanEvidence.OlderThanThisBoot(scanDir);
+            if (rechecking) scanned = built = false;
             if (page == 1 && !scanned)
             {
                 if (SystemChecks.UnderWine()) { Say(Loc.T(SystemChecks.WineMessage)); return; }
                 busy = true; next.Enabled = false; log.Clear();
+                if (rechecking) Say(Loc.T("This PC restarted since it was checked; checking it again."));
                 scanRunId = Guid.NewGuid().ToString("N");
                 scanDir = ScanEvidence.RunDirectory(Engine.Work, scanRunId);
                 ScanEvidence.Remember(Engine.Work, scanRunId);

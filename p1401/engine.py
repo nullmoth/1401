@@ -123,6 +123,42 @@ class EngineExit(RuntimeError):
     pass
 
 
+def boot_epoch():
+    """When Windows last started (seconds since the epoch), or None where that is not known."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415 - Windows only
+        k32 = ctypes.WinDLL("kernel32")
+        k32.GetTickCount64.restype = ctypes.c_uint64
+        return time.time() - k32.GetTickCount64() / 1000.0
+    except (OSError, AttributeError):
+        return None
+
+
+# A firmware change (VMD or RAID off, Secure Boot off) needs a restart, and the restart is what makes the old report
+# wrong: a build on a Report.json written before this boot still described the Intel VMD controller the user had just
+# turned off, and stopped on it again. One minute of slack: boot time is derived from the uptime counter.
+STALE_SCAN_SLACK = 60
+
+
+def stale_scan_message(report_path, booted=None):
+    """A message when the hardware report predates this Windows session, else None. booted is an injectable epoch."""
+    booted = boot_epoch() if booted is None else booted
+    if booted is None:
+        return None
+    try:
+        written = os.path.getmtime(report_path)
+    except OSError:
+        return None
+    if written >= booted - STALE_SCAN_SLACK:
+        return None
+    fmt = lambda t: time.strftime("%Y-%m-%d %H:%M", time.localtime(t))  # noqa: E731
+    return (f"This PC was checked before its last restart (report written {fmt(written)}, Windows started "
+            f"{fmt(booted)}). Firmware settings may have changed since, so that report cannot be built from. "
+            "Run Check this PC again, then Build.")
+
+
 @dataclass
 class Policy:
     """The choices a beginner never has to make. Each default says why."""
@@ -760,6 +796,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not os.path.isfile(report_path):
                 raise RuntimeError("This PC has not been checked yet (no hardware report). Run Check this PC first and wait for it "
                                    "to finish; if it stops with an error, send that log instead.")
+            stale = stale_scan_message(report_path)
+            if stale:
+                raise RuntimeError(stale)
             with open(report_path, "rb") as report_file:
                 raw = report_file.read(16 * 1024 * 1024 + 1)
             if len(raw) > 16 * 1024 * 1024:

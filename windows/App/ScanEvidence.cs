@@ -21,6 +21,23 @@ namespace A1401
             if (token == null || !RunToken.IsMatch(token)) throw new ArgumentException("Invalid scan run token.");
             return System.IO.Path.Combine(work, "scan-" + token);
         }
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        static extern ulong GetTickCount64();
+        /// <summary>True when the run's Report.json was written before Windows last started. A firmware change (VMD or
+        /// RAID off) needs a restart, and a build on the report from before it stopped on the controller the user had
+        /// just turned off. One minute of slack: the boot time comes from the uptime counter.</summary>
+        internal static bool OlderThanThisBoot(string dir)
+        {
+            try
+            {
+                if (dir == null) return false;
+                var report = System.IO.Path.Combine(dir, "Report.json");
+                if (!File.Exists(report)) return false;
+                var booted = DateTime.UtcNow - TimeSpan.FromMilliseconds(GetTickCount64());
+                return File.GetLastWriteTimeUtc(report) < booted - TimeSpan.FromMinutes(1);
+            }
+            catch (Exception) { return false; }
+        }
         internal static void Remember(string work, string token)
         {
             RunDirectory(work, token);
