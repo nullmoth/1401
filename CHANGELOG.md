@@ -3,6 +3,13 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.3.1
+- Writing the installer stick: on PCs where Windows' storage service lists no disks at all (the write stopped with
+  1401-DISK-RENUMBERED, or the stick list said "Invalid class"), 1401 repairs the service itself and lists the disks
+  again. It also uses 64-bit PowerShell and logs PowerShell's own error
+- Bundles NVIDIA driver 2.3.1: a driver update that cannot bring the display up falls back to the previous driver
+  automatically (see its changelog)
+
 ## 2.3.0
 - Mac: after a successful install, 1401 can confirm once that the Mac reached its desktop (you choose; the default
   is not to send). It sends one small summary at the first login, then removes itself, so a working install can be
