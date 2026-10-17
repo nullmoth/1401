@@ -36,16 +36,24 @@ func sh(_ path: String, _ args: [String]) -> String {
 func sysctl(_ k: String) -> String { sh("/usr/sbin/sysctl", ["-n", k]).trimmingCharacters(in: .whitespacesAndNewlines) }
 // A small, bounded https GET used to fetch an update's detached signature before unpacking it. Returns nil on any
 // non-200, non-https, timeout, or transport error. Runs off the main thread (the updater's completion handlers do).
+// It uses a session of its own, never URLSession.shared: the app update calls this from inside a shared-session
+// completion handler, and the shared session runs its handlers on one serial queue. A nested shared-session task's
+// handler could not run until the outer one returned, so the wait below always expired and every app update ended
+// with "could not download the update's signature" while the file sat on the release page (user report 10-17).
 func syncGet(_ url: URL, timeout: TimeInterval) -> Data? {
     guard url.scheme == "https" else { return nil }
     var out: Data? = nil
     let sem = DispatchSemaphore(value: 0)
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = timeout
+    let session = URLSession(configuration: config)
     var rq = URLRequest(url: url); rq.timeoutInterval = timeout
-    URLSession.shared.dataTask(with: rq) { d, resp, _ in
+    session.dataTask(with: rq) { d, resp, _ in
         if (resp as? HTTPURLResponse)?.statusCode == 200 { out = d }
         sem.signal()
     }.resume()
     _ = sem.wait(timeout: .now() + timeout + 5)
+    session.finishTasksAndInvalidate()
     return out
 }
 func sha256(_ url: URL) -> String? {
