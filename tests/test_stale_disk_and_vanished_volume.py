@@ -104,6 +104,34 @@ class GetDiskEmpty(unittest.TestCase):
             usbwriter.list_disks()
         self.assertEqual(len(calls), 1)   # no MSFT_Disk query when Get-Disk answered
 
+    def test_no_disks_at_all_repairs_the_storage_provider_once_and_retries(self):
+        # 2.3.0 write log: both queries empty ("Windows lists 0 disk(s)"); the user's fix was mofcomp storagewmi.mof
+        state = {"repaired": False, "repairs": 0}
+        def ps(script):
+            if not state["repaired"]: return ""
+            return '[{"Number":2,"BusType":"USB","UniqueId":"USBSTOR-BBB"}]' if script.startswith("Get-Disk") else ""
+        def repair():
+            state["repairs"] += 1; state["repaired"] = True; return True
+        with patch.object(usbwriter, "_ps", ps), patch.object(usbwriter, "_repair_storage_wmi", repair), patch("builtins.print"):
+            d = usbwriter.list_disks()
+        self.assertEqual(state["repairs"], 1)
+        self.assertEqual(d[0]["Number"], 2)
+
+    def test_a_repair_that_does_not_help_is_tried_only_once(self):
+        calls = {"repairs": 0}
+        def repair():
+            calls["repairs"] += 1; return True
+        with patch.object(usbwriter, "_ps", lambda s: ""), patch.object(usbwriter, "_repair_storage_wmi", repair), \
+             patch("builtins.print"):
+            d = usbwriter.list_disks()
+        self.assertEqual(d, [])
+        self.assertEqual(calls["repairs"], 1)
+
+    def test_a_working_provider_is_never_repaired(self):
+        with patch.object(usbwriter, "_ps", lambda s: '[{"Number":1,"BusType":"USB"}]'), \
+             patch.object(usbwriter, "_repair_storage_wmi", side_effect=AssertionError("repaired a working provider")):
+            usbwriter.list_disks()
+
 
 class VanishedVolume(unittest.TestCase):
     def run_wipe(self, vol_error):

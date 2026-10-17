@@ -48,7 +48,7 @@ namespace A1401
             {
                 // Windows' storage provider is missing from WMI: the list showed only "Invalid class" (in the user's
                 // language). The writer needs the same provider (Get-Disk, Clear-Disk), so name the repair instead.
-                throw new InvalidOperationException(Loc.T("Windows' storage management (WMI class MSFT_Disk) is missing or damaged, and 1401 needs it to write the stick. Open Command Prompt as administrator, run  winmgmt /salvagerepository  then restart Windows and try again."), e);
+                throw new InvalidOperationException(Loc.T("Windows' storage management (WMI class MSFT_Disk) is missing or damaged, and 1401 needs it to write the stick. Open Command Prompt as administrator and run  cd %windir%\\System32\\wbem  then  mofcomp storagewmi.mof  then press Refresh in 1401."), e);
             }
         }
 

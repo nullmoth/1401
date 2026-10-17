@@ -44,6 +44,13 @@ def _system_tool(*parts):
     """A Windows tool by its full path under System32. 1.7 log 10-10: "FileNotFoundError: [WinError 2]" starting plain
     "powershell" on a PC whose PATH no longer listed it; the tool was there, the lookup was not."""
     root = os.environ.get("SystemRoot") or os.environ.get("windir") or r"C:\Windows"
+    # A 32-bit 1401 on 64-bit Windows is redirected from System32 to the 32-bit tools, where the storage WMI provider
+    # (Get-Disk, MSFT_Disk) can be missing while the 64-bit one the window reads works: the writer then saw "0 disks"
+    # right after the window had listed the stick. Sysnative is the 64-bit System32 for such a process.
+    if os.environ.get("PROCESSOR_ARCHITEW6432"):
+        native = os.path.join(root, "Sysnative", *parts)
+        if os.path.isfile(native):
+            return native
     path = os.path.join(root, "System32", *parts)
     return path if os.path.isfile(path) else parts[-1]
 
@@ -85,7 +92,31 @@ def _ps(script):
         raise UsbError((p.stderr or p.stdout).strip()[-1500:]
                        or f"Windows PowerShell stopped with exit code {p.returncode} (0x{p.returncode & 0xFFFFFFFF:08X}) "
                           "and printed no reason while preparing the stick")
+    if p.stderr.strip():
+        # a non-terminating PowerShell error ("Get-Disk : Invalid class") exits 0 with no output; without this line the
+        # log said only "Windows lists 0 disk(s)" and the cause was lost
+        print("WARN PowerShell: " + " ".join(p.stderr.split())[-400:])
     return p.stdout
+
+
+def _repair_storage_wmi():
+    """Re-registers Windows' storage WMI provider (what Get-Disk and MSFT_Disk read): users whose 1401 listed no disks
+    at all fixed it by running exactly this as administrator (mofcomp storagewmi.mof in System32\\wbem). The writer runs
+    elevated, so it does it once itself. Returns whether mofcomp ran and succeeded."""
+    root = os.environ.get("SystemRoot") or os.environ.get("windir") or r"C:\Windows"
+    sysdir = "Sysnative" if os.environ.get("PROCESSOR_ARCHITEW6432") else "System32"
+    wbem = os.path.join(root, sysdir, "wbem")
+    mof, tool = os.path.join(wbem, "storagewmi.mof"), os.path.join(wbem, "mofcomp.exe")
+    if not (os.path.isfile(mof) and os.path.isfile(tool)):
+        print("WARN storage WMI repair not possible: storagewmi.mof or mofcomp.exe is missing")
+        return False
+    try:
+        p = subprocess.run([tool, mof], cwd=wbem, capture_output=True, text=True, encoding=_OEM, errors="replace", timeout=TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"WARN storage WMI repair did not run: {e}")
+        return False
+    print(f"OK storage WMI repair (mofcomp storagewmi.mof) exit {p.returncode}")
+    return p.returncode == 0
 
 
 # MSFT_Disk's numeric codes, as Get-Disk names them (BusType and PartitionStyle are compared as text below)
@@ -98,7 +129,7 @@ def _as_list(out):
     return d if isinstance(d, list) else [d]
 
 
-def list_disks():
+def list_disks(_repaired=False):
     """Every disk, with the fields eligible() and the write read. Get-Disk first; when it lists nothing at all (2.2.0
     write logs, two PCs: "Windows lists 0 disk(s)" right after the window had listed the stick through WMI, so every
     write stopped as DISK-RENUMBERED), the same MSFT_Disk class the window reads, with its numeric bus and partition
@@ -115,6 +146,9 @@ def list_disks():
             d["PartitionStyle"] = STYLE_NAMES.get(d["PartitionStyle"], "RAW")
     if raw:
         print(f"OK Get-Disk listed nothing; {len(raw)} disk(s) read from MSFT_Disk instead")
+    elif not _repaired and _repair_storage_wmi():
+        # every PC has at least the disk Windows runs from: an empty list means the storage provider is broken
+        return list_disks(_repaired=True)
     return raw
 
 
