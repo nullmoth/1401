@@ -9,10 +9,10 @@ import WebKit
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.2.0"
-    static let name = "nullmoth-nvidia-2.2.0.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.2.0/nullmoth-nvidia-2.2.0.tar.gz")!
-    static let sha256 = "a4ffef624e179b2b9d3355cec803e87e427ba4a1b66980f5c751e2ad240ca5e3"
+    static let version = "2.3.0"
+    static let name = "nullmoth-nvidia-2.3.0.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.3.0/nullmoth-nvidia-2.3.0.tar.gz")!
+    static let sha256 = "c3175a5d902b9be36af2d4ddfe6ab178d97824d6a82bb1161e08d3c02d21feef"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
