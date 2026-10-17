@@ -42,9 +42,10 @@ class StaleReport(unittest.TestCase):
         self.assertIsNone(engine.stale_scan_message(self.report(booted - engine.STALE_SCAN_SLACK + 5), booted=booted))
 
     def test_an_unknown_boot_time_never_blocks_a_build(self):
-        if engine.boot_epoch() is not None:
-            self.skipTest('this platform knows its boot time')
-        self.assertIsNone(engine.stale_scan_message(self.report(0)))
+        # simulated on every platform: the packaged Windows check treats a skipped test as a failure
+        from unittest import mock
+        with mock.patch.object(engine, 'boot_epoch', return_value=None):
+            self.assertIsNone(engine.stale_scan_message(self.report(0)))
 
     def test_a_missing_report_is_left_to_the_existing_check(self):
         self.assertIsNone(engine.stale_scan_message('/nonexistent/Report.json', booted=time.time()))
