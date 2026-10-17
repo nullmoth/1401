@@ -68,7 +68,7 @@ enum Tester {
     }
 
     /// Joins or leaves. Joining writes the login item that runs `1401 --tester-report` once per login; it is refused
-    /// when 1401 sits where another user could replace it (the item would run that user's program in this session).
+    /// when 1401 sits where another user could replace it (the item would run that user's program in your login).
     static func set(on: Bool) -> String? {
         let fm = FileManager.default
         if !on {
