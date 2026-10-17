@@ -21,6 +21,32 @@ import re
 
 MAX_RENAMES = 16
 _FAILED = re.compile(r"Failure creating named object \[([^\]]+)\], AE_ALREADY_EXISTS")
+# A DSDT iasl could not read rides in the build log as base64 so the repair can be written from the upload. 192 KB raw
+# is far above any firmware DSDT seen (27-55 KB); a larger one is left out and only described.
+TABLE_IN_LOG_MAX = 192 * 1024
+
+
+def _table_for_log(path):
+    """{'dsdt_sha256', 'dsdt_size', 'dsdt_oem', 'dsdt_b64'} for the table at path; what could be read of it."""
+    import base64  # noqa: PLC0415
+    import hashlib  # noqa: PLC0415
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read(TABLE_IN_LOG_MAX + 1)
+    except OSError as error:
+        return {"dsdt_error": f"{type(error).__name__}: {error}"}
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        size = len(data)
+    out = {"dsdt_sha256": hashlib.sha256(data).hexdigest(), "dsdt_size": size}
+    if len(data) >= 36:
+        out["dsdt_oem"] = data[10:16].decode("ascii", "replace").strip() + " " + data[16:24].decode("ascii", "replace").strip()
+    if len(data) <= TABLE_IN_LOG_MAX:
+        out["dsdt_b64"] = base64.b64encode(data).decode("ascii")
+    else:
+        out["dsdt_error"] = f"table larger than {TABLE_IN_LOG_MAX} bytes; not included"
+    return out
 
 
 def _pkglen(data, i):
@@ -100,10 +126,26 @@ def tolerate(dsdt, records):
                 shutil.copyfile(tables[0], kept)
             except OSError:
                 kept = None
-            records.append({"tool": "acpi-dupnames", "iasl_crash_exit": result[2],
-                            "hex": hex(result[2] & 0xFFFFFFFF), "dsdt_kept": kept})
-            print(f"ACPI: iasl crashed on this DSDT (exit {result[2]} = {hex(result[2] & 0xFFFFFFFF)}); "
-                  "kept a copy for diagnosis and continuing without pre-patch disassembly")
+            record = {"tool": "acpi-dupnames", "iasl_crash_exit": result[2],
+                      "hex": hex(result[2] & 0xFFFFFFFF), "dsdt_kept": kept}
+            # The kept copy lives in the loader's temp folder, which is deleted when the build ends, so three uploaded
+            # logs carried its path and not one byte of the table. The table itself rides in the record now (a DSDT is
+            # tens of KB; base64 under the log's size cap), and the message says that this log is what to send.
+            record.update(_table_for_log(tables[0]))
+            # exit -1 (0xffffffff) with AE_ALREADY_EXISTS is not a crash: iasl's pass 1 found a name defined twice and
+            # stopped without saying which (During name lookup/catalog, psobject-372) - nothing to rename from the output.
+            # AMD and Haswell AMI boards, 10-17. The repair needs the table, which this record now carries.
+            said = str(result[0]) + str(result[1])
+            if "AE_ALREADY_EXISTS" in said:
+                record["reason"] = "AE_ALREADY_EXISTS during name lookup/catalog: a name is defined twice; iasl did not say which"
+                print(f"ACPI: iasl stopped on this DSDT (exit {result[2]} = {hex(result[2] & 0xFFFFFFFF)}): a name is "
+                      "defined twice and iasl did not say which, so it could not be renamed for reading. The table is "
+                      "included in this build log - send the log with Send logs so the repair can be added. "
+                      "Continuing without pre-patch disassembly.")
+            else:
+                print(f"ACPI: iasl crashed on this DSDT (exit {result[2]} = {hex(result[2] & 0xFFFFFFFF)}); the table is "
+                      "included in this build log (send it with Send logs) and the build continues without pre-patch disassembly")
+            records.append(record)
             return result
         serial = 0
         while tables and isinstance(result, (list, tuple)) and len(result) >= 3 and result[2] != 0 and serial < MAX_RENAMES:
