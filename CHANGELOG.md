@@ -3,6 +3,14 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.3.3
+- Bundles NVIDIA driver 2.3.3: the 2.3.1 driver on both macOS 15 and 26, installable on Sequoia; the 2.3.2 display
+  changes that made some Macs worse are withdrawn until they pass a staged test (see its changelog)
+- Mac: the app can update itself again ("signature could not be downloaded" was a deadlock in the app, not the server)
+- Mac: the first-login report carries the installed component hashes and each display's refresh rate, and attaches the
+  driver logs when the driver did not come up
+- Send logs: every query has its own time limit, so a slow Mac no longer loses the log it was sending
+
 ## 2.3.2
 - Checking a PC no longer fails when Python is installed on it: 1401's own Python ignores the PC's Python packages
   ("certifi has no attribute where", "win32com ... __gen_path__")
