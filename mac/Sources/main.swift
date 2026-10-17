@@ -341,6 +341,80 @@ func makeReport(_ crashes: [URL]) -> String {
     return hardwareFacts() + redact(r)
 }
 
+/// What one upload run produced: the site's ids, what each confirmed, the errors, and whether the queue could be
+/// written at all (queued false: nothing was sent, errors has the reason).
+struct UploadOutcome {
+    var queued = true
+    var ids: [String] = []
+    var errors: [String] = []
+    var acknowledgements: [[String: String]] = []
+}
+
+/// Sends the files of one session as one batch: each is redacted and queued (ReportQueue, so an unsent file is retried
+/// by the next send), uploaded with its SHA-256, confirmed, and the receipt is written beside them. Send logs and the
+/// first-login report (ReachedDesktop) both send through here, so a redaction or queue rule changes in one place.
+func uploadReports(files: [URL], pendingFiles: [URL], in dir: URL, notes: String, batch: String) -> UploadOutcome {
+    var out = UploadOutcome()
+    let prepared: ReportQueue.Prepared
+    do {
+        prepared = try ReportQueue.prepare(files: files, pendingFiles: pendingFiles, in: dir) { data in
+            var bytes = data; bytes.removeAll { $0 == 0 }
+            return Data(redact(String(decoding: bytes, as: UTF8.self)).utf8)
+        }
+    } catch {
+        out.queued = false; out.errors.append(error.localizedDescription)
+        return out
+    }
+    out.errors += prepared.warnings
+    let selected = ReportQueue.select(prepared.entries)
+    if prepared.entries.count > selected.count { out.errors.append("More reports are saved for the next Send logs attempt.") }
+    for entry in selected {
+        let body = entry.bytes, sha = entry.sha, name = entry.name
+        var req = URLRequest(url: URL(string: "https://nullmothsystems.com/api/upload")!, timeoutInterval: 60)
+        req.httpMethod = "POST"; req.httpBody = body
+        req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        req.setValue(name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "log.txt", forHTTPHeaderField: "X-File-Name")
+        let meta = try! JSONSerialization.data(withJSONObject: ["consent": true, "notes": notes, "batch": batch])
+        req.setValue(meta.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: ""), forHTTPHeaderField: "X-Meta")
+        req.setValue(sha, forHTTPHeaderField: "X-Content-SHA256")
+        let done = DispatchSemaphore(value: 0)
+        let result = ReportUploadResult()
+        let task = URLSession.shared.dataTask(with: req) { data, response, error in
+            result.finish(data: data, response: response, error: error, sha256: sha)
+            done.signal()
+        }
+        task.resume()
+        let timedOut = done.wait(timeout: .now() + 90) == .timedOut
+        if timedOut { task.cancel() }
+        let outcome = result.take(timedOut: timedOut)
+        if let id = outcome.0 {
+            out.ids.append(id); out.acknowledgements.append(["name": name, "sha256": sha, "id": id])
+            do { try ReportQueue.confirm(entry, id: id, in: dir) }
+            catch { out.errors.append("\(name): confirmed, but its local retry marker could not be updated.") }
+        }
+        if let error = outcome.1 { out.errors.append("\(name): \(error)") }
+    }
+    do {
+        let receipt = try JSONSerialization.data(withJSONObject: ["batch": batch, "confirmed": out.acknowledgements, "errors": out.errors], options: [.prettyPrinted, .sortedKeys])
+        _ = try SavedReports.create(receipt, in: dir, name: "upload-receipt.json")
+    } catch { out.errors.append("The upload receipt could not be saved; collected files remain locally.") }
+    return out
+}
+
+/// The driver part of Send logs' collection (driver state, this boot's kernel and plugin lines, WindowServer crashes),
+/// run as the logged-in user with no password prompt: the same collector scripts in their "driver" scope
+/// (nullmoth-log-capture.sh, nullmoth-setup.sh --collect-logs), the same import. Returns the collector's warnings;
+/// the files land in dir.
+func collectDriverLogs(into dir: URL) -> [String] {
+    guard let script = Bundle.main.resourceURL?.appendingPathComponent("nullmoth-log-capture.sh").path else { return ["the collector script is missing from the app"] }
+    let run = Privileged.run(Privileged.bundleScript(script, [], env: "NULLMOTH_COLLECT_SCOPE=driver "), timeout: 7 * 60, admin: false)
+    var warnings: [String] = []
+    do { warnings += try SavedReports.importCollection(run.output, to: dir) }
+    catch { warnings.append("Driver log collection was incomplete: \(error.localizedDescription)") }
+    if let error = run.error { warnings.append(redact(error)) }
+    return warnings
+}
+
 func writeReport(_ crashes: [URL], to dst: URL) -> Bool {
     (try? makeReport(crashes).write(to: dst, atomically: true, encoding: .utf8)) != nil
 }
@@ -1018,49 +1092,13 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             // One random value per send, shared by every file of it, so the site can group one run's logs. It names the
             // run, not the Mac: a new one each time.
             let batch = newUploadBatch()
-            let prepared: ReportQueue.Prepared
-            do {
-                prepared = try ReportQueue.prepare(files: files, pendingFiles: pendingFiles, in: dir) { data in
-                    var bytes = data; bytes.removeAll { $0 == 0 }
-                    return Data(redact(String(decoding: bytes, as: UTF8.self)).utf8)
-                }
-            } catch {
-                DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Could not save the report queue: \(error.localizedDescription)", "localPath": dir.path]) }
+            let notes = "1401 Mac \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (driver \(Package.version)) logs (sent from the app)"
+            let sent = uploadReports(files: files, pendingFiles: pendingFiles, in: dir, notes: notes, batch: batch)
+            guard sent.queued else {
+                DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Could not save the report queue: \(sent.errors.first ?? "")", "localPath": dir.path]) }
                 return
             }
-            errs += prepared.warnings
-            let selected = ReportQueue.select(prepared.entries)
-            if prepared.entries.count > selected.count { errs.append("More reports are saved for the next Send logs attempt.") }
-            for entry in selected {
-                let body = entry.bytes, sha = entry.sha, name = entry.name
-                var req = URLRequest(url: URL(string: "https://nullmothsystems.com/api/upload")!, timeoutInterval: 60)
-                req.httpMethod = "POST"; req.httpBody = body
-                req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-                req.setValue(name.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "log.txt", forHTTPHeaderField: "X-File-Name")
-                let meta = try! JSONSerialization.data(withJSONObject: ["consent": true, "notes": "1401 Mac \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (driver \(Package.version)) logs (sent from the app)", "batch": batch])
-                req.setValue(meta.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: ""), forHTTPHeaderField: "X-Meta")
-                req.setValue(sha, forHTTPHeaderField: "X-Content-SHA256")
-                let done = DispatchSemaphore(value: 0)
-                let result = ReportUploadResult()
-                let task = URLSession.shared.dataTask(with: req) { data, response, error in
-                    result.finish(data: data, response: response, error: error, sha256: sha)
-                    done.signal()
-                }
-                task.resume()
-                let timedOut = done.wait(timeout: .now() + 90) == .timedOut
-                if timedOut { task.cancel() }
-                let outcome = result.take(timedOut: timedOut)
-                if let id = outcome.0 {
-                    ids.append(id); acknowledgements.append(["name": name, "sha256": sha, "id": id])
-                    do { try ReportQueue.confirm(entry, id: id, in: dir) }
-                    catch { errs.append("\(name): confirmed, but its local retry marker could not be updated.") }
-                }
-                if let error = outcome.1 { errs.append("\(name): \(error)") }
-            }
-            do {
-                let receipt = try JSONSerialization.data(withJSONObject: ["batch": batch, "confirmed": acknowledgements, "errors": errs], options: [.prettyPrinted, .sortedKeys])
-                _ = try SavedReports.create(receipt, in: dir, name: "upload-receipt.json")
-            } catch { errs.append("The upload receipt could not be saved; collected files remain locally.") }
+            ids = sent.ids; errs += sent.errors; acknowledgements = sent.acknowledgements
             DispatchQueue.main.async { self.send("logsDone", ["ok": !ids.isEmpty, "ids": ids, "errors": errs, "localPath": dir.path]) }
         }
     }

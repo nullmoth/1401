@@ -6,12 +6,29 @@ umask 077
 # safe if a bare call is ever added.
 PATH=/usr/bin:/bin:/usr/sbin:/sbin; export PATH
 HERE=$(cd "$(/usr/bin/dirname "$0")" && pwd -P) || exit 1
-[ "$(/usr/bin/id -u)" = 0 ] || { echo "NMCOLLECT_STATUS 77"; exit 0; }
-TASK=$(/usr/bin/mktemp -d /private/var/root/1401-logs.XXXXXXXX) || { echo "NMCOLLECT_STATUS 73"; exit 0; }
-RETAIN=0
-trap '[ "$RETAIN" = 1 ] || /bin/rm -rf "$TASK"' EXIT
-"$HERE/nullmoth-log-watch" "$HERE/nullmoth-setup.sh" "$TASK/files" > "$TASK/collect.txt" 2>&1
-STATUS=$?
+if [ "$(/usr/bin/id -u)" = 0 ]; then
+    TASK=$(/usr/bin/mktemp -d /private/var/root/1401-logs.XXXXXXXX) || { echo "NMCOLLECT_STATUS 73"; exit 0; }
+    RETAIN=0
+    trap '[ "$RETAIN" = 1 ] || /bin/rm -rf "$TASK"' EXIT
+    "$HERE/nullmoth-log-watch" "$HERE/nullmoth-setup.sh" "$TASK/files" > "$TASK/collect.txt" 2>&1
+    STATUS=$?
+elif [ "${NULLMOTH_COLLECT_SCOPE:-}" = driver ]; then
+    # The driver scope (the first-login report, when the driver did not come up) runs as the logged-in user with no
+    # password: the same collector, its driver sections only, in the user's own temp folder. The root watcher cannot
+    # run here, so the 360 s backstop is a shell timer; the collector's own deadline normally ends the run before it.
+    TASK=$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/1401-logs.XXXXXXXX") || { echo "NMCOLLECT_STATUS 73"; exit 0; }
+    RETAIN=0
+    trap '[ "$RETAIN" = 1 ] || /bin/rm -rf "$TASK"' EXIT
+    NULLMOTH_COLLECT_SCOPE=driver /bin/bash "$HERE/nullmoth-setup.sh" --collect-logs "$TASK/files" > "$TASK/collect.txt" 2>&1 &
+    COLLECTOR=$!
+    ( /bin/sleep 360; /bin/kill "$COLLECTOR" 2>/dev/null && echo "Log collection exceeded its time limit; partial files are retained." >> "$TASK/collect.txt" ) &
+    TIMER=$!
+    wait "$COLLECTOR"; STATUS=$?
+    /bin/kill "$TIMER" 2>/dev/null; wait "$TIMER" 2>/dev/null
+    [ "$STATUS" = 143 ] && STATUS=124
+else
+    echo "NMCOLLECT_STATUS 77"; exit 0
+fi
 EXPORT=0
 WARNED="|"
 warn() {

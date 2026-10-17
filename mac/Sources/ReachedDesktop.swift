@@ -139,7 +139,10 @@ enum ReachedDesktop {
     static func report() -> Int32 {
         var s = state()
         guard (s["consent"] as? Bool) == true, (s["sent"] as? Bool) != true else { return 0 }
-        let body = Data(redact(summary()).utf8)
+        let text = summary()
+        let signs = failureSigns(text)
+        if !signs.isEmpty { return advance(sent: reportFailure(text, signs: signs)) }
+        let body = Data(redact(text).utf8)
         let sha = SHA256.hash(data: body).map { String(format: "%02x", $0) }.joined()
         var req = URLRequest(url: URL(string: "https://nullmothsystems.com/api/upload")!, timeoutInterval: 60)
         req.httpMethod = "POST"; req.httpBody = body
@@ -157,6 +160,63 @@ enum ReachedDesktop {
         let timedOut = done.wait(timeout: .now() + 90) == .timedOut
         if timedOut { task.cancel() }
         return advance(sent: result.take(timedOut: timedOut).0 != nil)
+    }
+
+    /// Why this login is not a clean success, from the summary's own lines: no Metal device, the driver not loaded, or
+    /// an installed component missing. Empty means the driver came up and the one short text is enough. 12 of 129
+    /// first-login reports on 2.3.x said "Metal device: no" or "driver loaded: no" and carried nothing else, so a plugin
+    /// the system refused could not be told from a framebuffer that never came up.
+    static func failureSigns(_ summary: String) -> [String] {
+        var signs: [String] = []
+        for line in summary.split(separator: "\n") {
+            if line.hasPrefix("Metal device: no") { signs.append("no Metal device") }
+            if line.hasPrefix("NVIDIA driver loaded (com.nullmoth): no") { signs.append("driver not loaded") }
+            if line.hasPrefix("installed "), line.hasSuffix(": (not present)") {
+                signs.append(String(line.dropFirst("installed ".count).prefix { $0 != ":" }) + " missing")
+            }
+        }
+        return signs
+    }
+
+    /// The files Send logs collects for the driver, as the first-login report attaches them when the driver did not
+    /// come up. Everything else the full collection gathers (EFI partitions, panics, display and NPU logs) needs root
+    /// and is not part of this report.
+    static let driverFiles = ["driver-state.txt", "driver-kernel-log.txt", "driver-plugin-log.txt", "driver-crash-window.txt"]
+    /// The collector, replaceable by a test: runs the driver scope of the collection into dir and returns its warnings.
+    static var driverCollector: (URL) -> [String] = { dir in collectDriverLogs(into: dir) }
+
+    /// The driver files for this report, collected only when the summary shows a failure; a clean summary collects
+    /// nothing and returns no files. The WindowServer crash reports since boot ride along by their collected names.
+    static func attachments(for summary: String, into dir: URL) -> (files: [URL], warnings: [String]) {
+        guard !failureSigns(summary).isEmpty else { return ([], []) }
+        let warnings = driverCollector(dir)
+        let present = ((try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [])
+            .filter { driverFiles.contains($0.lastPathComponent) || ($0.lastPathComponent.hasPrefix("macos-WindowServer") && $0.pathExtension == "ips") }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        return (present, warnings)
+    }
+
+    /// A first login where the driver did not come up: the summary and the driver files go up as one batch through the
+    /// same queue and redaction as Send logs (uploadReports). True when the summary itself reached the site.
+    static func reportFailure(_ text: String, signs: [String]) -> Bool {
+        let dir: URL, summaryFile: URL
+        do {
+            dir = try SavedReports.session(in: logs.appendingPathComponent("Reports"))
+            summaryFile = try SavedReports.create(Data(text.utf8), in: dir, name: "reached-desktop.txt")
+        } catch {
+            print("reached-desktop report: could not save the report locally (\(error.localizedDescription))")
+            return false
+        }
+        let gathered = attachments(for: text, into: dir)
+        if !gathered.warnings.isEmpty {
+            _ = try? SavedReports.create(Data(gathered.warnings.joined(separator: "\n").utf8), in: dir, name: "collection-errors.txt")
+        }
+        let app = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        // the same fixed tag leads the notes; what did not come up follows it so the catalog can split these
+        let notes = "reached desktop; 1401 Mac \(app) (first login after install; driver did not come up: \(signs.joined(separator: ", ")))"
+        let outcome = uploadReports(files: [summaryFile] + gathered.files, pendingFiles: [], in: dir, notes: notes, batch: newUploadBatch())
+        print("reached-desktop report: \(outcome.ids.count) of \(1 + gathered.files.count) files sent (\(signs.joined(separator: ", ")))")
+        return outcome.acknowledgements.contains { $0["name"] == "reached-desktop.txt" }
     }
 
     /// The outcome of one send attempt. On a success it takes the login item back out and leaves nothing behind; on a

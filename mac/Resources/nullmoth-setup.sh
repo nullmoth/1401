@@ -37,6 +37,11 @@ ONCE_NAME="1401: Start once without NVIDIA driver"
 # update removes its entry and file, so the boot looks the way OpenCore and macOS draw it.
 LOGO_FILE=NullMothLogo.efi
 ST=${NULLMOTH_STATE_DIR:-/Library/NullMoth}; STATE=$ST/state
+# Log collection scope. "full" is Send logs (root: EFI partitions, panics, every log). "driver" is the subset the
+# first-login report attaches when the driver did not come up (driver state, this boot's kernel and plugin lines,
+# WindowServer crashes): it reads only what the logged-in user can read and needs no password, so it can run at login.
+SCOPE=${NULLMOTH_COLLECT_SCOPE:-full}
+want() { [ "$SCOPE" = full ] || [ "$1" = driver ]; }   # want full: Send logs only; want driver: both scopes
 AGENT=/Library/LaunchAgents/com.nullmoth.crashcheck.plist
 RECOVER=/Library/LaunchDaemons/com.nullmoth.recover.plist
 KNOBS=(); PROFILE=""; COLLECT=""; UPD=""; VERB=""; PKG=""; SHA=""; CFG=""; EFI=auto; DRY=0; REMOVE=0; USBMAP=""; TOOL=""; APPBIN=""; MOUNTED=""; T=""; PKGDIR=""
@@ -49,7 +54,7 @@ step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
 cleanup() { for d in $MOUNTED; do diskutil unmount "$d" >/dev/null 2>&1; done; [ -n "$T" ] && rm -rf "$T"; [ -n "${KT:-}" ] && rm -rf "$KT"; [ -n "${PKGDIR:-}" ] && rm -rf "$PKGDIR"; }
 stop() { echo "STOP $*"; cleanup; echo "RESULT stop"; exit 1; }
-[ "$(id -u)" = 0 ] || { echo "STOP needs administrator rights"; echo "RESULT stop"; exit 1; }
+[ "$(id -u)" = 0 ] || { [ -n "$COLLECT" ] && [ "$SCOPE" = driver ]; } || { echo "STOP needs administrator rights"; echo "RESULT stop"; exit 1; }
 [ "$UPD" = finish ] && [ ! -f "$ST/update-pending" ] && { echo "RESULT ok"; exit 0; }
 has() { plutil -extract "$1" raw -o - "$C" >/dev/null 2>&1; }
 get() { plutil -extract "$1" raw -o - "$C" 2>/dev/null; }
@@ -302,14 +307,14 @@ if [ -n "$COLLECT" ]; then
   # uploads hit that limit and arrived without the panics, crash reports, EFI configs and the previous boot, which
   # were collected last.
   n=0; collection_errors=0
-  collect_recent_logs macos 3 /Library/Logs/DiagnosticReports/*.panic /Library/Logs/DiagnosticReports/Retired/*.panic
+  want full && collect_recent_logs macos 3 /Library/Logs/DiagnosticReports/*.panic /Library/Logs/DiagnosticReports/Retired/*.panic
   # WindowServer can fail outside a driver frame. Include the complete recent reports
   # during an explicit Send logs request; automatic crash notifications stay selective.
   collect_recent_logs macos 3 /Library/Logs/DiagnosticReports/WindowServer*.ips /Library/Logs/DiagnosticReports/Retired/WindowServer*.ips
-  collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/firefox*.ips /Library/Logs/DiagnosticReports/Firefox*.ips /Library/Logs/DiagnosticReports/Retired/firefox*.ips /Library/Logs/DiagnosticReports/Retired/Firefox*.ips
-  collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/plugin-container*.ips /Library/Logs/DiagnosticReports/Retired/plugin-container*.ips
-  collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/Blender*.ips /Library/Logs/DiagnosticReports/Retired/Blender*.ips
-  for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
+  want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/firefox*.ips /Library/Logs/DiagnosticReports/Firefox*.ips /Library/Logs/DiagnosticReports/Retired/firefox*.ips /Library/Logs/DiagnosticReports/Retired/Firefox*.ips
+  want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/plugin-container*.ips /Library/Logs/DiagnosticReports/Retired/plugin-container*.ips
+  want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/Blender*.ips /Library/Logs/DiagnosticReports/Retired/Blender*.ips
+  if want full; then for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
     mount_efi "$d" || continue; mp=$MOUNT_POINT
     collect_recent_logs "$d" 3 "$mp"/opencore-*.txt
     collect_recent_logs "$d" 5 "$mp"/panic-*.txt
@@ -329,7 +334,7 @@ if [ -n "$COLLECT" ]; then
       n=$((n+1))
     done
     [ -d "$mp/EFI/OC" ] && { echo "== $d EFI/OC"; (cd "$mp/EFI/OC" && ls -1 Kexts Drivers ACPI Tools 2>/dev/null; ls -la OpenCore.efi 2>/dev/null); } >> "$COLLECT/$d-efi-files.txt"
-  done
+  done; fi
   for f in "$ST"/*.log "$ST/state"; do [ -f "$f" ] && cp "$f" "$COLLECT/driver-$(basename "$f").txt"; done
   { echo "macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))   model $(sysctl -n hw.model)"
     echo "boot-args: $(nvram boot-args 2>/dev/null | cut -f2-)"; echo "SIP: $(csrutil status 2>/dev/null)"
@@ -372,7 +377,7 @@ if [ -n "$COLLECT" ]; then
   # 1.9.0 report (10-10, 2K 165 Hz monitor stuck at 1080p 60 Hz): the 6000-line tail above was all os_map_kernel_space
   # and flipToMemory lines, so the boot-time mode list, the EDID and why each mode was or was not offered were gone.
   # Everything the display decision used, from THIS boot only, never tailed away.
-  { echo "== monitors (EDID as macOS sees it)"
+  want full && { echo "== monitors (EDID as macOS sees it)"
     ioreg -l -w0 -r -c IODisplayConnect 2>/dev/null | grep -E '"(IODisplayEDID|DisplayProductName|DisplayVendorID|DisplayProductID)"'
     echo; echo "== NVIDIA framebuffers"
     ioreg -l -w0 -r -c NVRMNVDAFramebuffer 2>/dev/null | grep -E '"(IOFB[A-Za-z]*(Mode|Timing|Pixel|Display)[A-Za-z]*|nvrm[A-Za-z-]*|NVRM[A-Za-z]*|IOFBDependentIndex)"'
@@ -385,7 +390,7 @@ if [ -n "$COLLECT" ]; then
   # A boot that hung or went black never writes a panic: its kernel messages are only in the log store. Users could not
   # send them (10-10 chat: "the logs from the kernel don't get saved to a file"), so keep the whole kernel log of the boots
   # before this one, up to this boot's start: the tail is how the last failed boot ended.
-  { boot=$(sysctl -n kern.boottime | sed -E 's/.*sec = ([0-9]+),.*/\1/')
+  want full && { boot=$(sysctl -n kern.boottime | sed -E 's/.*sec = ([0-9]+),.*/\1/')
     echo "== kernel messages before this boot (started $(date -r "$boot" '+%Y-%m-%d %H:%M:%S'))"
     lshow 45 --start "$(date -r $((boot - 43200)) '+%Y-%m-%d %H:%M:%S')" --end "$(date -r "$boot" '+%Y-%m-%d %H:%M:%S')" \
       --style compact --predicate 'process == "kernel"' 2>&1 \
@@ -398,7 +403,7 @@ if [ -n "$COLLECT" ]; then
   } > "$COLLECT/previous-boot-kernel-log.txt" 2>&1
   # Every GPU and the processor, whatever the vendor and age, supported by NullMoth or not (requested broad hardware coverage). The sections above only name NVIDIA; Intel iGPUs (HD to Xe and Arc), Radeon cards and Ryzen iGPUs
   # need the same facts: what macOS bound to them, whether Metal sees them, and what the boot loader injected.
-  { echo "== every display device (any vendor)"
+  want full && { echo "== every display device (any vendor)"
     bounded 30 ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | LC_ALL=C awk '
       /\+-o / { if (gpu) print block "\n"; block=$0; gpu=0; next }
       /"class-code" = <[0-9a-f][0-9a-f][0-9a-f][0-9a-f]0300>/ { gpu=1 }   # class 03xx: VGA (0300), XGA, 3D controller (0302: many laptop dGPUs)
@@ -421,13 +426,16 @@ if [ -n "$COLLECT" ]; then
   # The current kernel message ring can retain early GSP/BAR failures absent from the log store.
   { echo; echo "== current kernel message ring"; dmesg 2>&1 | grep -iE 'nvrm|nvaccel|nvidia|nullmoth|gsp|nmx|amdgpu|i915|\[drm\]' | grep -v -e 'newVidMemory -> ' -e 'bytes of REAL VRAM' | headtail 300 300; } >> "$COLLECT/driver-kernel-log.txt"
   # Keep update/snapshot context separate so APFS traffic cannot crowd out GPU errors.
+  if want full; then
   lshow 20 --last 1d --style compact --predicate '(process == "kernel" AND eventMessage CONTAINS[c] "apfs") OR process == "MobileSoftwareUpdate" OR process == "softwareupdated"' 2>&1 \
     | tail -n 2000 > "$COLLECT/driver-update-log.txt"
   log_status=${PIPESTATUS[0]}; echo "log show exit: $log_status" >> "$COLLECT/driver-update-log.txt"
   { echo; echo "== current update message ring"; dmesg 2>&1 | grep -iE 'apfs|MobileSoftwareUpdate|softwareupdated' | tail -n 1000; } >> "$COLLECT/driver-update-log.txt"
+  fi
   # NPUs (Intel NPU, AMD Ryzen AI): every layer from the PCI function up to the runtimes, so one report names the layer
   # that failed. The runtime probes run as the logged-in user (apps do; root would also hide node-permission faults
   # and make XRT ignore its debug ini) with their own debug logging on, each bounded in time.
+  if want full; then
   npu_run() {  # <seconds> <command...>: runs it as the console user; kills it past the bound and says so
     local secs=$1 p w rc; shift
     if [ -z "${console_user:-}" ] || [ "$console_user" = root ] || [ "$console_user" = loginwindow ]; then
@@ -510,6 +518,7 @@ if [ -n "$COLLECT" ]; then
     # the uploader takes only plain file names
     cp "$ips" "$COLLECT/npu-crash-$(basename "$ips" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' '_')" && n_npu=$((n_npu+1))
   done
+  fi
   # Release builds report failures to syslog rather than nvmtl.log. Debug builds may use either
   # the system temp directory or the console user's temp directory.
   lshow 40 --last 1d --style compact --predicate 'process != "kernel" AND (eventMessage CONTAINS[c] "NVMTL" OR eventMessage CONTAINS[c] "NullMoth" OR eventMessage CONTAINS[c] "nvk-reason")' 2>&1 \
@@ -517,14 +526,17 @@ if [ -n "$COLLECT" ]; then
   log_status=${PIPESTATUS[0]}; echo "log show exit: $log_status" >> "$COLLECT/driver-plugin-log.txt"
   console_user=$(stat -f %Su /dev/console 2>/dev/null)
   console_tmp=""
-  if [ -n "$console_user" ] && [ "$console_user" != root ] && [ "$console_user" != loginwindow ]; then
+  if [ "$(id -u)" != 0 ]; then
+    console_tmp=$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null)   # the driver scope runs as the logged-in user itself
+  elif [ -n "$console_user" ] && [ "$console_user" != root ] && [ "$console_user" != loginwindow ]; then
     console_tmp=$(sudo -u "$console_user" getconf DARWIN_USER_TEMP_DIR 2>/dev/null)
   fi
   for f in /private/tmp/nvmtl.log "${console_tmp:+${console_tmp%/}/nvmtl.log}"; do
     [ -f "$f" ] || continue
     # /tmp is writable by every account: read as nobody so a planted link to a root-only file stays unreadable
     reader=nobody; [ -n "$console_tmp" ] && [ "$f" = "${console_tmp%/}/nvmtl.log" ] && reader=$console_user
-    { echo; echo "== plugin file log"; sudo -u "$reader" tail -c 262144 "$f"; } >> "$COLLECT/driver-plugin-log.txt"
+    if [ "$(id -u)" = 0 ]; then { echo; echo "== plugin file log"; sudo -u "$reader" tail -c 262144 "$f"; } >> "$COLLECT/driver-plugin-log.txt"
+    else { echo; echo "== plugin file log"; tail -c 262144 "$f"; } >> "$COLLECT/driver-plugin-log.txt"; fi   # the user reads only what is theirs
   done
   # The rolling logs above keep only the newest lines, so the boot where WindowServer actually crashed was usually
   # gone by the time the user sent logs: eight crash reports in one day named the abort ("Failed to create
