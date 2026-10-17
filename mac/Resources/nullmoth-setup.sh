@@ -217,7 +217,7 @@ remove_nvram_hook() {   # take the emulated-NVRAM save daemon back out, if an in
 # and over 230 s, so the 180 s collection limit killed the job before the kernel log was written (36 of 94 reports since
 # 1.14.0 arrived without it). A capped query keeps what it printed and says that it was cut.
 # The whole collection also has a deadline (COLLECT_DEADLINE, epoch seconds), set below the watcher's 360 s kill: a
-# Ryzen 5825U report (10-17) hit that kill (status 124) and the previous-boot kernel log, still inside its tail, came
+# A Ryzen 5825U report hit that kill (status 124) and the previous-boot kernel log, still inside its tail, came
 # out partial. Each query now takes at most what is left of the run, so every file is written before the watcher fires.
 lshow() {  # <seconds> <log show arguments...>
   local secs=$1 p w rc left; shift
