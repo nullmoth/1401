@@ -2,6 +2,7 @@
 // Copyright (c) 2026 NullMoth Systems. SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import Foundation
+import CoreGraphics
 import CryptoKit
 import IOKit
 import Metal
@@ -72,8 +73,9 @@ enum ReachedDesktop {
     }
 
     /// What reached the desktop: the macOS build, the Mac's model and CPU, every display-class PCI device, whether
-    /// Metal and the NVIDIA driver came up, 1401's version and OpenCore's. Identities are stripped by `redact` before
-    /// it leaves, exactly as Send logs does. The notes begin with a fixed tag so the catalog can find these uploads.
+    /// Metal and the NVIDIA driver came up, 1401's version and OpenCore's, each display's mode, and the SHA-256 of
+    /// every installed driver binary. Identities are stripped by `redact` before it leaves, exactly as Send logs does.
+    /// The notes begin with a fixed tag so the catalog can find these uploads.
     static func summary() -> String {
         let os = sh("/usr/bin/sw_vers", ["-productVersion"]).trimmingCharacters(in: .whitespacesAndNewlines)
         let build = sh("/usr/bin/sw_vers", ["-buildVersion"]).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -94,7 +96,41 @@ enum ReachedDesktop {
         s += "NVIDIA driver loaded (com.nullmoth): \(loaded ? "yes" : "no")\n"
         s += "1401 Mac \(app)\n"
         s += "OpenCore: \(oc)\n"
+        s += "display modes: \(displayModes())\n"
+        for line in installedComponents() { s += line + "\n" }
         return s
+    }
+
+    /// The installed driver binaries by name, as the release gate counts them: a "reached desktop" on a macOS major is
+    /// a boot receipt only for the exact kernel binaries that ran, so each line carries the SHA-256 of the installed
+    /// file (or says it is not there), and the recorded driver version rides along. One line per component.
+    static let components: [(String, String)] = [
+        ("NVRM", "/Library/Extensions/NVRM.kext/Contents/MacOS/NVRM"),
+        ("NVAccel", "/Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel"),
+        ("NVRMFB", "/Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB"),
+        ("NVRMAGDC", "/Library/Extensions/NVRMAGDC.kext/Contents/MacOS/NVRMAGDC"),
+        ("NVMTLDriver", "/Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/NVMTLDriver"),
+    ]
+    static func installedComponents() -> [String] {
+        var lines = components.map { name, path in "installed \(name): \(sha256(URL(fileURLWithPath: path)) ?? "(not present)")" }
+        let version = (try? String(contentsOfFile: "/Library/NullMoth/driver-version", encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        lines.append("driver-version: \(version.isEmpty ? "(not present)" : String(version.prefix(40)))")
+        return lines
+    }
+
+    /// Every active display's pixel size and refresh rate ("2560x1440 @ 165 Hz"), so lag reports can be split by
+    /// refresh rate. A rate the display does not report (some TVs and virtual displays) is written as unknown.
+    static func displayModes() -> String {
+        var count: UInt32 = 0
+        var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+        guard CGGetActiveDisplayList(UInt32(ids.count), &ids, &count) == .success, count > 0 else { return "(no active display)" }
+        let modes = ids.prefix(Int(count)).compactMap { id -> String? in
+            guard let m = CGDisplayCopyDisplayMode(id) else { return nil }
+            let hz = m.refreshRate > 0 ? String(format: "%g Hz", m.refreshRate) : "unknown Hz"
+            return "\(m.pixelWidth)x\(m.pixelHeight) @ \(hz)"
+        }
+        return modes.isEmpty ? "(no mode reported)" : modes.joined(separator: "; ")
     }
 
     /// Sends the one-time confirmation. Does nothing unless the user agreed and it has not already been sent. On a

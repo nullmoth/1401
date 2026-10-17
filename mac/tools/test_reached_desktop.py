@@ -49,8 +49,20 @@ summ = src.split("static func summary()", 1)[1].split("static func report()", 1)
 for label, needle in [("macOS version and build", "sw_vers"), ("Mac model", 'sysctl("hw.model")'),
                       ("CPU brand", 'sysctl("machdep.cpu.brand_string")'), ("display PCI devices", "pciDisplays()"),
                       ("a Metal device", "MTLCreateSystemDefaultDevice()"), ("the NVIDIA driver", "com.nullmoth"),
-                      ("1401's version", "CFBundleShortVersionString"), ("OpenCore's version", "opencore-version")]:
+                      ("1401's version", "CFBundleShortVersionString"), ("OpenCore's version", "opencore-version"),
+                      ("each display's mode", "displayModes()"), ("the installed driver binaries' hashes", "installedComponents()")]:
     arm(f"the summary reports {label}", needle in summ)
+# the release gate counts a "reached desktop" as a boot receipt for the exact binaries that ran: every component by path
+comps = src.split("static let components:", 1)[1].split("= [", 1)[1].split("]", 1)[0]
+for name, path in [("NVRM", "/Library/Extensions/NVRM.kext/Contents/MacOS/NVRM"),
+                   ("NVAccel", "/Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel"),
+                   ("NVRMFB", "/Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB"),
+                   ("NVRMAGDC", "/Library/Extensions/NVRMAGDC.kext/Contents/MacOS/NVRMAGDC"),
+                   ("NVMTLDriver", "/Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/NVMTLDriver")]:
+    arm(f"the installed {name} is hashed from its real path", f'("{name}", "{path}")' in comps)
+arm("the recorded driver version rides along", "/Library/NullMoth/driver-version" in summ)
+arm("display modes come from CoreGraphics (size and refresh rate per active display)",
+    "CGGetActiveDisplayList" in summ and "CGDisplayCopyDisplayMode" in summ and "refreshRate" in summ)
 
 # the install flow asks once, defaults to not sending, and arms only a successful install the user agreed to
 runf = main.split("func run(mode:", 1)[1]
@@ -70,6 +82,8 @@ func sh(_ path: String, _ args: [String]) -> String { return "" }
 func sysctl(_ k: String) -> String { return "" }
 func redact(_ s: String) -> String { return s }
 func pciDisplays() -> [[String: Any]] { return [] }
+// The file hasher: a fixed digest for every component but one, which stands for a kext that is not installed.
+func sha256(_ url: URL) -> String? { url.path.contains("NVRMAGDC") ? nil : String(repeating: "ab", count: 32) }
 func newUploadBatch() -> String { return "batch" }
 final class ReportUploadResult: @unchecked Sendable {
     func finish(data: Data?, response: URLResponse?, error: Error?, sha256: String) {}
@@ -105,6 +119,9 @@ for i in 1...ReachedDesktop.maxTries {
 }
 print("c_max=\(ReachedDesktop.maxTries)")
 print("c_traj=" + traj.joined(separator: "|"))
+
+// (d) the report text itself, as it would be sent (one line, base64, so the test can parse it whole)
+print("d_summary=" + Data(ReachedDesktop.summary().utf8).base64EncodedString())
 '''
 
 try:
@@ -136,6 +153,22 @@ try:
             vals.get("c_traj", ""))
         arm("(c) after the bounded number of tries it removes itself", shaped and steps[-1][2] == "false",
             vals.get("c_traj", ""))
+        # (d) the report text: one hash line per component, 64 hex chars (or "(not present)"), the version, the modes
+        import base64, re  # noqa: E401
+        text = base64.b64decode(vals.get("d_summary", "")).decode("utf-8", "replace")
+        hashes = dict(re.findall(r"^installed ([A-Za-z]+): (.+)$", text, re.M))
+        arm("(d) every component has an 'installed <name>:' line",
+            sorted(hashes) == ["NVAccel", "NVMTLDriver", "NVRM", "NVRMAGDC", "NVRMFB"], str(sorted(hashes)))
+        arm("(d) an installed binary's line is its SHA-256, 64 hex chars",
+            all(re.fullmatch(r"[0-9a-f]{64}", hashes.get(n, "")) for n in ("NVRM", "NVAccel", "NVRMFB", "NVMTLDriver")),
+            str(hashes))
+        arm("(d) a component that is not on disk says so instead of a hash", hashes.get("NVRMAGDC") == "(not present)")
+        arm("(d) the recorded driver version has its line", re.search(r"^driver-version: .+$", text, re.M) is not None)
+        modes = re.search(r"^display modes: (.+)$", text, re.M)
+        arm("(d) the display modes line is present and well formed",
+            modes is not None and (modes.group(1).startswith("(no ") or
+                                   re.fullmatch(r"(\d+x\d+ @ (\d+(\.\d+)? Hz|unknown Hz))(; \d+x\d+ @ (\d+(\.\d+)? Hz|unknown Hz))*", modes.group(1))),
+            modes.group(1) if modes else text[-200:])
 except subprocess.CalledProcessError as e:
     arm("the behaviour harness compiles", False, (e.stderr or b"").decode()[:600])
 except FileNotFoundError:
