@@ -91,7 +91,7 @@ owned_amfi_from_prior_record() (
   [ "$EFI_UUID" = "$expected_uuid" ] && [ "$CONFIG_PATH" = "$expected_path" ] &&
     [ "$OCREL" = "$expected_ocrel" ] && [ "$CONFIG_SHA_AFTER" = "$expected_sha" ] || exit 0
   for a in $ADDED_ARGS; do
-    case "$a" in amfi=0x80|amfi_get_out_of_my_way=0x1)
+    case "$a" in amfi=0x80|amfi_get_out_of_my_way=0x1|gfxrst=4)
       case " $expected_args " in *" $a "*) printf '%s\n' "$a";; esac;;
     esac
   done
@@ -1275,6 +1275,19 @@ for a in $args; do case " $DROP_ARGS " in *" $a "*) echo "CHANGE boot-args: remo
 for a in $WANT_ARGS; do
   case "$a" in nvrmsettle=*) case " $new " in *" nvrmsettle="*) continue;; esac;; esac   # the user's own value wins
   case " $new " in *" $a "*) ;; *) new="$new $a"; ADDED="$ADDED $a"; echo "CHANGE boot-args: add $a";; esac; done
+# WhateverGreen boot screen copy: begin
+# WhateverGreen copies the boot screen on the first framebuffer start from an address it saved at boot, unless
+# gfxrst=4. macOS can free that mapping before the NVIDIA display opens, and the Mac then panics in
+# IOFramebuffer::postOpen. gfxrst=4 turns the copy off (the driver draws its own start-up screen). A gfxrst the user set
+# stays as it is, and removal takes out only a gfxrst=4 this setup added (ADDED_ARGS in the install record).
+WEG_ON=0; i=0
+while p=$(get Kernel.Add.$i.BundlePath); do
+  case "$p" in WhateverGreen.kext|*/WhateverGreen.kext) [ "$(get Kernel.Add.$i.Enabled)" = true ] && WEG_ON=1;; esac; i=$((i+1)); done
+if [ $WEG_ON = 1 ]; then
+  case " $new " in *" gfxrst="*) ;; *) new="$new gfxrst=4"; ADDED="$ADDED gfxrst=4"; echo "CHANGE boot-args: add gfxrst=4"
+    note "WhateverGreen is on: gfxrst=4 turns off its boot screen copy, which can panic the Mac when the NVIDIA display opens";; esac
+fi
+# WhateverGreen boot screen copy: end
 new=${new# }
 [ "$new" != "$args" ] && EDITS+=("NVRAM.Add.$B.boot-args|-string|$new")
 cur=$(csr_of); want=$(( cur | SIP_BITS ))
@@ -1529,6 +1542,10 @@ if [ $DRY = 0 ]; then
     [ "$HAD_STATE" != 1 ] || cp -p "$OLD_STATE" "$STATE"
     stop "could not save the install record - OpenCore changes restored"
   }
+  # The running boot-args too, so the next start has it even before OpenCore rewrites NVRAM from the config.
+  case " $ADDED " in *" gfxrst=4 "*)
+    nv=""; for a in $(nvram boot-args 2>/dev/null | cut -f2-); do case "$a" in gfxrst=*) ;; *) nv="$nv $a";; esac; done
+    nv="$nv gfxrst=4"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies";; esac
 fi
 [ "${NULLMOTH_CONFIG_ONLY:-0}" = 1 ] && { cleanup; echo "RESULT ok"; exit 0; }
 if [ $SIPON = 1 ] && [ $DRY = 0 ]; then

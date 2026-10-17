@@ -144,6 +144,7 @@ def apply(cfg, result, change):
     if add:
         nv["boot-args"] = " ".join(args + add)
         change("nullmoth-boot-args", "", " ".join(add), f"NullMoth driver for {', '.join(live)}: framebuffer, accelerator, AMFI")
+    weg_boot_screen(cfg, nv, change)
     if nv.get("csr-active-config") != SIP_DRIVER:
         change("nullmoth-sip", (nv.get("csr-active-config") or b"").hex(), SIP_DRIVER.hex(),
                "the SIP value the NullMoth driver was tested with (its kexts are not Apple-signed)")
@@ -156,6 +157,22 @@ def apply(cfg, result, change):
             delete.append(k)
     return True
 
+
+
+def weg_boot_screen(cfg, nv, change):
+    """WhateverGreen copies the boot screen on the first framebuffer start from an address it saved at boot, unless
+    gfxrst=4. macOS can free that mapping before the NVIDIA display opens, and the Mac then panics in
+    IOFramebuffer::postOpen (a laptop whose boot screen is on the Intel GPU). gfxrst=4 turns the copy off; the driver
+    draws its own start-up screen. A gfxrst already in the config is left as it is."""
+    kexts = (cfg.get("Kernel") or {}).get("Add") or []
+    if not any(str(k.get("BundlePath", "")).split("/")[-1] == "WhateverGreen.kext" and k.get("Enabled") for k in kexts):
+        return
+    args = (nv.get("boot-args") or "").split()
+    if any(a.startswith("gfxrst=") for a in args):
+        return
+    nv["boot-args"] = " ".join(args + ["gfxrst=4"])
+    change("nullmoth-weg-gfxrst", "", "gfxrst=4",
+           "WhateverGreen's boot screen copy can panic the Mac when the NVIDIA display opens; gfxrst=4 turns it off")
 
 
 def laptop_gpu_awake(cfg, result, live, change):
