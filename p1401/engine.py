@@ -867,11 +867,27 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # ship the firmware table with those Scopes deferred so macOS gets a DSDT at all
                 from . import dsdt_pass1  # noqa: PLC0415
                 res.policy_changes += dsdt_pass1.apply(os.path.abspath(acpi_dir), out_dir)
+                # A fresh build left an OpenCore.efi that was not the verified release's (NM-YZZJY5WJ): the boot files
+                # are written back from the verified zip before the check, and a file that STILL differs is being
+                # rewritten by something on the PC (the check names its hash and whether it looks quarantined).
+                restored = []
+                try:
+                    restored = validate_mod.restore_release_components(out_dir)
+                except (validate_mod.ValidatorUnavailable, OSError) as e:
+                    h.notices.append(f"Boot files could not be checked against the verified OpenCore zip before validation: {e}")
+                for r in restored:
+                    h.notices.append(f"{r['file']} was not the verified OpenCore release's ({r['found']}); written back from the verified zip.")
+                res.policy_changes += restored
                 res.validation = validate_mod.validate(out_dir)
                 if not res.validation.get("ok"):
-                    raise RuntimeError("EFI failed validation: " + (res.validation.get("error") or
-                                       f"ocvalidate issues={(res.validation.get('ocvalidate') or {}).get('issues')} "
-                                       f"invariants={res.validation.get('invariants')}"))
+                    why = (res.validation.get("error") or
+                           f"ocvalidate issues={(res.validation.get('ocvalidate') or {}).get('issues')} "
+                           f"invariants={res.validation.get('invariants')}")
+                    if any("differs from the verified OpenCore release" in str(x) for x in res.validation.get("invariants") or []):
+                        why += ("\nThat file was written back from the verified OpenCore zip just before this check, so "
+                                "something on this PC rewrites it: look in the security software's quarantine or history for "
+                                "OpenCore files, exclude the 1401 folder under AppData\\Local\\NullMoth, and build again.")
+                    raise RuntimeError("EFI failed validation: " + why)
             if download:
                 from . import machine_handoff
                 machine_handoff.create(report_path, res)

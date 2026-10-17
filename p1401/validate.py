@@ -240,8 +240,8 @@ def release_archive():
     return data
 
 
-def release_components(efi_dir):
-    """The boot files must be from the release whose validator checked the config."""
+def _release_files(efi_dir):
+    """(verified release zip bytes, relative paths of the files in the built EFI that must come from it)."""
     url, expected = _opencore_release()
     archive_path = os.path.join(CACHE, os.path.basename(url))
     with open(archive_path, 'rb') as stream:
@@ -253,17 +253,70 @@ def release_components(efi_dir):
     relative_paths = ['EFI/BOOT/BOOTx64.efi', 'EFI/OC/OpenCore.efi']
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         members = set(archive.namelist())
-        for driver in config.get('UEFI', {}).get('Drivers', []):
-            relative = 'EFI/OC/Drivers/' + driver.get('Path', '')
-            if driver.get('Enabled') and 'X64/' + relative in members:
-                relative_paths.append(relative)
+    for driver in config.get('UEFI', {}).get('Drivers', []):
+        relative = 'EFI/OC/Drivers/' + driver.get('Path', '')
+        if driver.get('Enabled') and 'X64/' + relative in members:
+            relative_paths.append(relative)
+    return data, relative_paths
+
+
+def describe_file(path):
+    """What a boot file that is not the release's looks like: its hash and size, and whether security software seems
+    to have replaced it. A quarantined or scrubbed file is empty, tiny, or no longer a PE image (no 'MZ' header)."""
+    try:
+        size = os.path.getsize(path)
+        with open(path, 'rb') as stream:
+            head = stream.read(2)
+    except OSError as error:
+        return f'unreadable ({type(error).__name__})'
+    digest = _sha256(path)
+    note = ''
+    if size == 0:
+        note = '; empty - security software may have quarantined it'
+    elif head != b'MZ' or size < 4096:
+        note = '; not a PE image - security software may have replaced or quarantined it'
+    return f'sha256 {digest}, {size} bytes{note}'
+
+
+def restore_release_components(efi_dir):
+    """Puts the verified release's own bytes back under every boot file that is missing or differs (BOOTx64.efi,
+    OpenCore.efi, its drivers). Returns one record per file replaced, with what was there. A fresh build produced
+    "EFI/OC/OpenCore.efi differs from the verified OpenCore release" (NM-YZZJY5WJ): whatever wrote that file - the
+    engine's own download cache or security software - the EFI must leave here with the release's bytes or not at all,
+    so the file is replaced from the verified zip before the check, and the check still runs after."""
+    data, relative_paths = _release_files(efi_dir)
+    records = []
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for relative in relative_paths:
+            path = os.path.join(efi_dir, *relative.split('/'))
+            good = archive.read('X64/' + relative)
+            if os.path.isfile(path) and _sha256(path) == hashlib.sha256(good).hexdigest():
+                continue
+            found = describe_file(path) if os.path.isfile(path) else 'missing'
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            tmp = path + '.1401-restore'
+            with open(tmp, 'wb') as stream:
+                stream.write(good)
+            if os.path.exists(path):
+                os.chmod(path, 0o644)
+            os.replace(tmp, path)
+            records.append({'tool': 'release-components', 'file': relative, 'found': found,
+                            'restored_sha256': hashlib.sha256(good).hexdigest()})
+    return records
+
+
+def release_components(efi_dir):
+    """The boot files must be from the release whose validator checked the config."""
+    data, relative_paths = _release_files(efi_dir)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
         failures = []
         for relative in relative_paths:
             path = os.path.join(efi_dir, *relative.split('/'))
             if not os.path.isfile(path):
                 failures.append(relative + ' is missing from the built EFI')
             elif _sha256(path) != hashlib.sha256(archive.read('X64/' + relative)).hexdigest():
-                failures.append(relative + ' differs from the verified OpenCore release; rebuild the complete EFI')
+                failures.append(relative + ' differs from the verified OpenCore release (' + describe_file(path)
+                                + '); rebuild the complete EFI')
     return failures
 
 
