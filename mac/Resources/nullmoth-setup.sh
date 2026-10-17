@@ -216,10 +216,31 @@ remove_nvram_hook() {   # take the emulated-NVRAM save daemon back out, if an in
 # Every log query has its own time cap. Measured 10-12 on a 15.8.1 machine: three "--last 3d" queries took 85 s, 120 s
 # and over 230 s, so the 180 s collection limit killed the job before the kernel log was written (36 of 94 reports since
 # 1.14.0 arrived without it). A capped query keeps what it printed and says that it was cut.
+# The whole collection also has a deadline (COLLECT_DEADLINE, epoch seconds), set below the watcher's 360 s kill: a
+# Ryzen 5825U report (10-17) hit that kill (status 124) and the previous-boot kernel log, still inside its tail, came
+# out partial. Each query now takes at most what is left of the run, so every file is written before the watcher fires.
 lshow() {  # <seconds> <log show arguments...>
-  local secs=$1 p w rc; shift
+  local secs=$1 p w rc left; shift
+  if [ -n "${COLLECT_DEADLINE:-}" ]; then
+    left=$(( COLLECT_DEADLINE - $(date +%s) )); [ "$left" -lt "$secs" ] && secs=$left
+    if [ "$secs" -le 0 ]; then echo "(log query skipped: the collection's time budget is used up)"; return 124; fi
+  fi
   /usr/bin/log show "$@" & p=$!
   ( sleep "$secs" >/dev/null 2>&1; kill "$p" 2>/dev/null && echo "(log query stopped after ${secs} s)" ) & w=$!
+  wait "$p"; rc=$?
+  kill "$w" 2>/dev/null; wait "$w" 2>/dev/null
+  return $rc
+}
+# The same cap for any other command that can stall on a broken graphics stack (system_profiler, ioreg, kmutil): a
+# collection that waits on one of them past the watcher's limit loses every file after it.
+bounded() {  # <seconds> <command...>
+  local secs=$1 p w rc left; shift
+  if [ -n "${COLLECT_DEADLINE:-}" ]; then
+    left=$(( COLLECT_DEADLINE - $(date +%s) )); [ "$left" -lt "$secs" ] && secs=$left
+    if [ "$secs" -le 0 ]; then echo "($1 skipped: the collection's time budget is used up)"; return 124; fi
+  fi
+  "$@" & p=$!
+  ( sleep "$secs" >/dev/null 2>&1; kill "$p" 2>/dev/null && echo "($1 stopped after ${secs} s)" ) & w=$!
   wait "$p"; rc=$?
   kill "$w" 2>/dev/null; wait "$w" 2>/dev/null
   return $rc
@@ -254,6 +275,9 @@ if [ -n "$COLLECT" ]; then
   # copies files and prints state, and unmounts any EFI partition it mounted. Every OpenCore partition is checked,
   # sticks included, for OpenCore's own log (opencore-*.txt) and macOS panics it saved (panic-*.txt).
   mkdir -p "$COLLECT" || { echo "RESULT stop"; exit 1; }
+  # The watcher (nullmoth-log-watch) kills the whole collection at 360 s; every bounded command below stops at this
+  # deadline instead, so the last file is written whole and the run ends on its own.
+  COLLECT_DEADLINE=$(( $(date +%s) + ${NULLMOTH_COLLECT_BUDGET:-320} ))
   # "Record flicker": 20 s of display timing taken while the user sees the flicker, before anything else runs. The
   # accelerator's zero-copy flip counters and the framebuffer's commit/flip properties every 0.25 s, the driver's
   # kernel messages, WindowServer's CPU and the refresh rate. Flicker never shows on a 60 Hz single-display test Mac,
@@ -375,7 +399,7 @@ if [ -n "$COLLECT" ]; then
   # Every GPU and the processor, whatever the vendor and age, supported by NullMoth or not (requested broad hardware coverage). The sections above only name NVIDIA; Intel iGPUs (HD to Xe and Arc), Radeon cards and Ryzen iGPUs
   # need the same facts: what macOS bound to them, whether Metal sees them, and what the boot loader injected.
   { echo "== every display device (any vendor)"
-    ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | LC_ALL=C awk '
+    bounded 30 ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | LC_ALL=C awk '
       /\+-o / { if (gpu) print block "\n"; block=$0; gpu=0; next }
       /"class-code" = <[0-9a-f][0-9a-f][0-9a-f][0-9a-f]0300>/ { gpu=1 }   # class 03xx: VGA (0300), XGA, 3D controller (0302: many laptop dGPUs)
       /"(vendor-id|device-id|subsystem-vendor-id|subsystem-id|revision-id|class-code|model|acpi-path|pcidebug|AAPL,ig-platform-id|AAPL,snb-platform-id|framebuffer-[^"]*|device-id-spoof|built-in|hda-gfx|IOName|IOPCIExpressLinkStatus|IOPCIResourced)"/ { block=block "\n" $0 }
@@ -385,8 +409,8 @@ if [ -n "$COLLECT" ]; then
     echo; echo "== framebuffers (which driver owns each screen)"
     ioreg -r -c IOFramebuffer -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_@,]+|"(IOFBCurrentPixelClock|IOFBCurrentPixelCount|IOFBDependentID|IOFBDependentIndex|AAPL,boot-display|IOFBScalerInfo)" = [^,}]{0,80}'
     echo; echo "== graphics kexts loaded"
-    kmutil showloaded --list-only 2>/dev/null | grep -iE 'graphic|intel|amd|radeon|ati|nvidia|nullmoth|lilu|whatevergreen|noot|gfx|framebuffer|accel' | awk '{print $NF, $(NF-1)}'
-    echo; echo "== Metal"; system_profiler SPDisplaysDataType 2>/dev/null
+    bounded 30 kmutil showloaded --list-only 2>/dev/null | grep -iE 'graphic|intel|amd|radeon|ati|nvidia|nullmoth|lilu|whatevergreen|noot|gfx|framebuffer|accel' | awk '{print $NF, $(NF-1)}'
+    echo; echo "== Metal"; bounded 40 system_profiler SPDisplaysDataType 2>/dev/null
     echo; echo "== processor"
     sysctl machdep.cpu hw.physicalcpu hw.logicalcpu hw.memsize hw.cpufrequency hw.packages 2>/dev/null
     echo; echo "== graphics messages since this boot (non-NVIDIA drivers)"
