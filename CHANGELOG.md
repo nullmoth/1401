@@ -3,6 +3,11 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.3.6
+- Bundles NVIDIA driver 2.3.6: smoother window dragging and cursor movement, OpenGL apps pace to the display's refresh
+  rate, faster OpenGL (Minecraft), Chrome uses the GPU, Dock badges and text masks draw correctly, and Metal reports the
+  card's whole video memory
+
 ## 2.3.5
 - Bundles NVIDIA driver 2.3.5: the login screen no longer stays black for a minute after the display comes up
 
