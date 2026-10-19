@@ -3,6 +3,11 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.4.1
+- Bundles NVIDIA driver 2.4.1, which fixes the black screen after updating to the 2.4 driver, along with everything
+  2.4 brought: hardware H.264 and HEVC encode on RTX 20 and RTX 30 cards, macOS 26 icons and glass panels, the stale
+  shader cache cleared after an update, and the power source reported to the GPU on laptops
+
 ## 2.4
 - Bundles NVIDIA driver 2.4: hardware H.264 and HEVC encode on RTX 20 and RTX 30 cards (it was RTX 50 only), picked
   automatically for each card; hardening against malformed input from apps; macOS 26 icons and glass panels draw again;
