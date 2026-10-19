@@ -3,6 +3,13 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.4
+- Bundles NVIDIA driver 2.4: hardware H.264 and HEVC encode on RTX 20 and RTX 30 cards (it was RTX 50 only), picked
+  automatically for each card; hardening against malformed input from apps; macOS 26 icons and glass panels draw again;
+  a stale shader cache no longer leaves the login screen black after an update; the driver tells the GPU whether a
+  laptop is on battery or mains power
+- Mac: installs from a root-owned copy of the package and keeps the previous driver as an automatic fallback
+
 ## 2.3.6
 - Bundles NVIDIA driver 2.3.6: smoother window dragging and cursor movement, OpenGL apps pace to the display's refresh
   rate, faster OpenGL (Minecraft), Chrome uses the GPU, Dock badges and text masks draw correctly, and Metal reports the

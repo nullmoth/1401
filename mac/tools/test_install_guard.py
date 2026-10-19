@@ -80,7 +80,7 @@ from pathlib import Path
 r=Path(os.environ['FIXTURE_ROOT']);a=sys.argv[1:]
 ret=subprocess.run(['/usr/bin/ditto']+a).returncode
 if ret:sys.exit(ret)
-if a[0].endswith('/Library/Extensions/NVRM.kext') and '/payload/' in a[0] and not (r/'signalled').exists():
+if a[0].endswith('/Library/Extensions/NVRM.kext') and ('/payload/' in a[0] or '/nullmoth-package.' in a[0]) and not (r/'signalled').exists():
  (r/'signalled').write_text('done');os.kill(os.getppid(),signal.SIGTERM)
 """);helper.chmod(0o755)
   r=self.run_install();self.assert_restored(r);self.assertIn('signal TERM',r.stderr);self.assertIn('Previous installation restored',r.stderr);self.assertFalse((self.root/'Library/NullMoth/install.lock').exists());self.assertEqual(len(self.backup_paths()),1)

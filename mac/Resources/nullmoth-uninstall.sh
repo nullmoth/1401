@@ -86,10 +86,14 @@ done
 REMOVING=1
 for k in $KEXTS; do rm -rf "$EXT/$k.kext" || die "cannot remove $k"; done
 for b in NVMTLDriver.bundle NVIDIAShared.bundle nvmtl nvmtl-allow.txt; do rm -rf "$GB/$b" || die "cannot remove $b"; done
-rm -rf /Library/NullMoth/kexts /Library/NullMoth/driver-version /Library/NullMoth/update-pending /Library/LaunchDaemons/com.nullmoth.osupdate.plist || die "cannot remove the cached driver or update switcher"
+rm -rf /Library/NullMoth/kexts /Library/NullMoth/nvfw /Library/NullMoth/driver-version /Library/NullMoth/update-pending /Library/LaunchDaemons/com.nullmoth.osupdate.plist || die "cannot remove the cached driver or update switcher"
+# the firmware used to live here; an install no longer writes it, so take the leftover with us
+rm -rf /Users/Shared/nvfw 2>/dev/null || true
 # the install's fallback job and the boot guard's counters (a removed driver has nothing to fall back to)
 launchctl bootout system/com.nullmoth.lastgood 2>/dev/null || true
 rm -f /Library/LaunchDaemons/com.nullmoth.lastgood.plist /Library/NullMoth/lastgood.sh || die "cannot remove the fallback job"
+launchctl bootout system/com.nullmoth.bootguard 2>/dev/null || true
+rm -f /Library/LaunchDaemons/com.nullmoth.bootguard.plist /Library/NullMoth/bootguard.sh || die "cannot remove the boot-guard job"
 nvram -d 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-nv-starts 2>/dev/null || true
 nvram -d 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-nv-ok 2>/dev/null || true
 if [ "$REMOVE_KC" = 1 ]; then
