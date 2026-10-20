@@ -3,6 +3,9 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.4.3
+- Bundles NVIDIA driver 2.4.3, which fixes a desktop freeze followed by a kernel panic shortly after logging in.
+
 ## 2.4.2
 - Bundles NVIDIA driver 2.4.2, which fixes the black screen and the startup that stops on the verbose text after
   updating to the 2.4 or 2.4.1 driver.
