@@ -1,5 +1,5 @@
 {
- "source": "NVIDIA open-gpu-kernel-modules 610.57.04 README, supported GPU table (GeForce / RTX / Quadro / TITAN rows, and the NVIDIA T-series rows)",
+ "source": "NVIDIA open-gpu-kernel-modules 615.78.08 supported-gpus.json (open kernel module; GeForce / RTX / Quadro / TITAN and T-series workstation rows)",
  "tested": [
   "2D05"
  ],
@@ -215,6 +215,7 @@
   "2BB9": "NVIDIA RTX 6000D",
   "2C02": "NVIDIA GeForce RTX 5080",
   "2C05": "NVIDIA GeForce RTX 5070 Ti",
+  "2C09": "NVIDIA GeForce RTX 5070",
   "2C18": "NVIDIA GeForce RTX 5090 Laptop GPU",
   "2C19": "NVIDIA GeForce RTX 5080 Laptop GPU",
   "2C31": "NVIDIA RTX PRO 4500 Blackwell",
@@ -242,8 +243,6 @@
   "2DB9": "NVIDIA RTX PRO 500 Blackwell Generation Laptop GPU",
   "2DD8": "NVIDIA GeForce RTX 5050 Laptop GPU",
   "2DF9": "NVIDIA RTX PRO 500 Blackwell Embedded GPU",
-  "2E03": "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)",
-  "2E06": "NVIDIA RTX Spark N1X (5120-core Blackwell RTX GPU)",
   "2F04": "NVIDIA GeForce RTX 5070",
   "2F06": "NVIDIA GeForce RTX 5060",
   "2F18": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",

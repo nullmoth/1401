@@ -5,7 +5,7 @@ other GPU ("You cannot install macOS without a supported GPU"). The NullMoth dri
 macOS 26, so:
 
 1. `mark()` runs right after the engine's GPU check. A card in NVIDIA's own supported-GPU table for the firmware the
-   driver ships (nvidia_gsp_ids.json, from open-gpu-kernel-modules 610.57.04) gets Compatibility = macOS 15 to 26.
+   driver ships (nvidia_gsp_ids.json, from open-gpu-kernel-modules 615.78.08) gets Compatibility = macOS 15 to 26.
    The engine's version picker then offers both, and the card is kept instead of disabled.
 2. `apply()` runs in the policy pass: the boot-args and SIP/AMFI settings the driver was tested with.
 3. The driver itself is installed after macOS by the 1401 Mac companion, from the package `stage()` puts on the stick.
