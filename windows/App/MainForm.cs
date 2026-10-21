@@ -496,6 +496,13 @@ namespace A1401
                 busy = false; next.Enabled = true; refresh.Enabled = true;
                 // Windows renumbers USB sticks; a stale number in this list made every retry fail the same way (10-15).
                 if (rc != 0 && writeLines.Any(l => l.Contains("1401-DISK-RENUMBERED"))) FillDisks();
+                // The startup files came from an earlier check of this PC. Write was the only button left and every retry
+                // stopped the same way: build again from the current check.
+                if (rc != 0 && writeLines.Any(l => l.Contains("The scan changed after the EFI was built")))
+                {
+                    Say(Loc.T("The startup files were built from an earlier check of this PC. Building them again for this check."));
+                    built = false; Go(2); OnNext(); return;
+                }
                 if (rc != 0) { Say(Loc.T("Writing the stick did not finish. The saved report includes the writer output; partial changes to the selected stick may remain.")); OfferOperationReport("write"); return; }
                 written = true; bar.Value = 100; Go(5); return;
             }
