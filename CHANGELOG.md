@@ -3,6 +3,10 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.5.0
+- Bundles NVIDIA driver 2.5.0, built on NVIDIA's 615.78.08 driver: NVIDIA's fixes since 610, new cards, 12-bit HDMI deep colour and NVIDIA's driver options.
+- The NVIDIA T-series workstation cards (T400, T500, T550, T600, T1000, T1200) and the second RTX 5070 device ID are recognised as supported.
+
 ## 2.4.4
 - Bundles NVIDIA driver 2.4.4: hardware video encode on every GTX 16 card, HEVC past the second frame on GTX 16 and RTX 20,
   and no more app freezes after a missing GPU completion mark (#322).
