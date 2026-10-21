@@ -35,6 +35,9 @@ arm("the installed app dispatches the reached-desktop report",
 reportf = src.split("static func report()", 1)[1].split("static func advance(", 1)[0]
 arm("the report does nothing without consent or once already sent",
     '(s["consent"] as? Bool) == true' in reportf and '(s["sent"] as? Bool) != true' in reportf)
+arm("the summary waits until the driver's 60 s headless check is due (uptime 150 s), so a muxless laptop is not "
+    "reported as no Metal device", "let settle = 150 - ProcessInfo.processInfo.systemUptime" in reportf
+    and reportf.index("Thread.sleep(forTimeInterval: settle)") < reportf.index("let text = summary()"))
 arm("what is sent is redacted first, like Send logs", "let text = summary()" in reportf and "redact(text)" in reportf)
 arm("a first login where the driver did not come up sends the driver files, a clean one the short text alone",
     "let signs = failureSigns(text)" in reportf and "if !signs.isEmpty { return advance(sent: reportFailure(text, signs: signs)) }" in reportf
@@ -173,6 +176,9 @@ let failed = "1401 reached the desktop\n\nMetal device: no\nNVIDIA driver loaded
     + "installed NVRM: (not present)\ninstalled NVAccel: " + String(repeating: "ab", count: 32) + "\n"
 print("e_clean_signs=\(ReachedDesktop.failureSigns(clean).count)")
 print("e_failed_signs=" + ReachedDesktop.failureSigns(failed).joined(separator: ","))
+let stale = clean + "loaded NVRM: 2.3.2, installed 2.4.4 STALE (the kernel runs a different build than the one on disk)\n"
+    + "loaded NVRMFB: 2.4.4, installed 2.4.4\n"
+print("e_stale_signs=" + ReachedDesktop.failureSigns(stale).joined(separator: ","))
 let d1 = try! SavedReports.session(in: support)
 let a1 = ReachedDesktop.attachments(for: clean, into: d1)
 print("e_clean_calls=\(collectCalls)")
@@ -234,6 +240,8 @@ try:
             modes.group(1) if modes else text[-200:])
         # (e) the driver files ride along only when the driver did not come up
         arm("(e) a clean summary has no failure signs", vals.get("e_clean_signs") == "0")
+        arm("(e) a kernel still running an older driver than the one on disk is a failure sign, and only that kext",
+            vals.get("e_stale_signs") == "NVRM stale", vals.get("e_stale_signs", ""))
         arm("(e) a failed summary names what did not come up",
             vals.get("e_failed_signs") == "no Metal device,driver not loaded,NVRM missing", vals.get("e_failed_signs", ""))
         arm("(e) a clean summary does not run the collector and attaches nothing",

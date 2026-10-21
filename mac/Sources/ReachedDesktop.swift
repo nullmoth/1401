@@ -179,6 +179,11 @@ enum ReachedDesktop {
     static func report() -> Int32 {
         var s = state()
         guard (s["consent"] as? Bool) == true, (s["sent"] as? Bool) != true else { return 0 }
+        // A laptop whose NVIDIA card drives no display (the panel is on the integrated GPU) gets its Metal device from
+        // the driver's headless check, 60 s after the accelerator starts. A login sooner than that read
+        // "Metal device: no" on healthy GTX 1650 and RTX 4060 laptops, so the summary is taken once that check is due.
+        let settle = 150 - ProcessInfo.processInfo.systemUptime
+        if settle > 0 { Thread.sleep(forTimeInterval: settle) }
         let text = summary()
         let signs = failureSigns(text)
         if !signs.isEmpty { return advance(sent: reportFailure(text, signs: signs)) }
@@ -211,6 +216,11 @@ enum ReachedDesktop {
         for line in summary.split(separator: "\n") {
             if line.hasPrefix("Metal device: no") { signs.append("no Metal device") }
             if line.hasPrefix("NVIDIA driver loaded (com.nullmoth): no") { signs.append("driver not loaded") }
+            // the kernel still runs an older driver than the one on disk: a GTX 1650 SUPER reported the new app version
+            // while an old NVRM ran with no framebuffer driver loaded at all, and its first-login report sent no logs
+            if line.hasPrefix("loaded "), line.contains(" STALE ") {
+                signs.append(String(line.dropFirst("loaded ".count).prefix { $0 != ":" }) + " stale")
+            }
             if line.hasPrefix("installed "), line.hasSuffix(": (not present)") {
                 signs.append(String(line.dropFirst("installed ".count).prefix { $0 != ":" }) + " missing")
             }

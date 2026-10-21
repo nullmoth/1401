@@ -3,6 +3,17 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.4.4
+- Bundles NVIDIA driver 2.4.4: hardware video encode on every GTX 16 card, HEVC past the second frame on GTX 16 and RTX 20,
+  and no more app freezes after a missing GPU completion mark (#322).
+- The first-login report sends the driver logs when the kernel is still running an older driver than the one installed.
+- The first-login report no longer says the driver did not come up on laptops whose NVIDIA card drives no screen: it
+  waits for the driver's own check, which gives those cards their Metal device a minute after start-up.
+- Mac setup no longer turns off the NVIDIA hardware video encoder on GTX 16, RTX 20 and RTX 30 cards. A rule from before
+  those cards had encoders kept them on Apple's software encoder; updating clears it.
+- Writing the stick no longer stops on every try with "The scan changed after the EFI was built": 1401 builds the startup
+  files again for the current check of the PC, then asks for the stick again.
+
 ## 2.4.3
 - Bundles NVIDIA driver 2.4.3, which fixes a desktop freeze followed by a kernel panic shortly after logging in.
 
