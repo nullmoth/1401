@@ -29,9 +29,9 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80",
              "ipc_control_port_options=0")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-2.4.4.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.4.4/nullmoth-nvidia-2.4.4.tar.gz",
-           "sha256": "c716a973435970feac878dc0870ba562175dda24c0829086323405f91dda86eb"}
+PACKAGE = {"name": "nullmoth-nvidia-2.5.0.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.5.0/nullmoth-nvidia-2.5.0.tar.gz",
+           "sha256": "80f3316656319d5e53d5c6c6c3b4c5e9b01c416f2e6db63dc1c69e552706ee64"}
 
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
@@ -403,7 +403,7 @@ def selftest():
     arm("a GTX 1080 (Pascal, no GSP) is NOT marked", "Compatibility" not in rep["GPU"]["GTX 1080"], rep["GPU"]["GTX 1080"])
     arm("an RTX 3090 (10de:2204) is in NVIDIA's table", supported(dict(rtx, **{"Device ID": "10DE-2204"})), TABLE["ids"].get("2204"))
     coverage = all(supported(dict(rtx, **{"Device ID": "10DE-" + pid})) for pid in TABLE["ids"])
-    arm("all 235 display-card IDs are accepted across GTX, RTX, Quadro and workstation families", len(TABLE["ids"]) == 235 and coverage, len(TABLE["ids"]))
+    arm("all 247 display-card IDs (NVIDIA 615.78.08) are accepted across GTX, RTX, Quadro, workstation and Spark families", len(TABLE["ids"]) == 247 and coverage, len(TABLE["ids"]))
     arm("an AMD card with the same product id is NOT marked", not supported(dict(rtx, Manufacturer="AMD")), "AMD")
     lap = {"GPU": {"RTX": dict(rtx), "iGPU": {"Manufacturer": "Intel", "Device Type": "Integrated GPU"}},
            "Monitor": {"panel": {"Connector Type": "Internal", "Connected GPU": "iGPU"}}}
