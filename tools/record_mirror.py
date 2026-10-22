@@ -91,9 +91,25 @@ def main(out):
     os.makedirs(os.path.join(out, "files"), exist_ok=True)
     from p1401.mirror_metadata import release_index
     # NullMoth's own builds (netsupport.py, amd_rdna4.py) are pinned into the manifest by hand, not fetched by the
-    # engine, so they are carried over as they are; their files are already on the server.
+    # engine, so they are carried over as they are, with their bytes taken from the mirror and checked against the pin.
     with open(mirror.MANIFEST, encoding="utf-8") as fh:
         entries = {u: e for u, e in json.load(fh)["entries"].items() if licenses.classify(u)[1] == "nullmoth"}
+    for url, entry in sorted(entries.items()):
+        path = os.path.join(out, "files", entry["sha256"])
+        if not os.path.exists(path):
+            try:   # straight from the server: the recording hook above would gunzip a .tar.gz served without a suffix
+                import urllib.request
+                with urllib.request.urlopen(mirror.BASE + entry["sha256"], timeout=60) as response:
+                    body = response.read()
+            except Exception as error:  # noqa: BLE001 - named in the summary
+                failures.append(f"{url}: {type(error).__name__}: {str(error)[:160]}")
+                continue
+            if hashlib.sha256(body).hexdigest() != entry["sha256"] or len(body) != entry["size"]:
+                failures.append(f"{url}: the mirror's bytes do not match the pin - not carried over")
+                continue
+            with open(path + ".tmp", "wb") as fh:
+                fh.write(body)
+            os.replace(path + ".tmp", path)
     for url, body in sorted(recorded.items()):
         original_sha = hashlib.sha256(body).hexdigest()
         body = release_index(url, body)
