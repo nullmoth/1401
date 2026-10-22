@@ -152,6 +152,21 @@ def list_disks(_repaired=False):
     return raw
 
 
+def _log_powershell_context():
+    """One line on the PowerShell the writer starts, for a disk list that came back empty: its version, language mode
+    (Constrained Language Mode blocks parts of the Storage module), whether it is 64-bit, the Storage module it loads,
+    and the two services Get-Disk depends on. Never raises: this is a diagnostic, not a step."""
+    try:
+        out = _ps("$m = Get-Module -ListAvailable Storage | Select-Object -First 1; "
+                  "$s = Get-Service smphost, winmgmt -ErrorAction SilentlyContinue | ForEach-Object { \"$($_.Name)=$($_.Status)\" }; "
+                  "\"PowerShell $($PSVersionTable.PSVersion) mode=$($ExecutionContext.SessionState.LanguageMode) "
+                  "x64=$([Environment]::Is64BitProcess) Storage=$($m.Version) services=$($s -join ',')\"")
+        print("OK disk list context: " + " ".join(out.split())[:300]
+              + f"; writer x64={sys.maxsize > 2**32}", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"WARN disk list context unavailable: {type(e).__name__}: {str(e)[:200]}", flush=True)
+
+
 def eligible(disk, allow_large=False):
     """Returns (ok, reasons): every reason this disk can't be erased, worded for the user."""
     why = []
@@ -745,6 +760,16 @@ def cli_write(argv):
             print(f"OK the stick is disk {found.get('Number')} now (it was disk {num} when it was picked)")
             num = int(found["Number"])
         disk = found
+    if not disks:
+        # 2.4.3 write logs (10-19..21, 36 PCs): every "DISK-RENUMBERED" stop followed "Windows lists 0 disk(s)" - not even
+        # the disk Windows runs from - after Get-Disk, MSFT_Disk and the storage-provider repair all came back empty and
+        # silent, while the window had just listed the stick through the same MSFT_Disk class in-process. The stick had
+        # not moved; this PowerShell could not see any disk. Say that, and log what the PowerShell is, so the next log
+        # names the cause.
+        _log_powershell_context()
+        print("STOP 1401-DISK-LIST-EMPTY: Windows' storage service gave 1401 an empty list of disks - not even the disk "
+              "Windows runs from - so the stick cannot be checked before it is erased. Nothing was erased. Restart the PC "
+              "and write again; if this repeats, use Send logs."); return 1
     if not disk:
         # The number came from the window's list, and Windows hands USB sticks new numbers (after an earlier attempt, or a
         # re-plug). 2.0.2 blamed the stick here, before anything was written, and users retried the same stale number

@@ -24,6 +24,27 @@ class StaleNumber(unittest.TestCase):
         self.assertIn('l.Contains("1401-DISK-RENUMBERED"))) FillDisks();', src)
 
 
+class EmptyList(unittest.TestCase):
+    """2.4.3 (10-19..21): 36 "DISK-RENUMBERED" stops came after "Windows lists 0 disk(s)" - PowerShell saw no disk at
+    all, not a stick that moved. That is its own stop, with the PowerShell's context in the log."""
+
+    def test_no_disks_at_all_is_not_called_a_renumbered_stick(self):
+        with patch.object(usbwriter, "list_disks", return_value=[]), \
+             patch.object(usbwriter, "_log_powershell_context") as ctx, patch("builtins.print") as out:
+            rc = usbwriter.cli_write(["2", "efi", "24"] + IDENT)
+        line = " ".join(str(c.args[0]) for c in out.call_args_list if c.args)
+        self.assertEqual(rc, 1)
+        self.assertIn("1401-DISK-LIST-EMPTY", line)
+        self.assertNotIn("1401-DISK-RENUMBERED", line)
+        self.assertIn("Nothing was erased", line)
+        ctx.assert_called_once()
+
+    def test_the_context_line_never_raises(self):
+        with patch.object(usbwriter, "_ps", side_effect=usbwriter.UsbError("blocked")), patch("builtins.print") as out:
+            usbwriter._log_powershell_context()
+        self.assertIn("disk list context unavailable", " ".join(str(c.args[0]) for c in out.call_args_list))
+
+
 STICK = {"Number": 2, "BusType": "USB", "Size": 16 * 10**9, "FriendlyName": "SanDisk Ultra", "UniqueId": "USBSTOR-AAA"}
 OTHER = {"Number": 2, "BusType": "USB", "Size": 32 * 10**9, "FriendlyName": "Kingston", "UniqueId": "USBSTOR-BBB"}
 IDENT = ["--stick-id", "USBSTOR-AAA", "--stick-size", str(16 * 10**9), "--stick-name", "SanDisk Ultra"]
