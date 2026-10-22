@@ -3,6 +3,10 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.5.2
+- Bundles NVIDIA driver 2.5.2: HDMI and DisplayPort audio, a startup hold that waits for slow laptop GPU bring-up, opt-in primary-GPU selection for several NVIDIA cards, opt-in deferred flip checks for high-refresh displays, and a quieter system log.
+- The Mac app's uninstaller also removes the opt-in primary-GPU selector.
+
 ## 2.5.1
 - Bundles NVIDIA driver 2.5.1: Apple TV video, sRGB shader writes (Blender), scaled and HiDPI desktop modes, faster window updates and GPU temperature.
 
