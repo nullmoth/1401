@@ -59,6 +59,17 @@ tag beside the binary. Projects with no licence, a restrictive licence, or files
 (OpenCore Legacy Patcher's payloads, the engine author's file host) are never copied there; the engine downloads those
 from their authors as before.
 
+## The Python runtime in the Windows package
+
+Pinned by URL and SHA-256 in `windows/release-inputs.json`, installed by `tools/windows_release.py`, unmodified.
+
+| What | From | License |
+|---|---|---|
+| CPython 3.13.17 (Windows embeddable package) | python.org | PSF License 2.0 (`LICENSE.txt` in the runtime folder) |
+| pywin32 312 | PyPI | PSF License |
+| WMI 1.5.1, by Tim Golden | PyPI | MIT |
+| certifi 2026.10.19 (Mozilla's CA list) | PyPI | MPL-2.0 |
+
 ## Built and redistributed by 1401 (with source), verified by hash
 
 | What | Upstream | License and source |

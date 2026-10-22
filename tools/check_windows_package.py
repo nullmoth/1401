@@ -69,7 +69,7 @@ def main():
         for name in ['wmi', 'win32api', 'certifi']:
             importlib.import_module(name)
         versions = {name: importlib.metadata.version(name) for name in inputs['runtime_packages']}
-        if versions != inputs['runtime_packages'] or sys.version_info[:2] != (3, 12):
+        if versions != inputs['runtime_packages'] or platform.python_version() != inputs['runtime']['python']:
             raise RuntimeError('Packaged dependency versions differ from the verified baseline.')
         result['packaged_module_imports'] = imported
         result['runtime_packages'] = versions

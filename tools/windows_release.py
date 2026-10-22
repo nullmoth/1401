@@ -81,6 +81,42 @@ def extract_baseline(archive, destination):
         source.extractall(destination)
 
 
+def _safe_members(source, what):
+    for entry in source.infolist():
+        name = PurePosixPath(entry.orig_filename)
+        if (not name.parts or name.is_absolute() or '..' in name.parts or '\\' in entry.orig_filename or
+                ':' in entry.orig_filename or stat.S_ISLNK(entry.external_attr >> 16)):
+            raise RuntimeError('Unsafe ' + what + ' ZIP member.')
+
+
+def install_runtime(runtime, python_dir, cache):
+    """Replaces the baseline's Python with the pinned runtime: the python.org embeddable build and the wheels 1401
+    imports (pywin32, WMI, certifi), each checked against its SHA-256. The baseline's Python stopped receiving binary
+    security releases, and its certifi still trusted CA keys that were revoked after compromise; the runtime is pinned
+    here so a security fix is one reviewed change to release-inputs.json."""
+    python_dir = Path(python_dir)
+    embed = download(runtime['python_url'], runtime['python_sha256'], Path(cache) / 'runtime' / Path(runtime['python_url']).name)
+    shutil.rmtree(python_dir)
+    python_dir.mkdir(parents=True)
+    with zipfile.ZipFile(embed) as source:
+        _safe_members(source, 'Python runtime')
+        source.extractall(python_dir)
+    paths = sorted(python_dir.glob('python3*._pth'))
+    if len(paths) != 1:
+        raise RuntimeError('The Python runtime must carry exactly one ._pth file.')
+    tag = paths[0].stem                                  # python313
+    # the same search path the baseline used: the standard library, the runtime folder, its packages, then 1401's app
+    paths[0].write_text(tag + '.zip\n.\nLib\\site-packages\n..\\app\nimport site\n')
+    packages = python_dir / 'Lib' / 'site-packages'
+    packages.mkdir(parents=True)
+    for wheel in runtime['wheels']:
+        path = download(wheel['url'], wheel['sha256'], Path(cache) / 'runtime' / urllib.parse.unquote(Path(wheel['url']).name))
+        with zipfile.ZipFile(path) as source:
+            _safe_members(source, 'wheel')
+            source.extractall(packages)
+    shutil.copyfile(REPO / 'tools/runtime/sitecustomize.py', packages / 'sitecustomize.py')
+
+
 def deterministic_zip(root, destination):
     root = Path(root)
     with zipfile.ZipFile(destination, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
@@ -122,6 +158,7 @@ def prepare(args):
     baseline = download(inputs['baseline_url'], inputs['baseline_sha256'], cache / 'baseline.zip')
     extract_baseline(baseline, stage)
     root = stage / '1401'
+    install_runtime(inputs['runtime'], root / 'engine/python', cache)
     compiled = Path(args.compiled).resolve()
     if not compiled.is_file() or compiled.read_bytes()[:2] != b'MZ':
         raise RuntimeError('A newly compiled Windows executable is required.')
