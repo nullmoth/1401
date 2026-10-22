@@ -1,35 +1,35 @@
 {
- "baseline_url": "https://github.com/nullmoth/1401/releases/download/v1.14.3/1401-Windows-1.14.3.zip",
- "baseline_sha256": "e287bf4b09805dbf697f915fa6867a15a422764c46b8733dfd9f46bc0e6043b6",
- "driver_release": "v2.5.2",
- "mac_asset": "1401-Mac-2.5.2.zip",
- "mac_sha256": "2cf82018eb22b3c45f029b6d75d2ac00d64186a0f457dc58ed7c74c20d40fcfb",
- "opencore_url": "https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip",
- "opencore_sha256": "2011e8b7216ecb2645d97ea710df965947edd406846e92050b9bc4190be6d27b",
- "fixture_slug": "optiplex-5050-micro",
- "runtime_packages": {
-  "pywin32": "312",
-  "WMI": "1.5.1",
-  "certifi": "2026.10.19"
- },
- "companion_prerelease_reviewed": true,
- "runtime": {
-  "python": "3.13.17",
-  "python_url": "https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip",
-  "python_sha256": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
-  "wheels": [
-   {
-    "url": "https://files.pythonhosted.org/packages/ba/db/36a78e3403099d31d9746d13fdcde5accc43c1155f375a34d15983a479a7/pywin32-312-cp313-cp313-win_amd64.whl",
-    "sha256": "c53e878d15a1c44788082bfe712a905433473aa38f86375b7cf8b45e3acbaaf9"
-   },
-   {
-    "url": "https://files.pythonhosted.org/packages/ee/b9/a80d1ed4d115dac8e2ac08d16af046a77ab58e3d186e22395bf2add24090/WMI-1.5.1-py2.py3-none-any.whl",
-    "sha256": "1d6b085e5c445141c475476000b661f60fff1aaa19f76bf82b7abb92e0ff4942"
-   },
-   {
-    "url": "https://files.pythonhosted.org/packages/c4/51/29046e48f693c54e5b7412216d447a1d8362c9653148d98c02cdf65fa733/certifi-2026.10.19-py3-none-any.whl",
-    "sha256": "42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b"
-   }
-  ]
- }
+  "baseline_url": "https://github.com/nullmoth/1401/releases/download/v1.14.3/1401-Windows-1.14.3.zip",
+  "baseline_sha256": "e287bf4b09805dbf697f915fa6867a15a422764c46b8733dfd9f46bc0e6043b6",
+  "driver_release": "v2.5.3",
+  "mac_asset": "1401-Mac-2.5.3.zip",
+  "mac_sha256": "90fcfb9c9d2812aed5b909153a91a91d4f3a4a2ce809aab028d05a8abc24b7ad",
+  "opencore_url": "https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip",
+  "opencore_sha256": "2011e8b7216ecb2645d97ea710df965947edd406846e92050b9bc4190be6d27b",
+  "fixture_slug": "optiplex-5050-micro",
+  "runtime_packages": {
+    "pywin32": "312",
+    "WMI": "1.5.1",
+    "certifi": "2026.10.19"
+  },
+  "companion_prerelease_reviewed": true,
+  "runtime": {
+    "python": "3.13.17",
+    "python_url": "https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip",
+    "python_sha256": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
+    "wheels": [
+      {
+        "url": "https://files.pythonhosted.org/packages/ba/db/36a78e3403099d31d9746d13fdcde5accc43c1155f375a34d15983a479a7/pywin32-312-cp313-cp313-win_amd64.whl",
+        "sha256": "c53e878d15a1c44788082bfe712a905433473aa38f86375b7cf8b45e3acbaaf9"
+      },
+      {
+        "url": "https://files.pythonhosted.org/packages/ee/b9/a80d1ed4d115dac8e2ac08d16af046a77ab58e3d186e22395bf2add24090/WMI-1.5.1-py2.py3-none-any.whl",
+        "sha256": "1d6b085e5c445141c475476000b661f60fff1aaa19f76bf82b7abb92e0ff4942"
+      },
+      {
+        "url": "https://files.pythonhosted.org/packages/c4/51/29046e48f693c54e5b7412216d447a1d8362c9653148d98c02cdf65fa733/certifi-2026.10.19-py3-none-any.whl",
+        "sha256": "42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b"
+      }
+    ]
+  }
 }
