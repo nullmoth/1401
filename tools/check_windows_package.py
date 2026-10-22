@@ -14,7 +14,6 @@ import re
 import subprocess
 import sys
 import unittest
-import zipfile
 
 
 def failure_frames(text):
@@ -50,6 +49,11 @@ def main():
     if Path(sys.executable).resolve() != python.resolve():
         raise RuntimeError('This check must run with the packaged portable Python.')
     inputs = json.loads((repo / 'windows/release-inputs.json').read_text())
+    # The runtime as prepared, before anything runs: verification must leave it byte-identical. (It used to be compared
+    # with the baseline ZIP, which stopped being the runtime once tools/windows_release.py pinned its own.)
+    runtime_dir = root / 'engine/python'
+    runtime_before = {path.relative_to(runtime_dir).as_posix(): hashlib.sha256(path.read_bytes()).digest()
+                      for path in sorted(runtime_dir.rglob('*')) if path.is_file() and '__pycache__' not in path.parts}
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
     os.environ['PYTHONIOENCODING'] = 'utf-8'
     os.environ['OPENCORE_TEST_ZIP'] = str(cache / 'fixtures/OpenCore-1.0.8-RELEASE.zip')
@@ -141,12 +145,10 @@ def main():
             raise RuntimeError('The packaged executable product version differs.')
         changed_runtime = []
         step = 'portable runtime integrity after verification'
-        with zipfile.ZipFile(cache / 'baseline.zip') as baseline:
-            for entry in baseline.infolist():
-                if not entry.is_dir() and entry.filename.startswith('1401/engine/python/'):
-                    current = root.parent / entry.filename
-                    if not current.is_file() or hashlib.sha256(current.read_bytes()).digest() != hashlib.sha256(baseline.read(entry)).digest():
-                        changed_runtime.append(entry.filename)
+        runtime_after = {path.relative_to(runtime_dir).as_posix(): hashlib.sha256(path.read_bytes()).digest()
+                         for path in sorted(runtime_dir.rglob('*')) if path.is_file() and '__pycache__' not in path.parts}
+        changed_runtime = sorted(name for name in set(runtime_before) | set(runtime_after)
+                                 if runtime_before.get(name) != runtime_after.get(name))
         if changed_runtime:
             raise RuntimeError('The verified portable Python runtime changed during verification.')
         result['portable_runtime_unchanged'] = True
