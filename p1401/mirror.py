@@ -21,6 +21,8 @@ import threading
 import urllib.error
 import urllib.request
 
+from p1401 import licenses
+
 BASE = "https://nullmothsystems.com/mirror/"
 MANIFEST = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mirror.json")
 SCHEMA = 1
@@ -55,6 +57,14 @@ def entries(path=None):
                     got = {u: e for u, e in data["entries"].items() if isinstance(u, str) and u.startswith("https://") and _valid(e)}
                     if len(got) != len(data["entries"]):
                         problem = f"mirror.json: {len(data['entries']) - len(got)} malformed entries ignored"
+                    # Only what licenses.json lets NullMoth host is served from the mirror, and a copyleft binary only
+                    # when its source is in the same manifest; the rest comes from its author or not at all. Checked
+                    # here too, so an older manifest cannot bring one back.
+                    allowed = {u: licenses.hostable(u) for u in got}
+                    hosted = {u: e for u, e in got.items() if allowed[u][0] and (not allowed[u][2] or allowed[u][2] in got)}
+                    if len(hosted) != len(got) and not problem:
+                        problem = f"mirror.json: {len(got) - len(hosted)} entries are not ours to host and are not used"
+                    got = hosted
             except FileNotFoundError:
                 problem = "no mirror.json in this build"
             except (OSError, ValueError) as error:

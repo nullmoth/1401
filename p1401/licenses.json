@@ -1,0 +1,345 @@
+{
+ "schema": 1,
+ "about": "The licence of everything 1401 can download, and whether NullMoth may host a copy on its mirror. permissive and nullmoth: hosted. copyleft: hosted only beside its corresponding source. none, restricted and tool-payload: never hosted; grandfathered items stay fetchable from their authors because people rely on them today, and a new item must be permissive or copyleft.",
+ "projects": {
+  "0xFireWolf/RealtekCardReader": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "0xFireWolf/RealtekCardReaderFriend": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "1Revenger1/ECEnabler": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true,
+   "evidence": "the engine's name for averycblack/ECEnabler (renamed)"
+  },
+  "acidanthera/AirportBrcmFixup": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/AppleALC": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/BrcmPatchRAM": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "acidanthera/BrightnessKeys": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/bugtracker": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "acidanthera/CPUFriend": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/CpuTscSync": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/CryptexFixup": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/FeatureUnlock": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/HibernationFixup": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/Lilu": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/NVMeFix": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/OcBinaryData": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "acidanthera/OpenCorePkg": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/RestrictEvents": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/RTCMemoryFixup": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/VirtualSMC": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acidanthera/VoodooInput": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "acidanthera/VoodooPS2": {
+   "license": "APSL-2.0",
+   "class": "copyleft"
+  },
+  "acidanthera/WhateverGreen": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "acpica/acpica": {
+   "license": "BSD-3-Clause OR GPL-2.0",
+   "class": "permissive"
+  },
+  "al3xtjames/NoTouchID": {
+   "license": "Apache-2.0",
+   "class": "permissive"
+  },
+  "averycblack/ECEnabler": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "b00t0x/CpuTopologyRebuild": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "blankmac/AlpsHID": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "CaseySJ/Aquantia-macOS-Patches": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "ChefKissInc/ForgedInvariant": {
+   "license": "ChefKiss Open Knowledge License 1 (no derivatives, no AI use)",
+   "class": "restricted",
+   "grandfathered": true
+  },
+  "ChefKissInc/NootedRed": {
+   "license": "ChefKiss Open Knowledge License 1 (no derivatives, no AI use)",
+   "class": "restricted",
+   "grandfathered": true
+  },
+  "ChefKissInc/NootRX": {
+   "license": "ChefKiss Open Knowledge License 1 (no derivatives, no AI use)",
+   "class": "restricted",
+   "grandfathered": true
+  },
+  "ChefKissInc/SMCRadeonSensors": {
+   "license": "Thou Shalt Not Profit License 1.5",
+   "class": "restricted",
+   "grandfathered": true
+  },
+  "cholonam/Sinetek-rtsx": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "CloverHackyColor/IntelMausiEthernet": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "licence grant in the source file headers; the repository has no LICENSE file"
+  },
+  "daliansky/OS-X-USB-Inject-All": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "DexterSLamb/itlwm": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "donatengit/AppleIGB": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "dortania/OpenCore-Legacy-Patcher": {
+   "license": "BSD-3-Clause (tool); payload binaries carry their own terms",
+   "class": "tool-payload",
+   "grandfathered": true
+  },
+  "hieplpvip/AsusSMC": {
+   "license": "MIT",
+   "class": "permissive"
+  },
+  "hrx114514x/PC711Probe": {
+   "license": "PolyForm-Noncommercial-1.0.0",
+   "class": "restricted",
+   "grandfathered": true
+  },
+  "laobamac/AMD_Vanilla": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "laobamac/SimpleMtkBtFw": {
+   "license": "GPL-3.0",
+   "class": "copyleft"
+  },
+  "laobamac/SimpleMtkWlan": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "built by NullMoth from a pinned commit; hosted with its source (netsupport.py)"
+  },
+  "lshbluesky/IntelBluetoothFirmware": {
+   "license": "GPL-3.0",
+   "class": "copyleft"
+  },
+  "lzhoang2801/lzhoang2801.github.io": {
+   "license": "engine author's file host; files carry their own terms",
+   "class": "tool-payload",
+   "grandfathered": true
+  },
+  "Mieze/AtherosE2200Ethernet": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "licence grant in the source file headers; the repository has no LICENSE file"
+  },
+  "Mieze/IntelLucy": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "licence grant in the source file headers; the repository has no LICENSE file"
+  },
+  "Mieze/LucyRTL8125Ethernet": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "licence grant in the source file headers; the repository has no LICENSE file"
+  },
+  "Mieze/RealtekRTL8100": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "Mieze/RTL8111_driver_for_OS_X": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "licence grant in the source file headers; the repository has no LICENSE file"
+  },
+  "Mieze/RTL812xLucy": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "README: published under GPLv2"
+  },
+  "naveenkrdy/AmdTscSync": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "nullmoth": {
+   "license": "per package (SimpleMtkWlan GPL-2.0 with source, AMDRadeonRDNA4 BSD-3-Clause)",
+   "class": "nullmoth"
+  },
+  "OpenIntelWireless/IntelBluetoothFirmware": {
+   "license": "GPL-3.0",
+   "class": "copyleft"
+  },
+  "RattletraPM/GUX-RyzenXHCIFix": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "RehabMan/OS-X-Null-Ethernet": {
+   "license": "GPL-2.0",
+   "class": "copyleft",
+   "evidence": "licence grant in the source file headers; the repository has no LICENSE file"
+  },
+  "RehabMan/VoodooTSCSync": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "RX4Darwin/AMDRadeonRDNA4.kext": {
+   "license": "BSD-3-Clause",
+   "class": "permissive",
+   "evidence": "built by NullMoth from a pinned commit (amd_rdna4.py)"
+  },
+  "SongXiaoXi/AppleIGC": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "thegwchr/Feixiao": {
+   "license": "GPL-2.0 OR BSD-3-Clause",
+   "class": "copyleft",
+   "evidence": "SPDX header in the source; taken as GPL-2.0"
+  },
+  "thegwchr/RealtekBluetoothFirmware": {
+   "license": "GPL-2.0-or-later",
+   "class": "copyleft"
+  },
+  "TomHeaven/HoRNDIS": {
+   "license": "GPL",
+   "class": "copyleft",
+   "evidence": "LICENSE.rtf holds the GNU GPL text"
+  },
+  "USBToolBox/kext": {
+   "license": "none",
+   "class": "none",
+   "grandfathered": true
+  },
+  "VoodooI2C/VoodooI2C": {
+   "license": "GPL-3.0",
+   "class": "copyleft"
+  },
+  "VoodooSMBus/VoodooRMI": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "VoodooSMBus/VoodooSMBus": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "Xiashangning/BigSurface": {
+   "license": "GPL-3.0",
+   "class": "copyleft"
+  },
+  "zhen-zen/YogaSMC": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "zxystd/AthBluetoothFirmware": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  }
+ },
+ "build_repo": {
+  "AirportBrcmFixup": "acidanthera/AirportBrcmFixup",
+  "AppleALC": "acidanthera/AppleALC",
+  "BrcmPatchRAM": "acidanthera/BrcmPatchRAM",
+  "BrightnessKeys": "acidanthera/BrightnessKeys",
+  "CPUFriend": "acidanthera/CPUFriend",
+  "CpuTscSync": "acidanthera/CpuTscSync",
+  "CryptexFixup": "acidanthera/CryptexFixup",
+  "ECEnabler": "averycblack/ECEnabler",
+  "FeatureUnlock": "acidanthera/FeatureUnlock",
+  "HibernationFixup": "acidanthera/HibernationFixup",
+  "IntelBluetoothFirmware": "OpenIntelWireless/IntelBluetoothFirmware",
+  "Lilu": "acidanthera/Lilu",
+  "NVMeFix": "acidanthera/NVMeFix",
+  "NoTouchID": "al3xtjames/NoTouchID",
+  "OpenCorePkg": "acidanthera/OpenCorePkg",
+  "RTCMemoryFixup": "acidanthera/RTCMemoryFixup",
+  "RestrictEvents": "acidanthera/RestrictEvents",
+  "VirtualSMC": "acidanthera/VirtualSMC",
+  "VoodooI2C": "VoodooI2C/VoodooI2C",
+  "VoodooInput": "acidanthera/VoodooInput",
+  "VoodooPS2": "acidanthera/VoodooPS2",
+  "VoodooRMI": "VoodooSMBus/VoodooRMI",
+  "VoodooSMBus": "VoodooSMBus/VoodooSMBus",
+  "WhateverGreen": "acidanthera/WhateverGreen"
+ }
+}

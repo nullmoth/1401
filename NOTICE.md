@@ -36,13 +36,22 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 |---|---|---|
 | `p1401/guide.py`: which BIOS settings macOS needs and why | Dortania, *OpenCore Install Guide* | CC BY-NC-SA 4.0. 1401 uses its facts only; every sentence in the guide is 1401's own, because NC-SA text cannot go into a GPL-3 program. |
 
-## Downloaded at build or run time, verified, never redistributed by 1401
+## Downloaded at build or run time, verified
 
 | What | From | How it is verified |
 |---|---|---|
 | OpenCorePkg release (bootloader, drivers, `ocvalidate`) | acidanthera, via the engine's pinned build repo | sha256 recorded in the engine's download history. `ocvalidate` refuses to run without one. |
 | Kexts (Lilu, WhateverGreen, AppleALC, itlwm, ...) | Each author's release, chosen by the engine | Each keeps its own license. **Two currently have no sha256 in the engine's manifest (AppleIGB, AppleMCEReporterDisabler), which is an open 1401 issue.** |
 | SimpleMtkBtFw (MediaTek Bluetooth), by laobamac | The project's `1.0.0` GitHub release (`SimpleMtkBtFw-1.0.0-RELEASE.zip`) | **GPL-3.0** (`LICENSE` in the repo). Pinned to the exact asset and sha256 `b6afbe45…dc84954`, verified on download. Source for this binary is the tagged release at `github.com/laobamac/SimpleMtkBtFw` (tag `1.0.0`). |
+
+### The download mirror
+
+`nullmothsystems.com/mirror` keeps byte-identical copies for networks that cannot reach GitHub (`p1401/mirror.py`). It
+holds only what each project's licence lets NullMoth redistribute (`p1401/licenses.json`, checked by
+`tests/test_licenses.py`): permissive projects as published, copyleft projects with the source of that exact commit or
+tag beside the binary. Projects with no licence, a restrictive licence, or files that come from inside another tool
+(OpenCore Legacy Patcher's payloads, the engine author's file host) are never copied there; the engine downloads those
+from their authors as before.
 
 ## Built and redistributed by 1401 (with source), verified by hash
 

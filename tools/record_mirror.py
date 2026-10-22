@@ -5,8 +5,9 @@ python3 tools/record_mirror.py <out dir>
 Runs the engine's own fetch code against the real network with every kext selected, keeps each response body as the
 bytes the engine reads (content encoding removed), reduces release index pages to their first tag link, and writes <out dir>/files/<sha256> for each plus
 <out dir>/mirror.json. For a release, mirror.json goes to p1401/ and files/ to the server's /srv/nullmoth/mirror/
-(files are never removed there, so every earlier release keeps its mirror). Exits non-zero when anything the engine
-would need could not be recorded, and names it."""
+(files are never removed there, so every earlier release keeps its mirror). Only what p1401/licenses.json lets NullMoth
+host is written, and each copyleft binary gets its source recorded beside it; the rest is listed as NOT HOSTED and the
+engine keeps fetching it from its author. Exits non-zero when anything hostable could not be recorded, and names it."""
 import copy
 import gzip
 import hashlib
@@ -71,11 +72,28 @@ def main(out):
     for url in (g.ocbinarydata_url, g.amd_vanilla_patches_url, g.aquantia_macos_patches_url, g.hyper_threading_patches_url):
         get(url)
     get(scan.ACPIDUMP["url"], scan.ACPIDUMP["sha256"], "acpidump.exe")
+
+    # Host only what the licence allows (p1401/licenses.py). A copyleft binary is hosted only with its source beside it.
+    from p1401 import licenses
+    skipped = []
+    for url in sorted(recorded):
+        ok, reason, source = licenses.hostable(url)
+        if not ok:
+            skipped.append(reason)
+            recorded.pop(url)
+        elif source and source not in recorded:
+            get(source, what=f"source of {url}")
+            if source not in recorded:
+                failures.append(f"{url}: its source {source} could not be recorded - binary not hosted")
+                recorded.pop(url)
     # iasl is not recorded: the Windows package ships iasl.exe (windows/App/Engine.cs), so a build never downloads it.
 
     os.makedirs(os.path.join(out, "files"), exist_ok=True)
     from p1401.mirror_metadata import release_index
-    entries = {}
+    # NullMoth's own builds (netsupport.py, amd_rdna4.py) are pinned into the manifest by hand, not fetched by the
+    # engine, so they are carried over as they are; their files are already on the server.
+    with open(mirror.MANIFEST, encoding="utf-8") as fh:
+        entries = {u: e for u, e in json.load(fh)["entries"].items() if licenses.classify(u)[1] == "nullmoth"}
     for url, body in sorted(recorded.items()):
         original_sha = hashlib.sha256(body).hexdigest()
         body = release_index(url, body)
@@ -97,6 +115,8 @@ def main(out):
     print(f"recorded {len(entries)} URLs, {len(set(e['sha256'] for e in entries.values()))} files, {total / 2**20:.1f} MB")
     for f in failures:
         print("  NOT RECORDED  " + f)
+    for reason in sorted(set(skipped)):
+        print("  NOT HOSTED    " + reason)
     return 0 if not failures else 1
 
 
