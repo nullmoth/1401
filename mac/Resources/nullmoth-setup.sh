@@ -887,6 +887,10 @@ else
   fi
 
 fi
+# A config macOS will not let 1401 read is not a broken config: on a stick, root itself is refused when 1401 has no
+# access to removable volumes ("you don't have permission to view it"), and calling that an invalid plist sent people
+# to edit a file that was fine. Say which one it is.
+cat "$C" >/dev/null 2>&1 || stop "macOS did not let 1401 read $C. Open System Settings > Privacy & Security > Files and Folders (or Full Disk Access), allow 1401 to use removable volumes, then try again"
 plutil -lint "$C" >/dev/null || stop "$C is not a valid plist - fix it before installing"
 
 if [ -n "$VERB" ]; then
