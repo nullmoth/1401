@@ -189,6 +189,37 @@ print("e_failed_calls=\(collectCalls)")
 print("e_failed_files=" + a2.files.map { $0.lastPathComponent }.joined(separator: ","))
 let ok = ReachedDesktop.reportFailure(failed, signs: ReachedDesktop.failureSigns(failed))
 print("e_report_ok=\(ok)")
+
+// (f) the per-part lines, from a hackintosh's own shapes: HDMI + ALC897 audio, a virtual device the user named,
+// Wi-Fi present but off, Bluetooth on, Ethernet carrying the default route. The fixture holds a paired headset's
+// name, a network name and an address, none of which may reach the report.
+let fProfiler = """
+{"SPAudioDataType":[{"_items":[
+  {"_name":"NVIDIA (0x00ad) (HDMI/DP 8ch)","coreaudio_device_output":2,"coreaudio_device_transport":"coreaudio_device_type_unknown","coreaudio_default_audio_output_device":"spaudio_yes"},
+  {"_name":"Realtek ALC897 (Rear Analog)","coreaudio_device_output":2,"coreaudio_device_transport":"coreaudio_device_type_unknown"},
+  {"_name":"PRIVATE-AGGREGATE-NAME","coreaudio_device_output":2,"coreaudio_device_transport":"coreaudio_device_type_virtual"}]}],
+ "SPAirPortDataType":[{"spairport_airport_interfaces":[{"_name":"en1","spairport_status_information":"spairport_status_off",
+   "spairport_wireless_card_type":"spairport_wireless_card_type_wifi (0x8086, 0x0AAA)",
+   "spairport_current_network_information":{"_name":"PRIVATE-SSID"}}]}],
+ "SPBluetoothDataType":[{"controller_properties":{"controller_state":"attrib_on","controller_chipset":"THIRD_PARTY_DONGLE","controller_transport":"USB"},
+   "device_not_connected":[{"PRIVATE-HEADSET":{"device_address":"AA:BB:CC:DD:EE:FF"}}]}],
+ "SPNetworkDataType":[{"_name":"Ethernet","hardware":"Ethernet","interface":"en0","type":"Ethernet","ip_address":["192.0.2.9"]},
+   {"_name":"Wi-Fi","hardware":"AirPort","interface":"en1","type":"AirPort"}],
+ "SPPowerDataType":[{"_name":"sppower_information"}]}
+"""
+let fHid = """
+<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><array>
+<dict><key>PrimaryUsagePage</key><integer>1</integer><key>PrimaryUsage</key><integer>6</integer><key>Transport</key><string>USB</string></dict>
+<dict><key>PrimaryUsagePage</key><integer>13</integer><key>PrimaryUsage</key><integer>5</integer><key>Transport</key><string>I2C</string></dict>
+</array></plist>
+"""
+let fLoaded = "  1  0 0x0 0x0 0x0 com.apple.kpi.bsd (25.7.0) UUID <>\n 70  0 0x0 0x0 0x0 as.vit9696.Lilu (1.7.3) UUID <8>\n 80  0 0x0 0x0 0x0 com.nullmoth.NVRM (2.5.2) UUID <8>"
+let fLines = ReachedDesktop.featureLines(profiler: fProfiler, hid: fHid, showloaded: fLoaded, defaultRoute: "   route to: default\n  interface: en0\n")
+print("f_lines=\(Data(fLines.joined(separator: "\n").utf8).base64EncodedString())")
+let fEmpty = ReachedDesktop.featureLines(profiler: "", hid: "", showloaded: "", defaultRoute: "")
+print("f_empty=\(Data(fEmpty.joined(separator: "\n").utf8).base64EncodedString())")
+let fNoAudio = ReachedDesktop.featureLines(profiler: "{\"SPAudioDataType\":[{\"_items\":[]}]}", hid: "", showloaded: "", defaultRoute: "")
+print("f_noaudio=\(fNoAudio.first ?? "")")
 print("e_uploads=\(uploads.count)")
 print("e_upload_files=" + (uploads.last ?? []).joined(separator: "|"))
 '''
@@ -256,6 +287,22 @@ try:
         arm("(e) its notes keep the reached-desktop tag and say what did not come up",
             up[-1].startswith("reached desktop; ") and "driver did not come up: no Metal device, driver not loaded, NVRM missing" in up[-1], up[-1])
         arm("(e) the report counts as sent when the summary itself was confirmed", vals.get("e_report_ok") == "true")
+        # (f) one line per part of the machine, facts only
+        f = base64.b64decode(vals.get("f_lines", "")).decode("utf-8", "replace")
+        want = ["audio: 2 output device(s): NVIDIA (0x00ad) (HDMI/DP 8ch); Realtek ALC897 (Rear Analog)",
+                "wifi: off (wifi (0x8086, 0x0AAA))", "bluetooth: on (THIRD_PARTY_DONGLE, USB)",
+                "network: default route via Ethernet; 1 Ethernet interface(s)",
+                "input: 1 keyboard(s), 0 pointer(s), 1 touchpad(s) (I2C 1, USB 1)", "battery: none",
+                "third-party kexts loaded: as.vit9696.Lilu (1.7.3), com.nullmoth.NVRM (2.5.2)"]
+        arm("(f) audio, Wi-Fi, Bluetooth, network, input, battery and loaded kexts each get their line",
+            f.splitlines() == want, f)
+        arm("(f) no network name, address, paired device or user-named audio device leaves the machine",
+            not any(x in f for x in ("PRIVATE-", "192.0.2.", "AA:BB")), f)
+        e = base64.b64decode(vals.get("f_empty", "")).decode("utf-8", "replace")
+        arm("(f) a machine where the tools answer nothing reads unknown, never 'none' or 'no device'",
+            all(l.endswith(": unknown") for l in e.splitlines()) and len(e.splitlines()) == 7, e)
+        arm("(f) no audio output is said plainly", vals.get("f_noaudio") == "audio: NO output device", vals.get("f_noaudio", ""))
+        arm("(f) the summary carries the feature lines", "for line in featureLines()" in summ)
 except subprocess.CalledProcessError as e:
     arm("the behaviour harness compiles", False, (e.stderr or b"").decode()[:600])
 except FileNotFoundError:

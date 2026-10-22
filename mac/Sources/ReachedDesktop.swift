@@ -100,7 +100,97 @@ enum ReachedDesktop {
         for line in installedComponents() { s += line + "\n" }
         for line in loadedKextLines() { s += line + "\n" }
         s += "boot guard: " + bootGuardLine() + "\n"
+        for line in featureLines() { s += line + "\n" }
         return s
+    }
+
+    /// Whether each part of the machine came up, one line per part: audio output, Wi-Fi, Bluetooth, the network the
+    /// default route uses, keyboards / pointers / touchpads, a battery, and every non-Apple kext the kernel loaded. A
+    /// first login that reached the desktop says nothing today about a silent speaker or a dead trackpad; these lines
+    /// are what tells a working community driver from one that loaded and did nothing. Facts only: no network names,
+    /// no addresses, no paired-device list, and no names of virtual or aggregate audio devices (users name those).
+    static func featureLines() -> [String] {
+        let profiler = sh("/usr/sbin/system_profiler", ["-json", "-detailLevel", "mini", "SPAudioDataType",
+                                                        "SPBluetoothDataType", "SPAirPortDataType", "SPNetworkDataType",
+                                                        "SPPowerDataType"])
+        let hid = sh("/usr/sbin/ioreg", ["-r", "-c", "IOHIDDevice", "-d", "1", "-a"])
+        let loaded = sh("/usr/bin/kmutil", ["showloaded", "--list-only"])
+        let route = sh("/sbin/route", ["-n", "get", "default"])
+        return featureLines(profiler: profiler, hid: hid, showloaded: loaded, defaultRoute: route)
+    }
+
+    static func featureLines(profiler: String, hid: String, showloaded: String, defaultRoute: String) -> [String] {
+        var lines: [String] = []
+        let sp = (try? JSONSerialization.jsonObject(with: Data(profiler.utf8))) as? [String: Any]
+        func section(_ name: String) -> [[String: Any]]? { sp?[name] as? [[String: Any]] }
+
+        if let audio = section("SPAudioDataType") {
+            let items = audio.flatMap { ($0["_items"] as? [[String: Any]]) ?? [] }
+            let outputs = items.filter { $0["coreaudio_device_output"] != nil
+                && ($0["coreaudio_device_transport"] as? String) != "coreaudio_device_type_virtual"
+                && ($0["coreaudio_device_transport"] as? String) != "coreaudio_device_type_aggregate" }
+            let names = outputs.compactMap { ($0["_name"] as? String).map { String($0.prefix(40)) } }
+            let hasDefault = items.contains { ($0["coreaudio_default_audio_output_device"] as? String) == "spaudio_yes" }
+            lines.append(outputs.isEmpty ? "audio: NO output device"
+                         : "audio: \(outputs.count) output device(s): \(Array(Set(names)).sorted().joined(separator: "; "))"
+                           + (hasDefault ? "" : " (no default output)"))
+        } else { lines.append("audio: unknown") }
+
+        if let air = section("SPAirPortDataType") {
+            let ifs = air.flatMap { ($0["spairport_airport_interfaces"] as? [[String: Any]]) ?? [] }
+                .filter { $0["spairport_wireless_card_type"] != nil }
+            lines.append(ifs.isEmpty ? "wifi: no Wi-Fi interface" : "wifi: " + ifs.map { i -> String in
+                let status = ((i["spairport_status_information"] as? String) ?? "unknown").replacingOccurrences(of: "spairport_status_", with: "")
+                let card = ((i["spairport_wireless_card_type"] as? String) ?? "").replacingOccurrences(of: "spairport_wireless_card_type_", with: "")
+                return "\(status) (\(card))"
+            }.joined(separator: "; "))
+        } else { lines.append("wifi: unknown") }
+
+        if let bt = section("SPBluetoothDataType") {
+            let c = bt.compactMap { $0["controller_properties"] as? [String: Any] }.first
+            if let c = c {
+                let state = ((c["controller_state"] as? String) ?? "unknown").replacingOccurrences(of: "attrib_", with: "")
+                lines.append("bluetooth: \(state) (\(c["controller_chipset"] as? String ?? "?"), \(c["controller_transport"] as? String ?? "?"))")
+            } else { lines.append("bluetooth: NO controller") }
+        } else { lines.append("bluetooth: unknown") }
+
+        if let net = section("SPNetworkDataType") {
+            let iface = defaultRoute.split(separator: "\n").compactMap { l -> String? in
+                let t = l.trimmingCharacters(in: .whitespaces)
+                return t.hasPrefix("interface:") ? String(t.dropFirst("interface:".count)).trimmingCharacters(in: .whitespaces) : nil
+            }.first
+            let kind = net.first { ($0["interface"] as? String) == iface }
+                .map { (($0["hardware"] as? String) ?? ($0["type"] as? String) ?? "?") == "AirPort" ? "Wi-Fi" : (($0["hardware"] as? String) ?? ($0["type"] as? String) ?? "?") }
+            let ethernet = net.filter { ($0["hardware"] as? String) == "Ethernet" && ($0["interface"] as? String)?.hasPrefix("en") == true }.count
+            lines.append("network: default route via \(iface == nil ? "none" : (kind ?? "other")); \(ethernet) Ethernet interface(s)")
+        } else { lines.append("network: unknown") }
+
+        if let data = hid.data(using: .utf8), !hid.isEmpty,
+           let devs = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [[String: Any]] {
+            func usage(_ d: [String: Any]) -> (Int, Int) { ((d["PrimaryUsagePage"] as? Int) ?? 0, (d["PrimaryUsage"] as? Int) ?? 0) }
+            let keyboards = devs.filter { usage($0) == (1, 6) }.count
+            let pointers = devs.filter { usage($0) == (1, 2) }.count
+            let touchpads = devs.filter { usage($0) == (13, 5) }.count
+            let transports = Dictionary(grouping: devs.compactMap { $0["Transport"] as? String }, by: { $0 }).mapValues { $0.count }
+            lines.append("input: \(keyboards) keyboard(s), \(pointers) pointer(s), \(touchpads) touchpad(s)"
+                         + (transports.isEmpty ? "" : " (" + transports.keys.sorted().map { "\($0) \(transports[$0]!)" }.joined(separator: ", ") + ")"))
+        } else { lines.append("input: unknown") }
+
+        if let power = section("SPPowerDataType") {
+            lines.append("battery: " + (power.contains { $0["sppower_battery_charge_info"] != nil } ? "present" : "none"))
+        } else { lines.append("battery: unknown") }
+
+        // "... com.vendor.Name (1.2.3) UUID ..." per loaded kext; Apple's own are left out
+        var third: [String] = []
+        for line in showloaded.split(separator: "\n") {
+            let words = line.split(separator: " ")
+            for (i, w) in words.enumerated() where w.contains(".") && i + 1 < words.count && words[i + 1].hasPrefix("(") {
+                if !w.hasPrefix("com.apple.") { third.append("\(w) \(words[i + 1])") }
+                break
+            }
+        }
+        lines.append("third-party kexts loaded: " + (third.isEmpty ? (showloaded.isEmpty ? "unknown" : "none") : third.sorted().joined(separator: ", ")))
+        return lines
     }
 
     /// The boot guard's counters and the boot arguments, so a "driver loaded: no" says whether the driver switched
