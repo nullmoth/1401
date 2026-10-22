@@ -3,6 +3,27 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.5.3
+- Bundles NVIDIA driver 2.5.3: `nvregdwords=` options no longer stop the startup.
+- Community drivers for hardware the builder had none for, added only when the scan finds a device each one matches and
+  only for the macOS its author built it for. Behind "Include experimental drivers": Realtek Wi-Fi 6/6E/7 (AirportRTW),
+  MediaTek MT7921/MT7922/RZ616 with the native Wi-Fi menu on macOS 26 (AirportMtkWlan), Qualcomm WCN7850 Wi-Fi
+  (AirportWCN7850), the AMD laptop USB input-lag and USB-storage fixes (XhciNudge, KernReserveLow), Lenovo's
+  cloud-recovery panic fix (LegionCbmrFix) and Arrow Lake clocks and power (LegionCpuPower). Without the opt-in, for the
+  hardware they match: Qualcomm WCN7850 Bluetooth (BluetoothWCN7850), the Arrow Lake touchpad controller
+  (LegionI2CArrowLake) and the ITE 8258 laptop keyboard (LegionITEKbdFix). NOTICE.md credits every author.
+- Every download has a recorded licence (p1401/licenses.json). The download mirror keeps copies only of what each
+  licence lets NullMoth redistribute, with the source beside every GPL binary; the rest comes from its author.
+- Security: the Windows package runs Python 3.13.17 (3.12 gets no more Windows security builds) with certifi
+  2026.10.19, which drops the emSign certificate authorities whose keys were compromised.
+- Writing the stick: when Windows returns no disks at all, 1401 says so and records why, instead of reporting a
+  renumbered stick.
+- The Mac app's first-login report (opt-in, sent once) says which parts of the machine came up: audio, Wi-Fi,
+  Bluetooth, network, keyboard and touchpad, battery, and the drivers that loaded. No network names, addresses or
+  paired devices are included.
+- Mac setup: a stick's config.plist that macOS will not let 1401 read is reported as that, with where to allow it, not
+  as an invalid plist.
+
 ## 2.5.2
 - Bundles NVIDIA driver 2.5.2: HDMI and DisplayPort audio, a startup hold that waits for slow laptop GPU bring-up, opt-in primary-GPU selection for several NVIDIA cards, opt-in deferred flip checks for high-refresh displays, and a quieter system log.
 - The Mac app's uninstaller also removes the opt-in primary-GPU selector.
