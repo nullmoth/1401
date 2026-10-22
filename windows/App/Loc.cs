@@ -62,8 +62,9 @@ namespace A1401
               "在下面选择 macOS 15 Sequoia 或 macOS 26 Tahoe。1401 为该版本构建启动文件（OpenCore EFI），然后用 OpenCore 自带的校验器检查。需要下载 OpenCore 和驱动。" },
             { "macOS 15 Sequoia", "macOS 15 Sequoia" },
             { "macOS 26 Tahoe", "macOS 26 Tahoe" },
-            { "Include experimental drivers (AMD RDNA 4 graphics, MediaTek Wi-Fi)",
-              "包含实验性驱动程序（AMD RDNA 4 显卡、联发科 Wi-Fi）" },
+            { "Include experimental drivers (Wi-Fi, AMD RDNA 4 graphics, USB and power fixes)",
+              "包含实验性驱动程序（Wi-Fi、AMD RDNA 4 显卡、USB 与电源修复）" },
+            { "Credits", "致谢" },
             { " for this PC, as a ", "，为本机生成的机型为 " },
             { ". The startup files passed OpenCore's own check.", "。启动文件已通过 OpenCore 自带的检查。" },
 

@@ -31,7 +31,7 @@ namespace A1401
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
-        readonly LinkLabel logLink = new LinkLabel(), coffeeLink = new LinkLabel();
+        readonly LinkLabel logLink = new LinkLabel(), coffeeLink = new LinkLabel(), creditsLink = new LinkLabel();
         readonly LinkLabel drvLink = new LinkLabel();
         readonly LinkLabel appLink = new LinkLabel();
         readonly LinkLabel doctorLink = new LinkLabel();
@@ -105,7 +105,7 @@ namespace A1401
             osPick.Items.AddRange(new object[] { Loc.T("macOS 15 Sequoia"), Loc.T("macOS 26 Tahoe") }); osPick.SelectedIndex = 0;
             // A different pick needs different startup files: drop the finished build so Build runs again.
             osPick.SelectedIndexChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
-            expDrivers.Text = Loc.T("Include experimental drivers (AMD RDNA 4 graphics, MediaTek Wi-Fi)");
+            expDrivers.Text = Loc.T("Include experimental drivers (Wi-Fi, AMD RDNA 4 graphics, USB and power fixes)");
             expDrivers.Bounds = new Rectangle(24, 334, 620, 24); expDrivers.Checked = false;
             expDrivers.BackColor = Theme.Panel; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
             // Including them changes which kexts the build carries, so a finished build is no longer the right one.
@@ -120,6 +120,15 @@ namespace A1401
             coffeeLink.Text = Loc.T("Buy me a coffee"); coffeeLink.AutoSize = true;
             coffeeLink.Location = new Point(440, 330); coffeeLink.LinkColor = Theme.Cyan; coffeeLink.Font = Theme.Link;
             coffeeLink.LinkClicked += (s, e) => System.Diagnostics.Process.Start("https://buymeacoffee.com/nullmoth");
+            // Every project 1401 is built on or downloads, with its author and licence (NOTICE.md in the package).
+            creditsLink.Text = Loc.T("Credits"); creditsLink.AutoSize = true;
+            creditsLink.Location = new Point(580, 330); creditsLink.LinkColor = Theme.Cyan; creditsLink.Font = Theme.Link;
+            creditsLink.LinkClicked += (s, e) =>
+            {
+                var notice = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "app", "NOTICE.md");
+                if (File.Exists(notice)) System.Diagnostics.Process.Start("notepad.exe", "\"" + notice + "\"");
+                else System.Diagnostics.Process.Start("https://github.com/nullmoth/1401/blob/main/NOTICE.md");
+            };
             drvLink.Text = Loc.T("Update the NVIDIA driver (newest release, here and on your 1401 stick)"); drvLink.AutoSize = true;
             drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = Theme.Link;
             drvLink.LinkClicked += (s, e) => UpdateDriver();
@@ -135,7 +144,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, drvLink, appLink, doctorLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             ResumeLayout(false); PerformLayout();
@@ -227,6 +236,7 @@ namespace A1401
             drvLink.Visible = logLink.Visible;
             appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
+            creditsLink.Visible = logLink.Visible;
             doctorLink.Visible = logLink.Visible;
             firmwareLink.Visible = (page == 1 || page == 2) && firmwareGuideFile != null && File.Exists(firmwareGuideFile);
             firmwareLink.Enabled = !busy;

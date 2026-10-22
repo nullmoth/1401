@@ -98,5 +98,23 @@ class Install(unittest.TestCase):
         self.assertFalse((self.root / "evil.dll").exists())
 
 
+class PackagedTexts(unittest.TestCase):
+    """The packaged NOTICE.md was the 1.14.3 baseline's (3.7 KB) in every release since: the credits added later never
+    reached Windows users. The build copies this release's NOTICE.md and LICENSE, and the window links to it."""
+
+    def test_the_build_copies_this_releases_notice_and_licence(self):
+        src = (REPO / "tools/windows_release.py").read_text()
+        prep = src.split("def prepare(", 1)[1]
+        self.assertIn("for name in ('NOTICE.md', 'LICENSE'):", prep)
+        self.assertIn("shutil.copyfile(REPO / name, app / name)", prep)
+        self.assertLess(prep.index("extract_baseline("), prep.index("for name in ('NOTICE.md', 'LICENSE'):"))
+
+    def test_the_window_opens_the_packaged_credits(self):
+        form = (REPO / "windows/App/MainForm.cs").read_text()
+        self.assertIn('creditsLink.Text = Loc.T("Credits")', form)
+        self.assertIn('Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "app", "NOTICE.md")', form)
+        self.assertIn("creditsLink, drvLink", form)
+
+
 if __name__ == "__main__":
     unittest.main()
