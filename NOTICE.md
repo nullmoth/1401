@@ -43,6 +43,12 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 | OpenCorePkg release (bootloader, drivers, `ocvalidate`) | acidanthera, via the engine's pinned build repo | sha256 recorded in the engine's download history. `ocvalidate` refuses to run without one. |
 | Kexts (Lilu, WhateverGreen, AppleALC, itlwm, ...) | Each author's release, chosen by the engine | Each keeps its own license. **Two currently have no sha256 in the engine's manifest (AppleIGB, AppleMCEReporterDisabler), which is an open 1401 issue.** |
 | SimpleMtkBtFw (MediaTek Bluetooth), by laobamac | The project's `1.0.0` GitHub release (`SimpleMtkBtFw-1.0.0-RELEASE.zip`) | **GPL-3.0** (`LICENSE` in the repo). Pinned to the exact asset and sha256 `b6afbe45…dc84954`, verified on download. Source for this binary is the tagged release at `github.com/laobamac/SimpleMtkBtFw` (tag `1.0.0`). |
+| AirportRTW (Realtek Wi-Fi), by souissiak1-maker | Release `V2.1.0`, the Sequoia or Tahoe build | **GPL-2.0**. Pinned by size and sha256 (`p1401/community.py`); source: the `V2.1.0` tag. Opt-in (experimental drivers). |
+| AirportMtkWlan (MediaTek Wi-Fi on macOS 26), by flxxxxddd, from laobamac's SimpleMtkWlan | Release `v1.5.0` | **GPL-2.0**. Pinned; source: the `v1.5.0` tag. Opt-in. |
+| AirportWCN7850 (Qualcomm WCN7850 Wi-Fi), by razvanccr | Release `v0.0.2` | **GPL-2.0** (OpenBSD `qwz(4)` port, ISC parts; firmware from linux-firmware). Pinned; source: the `v0.0.2` tag. Opt-in, macOS 26. |
+| BluetoothWCN7850 (Qualcomm WCN7850 Bluetooth), by razvanccr | Release `v1.0.0` | **MIT**. Pinned. Added for the USB IDs it matches. |
+| XhciNudge and KernReserveLow (AMD laptop USB fixes), by MonkaKokosowa | Releases `1.0` | **MIT**. Pinned. Opt-in, for AMD xHCI 1022:161D/161E/15D6/15D7. |
+| LegionCbmrFix, LegionI2CArrowLake, LegionITEKbdFix, LegionCpuPower, by watchthelight | Releases `1.0.0`, `1.1.0`, `1.0.0`, `0.3.3` | **BSD-3-Clause** (CbmrFix), **ISC** (the others). Pinned. CbmrFix and CpuPower are opt-in. |
 
 ### The download mirror
 

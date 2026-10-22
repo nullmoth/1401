@@ -128,22 +128,26 @@
   "ChefKissInc/ForgedInvariant": {
    "license": "ChefKiss Open Knowledge License 1 (no derivatives, no AI use)",
    "class": "restricted",
-   "grandfathered": true
+   "grandfathered": true,
+   "evidence": "1401 never adds it to a build (policy.EXCLUDED_KEXTS)"
   },
   "ChefKissInc/NootedRed": {
    "license": "ChefKiss Open Knowledge License 1 (no derivatives, no AI use)",
    "class": "restricted",
-   "grandfathered": true
+   "grandfathered": true,
+   "evidence": "1401 never adds it to a build (policy.EXCLUDED_KEXTS)"
   },
   "ChefKissInc/NootRX": {
    "license": "ChefKiss Open Knowledge License 1 (no derivatives, no AI use)",
    "class": "restricted",
-   "grandfathered": true
+   "grandfathered": true,
+   "evidence": "1401 never adds it to a build (policy.EXCLUDED_KEXTS)"
   },
   "ChefKissInc/SMCRadeonSensors": {
    "license": "Thou Shalt Not Profit License 1.5",
    "class": "restricted",
-   "grandfathered": true
+   "grandfathered": true,
+   "evidence": "1401 never adds it to a build (policy.EXCLUDED_KEXTS)"
   },
   "cholonam/Sinetek-rtsx": {
    "license": "none",
@@ -172,6 +176,10 @@
    "license": "BSD-3-Clause (tool); payload binaries carry their own terms",
    "class": "tool-payload",
    "grandfathered": true
+  },
+  "flxxxxddd/SimpleMtkWlan": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
   },
   "hieplpvip/AsusSMC": {
    "license": "MIT",
@@ -235,6 +243,14 @@
    "class": "copyleft",
    "evidence": "README: published under GPLv2"
   },
+  "MonkaKokosowa/KernReserveLow": {
+   "license": "MIT",
+   "class": "permissive"
+  },
+  "MonkaKokosowa/XhciNudge": {
+   "license": "MIT",
+   "class": "permissive"
+  },
   "naveenkrdy/AmdTscSync": {
    "license": "none",
    "class": "none",
@@ -252,6 +268,14 @@
    "license": "none",
    "class": "none",
    "grandfathered": true
+  },
+  "razvanccr/AirportWCN7850": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "razvanccr/BluetoothWCN7850": {
+   "license": "MIT",
+   "class": "permissive"
   },
   "RehabMan/OS-X-Null-Ethernet": {
    "license": "GPL-2.0",
@@ -271,6 +295,10 @@
    "license": "none",
    "class": "none",
    "grandfathered": true
+  },
+  "souissiak1-maker/AirportRTW": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
   },
   "thegwchr/Feixiao": {
    "license": "GPL-2.0 OR BSD-3-Clause",
@@ -302,6 +330,22 @@
   "VoodooSMBus/VoodooSMBus": {
    "license": "GPL-2.0",
    "class": "copyleft"
+  },
+  "watchthelight-labs/LegionCbmrFix": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "watchthelight-labs/LegionCpuPower": {
+   "license": "ISC",
+   "class": "permissive"
+  },
+  "watchthelight-labs/LegionI2CArrowLake": {
+   "license": "ISC",
+   "class": "permissive"
+  },
+  "watchthelight-labs/LegionITEKbdFix": {
+   "license": "ISC",
+   "class": "permissive"
   },
   "Xiashangning/BigSurface": {
    "license": "GPL-3.0",

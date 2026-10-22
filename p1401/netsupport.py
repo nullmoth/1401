@@ -194,7 +194,15 @@ def apply_kexts(ocpe, customization, macos_version, notices, experimental=False)
         km = ocpe.k
         net = _devices(customization, "Network")
         bt = _devices(customization, "Bluetooth")
-        if any(d in MEDIATEK_WIFI_KEXT_IDS for d in net):
+        try:
+            from . import community  # noqa: PLC0415
+            tahoe_native = next(d for d in community.DRIVERS if d["name"] == "AirportMtkWlan")
+            deferred = bool(community.build_for(tahoe_native, macos_version)) and any(d in tahoe_native["ids"] for d in net)
+        except ImportError:     # loaded on its own (the opt-in test's copies): no community table to defer to
+            deferred = False
+        if deferred:
+            pass    # macOS 26: community.py adds AirportMtkWlan (native Wi-Fi menu) for these cards and says so
+        elif any(d in MEDIATEK_WIFI_KEXT_IDS for d in net):
             idx = kext_data.kext_index_by_name.get(MTK_WIFI_KEXT)
             if idx is None:
                 pass

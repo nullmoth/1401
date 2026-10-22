@@ -72,6 +72,10 @@ def main(out):
     for url in (g.ocbinarydata_url, g.amd_vanilla_patches_url, g.aquantia_macos_patches_url, g.hyper_threading_patches_url):
         get(url)
     get(scan.ACPIDUMP["url"], scan.ACPIDUMP["sha256"], "acpidump.exe")
+    from p1401 import community
+    for d in community.DRIVERS:                                  # every macOS build, not only the one registered
+        for url, _size, sha in sorted(set(d["builds"].values())):
+            get(url, sha, d["name"])
 
     # Host only what the licence allows (p1401/licenses.py). A copyleft binary is hosted only with its source beside it.
     from p1401 import licenses

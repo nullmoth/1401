@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 
 from . import amd_gpu
 from . import amd_rdna4
+from . import community
+from . import downloads
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
@@ -791,6 +793,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             amd_rdna4.register()    # the RDNA 4 (RX 9070) community display driver, built and mirrored by us
         except Exception as e:  # noqa: BLE001 - a GPU add-on must never stop a build from starting
             h.notices.append(f"AMD RDNA 4 support not loaded: {type(e).__name__}: {e}")
+        try:
+            community.register()    # pinned community drivers for hardware the engine has none for (community.py)
+        except Exception as e:  # noqa: BLE001 - an add-on must never stop a build from starting
+            h.notices.append(f"Community drivers not loaded: {type(e).__name__}: {e}")
         with h:
             # 10-07: Build ran with no Report.json and failed with a bare FileNotFoundError.
             if not os.path.isfile(report_path):
@@ -856,6 +862,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
             netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
             amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
+            community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
             net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
             # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
             # also removes them from any config that still names them).
@@ -902,6 +909,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 _keep_identity(out_dir, prior_identity, machine_key, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
+                community.apply_efi_drivers(os.path.join(out_dir, "EFI", "OC", "config.plist"), cust, mv, h.notices,
+                                            lambda url: downloads.make_request(o.o.fetcher, url).read(),
+                                            experimental=policy.experimental_drivers)
                 # 10-10: 43 of 233 users' DSDTs are discarded whole by macOS's ACPICA (forward Scope targets in pass 1);
                 # ship the firmware table with those Scopes deferred so macOS gets a DSDT at all
                 from . import dsdt_pass1  # noqa: PLC0415
