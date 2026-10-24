@@ -216,7 +216,12 @@ def bios_settings(report, config, disabled_devices=None):
                          if_missing=loc.t("Most laptops don't show this setting. If yours doesn't, skip it.")
                          if (report.get("Motherboard") or {}).get("Platform") == "Laptop" else
                          loc.t("If your BIOS doesn't have it, skip it.")))
-    rebar = sorted({g.get("Resizable BAR") for g in gpus.values() if g.get("Resizable BAR") in ("Enabled", "Disabled")})
+    # Hardware Sniffer's Windows value comes from KMD_RebarControlMode, a registry value only AMD's driver writes, so
+    # every NVIDIA card read "Disabled" and the guide told people whose BIOS had it on to "turn it On" (10-23 chat, two
+    # users). It is used for AMD cards and for the stick's scan, which measures the BAR itself; otherwise it is unknown.
+    rebar = sorted({g.get("Resizable BAR") for g in gpus.values() if g.get("Resizable BAR") in ("Enabled", "Disabled")
+                    and (g.get("Resizable BAR source") == "BAR size" or str(g.get("Device ID") or "").upper().startswith("1002")
+                         or g.get("Manufacturer") == "AMD")})
     if nv:
         s.append(Setting(loc.t("Resizable BAR / Re-Size BAR"), loc.t("On"), True,
                          loc.t("Required by the NVIDIA driver: without it the screen stays on the startup text once the driver is in."),
