@@ -3,6 +3,15 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.5.4
+- Bundles NVIDIA driver 2.5.4: desktops whose only GPU is the NVIDIA card start instead of looping on a black screen when the card's display does not come up, Discord and sandboxed apps' video use the GPU, and clearer installer stops.
+- Fixes 2.5.3's "EFI failed validation: ocvalidate issues=1": community UEFI drivers were added without the HideVerbose key OpenCore checks, so builds that included one stopped (PR #92, thanks CreateRan).
+- The window fits high-DPI screens and small work areas: text wraps, the page scrolls, and nothing is cut off (PR #72, thanks rootwhois). The macOS version picker and the experimental-drivers box show only on the build page.
+- The BIOS guide no longer says "Resizable BAR: Disabled - turn it On" for NVIDIA cards: the Windows scan cannot see that setting on NVIDIA, so it is no longer guessed.
+- Security: certifi 2026.10.23, which drops the last two emSign root certificates (2.5.3's 2026.10.19 still carried emSign Root CA - C1 and ECC Root CA - C3).
+- Writing the stick: a PC missing Windows PowerShell gets a stop that says so and how to restore it; an empty disk list records which other Windows route still sees the disks.
+- Mac app: the USB map no longer redraws every second (an open plug-type list closed and plug choices reset); the first-login report names the audio controller, its layout-id and codecs; a kernel log cut off by a moved clock (dual boot) is collected again; the uninstaller removes the driver's licence texts.
+
 ## 2.5.3
 - Bundles NVIDIA driver 2.5.3: `nvregdwords=` options no longer stop the startup.
 - Community drivers for hardware the builder had none for, added only when the scan finds a device each one matches and
