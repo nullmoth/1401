@@ -369,7 +369,21 @@ if [ -n "$COLLECT" ]; then
   # its lines were collected, so three machines that turned it on (one an RX 7900 XTX, 10-12) told us nothing.
   # A boot that hung early may not have reached the log store; a later boot's panic report then carries it.
   boot=$(sysctl -n kern.boottime | sed -E 's/.*sec = ([0-9]+),.*/\1/')
-  lshow 45 --start "$(date -r "$boot" '+%Y-%m-%d %H:%M:%S')" --style compact --predicate 'process == "kernel" AND (eventMessage CONTAINS[c] "nvrm" OR eventMessage CONTAINS[c] "nvaccel" OR eventMessage CONTAINS[c] "nvidia" OR eventMessage CONTAINS[c] "nullmoth" OR eventMessage CONTAINS[c] "gsp" OR eventMessage CONTAINS[c] "nmx" OR eventMessage CONTAINS[c] "amdgpu" OR eventMessage CONTAINS[c] "i915" OR eventMessage CONTAINS "[drm]" OR eventMessage CONTAINS "xe " OR sender == "NMXGPU" OR sender == "NMXAccel" OR sender == "NMXNPU" OR sender == "NMIntelFB")' 2>&1 \
+  # 2.5.3 reports from dual-boot PCs: "Wall Clock adjustment detected", then the query from the boot time ran into its
+  # cap and the file held no kernel line - on the machines whose WindowServer had failed. "--last boot" bounds the
+  # query by the boot itself, not by a clock that moved, so it runs once more that way when the first one is cut off.
+  kernel_log_since_boot() {  # <seconds> <retry seconds>
+    local rc
+    lshow "$1" --start "$(date -r "$boot" '+%Y-%m-%d %H:%M:%S')" --style compact --predicate 'process == "kernel" AND (eventMessage CONTAINS[c] "nvrm" OR eventMessage CONTAINS[c] "nvaccel" OR eventMessage CONTAINS[c] "nvidia" OR eventMessage CONTAINS[c] "nullmoth" OR eventMessage CONTAINS[c] "gsp" OR eventMessage CONTAINS[c] "nmx" OR eventMessage CONTAINS[c] "amdgpu" OR eventMessage CONTAINS[c] "i915" OR eventMessage CONTAINS "[drm]" OR eventMessage CONTAINS "xe " OR sender == "NMXGPU" OR sender == "NMXAccel" OR sender == "NMXNPU" OR sender == "NMIntelFB")'
+    rc=$?
+    if [ "$rc" -eq 124 ] || [ "$rc" -eq 143 ]; then
+      echo "(retrying from this boot's start by boot, not by wall clock)"
+      lshow "$2" --last boot --style compact --predicate 'process == "kernel" AND (eventMessage CONTAINS[c] "nvrm" OR eventMessage CONTAINS[c] "nvaccel" OR eventMessage CONTAINS[c] "nvidia" OR eventMessage CONTAINS[c] "nullmoth" OR eventMessage CONTAINS[c] "gsp" OR eventMessage CONTAINS[c] "nmx" OR eventMessage CONTAINS[c] "amdgpu" OR eventMessage CONTAINS[c] "i915" OR eventMessage CONTAINS "[drm]" OR eventMessage CONTAINS "xe " OR sender == "NMXGPU" OR sender == "NMXAccel" OR sender == "NMXNPU" OR sender == "NMIntelFB")'
+      rc=$?
+    fi
+    return $rc
+  }
+  kernel_log_since_boot 45 30 2>&1 \
     | grep -v -e 'NVRM-fb: kapi event type 5$' -e 'NVRM-xnu: >os_map_kernel_space' -e 'NVRM-fb: flipToMemory #' \
              -e 'NVAccel: newVidMemory -> ' -e 'NVVidMemory::allocPhysical(.*bytes of REAL VRAM' \
     | headtail 1500 1500 > "$COLLECT/driver-kernel-log.txt"
