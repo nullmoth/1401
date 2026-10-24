@@ -159,8 +159,17 @@ def _log_powershell_context():
     try:
         out = _ps("$m = Get-Module -ListAvailable Storage | Select-Object -First 1; "
                   "$s = Get-Service smphost, winmgmt -ErrorAction SilentlyContinue | ForEach-Object { \"$($_.Name)=$($_.Status)\" }; "
+                  # 2.5.3 (32 PCs): Get-Disk and Get-CimInstance MSFT_Disk empty with both services running and the
+                  # provider re-registered, while the window read MSFT_Disk through .NET's WMI. These counts say which
+                  # other route still sees the disks: the classic WMI API, Win32_DiskDrive, the storage subsystem.
+                  "$wm = @(Get-WmiObject -Namespace root/Microsoft/Windows/Storage -Class MSFT_Disk -ErrorAction SilentlyContinue).Count; "
+                  "$dd = @(Get-WmiObject -Class Win32_DiskDrive -ErrorAction SilentlyContinue).Count; "
+                  "$ss = @(Get-StorageSubSystem -ErrorAction SilentlyContinue).Count; "
+                  "$ad = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole("
+                  "[Security.Principal.WindowsBuiltInRole]::Administrator); "
                   "\"PowerShell $($PSVersionTable.PSVersion) mode=$($ExecutionContext.SessionState.LanguageMode) "
-                  "x64=$([Environment]::Is64BitProcess) Storage=$($m.Version) services=$($s -join ',')\"")
+                  "x64=$([Environment]::Is64BitProcess) Storage=$($m.Version) services=$($s -join ',') "
+                  "wmi-MSFT_Disk=$wm Win32_DiskDrive=$dd subsystems=$ss admin=$ad\"")
         print("OK disk list context: " + " ".join(out.split())[:300]
               + f"; writer x64={sys.maxsize > 2**32}", flush=True)
     except Exception as e:  # noqa: BLE001
