@@ -220,6 +220,21 @@ let fEmpty = ReachedDesktop.featureLines(profiler: "", hid: "", showloaded: "", 
 print("f_empty=\(Data(fEmpty.joined(separator: "\n").utf8).base64EncodedString())")
 let fNoAudio = ReachedDesktop.featureLines(profiler: "{\"SPAudioDataType\":[{\"_items\":[]}]}", hid: "", showloaded: "", defaultRoute: "")
 print("f_noaudio=\(fNoAudio.first ?? "")")
+let hPci = """
+<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><array>
+<dict><key>class-code</key><data>AAMEAA==</data><key>vendor-id</key><data>hoAAAA==</data><key>device-id</key><data>0HoAAA==</data><key>layout-id</key><data>CwAAAA==</data></dict>
+<dict><key>class-code</key><data>AAMEAA==</data><key>vendor-id</key><data>3hAAAA==</data><key>device-id</key><data>rSIAAA==</data></dict>
+<dict><key>class-code</key><data>AAADAA==</data><key>vendor-id</key><data>3hAAAA==</data><key>device-id</key><data>WC0AAA==</data></dict>
+</array></plist>
+"""
+let hCodec = """
+<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><array>
+<dict><key>IOHDACodecVendorID</key><integer>283904151</integer></dict>
+</array></plist>
+"""
+print("h_line=\(ReachedDesktop.audioHardwareLine(pci: hPci, codecs: hCodec))")
+print("h_nocodec=\(ReachedDesktop.audioHardwareLine(pci: hPci, codecs: ""))")
+print("h_empty=\(ReachedDesktop.audioHardwareLine(pci: "", codecs: ""))")
 print("e_uploads=\(uploads.count)")
 print("e_upload_files=" + (uploads.last ?? []).joined(separator: "|"))
 '''
@@ -303,6 +318,12 @@ try:
             all(l.endswith(": unknown") for l in e.splitlines()) and len(e.splitlines()) == 7, e)
         arm("(f) no audio output is said plainly", vals.get("f_noaudio") == "audio: NO output device", vals.get("f_noaudio", ""))
         arm("(f) the summary carries the feature lines", "for line in featureLines()" in summ)
+        arm("(g) the audio hardware line names each HD-audio controller, its layout-id and the attached codecs",
+            vals.get("h_line") == "audio hardware: HDA 8086:7AD0 (layout-id 11), 10DE:22AD (no layout-id); codecs 10EC:0897",
+            vals.get("h_line", ""))
+        arm("(g) no codec attached is said plainly", vals.get("h_nocodec", "").endswith("; codecs none attached"), vals.get("h_nocodec", ""))
+        arm("(g) no ioreg answer reads unknown", vals.get("h_empty") == "audio hardware: unknown", vals.get("h_empty", ""))
+        arm("(g) the summary carries the audio hardware line", "audioHardwareLine()" in summ)
 except subprocess.CalledProcessError as e:
     arm("the behaviour harness compiles", False, (e.stderr or b"").decode()[:600])
 except FileNotFoundError:
