@@ -179,6 +179,22 @@ class UefiDrivers(unittest.TestCase):
         with open(os.path.join(os.path.dirname(self.config), "Drivers", "KernReserveLow.efi"), "rb") as fh:
             self.assertEqual(fh.read(), b"MZ fake driver")
 
+    def entries(self):
+        with open(self.config, "rb") as fh:
+            return {d["Path"]: d for d in plistlib.load(fh)["UEFI"]["Drivers"]}
+
+    def test_an_added_driver_carries_hideverbose_when_the_config_does(self):
+        with open(self.config, "wb") as fh:
+            plistlib.dump({"UEFI": {"Drivers": [{"Path": "OpenRuntime.efi", "Enabled": True, "HideVerbose": False}]}}, fh)
+        community.apply_efi_drivers(self.config, machine(USB_Controllers=["1022-161E"]), SEQUOIA, [],
+                                    lambda url: self.zip, experimental=True)
+        self.assertIs(self.entries()["KernReserveLow.efi"].get("HideVerbose"), False)
+
+    def test_an_added_driver_has_no_hideverbose_on_an_older_config(self):
+        community.apply_efi_drivers(self.config, machine(USB_Controllers=["1022-161E"]), SEQUOIA, [],
+                                    lambda url: self.zip, experimental=True)
+        self.assertNotIn("HideVerbose", self.entries()["KernReserveLow.efi"])
+
     def test_bytes_that_do_not_match_the_pin_are_never_written(self):
         notices = []
         got = community.apply_efi_drivers(self.config, machine(USB_Controllers=["1022-161E"]), SEQUOIA, notices,

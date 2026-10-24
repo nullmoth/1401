@@ -260,8 +260,12 @@ def apply_efi_drivers(config_path, customization, macos_version, notices, fetch,
                 fh.write(efi)
             os.replace(os.path.join(ddir, d["name"] + ".tmp"), os.path.join(ddir, d["name"]))
             if not any(isinstance(e, dict) and e.get("Path") == d["name"] for e in drivers):
-                drivers.append({"Arguments": "", "Comment": d["what"], "Enabled": True, "LoadEarly": False,
-                                "Path": d["name"]})
+                entry = {"Arguments": "", "Comment": d["what"], "Enabled": True, "LoadEarly": False, "Path": d["name"]}
+                # OpenCore 1.0.4 added HideVerbose to every driver entry and ocvalidate reports an entry without it;
+                # older OpenCore rejects the unknown key, so it follows the keys this config's own entries carry.
+                if any(isinstance(e, dict) and "HideVerbose" in e for e in drivers):
+                    entry["HideVerbose"] = False
+                drivers.append(entry)
             written.append(d["name"])
         if written:
             with open(config_path + ".tmp", "wb") as fh:
