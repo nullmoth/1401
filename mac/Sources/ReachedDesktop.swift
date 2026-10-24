@@ -101,6 +101,7 @@ enum ReachedDesktop {
         for line in loadedKextLines() { s += line + "\n" }
         s += "boot guard: " + bootGuardLine() + "\n"
         for line in featureLines() { s += line + "\n" }
+        s += audioHardwareLine() + "\n"
         return s
     }
 
@@ -191,6 +192,37 @@ enum ReachedDesktop {
         }
         lines.append("third-party kexts loaded: " + (third.isEmpty ? (showloaded.isEmpty ? "unknown" : "none") : third.sorted().joined(separator: ", ")))
         return lines
+    }
+
+    /// The audio hardware behind the "audio:" line: each HD-audio controller's PCI ID with the layout-id the boot setup
+    /// gave it, and the codecs macOS attached to it. 2.5.3's reports showed one desktop in five with no output device
+    /// and nothing that told a missing codec driver from a wrong layout-id or a codec AppleALC does not know.
+    static func audioHardwareLine() -> String {
+        audioHardwareLine(pci: sh("/usr/sbin/ioreg", ["-r", "-c", "IOPCIDevice", "-d", "1", "-a"]),
+                          codecs: sh("/usr/sbin/ioreg", ["-r", "-c", "IOHDACodecDevice", "-d", "1", "-a"]))
+    }
+
+    static func audioHardwareLine(pci: String, codecs: String) -> String {
+        func plist(_ s: String) -> [[String: Any]]? {
+            guard !s.isEmpty, let d = s.data(using: .utf8) else { return nil }
+            return (try? PropertyListSerialization.propertyList(from: d, format: nil)) as? [[String: Any]]
+        }
+        // PCI properties are little-endian data; layout-id may also arrive as a number from a device property
+        func le(_ v: Any?) -> UInt32? {
+            if let n = v as? Int { return UInt32(truncatingIfNeeded: n) }
+            guard let d = v as? Data, !d.isEmpty else { return nil }
+            return d.prefix(4).enumerated().reduce(UInt32(0)) { $0 | UInt32($1.element) << (8 * UInt32($1.offset)) }
+        }
+        guard let devs = plist(pci) else { return "audio hardware: unknown" }
+        let hda = devs.filter { (le($0["class-code"]) ?? 0) >> 8 == 0x0403 }
+        let ctl = hda.map { d -> String in
+            let id = String(format: "%04X:%04X", le(d["vendor-id"]) ?? 0, le(d["device-id"]) ?? 0)
+            return id + (le(d["layout-id"]).map { " (layout-id \($0))" } ?? " (no layout-id)")
+        }
+        let cod = (plist(codecs) ?? []).compactMap { le($0["IOHDACodecVendorID"]) }
+            .map { String(format: "%04X:%04X", $0 >> 16, $0 & 0xffff) }
+        return "audio hardware: " + (ctl.isEmpty ? "no HD-audio controller" : "HDA " + ctl.joined(separator: ", "))
+            + "; codecs " + (cod.isEmpty ? "none attached" : Array(Set(cod)).sorted().joined(separator: ", "))
     }
 
     /// The boot guard's counters and the boot arguments, so a "driver loaded: no" says whether the driver switched
