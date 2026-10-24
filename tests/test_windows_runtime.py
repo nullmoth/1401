@@ -41,7 +41,8 @@ class Pins(unittest.TestCase):
 
     def test_certifi_postdates_the_emsign_revocation(self):
         got = tuple(int(x) for x in self.inputs["runtime_packages"]["certifi"].split("."))
-        self.assertGreaterEqual(got, (2026, 10, 19))
+        # 2026.10.19 still carried the emSign Root CA - C1 and emSign ECC Root CA - C3; 2026.10.23 is the first without them
+        self.assertGreaterEqual(got, (2026, 10, 23))
         self.assertTrue(any(f"certifi-{self.inputs['runtime_packages']['certifi']}-" in w["url"]
                             for w in self.inputs["runtime"]["wheels"]))
 
