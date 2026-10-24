@@ -82,6 +82,13 @@ def _ps(script):
                 raise UsbError("Windows refused to start PowerShell (access denied) while preparing the stick. Security "
                                "software is blocking it: allow 1401 (and PowerShell) in your antivirus or Windows Security "
                                "> Controlled folder access, then try again") from None
+        except FileNotFoundError:
+            # 2.5.3 write logs (one PC, two runs): the write stopped at once on a bare "[WinError 2] The user cannot find
+            # the file specified" - Windows PowerShell was not where Windows keeps it, and the writer reads every disk
+            # through it.
+            raise UsbError(f"Windows PowerShell is missing ({cmd[0]} was not found), and 1401 reads and prepares the "
+                           "stick through it. Run 'sfc /scannow' in a Command Prompt opened as administrator to restore "
+                           "it, restart, then write again") from None
     except subprocess.TimeoutExpired:
         # 1.15 write log (10-13, a 500 GB hard disk in a USB case): Format-Volume ran past the limit and the raw
         # TimeoutExpired, PowerShell command line and all, was the STOP. It is a UsbError the format step can recover from.

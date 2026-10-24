@@ -49,6 +49,14 @@ class EmptyList(unittest.TestCase):
             self.assertIn(route, script)
         self.assertIn("Win32_DiskDrive=2", " ".join(str(c.args[0]) for c in out.call_args_list))
 
+    def test_a_missing_powershell_is_named_not_a_bare_winerror(self):
+        with patch.object(usbwriter.platform, "system", return_value="Windows"), \
+             patch.object(usbwriter.subprocess, "run", side_effect=FileNotFoundError(2, "The user cannot find the file specified")):
+            with self.assertRaises(usbwriter.UsbError) as e:
+                usbwriter._ps("Get-Disk")
+        self.assertIn("Windows PowerShell is missing", str(e.exception))
+        self.assertIn("sfc /scannow", str(e.exception))
+
     def test_the_context_line_never_raises(self):
         with patch.object(usbwriter, "_ps", side_effect=usbwriter.UsbError("blocked")), patch("builtins.print") as out:
             usbwriter._log_powershell_context()
