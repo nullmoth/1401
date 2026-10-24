@@ -77,6 +77,7 @@ def convert(probe_dir, out_dir):
         # A BAR of 4 GB or more is only possible with Resizable BAR on (a card without it exposes 256 MB).
         big = [b for b in d.get("bars") or [] if b.get("prefetch") and (b.get("size") or 0) >= (4 << 30)]
         e["Resizable BAR"] = "Enabled" if big else "Disabled"
+        e["Resizable BAR source"] = "BAR size"
         gpus.append(e)
 
     report = {
