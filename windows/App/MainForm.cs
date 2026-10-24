@@ -18,6 +18,7 @@ namespace A1401
         int page;
         readonly Label[] side = new Label[Steps.Length];
         readonly Panel body = new Panel();
+        readonly Panel foot = new Panel();
         readonly Label title = new Label(), note = new Label();
         readonly Button back = new Button(), next = new Button();
         readonly TextBox log = new TextBox();
@@ -58,9 +59,10 @@ namespace A1401
             Text = Loc.T("1401 Assistant");
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             ClientSize = new Size(900, 620);
-            FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimumSize = new Size(640, 420);
             BackColor = Theme.Bg; ForeColor = Theme.Text; Font = Theme.Body;
             StartPosition = FormStartPosition.CenterScreen;
+            Shown += (o, e) => FitToWorkingArea();
             if (!verificationMode) Shown += (o, e) => OfferStickLogs(false);
             if (!verificationMode) Shown += (o, e) => CheckAppVersion();
 
@@ -77,7 +79,7 @@ namespace A1401
                 nav.Controls.Add(side[i]);
             }
 
-            var foot = new Panel { Dock = DockStyle.Bottom, Height = 56, BackColor = Theme.Panel };
+            foot.Dock = DockStyle.Bottom; foot.Height = 56; foot.BackColor = Theme.Panel;
             back.Text = Loc.T("< Back"); back.Bounds = new Rectangle(560, 12, 150, 32); Theme.Style(back, false);
             next.Text = Loc.T("Continue >"); next.Bounds = new Rectangle(720, 12, 160, 32); Theme.Style(next);
             back.Click += (s, e) => {
@@ -86,9 +88,9 @@ namespace A1401
             }; next.Click += (s, e) => OnNext();
             foot.Controls.AddRange(new Control[] { back, next });
 
-            body.Dock = DockStyle.Fill; body.Padding = new Padding(24, 18, 24, 12); body.BackColor = Theme.Bg;
-            title.Font = Theme.Title; title.ForeColor = Theme.Text; title.AutoSize = false; title.Bounds = new Rectangle(24, 14, 620, 40);
-            note.AutoSize = false; note.Bounds = new Rectangle(24, 58, 620, 96); note.ForeColor = Theme.Text;
+            body.Dock = DockStyle.Fill; body.Padding = new Padding(24, 18, 24, 12); body.BackColor = Theme.Bg; body.AutoScroll = true;
+            title.Font = Theme.Title; title.ForeColor = Theme.Text; title.AutoSize = false;
+            note.AutoSize = true; note.AutoEllipsis = false; note.ForeColor = Theme.Text;
             log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical; log.BackColor = Color.Black;
             log.ForeColor = Theme.Cyan; log.Font = Theme.Log; log.BorderStyle = BorderStyle.FixedSingle;
             log.Bounds = new Rectangle(24, 330, 620, 140);
@@ -100,29 +102,29 @@ namespace A1401
             disks.BackColor = Theme.Panel; disks.ForeColor = Theme.Text; disks.Font = Theme.Picker;
             refresh.Text = Loc.T("Refresh"); refresh.Bounds = new Rectangle(534, 168, 110, 30); Theme.Style(refresh, false);
             refresh.Click += (s, e) => FillDisks();
-            osPick.DropDownStyle = ComboBoxStyle.DropDownList; osPick.Bounds = new Rectangle(24, 300, 300, 28);
+            osPick.DropDownStyle = ComboBoxStyle.DropDownList; osPick.Width = 300;
             osPick.BackColor = Theme.Panel; osPick.ForeColor = Theme.Text; osPick.Font = Theme.Picker;
             osPick.Items.AddRange(new object[] { Loc.T("macOS 15 Sequoia"), Loc.T("macOS 26 Tahoe") }); osPick.SelectedIndex = 0;
             // A different pick needs different startup files: drop the finished build so Build runs again.
             osPick.SelectedIndexChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
             expDrivers.Text = Loc.T("Include experimental drivers (Wi-Fi, AMD RDNA 4 graphics, USB and power fixes)");
-            expDrivers.Bounds = new Rectangle(24, 334, 620, 24); expDrivers.Checked = false;
+            expDrivers.AutoSize = true; expDrivers.Checked = false;
             expDrivers.BackColor = Theme.Panel; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
             // Including them changes which kexts the build carries, so a finished build is no longer the right one.
             expDrivers.CheckedChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
-            guide.Bounds = new Rectangle(24, 110, 620, 360); guide.ScriptErrorsSuppressed = true;
+            guide.ScriptErrorsSuppressed = true;
             ocLink.Text = Loc.T("OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"); ocLink.AutoSize = true;
-            ocLink.Location = new Point(24, 300); ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
+            ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
             ocLink.LinkClicked += (s, e) => System.Diagnostics.Process.Start("https://dortania.github.io/OpenCore-Install-Guide/");
             logLink.Text = Loc.T("Something went wrong? Scan for logs and send them"); logLink.AutoSize = true;
-            logLink.Location = new Point(24, 330); logLink.LinkColor = Theme.Cyan; logLink.Font = Theme.Link;
+            logLink.LinkColor = Theme.Cyan; logLink.Font = Theme.Link;
             logLink.LinkClicked += (s, e) => OfferStickLogs(true);
             coffeeLink.Text = Loc.T("Buy me a coffee"); coffeeLink.AutoSize = true;
-            coffeeLink.Location = new Point(440, 330); coffeeLink.LinkColor = Theme.Cyan; coffeeLink.Font = Theme.Link;
+            coffeeLink.LinkColor = Theme.Cyan; coffeeLink.Font = Theme.Link;
             coffeeLink.LinkClicked += (s, e) => System.Diagnostics.Process.Start("https://buymeacoffee.com/nullmoth");
             // Every project 1401 is built on or downloads, with its author and licence (NOTICE.md in the package).
             creditsLink.Text = Loc.T("Credits"); creditsLink.AutoSize = true;
-            creditsLink.Location = new Point(580, 330); creditsLink.LinkColor = Theme.Cyan; creditsLink.Font = Theme.Link;
+            creditsLink.LinkColor = Theme.Cyan; creditsLink.Font = Theme.Link;
             creditsLink.LinkClicked += (s, e) =>
             {
                 var notice = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "app", "NOTICE.md");
@@ -130,16 +132,16 @@ namespace A1401
                 else System.Diagnostics.Process.Start("https://github.com/nullmoth/1401/blob/main/NOTICE.md");
             };
             drvLink.Text = Loc.T("Update the NVIDIA driver (newest release, here and on your 1401 stick)"); drvLink.AutoSize = true;
-            drvLink.Location = new Point(24, 355); drvLink.LinkColor = Theme.Cyan; drvLink.Font = Theme.Link;
+            drvLink.LinkColor = Theme.Cyan; drvLink.Font = Theme.Link;
             drvLink.LinkClicked += (s, e) => UpdateDriver();
             appLink.Text = Loc.T("Update 1401 (this app)"); appLink.AutoSize = true;
-            appLink.Location = new Point(440, 355); appLink.LinkColor = Theme.Cyan; appLink.Font = Theme.Link;
+            appLink.LinkColor = Theme.Cyan; appLink.Font = Theme.Link;
             appLink.LinkClicked += (s, e) => UpdateApp();
             doctorLink.Text = Loc.T("Built your own EFI? Check it (and fix it) with the same rules 1401 uses"); doctorLink.AutoSize = true;
-            doctorLink.Location = new Point(24, 380); doctorLink.LinkColor = Theme.Cyan; doctorLink.Font = Theme.Link;
+            doctorLink.LinkColor = Theme.Cyan; doctorLink.Font = Theme.Link;
             doctorLink.LinkClicked += (s, e) => CheckOwnEfi();
             firmwareLink.Text = Loc.T("Review firmware prerequisites"); firmwareLink.AutoSize = true;
-            firmwareLink.Location = new Point(24, 300); firmwareLink.LinkColor = Theme.Cyan; firmwareLink.Font = Theme.Link;
+            firmwareLink.LinkColor = Theme.Cyan; firmwareLink.Font = Theme.Link;
             firmwareLink.LinkClicked += (s, e) => {
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
@@ -147,11 +149,185 @@ namespace A1401
             body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
+            body.Resize += (s, e) => LayoutBody();
+            foot.Resize += (s, e) => LayoutFooter();
+            DpiChanged += (s, e) => { FitToWorkingArea(e.DeviceDpiNew); LayoutBody(); LayoutFooter(); };
             ResumeLayout(false); PerformLayout();
-            // List view columns are not part of autoscaling.
-            float k = CurrentAutoScaleDimensions.Width / 96F;
-            if (k > 1.01F) foreach (ColumnHeader c in facts.Columns) c.Width = (int)(c.Width * k);
             Go(0);
+        }
+
+        void FitToWorkingArea(int dpi = 0)
+        {
+            if (!IsHandleCreated || IsDisposed) return;
+            var work = Screen.FromControl(this).WorkingArea;
+            float dpiScale = (dpi > 0 ? dpi : (int)CurrentAutoScaleDimensions.Width) / 96F;
+            int margin = Math.Max(24, (int)Math.Round(24F * dpiScale));
+            int chromeWidth = Math.Max(0, Width - ClientSize.Width);
+            int chromeHeight = Math.Max(0, Height - ClientSize.Height);
+            int availableOuterWidth = Math.Max(320, work.Width - margin);
+            int availableOuterHeight = Math.Max(260, work.Height - margin);
+            int availableClientWidth = Math.Max(320, availableOuterWidth - chromeWidth);
+            int availableClientHeight = Math.Max(260, availableOuterHeight - chromeHeight);
+            int minWidth = Math.Min((int)Math.Round(640F * dpiScale), availableOuterWidth);
+            int minHeight = Math.Min((int)Math.Round(420F * dpiScale), availableOuterHeight);
+            MinimumSize = new Size(minWidth, minHeight);
+            int width = Math.Min(ClientSize.Width, availableClientWidth);
+            int height = Math.Min(ClientSize.Height, availableClientHeight);
+            if (width != ClientSize.Width || height != ClientSize.Height) ClientSize = new Size(width, height);
+        }
+
+        void LayoutFooter()
+        {
+            if (foot.IsDisposed) return;
+            const int gap = 10, right = 20;
+            next.Top = 12;
+            next.Left = Math.Max(gap, foot.ClientSize.Width - right - next.Width);
+            back.Top = 12;
+            back.Left = Math.Max(gap, next.Left - gap - back.Width);
+        }
+
+        void LayoutFactsColumns(int width)
+        {
+            if (facts.Columns.Count < 2) return;
+            int available = Math.Max(240, width - SystemInformation.VerticalScrollBarWidth);
+            int first = Math.Min(Math.Max(150, available / 3), Math.Max(150, available - 180));
+            facts.Columns[0].Width = first;
+            facts.Columns[1].Width = Math.Max(120, available - first - 4);
+        }
+
+        void LayoutLink(LinkLabel link, int left, int top, int width, ref int cursor)
+        {
+            if (!link.Visible) return;
+            link.AutoSize = false;
+            link.MaximumSize = new Size(width, 0);
+            var preferred = link.GetPreferredSize(new Size(width, 0));
+            link.SetBounds(left, top, width, Math.Max(24, preferred.Height));
+            cursor = link.Bottom + 8;
+        }
+
+        // Short links share a line while they fit and wrap onto the next one when the window or the font does not allow it.
+        void LayoutLinkRow(int left, int width, ref int cursor, params LinkLabel[] links)
+        {
+            int x = left, top = cursor, rowBottom = cursor;
+            foreach (var link in links)
+            {
+                if (!link.Visible) continue;
+                link.AutoSize = true;
+                link.MaximumSize = new Size(width, 0);
+                var size = link.GetPreferredSize(new Size(width, 0));
+                if (x > left && x + size.Width > left + width) { x = left; top = rowBottom + 8; }
+                link.SetBounds(x, top, size.Width, Math.Max(24, size.Height));
+                x = link.Right + 24;
+                rowBottom = Math.Max(rowBottom, link.Bottom);
+            }
+            if (rowBottom > cursor) cursor = rowBottom + 8;
+        }
+        int LinkRowHeight(int width, params LinkLabel[] links)
+        {
+            int x = 0, height = 0, row = 0;
+            foreach (var link in links)
+            {
+                if (!link.Visible) continue;
+                link.AutoSize = true;
+                link.MaximumSize = new Size(width, 0);
+                var size = link.GetPreferredSize(new Size(width, 0));
+                if (x > 0 && x + size.Width > width) { height += row + 8; x = 0; row = 0; }
+                x += size.Width + 24;
+                row = Math.Max(row, Math.Max(24, size.Height));
+            }
+            return row > 0 ? height + row + 8 : 0;
+        }
+        int LinkHeight(LinkLabel link, int width)
+        {
+            if (!link.Visible) return 0;
+            link.AutoSize = true;
+            link.MaximumSize = new Size(width, 0);
+            return Math.Max(24, link.GetPreferredSize(new Size(width, 0)).Height) + 8;
+        }
+
+        void LayoutBody()
+        {
+            if (body.IsDisposed || body.ClientSize.Width <= 0) return;
+            int left = body.Padding.Left;
+            int width = Math.Max(240, body.ClientSize.Width - body.Padding.Left - body.Padding.Right);
+            int cursor = body.Padding.Top;
+            int titleHeight = Math.Max(36, title.PreferredHeight);
+            title.SetBounds(left, cursor, width, titleHeight);
+            cursor = title.Bottom + 8;
+
+            note.AutoSize = true;
+            note.MinimumSize = new Size(width, 0);
+            note.MaximumSize = new Size(width, 0);
+            note.PerformLayout();
+            var noteHeight = Math.Max(24, note.PreferredHeight);
+            note.SetBounds(left, cursor, width, noteHeight);
+            cursor = note.Bottom + 14;
+
+            if (facts.Visible)
+            {
+                facts.SetBounds(left, cursor, width, Math.Max(96, facts.Height));
+                LayoutFactsColumns(width);
+                cursor = facts.Bottom + 12;
+            }
+
+            if (disks.Visible || refresh.Visible)
+            {
+                int refreshWidth = Math.Max(96, refresh.Width);
+                int diskWidth = Math.Max(140, width - refreshWidth - 12);
+                disks.SetBounds(left, cursor, diskWidth, Math.Max(28, disks.Height));
+                refresh.SetBounds(left + diskWidth + 12, cursor - 2, refreshWidth, Math.Max(30, refresh.Height));
+                cursor = Math.Max(disks.Bottom, refresh.Bottom) + 12;
+            }
+
+            if (bar.Visible)
+            {
+                bar.SetBounds(left, cursor, width, Math.Max(18, bar.Height));
+                cursor = bar.Bottom + 12;
+            }
+
+            if (osPick.Visible)
+            {
+                osPick.SetBounds(left, cursor, Math.Min(width, Math.Max(300, osPick.PreferredSize.Width)), osPick.Height);
+                cursor = osPick.Bottom + 8;
+            }
+
+            if (expDrivers.Visible)
+            {
+                expDrivers.AutoSize = false;
+                int boxHeight = Math.Max(24, expDrivers.GetPreferredSize(new Size(width, 0)).Height);
+                expDrivers.SetBounds(left, cursor, width, boxHeight);
+                cursor = expDrivers.Bottom + 12;
+            }
+
+            int linksReserve = LinkHeight(ocLink, width) + LinkRowHeight(width, logLink, coffeeLink, creditsLink) +
+                               LinkRowHeight(width, drvLink, appLink) + LinkHeight(doctorLink, width) +
+                               LinkHeight(firmwareLink, width);
+
+            if (guide.Visible)
+            {
+                guide.Left = left;
+                guide.Top = cursor;
+                guide.Width = width;
+                guide.Height = Math.Max(180, body.ClientSize.Height - cursor - body.Padding.Bottom);
+                body.AutoScrollMinSize = new Size(0, guide.Bottom + body.Padding.Bottom);
+                return;
+            }
+
+            if (log.Visible)
+            {
+                log.Left = left;
+                log.Top = cursor;
+                log.Width = width;
+                log.Height = Math.Max(120, body.ClientSize.Height - cursor - body.Padding.Bottom - linksReserve);
+                cursor = log.Bottom + 12;
+            }
+
+            LayoutLink(ocLink, left, cursor, width, ref cursor);
+            LayoutLinkRow(left, width, ref cursor, logLink, coffeeLink, creditsLink);
+            LayoutLinkRow(left, width, ref cursor, drvLink, appLink);
+            LayoutLink(doctorLink, left, cursor, width, ref cursor);
+            LayoutLink(firmwareLink, left, cursor, width, ref cursor);
+            body.AutoScrollMinSize = new Size(0, cursor + body.Padding.Bottom);
         }
 
         // "Update driver": the newest driver release and 1401 Mac app, verified against the release's SHA256SUMS.txt, into
@@ -232,7 +408,7 @@ namespace A1401
 
         void Show(params Control[] on)
         {
-            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, guide, ocLink, logLink }) c.Visible = on.Contains(c);
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
             appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
@@ -246,10 +422,25 @@ namespace A1401
         {
             if (busy || p < 0 || p >= Steps.Length) return;
             page = p;
+            body.AutoScrollPosition = Point.Empty;
             for (int i = 0; i < Steps.Length; i++)
             {
                 side[i].ForeColor = i == page ? Theme.Purple : (i < page ? Theme.Cyan : Theme.Muted);
-                side[i].Font = i == page ? new Font(Theme.Face("Verdana"), 9.75f, FontStyle.Bold) : Theme.Body;
+                if (i == page)
+                {
+                    if (!side[i].Font.Bold)
+                    {
+                        var old = side[i].Font;
+                        side[i].Font = new Font(old, FontStyle.Bold);
+                        if (!ReferenceEquals(old, Theme.Body)) old.Dispose();
+                    }
+                }
+                else if (side[i].Font.Bold)
+                {
+                    var old = side[i].Font;
+                    side[i].Font = new Font(old, FontStyle.Regular);
+                    if (!ReferenceEquals(old, Theme.Body)) old.Dispose();
+                }
             }
             title.Text = Loc.T(Steps[page]); back.Enabled = page > 0 && page < Steps.Length - 1; next.Text = Loc.T("Continue >");
             switch (page)
@@ -296,6 +487,7 @@ namespace A1401
                         "3. When macOS is running, open the NullMoth folder on the stick and run 1401.app to finish the NVIDIA driver.");
                     next.Text = Loc.T("Close"); Show(); next.Enabled = true; break;
             }
+            LayoutBody(); LayoutFooter();
         }
 
         async Task PrepareFirmwareGuide()
@@ -1010,15 +1202,22 @@ namespace A1401
             using (var f = new Form { AutoScaleDimensions = new SizeF(96F, 96F), AutoScaleMode = AutoScaleMode.Dpi,
                                       Text = Loc.T("1401 - sending the startup logs"), FormBorderStyle = FormBorderStyle.FixedDialog,
                                       MaximizeBox = false, MinimizeBox = false, StartPosition = FormStartPosition.CenterParent,
-                                      ClientSize = new Size(520, 300), Font = Theme.Body })
+                                      ClientSize = new Size(520, 380), Font = Theme.Body, AutoScroll = true })
             {
                 f.SuspendLayout();
-                var msg = new Label { Text = text, Left = 14, Top = 12, Width = 492, Height = 150 };
+                const int margin = 14, contentWidth = 492;
+                var msg = new Label { Text = text, Font = Theme.Body, AutoSize = true, MaximumSize = new Size(contentWidth, 0), Left = margin, Top = 12 };
                 var q = new Label { Text = Loc.T("Optional: the last line on the screen when it stopped (for example \"PCI configuration begin\"):"),
-                                    Left = 14, Top = 168, Width = 492, Height = 34 };
-                var box = new TextBox { Left = 14, Top = 204, Width = 492, MaxLength = 300 };
-                var send = new Button { Text = Loc.T("Send"), DialogResult = DialogResult.OK, Left = 330, Top = 252, Width = 84 };
-                var cancel = new Button { Text = Loc.T("Cancel"), DialogResult = DialogResult.Cancel, Left = 422, Top = 252, Width = 84 };
+                                    Font = Theme.Body, AutoSize = true, MaximumSize = new Size(contentWidth, 0), Left = margin };
+                q.Top = msg.Bottom + 12;
+                var box = new TextBox { Left = margin, Top = q.Bottom + 8, Width = contentWidth, MaxLength = 300 };
+                var buttonTop = box.Bottom + 16;
+                var send = new Button { Text = Loc.T("Send"), DialogResult = DialogResult.OK, Width = 84, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+                var cancel = new Button { Text = Loc.T("Cancel"), DialogResult = DialogResult.Cancel, Width = 84, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+                int requiredHeight = buttonTop + Math.Max(send.Height, cancel.Height) + 14;
+                f.ClientSize = new Size(520, Math.Max(380, Math.Min(640, requiredHeight)));
+                send.Left = f.ClientSize.Width - margin - send.Width - cancel.Width - 8; send.Top = f.ClientSize.Height - margin - send.Height;
+                cancel.Left = f.ClientSize.Width - margin - cancel.Width; cancel.Top = send.Top;
                 f.Controls.AddRange(new Control[] { msg, q, box, send, cancel });
                 f.AcceptButton = send; f.CancelButton = cancel;
                 f.ResumeLayout(false); f.PerformLayout();
