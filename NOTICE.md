@@ -68,7 +68,7 @@ Pinned by URL and SHA-256 in `windows/release-inputs.json`, installed by `tools/
 | CPython 3.13.17 (Windows embeddable package) | python.org | PSF License 2.0 (`LICENSE.txt` in the runtime folder) |
 | pywin32 312 | PyPI | PSF License |
 | WMI 1.5.1, by Tim Golden | PyPI | MIT |
-| certifi 2026.10.19 (Mozilla's CA list) | PyPI | MPL-2.0 |
+| certifi 2026.10.23 (Mozilla's CA list) | PyPI | MPL-2.0 |
 
 ## Built and redistributed by 1401 (with source), verified by hash
 
