@@ -209,7 +209,7 @@ function usbConnectorDefault(port) {
   if (port.connectorKnown === true && CONN.some(([value]) => value === port.connector)) return port.connector;
   return port.usb3 ? 3 : 0;
 }
-const U = { ctrls: [], seen: {}, pick: {}, off: new Set() };
+const U = { ctrls: [], seen: {}, pick: {}, off: new Set(), last: "" };
 function usbRender() {
   let h = "";
   for (const c of U.ctrls) {
@@ -230,9 +230,13 @@ function usbRender() {
     if (i.checked) { U.off.delete(c + "/" + p); U.pick[c][p] = +i.closest("tr").querySelector("select").value; } else { U.off.add(c + "/" + p); delete U.pick[c][p]; }
     usbRender();
   }));
-  $("ports").querySelectorAll("select").forEach((s) => (s.onchange = () => { const c = s.dataset.c; if (U.pick[c] && s.dataset.p in U.pick[c]) U.pick[c][s.dataset.p] = +s.value; }));
+  $("ports").querySelectorAll("select").forEach((s) => (s.onchange = () => {
+    const c = s.dataset.c, p = s.dataset.p; U.pick[c] = U.pick[c] || {};
+    // choosing a plug type is choosing the port: an unticked row is ticked with that type rather than reset on redraw
+    U.off.delete(c + "/" + p); U.pick[c][p] = +s.value; usbRender();
+  }));
 }
-$("uw").onclick = () => { U.pick = {}; U.off = new Set(); post({ act: "usbStart" }); $("uw").textContent = "Watching..."; $("uw").disabled = true; };
+$("uw").onclick = () => { U.pick = {}; U.off = new Set(); U.last = ""; post({ act: "usbStart" }); $("uw").textContent = "Watching..."; $("uw").disabled = true; };
 $("uwr").onclick = () => { $("uerr").textContent = ""; post({ act: "usbStop" }); post({ act: "usbWrite", sel: U.pick, efi: efi() }); };
 $("mk").onclick = () => post({ act: "crashReport" });
 $("cf").onclick = () => post({ act: "open", url: "https://buymeacoffee.com/nullmoth" });
@@ -248,6 +252,12 @@ NM.on = (m) => {
   if (m.event === "diagnosticsStatus") { $("odr").textContent = m.data.text; return; }
   if (m.event === "diagnosticReceipt") { $("drr").textContent = m.data.text; return; }
   if (m.event === "usb") {
+    // The scan reports every second. Rebuilding the table each time closed a plug-type list while it was open and put
+    // back the default plug on rows not yet ticked, so choices looked like they changed by themselves (10-23 chat).
+    // The table is rebuilt only when the controllers, their devices or the ports seen have changed.
+    const snap = JSON.stringify([m.data.controllers, m.data.seen]);
+    if (snap === U.last) return;
+    U.last = snap;
     U.ctrls = m.data.controllers; U.seen = m.data.seen;
     for (const c of U.ctrls) {   // a port that has been seen is ticked automatically, with its default plug type
       const key = c.key || c.controller;
