@@ -39,6 +39,16 @@ class EmptyList(unittest.TestCase):
         self.assertIn("Nothing was erased", line)
         ctx.assert_called_once()
 
+    def test_the_context_line_counts_every_other_route_to_the_disks(self):
+        with patch.object(usbwriter, "_ps", return_value="PowerShell 5.1 wmi-MSFT_Disk=2 Win32_DiskDrive=2 subsystems=0 admin=True") as ps, \
+             patch("builtins.print") as out:
+            usbwriter._log_powershell_context()
+        script = ps.call_args.args[0]
+        for route in ("Get-WmiObject -Namespace root/Microsoft/Windows/Storage -Class MSFT_Disk", "Win32_DiskDrive",
+                      "Get-StorageSubSystem", "WindowsBuiltInRole]::Administrator"):
+            self.assertIn(route, script)
+        self.assertIn("Win32_DiskDrive=2", " ".join(str(c.args[0]) for c in out.call_args_list))
+
     def test_the_context_line_never_raises(self):
         with patch.object(usbwriter, "_ps", side_effect=usbwriter.UsbError("blocked")), patch("builtins.print") as out:
             usbwriter._log_powershell_context()
