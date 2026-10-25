@@ -84,7 +84,7 @@ DRIVERS = [
             v: ("https://github.com/MonkaKokosowa/KernReserveLow/releases/download/1.0/KernReserveLow-1.0.0-RELEASE.zip",
                 22299, "a8c100b5218e33f48e30f9c7320c3965fb2e856eb081ec2c6383c9d3bd76b082") for v in (SEQUOIA, TAHOE)
         },
-        "what": "AMD USB storage disconnect fix (KernReserveLow 1.0.0, reserves ~155 MB of low RAM)",
+        "what": "AMD USB storage disconnect fix (KernReserveLow 1.0.0, reserves about 155 MB of low RAM)",
     },
     {   # Lenovo firmware that loads Microsoft's cloud-recovery driver: random vm_page_validate_no_references panics
         "name": "LegionCbmrFix.efi", "repo": "watchthelight-labs/LegionCbmrFix", "section": None, "vendor": "LENOVO",

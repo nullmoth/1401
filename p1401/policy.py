@@ -633,3 +633,42 @@ def apply(config_path, result, policy):
         plistlib.dump(cfg, fh)
     os.replace(tmp, config_path)
     return changes
+
+
+def _legal_comment(text):
+    # ocvalidate accepts a Comment only when every character is printable ASCII below "~" (OcAsciiLib IsAsciiPrint:
+    # ' ' <= c < '~'). A "~" in one community driver's text failed every build that added it (1401 #101).
+    out = "".join(c if " " <= c < "~" else "-" if c in "\u2013\u2014" else "" for c in text)
+    return out.replace("~", "")
+
+
+def legal_comments(config_path):
+    """Rewrite every Comment in config.plist to the characters ocvalidate accepts. Runs last, after every pass that
+    adds entries, so text from any source (engine, policy, community drivers) cannot fail validation."""
+    with open(config_path, "rb") as fh:
+        cfg = plistlib.load(fh)
+    fixed = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "Comment" and isinstance(v, str):
+                    clean = _legal_comment(v)
+                    if clean != v:
+                        node[k] = clean
+                        fixed.append((v, clean))
+                else:
+                    walk(v)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v)
+
+    walk(cfg)
+    if not fixed:
+        return []
+    tmp = config_path + ".tmp"
+    with open(tmp, "wb") as fh:
+        plistlib.dump(cfg, fh)
+    os.replace(tmp, config_path)
+    return [{"rule": "legal-comments", "before": b, "after": a,
+             "why": "ocvalidate refuses a Comment with characters outside printable ASCII below '~'"} for b, a in fixed]

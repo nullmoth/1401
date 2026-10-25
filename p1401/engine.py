@@ -916,6 +916,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # ship the firmware table with those Scopes deferred so macOS gets a DSDT at all
                 from . import dsdt_pass1  # noqa: PLC0415
                 res.policy_changes += dsdt_pass1.apply(os.path.abspath(acpi_dir), out_dir)
+                res.policy_changes += policy_mod.legal_comments(os.path.join(out_dir, "EFI", "OC", "config.plist"))
                 # A fresh build left an OpenCore.efi that was not the verified release's (NM-YZZJY5WJ): the boot files
                 # are written back from the verified zip before the check, and a file that STILL differs is being
                 # rewritten by something on the PC (the check names its hash and whether it looks quarantined).
