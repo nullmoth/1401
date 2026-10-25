@@ -18,7 +18,7 @@ function render(m) {
     row("Graphics", m.gpus.length ? m.gpus.map((g) => esc(g.name) + (g.supported ? (g.tested ? ' <span class="good">listed device, model tested</span>' : ' <span class="warn">listed by NVIDIA, model not tested yet</span>') : g.vendor === "10DE" ? ' <span class="bad">not supported (needs RTX 20 series or newer)</span>' : "")).join("<br>") : "none found") +
     row("OpenCore", m.opencore ? esc(m.opencore) : '<span class="warn">not detected</span>') +
     row("Installed driver package", m.installedDriverVersion ? esc(m.installedDriverVersion) : "No version record") +
-    row("NullMoth driver", on ? '<span class="good">running</span> (' + esc(m.metal.join(", ")) + ")" : m.files ? '<span class="warn">installed, not running yet</span>' : "not installed");
+    row("NullMoth driver", on ? '<span class="good">running</span> (' + esc(m.metal.join(", ")) + ")" : m.kexts >= 4 ? '<span class="warn">loaded, no NVIDIA Metal device yet</span>' : m.files ? '<span class="warn">installed, not running yet</span>' : "not installed");
 
   let why = "";
   if (m.arch !== "x86_64" || m.translated) why = "This Mac has Apple silicon. Its own graphics are already Apple's.";
@@ -60,7 +60,11 @@ function render(m) {
     $("steps").hidden = true; return;
   }
   if (why) { $("verdict").innerHTML = `<p class="bad">Can't install here.</p><p>${why}</p>`; $("steps").hidden = true; return; }
-  if (m.files && !S.installed) {
+  // All four kexts loaded but no NVIDIA Metal device is a different state from "not running" (#98: an Optimus laptop
+  // whose kexts were loaded was told to restart and allow an extension that was never blocked).
+  if (m.files && !S.installed && m.kexts >= 4) {
+    $("verdict").innerHTML = '<p class="warn">The driver is loaded, but macOS shows no NVIDIA Metal device yet.</p><p>On a laptop whose built-in screen is wired to the Intel or AMD graphics (no MUX switch), the NVIDIA card draws only the displays plugged into its own HDMI or DisplayPort: connect one there and restart. Otherwise restart once; if it stays this way, use Send logs.</p>';
+  } else if (m.files && !S.installed) {
     $("verdict").innerHTML = '<p class="warn">The driver is installed but not running.</p><p>Restart. If macOS blocked a system extension, allow it in Privacy &amp; Security, then restart once more.</p>';
   } else {
     $("verdict").innerHTML = `<p>Your <b>${esc(card.name)}</b> has a driver configuration available. This machine still needs boot, display and application checks. Four steps, in order.</p>`;
