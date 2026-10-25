@@ -17,6 +17,7 @@ import platform
 import shutil
 import subprocess
 import time
+import re
 import sys
 
 GiB = 1 << 30
@@ -34,6 +35,10 @@ TIMEOUT = 300  # seconds, so a hung format fails instead of waiting forever
 # 1401\\Recovery beside 1401.exe: a recovery image the user brings (see cli_write)
 RECOVERY_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "Recovery"))
 FIELDS = "Number,FriendlyName,SerialNumber,UniqueId,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
+
+
+# Windows errors a raw sector write ends with on sticks that diskpart still erases: 5 access denied, 1117 I/O device error
+RAW_REFUSED = (5, 1117)
 
 
 class UsbError(RuntimeError):
@@ -497,8 +502,11 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     except rawdisk.DiskError as e:
         # Some sticks refuse raw sector writes outright (1.7 logs 10-10: Lexar, "Windows error 5" with nothing else
         # using them). Windows' own diskpart erase goes through the volume manager and works on them; it was the
-        # writer's path before the raw erase, so it is kept as the fallback rather than ending the write.
-        if "Windows error 5" not in str(e):
+        # writer's path before the raw erase, so it is kept as the fallback rather than ending the write. 2.5.4 logs (two
+        # "Generic Flash Disk" sticks) refused them with error 1117, an I/O device error on the raw handle: the same
+        # fallback, since diskpart reaches the stick through the volume manager rather than that handle.
+        code = re.search(r"Windows error (\d+)\)", str(e))
+        if not code or int(code.group(1)) not in RAW_REFUSED:
             raise
         print("(this stick refuses direct writes; erasing it with Windows' diskpart instead)", flush=True)
         n = current_number(disk)
