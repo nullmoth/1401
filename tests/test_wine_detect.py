@@ -33,9 +33,18 @@ class WineDetection(unittest.TestCase):
             if root == 'HKEY_LOCAL_MACHINE':
                 return object()
             raise OSError(2, 'missing')
-        got = wine.version(load_ntdll=lambda: ntdll(), open_key=open_key)
+        got = wine.version(load_ntdll=lambda: ntdll(), open_key=open_key, unix_root=lambda: True)
         self.assertEqual(got, 'registry')
         self.assertEqual(opened, [('HKEY_CURRENT_USER', r'Software\Wine'), ('HKEY_LOCAL_MACHINE', r'Software\Wine')])
+
+    def test_a_leftover_wine_key_on_real_windows_is_not_wine(self):
+        # 1401 #99: a real PC refused because some other software had left a Software\Wine key
+        got = wine.version(load_ntdll=lambda: ntdll(), open_key=lambda root, path: object(), unix_root=lambda: False)
+        self.assertIsNone(got)
+
+    def test_wines_export_alone_still_names_it_without_a_unix_root(self):
+        got = wine.version(load_ntdll=lambda: ntdll(wine_get_version=lambda: b'9.0'), open_key=no_key, unix_root=lambda: False)
+        self.assertEqual(got, '9.0')
 
     def test_real_windows_is_not_wine(self):
         self.assertIsNone(wine.version(load_ntdll=lambda: ntdll(), open_key=no_key))
