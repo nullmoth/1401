@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Management;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
@@ -94,7 +95,9 @@ namespace A1401
             catch (Exception) { }
             foreach (var root in new[] { Registry.CurrentUser, Registry.LocalMachine })
             {
-                try { using (var k = root.OpenSubKey(@"Software\Wine")) if (k != null) return true; }
+                // a Software\Wine key alone is not Wine: other software leaves one on real PCs (1401 #99); Wine also shows
+                // its Unix root as Z:
+                try { using (var k = root.OpenSubKey(@"Software\Wine")) if (k != null && Directory.Exists(@"Z:\etc") && Directory.Exists(@"Z:\usr")) return true; }
                 catch (Exception) { }
             }
             return false;
