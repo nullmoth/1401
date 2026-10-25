@@ -1206,6 +1206,12 @@ PL
     if [ $INSTALL_THEN_PREPARE = 1 ]; then :   # handled after the install below
     else do_prepare; cleanup; echo "RESULT ok"; exit 0; fi;;
   finish|cancel)
+    # Cancel on a Mac the Tahoe preparation never ran on (no pending file, driver not parked) has nothing to put back.
+    # It used to rebuild for the running macOS and stop "this driver has no kexts for macOS 15" on Macs with no cached
+    # accelerators (2 Sequoia setups on 2.5.4), as if the update had broken something.
+    if [ "$UPD" = cancel ] && [ ! -f "$PEND" ] && ! { get NVRAM.Add.$B.boot-args; nvram boot-args 2>/dev/null | cut -f2-; } | tr ' ' '\n' | grep -qx -- -nvoff; then
+      ok "the Tahoe preparation was not started on this Mac - nothing to cancel"; cleanup; echo "RESULT ok"; exit 0
+    fi
     . "$PEND" 2>/dev/null
     # Change back the config "prepare" changed. Prepare's install step can switch the model (iMacPro1,1 to MacPro7,1)
     # while the running Mac still reports the old one, so detection run before the next restart can reject the internal
