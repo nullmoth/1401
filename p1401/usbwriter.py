@@ -136,6 +136,38 @@ def _as_list(out):
     return d if isinstance(d, list) else [d]
 
 
+# Win32_DiskDrive reports a CHS-rounded size, up to one cylinder (255 x 63 x 512 = 8,225,280 bytes) short of the disk.
+WMI_SIZE_SLACK = 16 * (1 << 20)
+
+
+def _wmi_disks():
+    """Every disk through classic WMI (Win32_DiskDrive), in list_disks' fields, marked Via=Win32_DiskDrive. 2.5.4 logs
+    (22 PCs): Get-Disk and MSFT_Disk listed 0 disks while Win32_DiskDrive listed 2-4; on 8 of them the Storage Management
+    Provider service (smphost) did not exist at all, which no repair brings back. Index is the PhysicalDrive number the
+    storage cmdlets and diskpart use. The boot and system disks are found through the partitions Windows boots from and
+    runs from, so eligible() refuses them exactly as it does a Get-Disk listing."""
+    out = _ps("""$ErrorActionPreference = 'SilentlyContinue'
+$sysd = $env:SystemDrive
+$sys = @(Get-WmiObject -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$sysd'} WHERE AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object { $_.DiskIndex })
+$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object { $_.BootPartition } | ForEach-Object { $_.DiskIndex })
+@(Get-WmiObject -Class Win32_DiskDrive | ForEach-Object {
+  [pscustomobject]@{ Index = $_.Index; Model = $_.Model; SerialNumber = $_.SerialNumber; PNPDeviceID = $_.PNPDeviceID;
+    InterfaceType = $_.InterfaceType; MediaType = $_.MediaType; Size = [int64]$_.Size;
+    IsSystem = ($sys -contains $_.Index); IsBoot = ($boot -contains $_.Index) } }) | ConvertTo-Json -Compress""")
+    disks = []
+    for w in _as_list(out):
+        if not isinstance(w, dict) or w.get("Index") is None:
+            continue
+        pnp = (w.get("PNPDeviceID") or "").strip()
+        usb = (w.get("InterfaceType") or "").upper() == "USB" or pnp.upper().startswith("USBSTOR\\")
+        disks.append({"Number": int(w["Index"]), "FriendlyName": (w.get("Model") or "").strip(),
+                      "SerialNumber": (w.get("SerialNumber") or "").strip(), "UniqueId": pnp,
+                      "BusType": "USB" if usb else (w.get("InterfaceType") or "unknown"), "Size": int(w.get("Size") or 0),
+                      "IsBoot": bool(w.get("IsBoot")), "IsSystem": bool(w.get("IsSystem")), "IsOffline": False,
+                      "IsReadOnly": False, "PartitionStyle": "unknown", "Via": "Win32_DiskDrive"})
+    return disks
+
+
 def list_disks(_repaired=False):
     """Every disk, with the fields eligible() and the write read. Get-Disk first; when it lists nothing at all (2.2.0
     write logs, two PCs: "Windows lists 0 disk(s)" right after the window had listed the stick through WMI, so every
@@ -156,6 +188,11 @@ def list_disks(_repaired=False):
     elif not _repaired and _repair_storage_wmi():
         # every PC has at least the disk Windows runs from: an empty list means the storage provider is broken
         return list_disks(_repaired=True)
+    if not raw:
+        raw = _wmi_disks()
+        if raw:
+            print(f"OK the storage service listed no disks; {len(raw)} disk(s) read from Win32_DiskDrive instead "
+                  "(the stick is checked there and erased with diskpart)")
     return raw
 
 
@@ -266,6 +303,35 @@ if ($os.Count) {{
   $kinds = @{{'{{7c3457ef-0000-11aa-aa11-00306543ecac}}'='Mac APFS'; '{{48465300-0000-11aa-aa11-00306543ecac}}'='Mac HFS+'; '{{de94bba4-06d1-4d40-a16a-bfd50179d6ac}}'='Windows recovery'}}
   $list = ($os | ForEach-Object {{ $kinds[$_.GptType] + ' ' + [math]::Round($_.Size / 1GB, 1) + ' GB' }}) -join ', '
   throw ('1401-OS-PARTITIONS: disk {n} holds ' + $list + '. Nothing was erased.')
+}}
+""")
+
+
+def wmi_check_script(disk, erase_os=False):
+    """check_script for a disk listed through Win32_DiskDrive (no storage cmdlets on this PC): disk N must still be the
+    same model, serial and size, on USB, and not the disk Windows boots or runs from. Unless erase_os, a partition
+    Windows cannot name (an Apple or Linux one shows as "GPT: Unknown") stops the write so the app can ask."""
+    ok, why = eligible(disk, allow_large=True)
+    if not ok:
+        raise UsbError("refusing: " + "; ".join(why))
+    n, size = int(disk["Number"]), int(disk["Size"])
+    return f"""$ErrorActionPreference = 'Stop'
+$d = @(Get-WmiObject -Class Win32_DiskDrive -ErrorAction SilentlyContinue | Where-Object {{ $_.Index -eq {n} }})
+if (-not $d.Count) {{ throw '1401: disk {n} is not attached any more (Windows renumbered the stick). Nothing was erased. Press Refresh, pick the stick again and write.' }}
+$d = $d[0]
+$sysd = $env:SystemDrive
+$sys = @(Get-WmiObject -Query "ASSOCIATORS OF {{Win32_LogicalDisk.DeviceID='$sysd'}} WHERE AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object {{ $_.DiskIndex }})
+$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object {{ $_.BootPartition }} | ForEach-Object {{ $_.DiskIndex }})
+$usb = ($d.InterfaceType -eq 'USB') -or (($d.PNPDeviceID + '') -like 'USBSTOR\\*')
+if ([int64]$d.Size -ne {size} -or ($d.Model + '').Trim() -ne {_q(disk.get('FriendlyName'))} -or
+    ($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip())} -or -not $usb -or
+    ($sys -contains {n}) -or ($boot -contains {n})) {{
+  throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
+}}
+""" + ("" if erase_os else f"""$odd = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object {{ $_.DiskIndex -eq {n} -and ($_.Type + '') -like '*Unknown*' }})
+if ($odd.Count) {{
+  $list = ($odd | ForEach-Object {{ 'a partition Windows cannot read ' + [math]::Round($_.Size / 1GB, 1) + ' GB' }}) -join ', '
+  throw ('1401-OS-PARTITIONS: disk {n} holds ' + $list + ' (it may be a Mac or Linux system). Nothing was erased.')
 }}
 """)
 
@@ -409,6 +475,9 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         from . import machine_handoff
         if machine_handoff.verified(efi_build_dir) != machine_profile:
             raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
+    if disk.get("Via") == "Win32_DiskDrive":
+        root = _write_wmi_erase(disk, erase_os)
+        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile)
     _ps(check_script(disk, erase_os))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
@@ -532,6 +601,29 @@ Write-Output "LETTER=$letter"
         time.sleep(0.5)
     if not os.path.isdir(root):
         raise UsbError(f"diskpart finished but {root} did not appear")
+    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile)
+
+
+def _write_wmi_erase(disk, erase_os):
+    """The erase when this PC has no working storage cmdlets: every Get-Disk / Get-Partition / Format-Volume step of the
+    usual path would fail, so the stick is checked through classic WMI and erased by diskpart alone (clean, MBR, FAT32,
+    letter), which goes through the volume manager rather than the storage provider. Returns the drive root."""
+    _ps(wmi_check_script(disk, erase_os))
+    letter = _free_letter()
+    print("(erasing the stick with Windows' diskpart: this PC's storage service lists no disks)", flush=True)
+    _diskpart(diskpart_script(disk, letter))
+    root = letter + ":\\"
+    for _ in range(60):
+        if os.path.isdir(root):
+            return root
+        time.sleep(0.5)
+    raise UsbError(f"diskpart finished but {root} did not appear")
+
+
+def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile):
+    """Everything after the erase: the recovery image (checked as it arrives and read back), the EFI, the driver."""
+    from . import apple  # noqa: PLC0415
+    from . import machine_handoff  # noqa: PLC0415
     got = (apple.copy_local if recovery_info.get("local") else apple.download)(recovery_info, root, progress)
     # the image checked out while it arrived; this checks what the stick actually kept (see apple.verify_written)
     with open(got["chunklist"], "rb") as fh:
@@ -754,7 +846,12 @@ def refind(disks, uid, size, name):
         hit = [d for d in disks if (d.get("UniqueId") or "").strip() == uid]
         if len(hit) == 1:
             return hit[0]
-    hit = [d for d in disks if d.get("BusType") == "USB" and int(d.get("Size") or 0) == int(size or -1)
+    def same_size(d):
+        have, want = int(d.get("Size") or 0), int(size or -1)
+        if d.get("Via") == "Win32_DiskDrive":
+            return 0 <= want - have < WMI_SIZE_SLACK
+        return have == want
+    hit = [d for d in disks if d.get("BusType") == "USB" and same_size(d)
            and (d.get("FriendlyName") or "").strip() == (name or "").strip()]
     return hit[0] if len(hit) == 1 else None
 
