@@ -65,7 +65,7 @@ def read_logs(paths):
 def findings(texts):
     """What the logs show, newest-boot-last order not assumed: any log showing a failure counts."""
     out = {"startimage_aborted": False, "stop16": False, "secureboot_dmg": False, "mmio": [], "devirt_ran": False, "boots": [],
-           "vmap": None}
+           "vmap": None, "mat": None}
     seen = set()
     for t in texts:
         out["startimage_aborted"] |= "StartImage failed - Aborted" in t
@@ -76,6 +76,9 @@ def findings(texts):
         out["uefi_secureboot"] = out.get("uefi_secureboot", False) or bool(re.search(r"OC: Driver \S+ at \d+ cannot be loaded - Access Denied", t))
         out["devirt_ran"] |= "OCABC: MMIO devirt" in t
         out["no_slide"] = out.get("no_slide", False) or "No slide values are usable" in t
+        # the firmware's memory attributes table: "MAT support is 0" on any boot means the firmware has none
+        for mat in re.findall(r"OCABC: MAT support is ([01])", t):
+            out["mat"] = (mat == "1") if out["mat"] is not False else False
         vm = re.search(r"OCABC: .*\bVMAP ([01])\b", t)  # the quirk line: SetupVirtualMap as that boot ran it
         if vm:
             out["vmap"] = vm.group(1) == "1"
@@ -209,6 +212,17 @@ def apply(cfg, result, texts, change, stopped_at=""):
             change("bootlog-note", "", "every hand-off setting the log allows has frozen on this PC. In the BIOS: Above 4G "
                    "Decoding on, CSM off, Secure Boot off, VT-d off (or keep it and leave DisableIoMapper on), then send the logs",
                    "it froze at EXITBS:START with each hand-off setting")
+    # Firmware with no memory attributes table (OpenCore logs "MAT support is 0"): RebuildAppleMemoryMap and
+    # SyncRuntimePermissions work from that table, so the pairing for such firmware is the write unprotector instead
+    # (Dortania, "Kernel Panic on Invalid frame pointer"). 14 uploads on 2.5.4 logged MAT 0; a user's Tahoe build
+    # panicked "invalid frame pointer" after EXITBS:START until exactly this set was on. A frozen boot is the ladder's.
+    if stuck is None and f.get("mat") is False:
+        nomat = {"RebuildAppleMemoryMap": False, "EnableWriteUnprotector": True, "SyncRuntimePermissions": False}
+        if any(quirks.get(k) != v for k, v in nomat.items()):
+            before = ", ".join(f"{k}={quirks.get(k)}" for k in nomat)
+            quirks.update(nomat)
+            change("bootlog-firmware-nomat", before, ", ".join(f"{k}={v}" for k, v in nomat.items()),
+                   "the stick's log says this PC's firmware has no memory attributes table (MAT support is 0)")
     if f.get("uefi_secureboot"):
         change("bootlog-note", "", "Secure Boot is on in this PC's BIOS: it refused OpenCore's drivers ('Access Denied') and "
                "the start stopped there. Turn Secure Boot off in the BIOS (on ASUS boards: Boot -> Secure Boot -> OS Type "
