@@ -21,17 +21,17 @@ def check(name, ok, detail=''):
     fails += not ok
 
 
-def run(flags):
+def run(flags, mp="/Volumes/EFI"):
     with tempfile.TemporaryDirectory() as d:
         d = pathlib.Path(d)
         (d / 'bin').mkdir()
         (d / 'bin/df').write_text('#!/bin/bash\necho "Filesystem 512-blocks Used Available Capacity Mounted on"\n'
-                                  'echo "/dev/disk0s1 409600 1000 408600 1% /Volumes/EFI"\n')
+                                  f'echo "/dev/disk0s1 409600 1000 408600 1% {mp}"\n')
         (d / 'bin/mount').write_text(f'#!/bin/bash\necho "/dev/disk3s1 on / (apfs, sealed, local, read-only, journaled)"\n'
-                                     f'echo "/dev/disk0s1 on /Volumes/EFI ({flags})"\n')
+                                     f'echo "/dev/disk0s1 on {mp} ({flags})"\n')
         for f in ('df', 'mount'):
             os.chmod(d / 'bin' / f, 0o755)
-        script = snippet + 'echo "[could not back up X$(ro_why /Volumes/EFI/EFI/OC/config.plist)]"\n'
+        script = snippet + f'echo "[could not back up X$(ro_why "{mp}/EFI/OC/config.plist")]"\n'
         r = subprocess.run(['/bin/bash', '-c', script], capture_output=True, text=True,
                            env=dict(os.environ, PATH=f'{d}/bin:/usr/bin:/bin'), timeout=30)
         return r.stdout + r.stderr
@@ -40,6 +40,9 @@ def run(flags):
 out = run('msdos, local, nodev, nosuid, read-only, noowners')
 check('a read-only OpenCore partition names the cause and First Aid', 'mounted /Volumes/EFI read-only' in out
       and 'First Aid' in out and 'Fast Startup' in out, out.strip()[-160:])
+out = run('msdos, local, nodev, nosuid, read-only, noowners', '/Volumes/Nowy 1')
+check('a read-only partition whose name has a space is named whole', 'mounted /Volumes/Nowy 1 read-only' in out,
+      out.strip()[-160:])
 out = run('msdos, local, nodev, nosuid, noowners')
 check('negative control: a writable partition adds nothing', out.strip() == '[could not back up X]', out.strip())
 check('every backup stop carries the reason', src.count('stop "could not back up $C$(ro_why "$C")"') == 6
