@@ -63,7 +63,7 @@ class RenumberedErase(unittest.TestCase):
             self.run_write([gone], now=1)
 
     def test_other_errors_never_erase_a_second_disk(self):
-        other = rawdisk.DiskError("could not write to the stick (Windows error 1117)")
+        other = rawdisk.DiskError("could not write to the stick (Windows error 1167)")  # 1117 now falls back to diskpart
         with patch.object(usbwriter, "current_number", return_value=4) as moved, self.assertRaises(rawdisk.DiskError):
             with tempfile.TemporaryDirectory() as efi, \
                  patch.object(usbwriter, "eligible", return_value=(True, [])), \
