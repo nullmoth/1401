@@ -3,6 +3,13 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.5.5
+- Bundles NVIDIA driver 2.5.5: Discord videos play again, remote-desktop apps get keyframes from the hardware encoder, and Brave and Edge use the GPU.
+- Fixes 2.5.4's "EFI failed validation: ocvalidate issues=1" with "Include experimental drivers": the KernReserveLow driver's description had a "~", which OpenCore refuses in a comment (#101, thanks myvoow). Every comment in the built config is now kept to the characters OpenCore accepts.
+- Writing the stick on PCs where Windows' storage service lists no disks (a missing or broken Storage Management Provider): 1401 lists the disks through classic WMI, checks the stick there and erases it with diskpart, instead of stopping with DISK-LIST-EMPTY.
+- Rebuilding from a failed boot: when the stick's log shows the firmware has no memory attributes table ("MAT support is 0"), the build uses the booter settings for such firmware.
+- Mac app: a config backup that fails on a read-only partition whose name has a space now says why and what to do; cancelling a Tahoe preparation that was never started no longer stops with "this driver has no kexts for macOS 15".
+
 ## 2.5.4
 - Bundles NVIDIA driver 2.5.4: desktops whose only GPU is the NVIDIA card start instead of looping on a black screen when the card's display does not come up, Discord and sandboxed apps' video use the GPU, and clearer installer stops.
 - Fixes 2.5.3's "EFI failed validation: ocvalidate issues=1": community UEFI drivers were added without the HideVerbose key OpenCore checks, so builds that included one stopped (PR #92, thanks CreateRan).
