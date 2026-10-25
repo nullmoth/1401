@@ -56,10 +56,14 @@ class LegalCommentsValidator(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        zips = sorted(glob.glob(os.path.join(validate.CACHE, "OpenCore-*-RELEASE.zip")))
-        if not zips:
-            raise unittest.SkipTest("an OpenCore release archive is required for the validator arms")
-        with zipfile.ZipFile(zips[-1]) as z:
+        # the same archive the other validator tests use (CI provides it through OPENCORE_TEST_ZIP)
+        archive = os.environ.get("OPENCORE_TEST_ZIP", os.path.join(validate.CACHE, "OpenCore-1.0.8-RELEASE.zip"))
+        if not os.path.isfile(archive):
+            zips = sorted(glob.glob(os.path.join(validate.CACHE, "OpenCore-*-RELEASE.zip")))
+            if not zips:
+                raise unittest.SkipTest("an OpenCore release archive is required for the validator arms")
+            archive = zips[-1]
+        with zipfile.ZipFile(archive) as z:
             cls.sample = plistlib.loads(z.read("Docs/Sample.plist"))
             name = {"Windows": "ocvalidate.exe", "Linux": "ocvalidate.linux"}.get(platform.system(), "ocvalidate")
             cls.validator = z.read("Utilities/ocvalidate/" + name)
@@ -75,7 +79,7 @@ class LegalCommentsValidator(unittest.TestCase):
                 plistlib.dump(cfg, fh)
             if clean:
                 policy.legal_comments(path)
-            exe = pathlib.Path(d) / "ocvalidate"
+            exe = pathlib.Path(d) / ("ocvalidate.exe" if platform.system() == "Windows" else "ocvalidate")
             exe.write_bytes(self.validator)
             exe.chmod(0o755)
             out = subprocess.run([str(exe), path], capture_output=True, text=True, timeout=60)
