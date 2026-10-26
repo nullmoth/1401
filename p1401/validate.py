@@ -161,8 +161,13 @@ def _sha256(p):
 def run_ocvalidate(config_path):
     """Returns (ok, issues:int, text)."""
     exe = ocvalidate_path()
+    # ocvalidate is a plain C program that opens the path it is given through the ANSI file API, so a config under a
+    # Windows account whose name is outside the system code page ("Failed to read %USERPROFILE%\\?M?N\\...") could not
+    # be read, and the build stopped with "ocvalidate issues=0" (115 build logs on 10-24 to 10-26). It runs from the
+    # config's own folder and is given the bare file name, which is ASCII; Windows resolves the folder for it.
+    folder, name = os.path.split(os.path.abspath(config_path))
     try:
-        p = subprocess.run([exe, config_path], capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
+        p = subprocess.run([exe, name], cwd=folder, capture_output=True, text=True, errors="replace", timeout=TIMEOUT)
     except OSError as error:
         if getattr(error, "winerror", None) == 4551:
             raise ValidatorUnavailable("Windows application control blocked the verified OpenCore validator (4551). "

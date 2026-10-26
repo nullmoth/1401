@@ -930,9 +930,15 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 res.policy_changes += restored
                 res.validation = validate_mod.validate(out_dir)
                 if not res.validation.get("ok"):
+                    ocv = res.validation.get("ocvalidate") or {}
                     why = (res.validation.get("error") or
-                           f"ocvalidate issues={(res.validation.get('ocvalidate') or {}).get('issues')} "
-                           f"invariants={res.validation.get('invariants')}")
+                           f"ocvalidate issues={ocv.get('issues')} invariants={res.validation.get('invariants')}")
+                    # a validator that fails without counting an issue could not check the config at all: say what it
+                    # printed, instead of "issues=0", which read as nothing wrong
+                    if not res.validation.get("error") and ocv.get("issues") == 0 and not res.validation.get("invariants"):
+                        said = [l.strip() for l in (ocv.get("text") or "").splitlines() if l.strip()][-3:]
+                        if said:
+                            why += "\nOpenCore's validator said: " + " / ".join(said)
                     if any("differs from the verified OpenCore release" in str(x) for x in res.validation.get("invariants") or []):
                         why += ("\nThat file was written back from the verified OpenCore zip just before this check, so "
                                 "something on this PC rewrites it: look in the security software's quarantine or history for "
