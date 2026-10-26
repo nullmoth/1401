@@ -134,6 +134,9 @@ namespace A1401
                     psi.EnvironmentVariables["PYTHONNOUSERSITE"] = "1";
                     psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
                     psi.EnvironmentVariables["PYTHONDONTWRITEBYTECODE"] = "1";
+                    // The engine's pages and messages (the install guide, the stick-log fixes) follow the app's language;
+                    // Windows has no LANG, so without this a Chinese PC got the app in Chinese and those pages in English.
+                    psi.EnvironmentVariables["A1401_LANG"] = Loc.Language == "zh" ? "zh-CN" : "en";
                     using (var p = new Process { StartInfo = psi })
                     {
                         p.OutputDataReceived += (s, e) => { if (e.Data != null) record(e.Data); };

@@ -260,6 +260,121 @@ ZH = {
     "F11": "F11",
     "F12": "F12",
     "F12 (turn on 'F12 Boot Menu' in the BIOS first)": "F12（需先在 BIOS 中开启 'F12 Boot Menu'）",
+    # --- stick-log fixes (diagnose.py) ---
+    'macOS could not find room in memory to start (EB.MM.AKM)':
+        'macOS 启动时找不到可用内存空间（EB.MM.AKM）',
+    "Apple's boot loader stopped before macOS started: the memory map this PC's firmware gives it has no room for the kernel with the current settings. Starting the same stick again stops the same way.":
+        '在 macOS 启动之前，Apple 的引导程序就停止了：按当前设置，这台电脑固件提供的内存布局里没有放内核的空间。用同一个 U 盘再次启动，会在同一个地方停住。',
+    'Turn Above 4G Decoding On and CSM Off in the BIOS.':
+        '在 BIOS 中开启 Above 4G Decoding，并关闭 CSM。',
+    'Open 1401 on Windows with this stick plugged in and build again: the build reads this log and changes the memory settings for this PC.':
+        '插着这个 U 盘，在 Windows 上打开 1401 重新构建：构建会读取这份日志，并为这台电脑调整内存设置。',
+    'Write the stick and start from it.':
+        '写入 U 盘，然后从它启动。',
+    "Secure Boot is on, so the PC refused OpenCore's drivers":
+        '安全启动（Secure Boot）已开启，电脑拒绝加载 OpenCore 的驱动',
+    'The firmware blocked the drivers OpenCore needs to read the macOS installer (Access Denied), so the installer cannot start.':
+        '固件拦截了 OpenCore 读取 macOS 安装器所需的驱动（Access Denied），所以安装器无法启动。',
+    'Turn Secure Boot Off in the BIOS (on some boards: set OS Type to Other OS, or clear the Secure Boot keys).':
+        '在 BIOS 中关闭安全启动（Secure Boot）（部分主板：把 OS Type 设为 Other OS，或清除安全启动密钥）。',
+    'Save, start from the stick again, and choose the 1401 entry.':
+        '保存后再次从 U 盘启动，并选择 1401 项。',
+    'The stick is missing a driver it needs to read the installer (HfsPlus.efi)':
+        'U 盘缺少读取安装器所需的驱动（HfsPlus.efi）',
+    'The stick was built without HfsPlus.efi, usually because the download failed during the build.':
+        '这个 U 盘构建时没有 HfsPlus.efi，通常是构建过程中下载失败了。',
+    'Open 1401 on Windows with the internet connected and build the stick again.':
+        '连上网络，在 Windows 上打开 1401，重新构建 U 盘。',
+    'This start went to Windows, not the macOS installer':
+        '这次启动进入了 Windows，而不是 macOS 安装器',
+    'In the OpenCore menu the Windows entry was chosen (or started by itself), so macOS never began.':
+        '在 OpenCore 菜单里选中了 Windows 项（或它自动启动了），所以 macOS 根本没有开始启动。',
+    'Start from the stick again.':
+        '再次从 U 盘启动。',
+    'In the OpenCore menu choose the entry named 1401 (the macOS installer), not Windows. If it is not listed, press the Space bar to show all entries.':
+        '在 OpenCore 菜单中选择名为 1401 的项（macOS 安装器），不要选 Windows。如果没有列出，按空格键显示全部启动项。',
+    'The screen froze at EXITBS:START':
+        '画面卡在 EXITBS:START',
+    'OpenCore handed over to macOS and the kernel never printed anything. On these PCs it is almost always a firmware setting that keeps a device in use across the hand-off.':
+        'OpenCore 已把控制权交给 macOS，但内核没有输出任何内容。在这类电脑上，几乎总是某个固件设置让设备在交接过程中仍被占用。',
+    'Turn VT-d Off in the BIOS. On 12th-gen and newer Intel (Core Ultra included) this is what got these PCs past EXITBS:START. If the BIOS hides VT-d, look on the Advanced or overclocking pages; on some laptops (HONOR) it appears only after X2APIC is turned Off first.':
+        '在 BIOS 中关闭 VT-d。在 12 代及更新的 Intel（包括 Core Ultra）上，正是这一步让这些电脑越过了 EXITBS:START。如果找不到 VT-d，请看“高级”或超频页面；部分笔记本（荣耀）要先关闭 X2APIC 才会显示它。',
+    'Also turn Off Kernel DMA Protection or Pre-boot DMA Protection if the BIOS lists them.':
+        '如果 BIOS 里有 Kernel DMA Protection 或 Pre-boot DMA Protection，也一并关闭。',
+    'If it still stops there, turn Hyper-Threading Off in the BIOS for the install, or turn the E-cores Off.':
+        '如果仍然停在那里，安装期间在 BIOS 中关闭超线程（Hyper-Threading），或关闭 E 核。',
+    'In the BIOS: CSM (Compatibility Support Module) Off, Secure Boot Off, Above 4G Decoding On.':
+        'BIOS 中：关闭 CSM（兼容性支持模块），关闭安全启动（Secure Boot），开启 Above 4G Decoding。',
+    'Save the BIOS settings, then start from the stick again and choose the 1401 entry.':
+        '保存 BIOS 设置，然后再次从 U 盘启动，并选择 1401 项。',
+    'Turn VT-d Off in the BIOS.':
+        '在 BIOS 中关闭 VT-d。',
+    'Turn CFG Lock Off if the BIOS shows it.':
+        '如果 BIOS 里有 CFG Lock，把它关闭。',
+    'Turn IOMMU Off in the BIOS (often under AMD CBS > NBIO).':
+        '在 BIOS 中关闭 IOMMU（通常在 AMD CBS > NBIO 下）。',
+    'Build the stick again with 1401 with this stick plugged in: the build reads this log and tries the next memory settings for this board.':
+        '插着这个 U 盘，用 1401 重新构建：构建会读取这份日志，为这块主板换用下一组内存设置。',
+    'Turn VT-d (Intel) or IOMMU (AMD) Off in the BIOS.':
+        '在 BIOS 中关闭 VT-d（Intel）或 IOMMU（AMD）。',
+    'The start stopped at PCI configuration':
+        '启动停在 PCI configuration（PCI 配置）',
+    "macOS hung while it mapped the PCI devices. This is the firmware's memory layout for PCI devices.":
+        'macOS 在映射 PCI 设备时卡住了。原因在于固件给 PCI 设备分配的内存布局。',
+    'Turn Above 4G Decoding On in the BIOS.':
+        '在 BIOS 中开启 Above 4G Decoding。',
+    'Turn Resizable BAR (Re-Size BAR) Support Off for the install.':
+        '安装期间关闭 Resizable BAR（Re-Size BAR）支持。',
+    "If it still stops there, open the stick's EFI/OC/config.plist and add npci=0x3000 to boot-args (NVRAM > Add > 7C436110-AB2A-4BBB-A880-FE41995C9F82 > boot-args).":
+        '如果仍然停在那里，打开 U 盘上的 EFI/OC/config.plist，在 boot-args 中加入 npci=0x3000（NVRAM > Add > 7C436110-AB2A-4BBB-A880-FE41995C9F82 > boot-args）。',
+    'A black screen with only a mouse cursor after the install':
+        '安装完成后黑屏，只有鼠标指针',
+    'macOS has installed and started; the first-start setup screens are not drawing. Your Mac is working underneath.':
+        'macOS 已经安装并启动，只是首次设置界面没有显示出来。系统本身在正常运行。',
+    'Wait two minutes, then press Enter: on some PCs the setup screen is there but not drawn.':
+        '等两分钟，然后按回车键：在部分电脑上设置界面其实已经在了，只是没有画出来。',
+    "Unplug every monitor but one, and plug that one into the graphics card's DisplayPort, then restart.":
+        '只保留一台显示器，把它接到显卡的 DisplayPort 接口上，然后重启。',
+    'If it stays black, send these logs with the line you typed, and post the report ID in the NullMoth Discord so the setup can be finished with you.':
+        '如果仍然黑屏，把这些日志连同你填写的那一行一起发送，并在 NullMoth Discord 里贴出报告 ID，我们会和你一起完成设置。',
+    'macOS crashed while starting (kernel panic)':
+        'macOS 启动时崩溃了（内核崩溃 kernel panic）',
+    'The kernel stopped with an error. The stick saves the panic for 1401 to read.':
+        '内核因错误而停止。U 盘会保存崩溃信息，供 1401 读取。',
+    'Send these logs: the panic file on the stick names the driver that crashed. Post the report ID in the NullMoth Discord.':
+        '发送这些日志：U 盘上的崩溃文件会指出是哪个驱动崩溃了。并在 NullMoth Discord 里贴出报告 ID。',
+    "Build the stick again with 1401 after sending: the build reads the stick's logs.":
+        '发送后用 1401 重新构建 U 盘：构建会读取 U 盘上的日志。',
+    "Apple's boot loader refused to start macOS":
+        'Apple 的引导程序拒绝启动 macOS',
+    "The prohibited sign (or 'boot failure') means boot.efi would not start this macOS on this setup.":
+        '出现禁止符号（或“boot failure”）表示 boot.efi 在当前配置下不肯启动这个 macOS。',
+    'Turn Secure Boot Off in the BIOS.':
+        '在 BIOS 中关闭安全启动（Secure Boot）。',
+    'Build the stick again with the newest 1401 (Check for updates first): it sets the Mac model and the Secure Boot model for this PC.':
+        '用最新版 1401 重新构建 U 盘（先检查更新）：它会为这台电脑设置 Mac 机型和安全启动型号。',
+    'Write the stick again and start from it.':
+        '重新写入 U 盘，然后从它启动。',
+    'The OpenCore menu shows no macOS entry':
+        'OpenCore 菜单里没有 macOS 启动项',
+    'The installer is a recovery entry, which OpenCore can hide.':
+        '安装器是一个恢复（Recovery）启动项，OpenCore 可能会把它隐藏。',
+    'In the OpenCore menu, press the Space bar to show every entry, then choose 1401.':
+        '在 OpenCore 菜单中按空格键显示全部启动项，然后选择 1401。',
+    'If there is still none, the stick is not fully written: write it again with 1401.':
+        '如果仍然没有，说明 U 盘没有写入完整：用 1401 重新写入。',
+    'macOS is waiting for the USB stick (Still waiting for root device)':
+        'macOS 在等待 U 盘（Still waiting for root device）',
+    'macOS cannot see the USB port the stick is in.':
+        'macOS 看不到 U 盘所在的 USB 接口。',
+    'Move the stick to a USB 2 port, or a USB port on the back of the PC, and start again.':
+        '把 U 盘换到 USB 2 接口或机箱背面的 USB 接口，然后重新启动。',
+    'In the BIOS turn XHCI Hand-off On.':
+        '在 BIOS 中开启 XHCI Hand-off。',
+    'OpenCore handed over to macOS; what happened next is not in the log':
+        'OpenCore 已把控制权交给 macOS；之后发生了什么，日志里没有记录',
+    "The stick's log ends where OpenCore gives control to macOS, which every start does. If the screen froze right there, these are the fixes that worked on PCs like this one; otherwise type the last line on the screen when you send logs, so 1401 can tell you exactly what to change.":
+        'U 盘日志在 OpenCore 把控制权交给 macOS 的地方结束，每次启动都是如此。如果画面就停在那里，下面是在同类电脑上有效的修复方法；否则请在发送日志时填写屏幕上最后一行文字，1401 就能告诉你具体要改什么。',
 }
 
 

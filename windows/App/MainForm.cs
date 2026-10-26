@@ -1099,7 +1099,7 @@ namespace A1401
                             MessageBoxButtons.OK, rc == 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
         }
 
-        internal void OfferStickLogs(bool asked)
+        internal async void OfferStickLogs(bool asked)
         {
             if (IsDisposed || Disposing || !IsHandleCreated) return;
             var found = new List<string>();
@@ -1156,6 +1156,11 @@ namespace A1401
                 "An included scan receipt records saved Windows hardware observations, even if the check failed; it does not prove this PC or the attached stick has that hardware. Nothing else on this PC is sent.\r\n\r\nClick Send to send them now, or Cancel to keep them locally.",
                 found.Count, found.Count == 1 ? "" : Loc.T("s")),
                 out screen);
+            // 10-26: what to change comes first, sent or not, and before the logs are moved off the stick. p1401.diagnose reads
+            // the stick logs, the line typed above and this PC's scan, and names each failure class measured in the stick
+            // logs with the steps that got those PCs past it (it replaced a dialog that knew only EB.MM.AKM).
+            await ShowStickFixes(found, screen);
+            if (IsDisposed || Disposing) return;
             if (ask != DialogResult.OK) return;
             var what = "startup log from the stick" + (screen.Length > 0 ? "; screen stopped at: " + screen : "")
                        + (provenance.Count > 0 ? "; " + string.Join("; ", provenance) : "");
@@ -1164,18 +1169,6 @@ namespace A1401
             if (provenance.Any(x => x.Contains("not built by 1401")))
                 MessageBox.Show(this, string.Join("\r\n\r\n", provenance.Where(x => x.Contains("not built by 1401"))) + "\r\n\r\nBuild the stick again with 1401: it makes the OpenCore settings this PC needs. "
                                 + "A stick made elsewhere, or edited afterwards, cannot be fixed from its logs.", "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            // 10-10: 13 stick logs stopped at EB.MM.AKM on sticks built before 1.10, whose build fixes those PCs; the users kept
-            // starting the same stick. Say what fixes it, before the logs are moved.
-            var akm = false;
-            foreach (var f in found.Where(x => Path.GetFileName(x).StartsWith("opencore-", StringComparison.OrdinalIgnoreCase)))
-            {
-                try { if (File.ReadAllText(f).Contains("EB.MM.AKM")) akm = true; } catch (Exception) { }
-            }
-            if (akm)
-                MessageBox.Show(this, "This stick stopped inside Apple's boot loader, before macOS started (EB.MM.AKM: no room in memory for the kernel).\r\n\r\n"
-                                + "Starting the same stick again will stop the same way. Build it again with this 1401 with the stick plugged in: "
-                                + "the build reads this log and changes the memory settings for this PC. Then write the stick and start from it.",
-                                "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
             // the next build reads it too (bootfix.after_handoff): a hang after OpenCore leaves no file, only this line
             if (screen.Length > 0) { try { File.WriteAllText(Path.Combine(Engine.Work, "stopped-at.txt"), screen); } catch (Exception) { } }
             var ids = new List<string>();
@@ -1197,6 +1190,25 @@ namespace A1401
             }
             MessageBox.Show(this, ids.Count > 0 ? Loc.T("Sent ") + ids.Count + Loc.T(" log(s). Report ID ") + string.Join(", ", ids) + Loc.T(" - mention it in the NullMoth Discord if you ask for help.")
                                                 : Loc.T("The logs could not be sent: ") + lastSendError + Loc.T("\r\nThey are still where they were; try again with Scan for logs and send them."),
+                            "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        async Task ShowStickFixes(List<string> found, string screen)
+        {
+            var logs = found.Where(x => Path.GetFileName(x).StartsWith("opencore-", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (logs.Count == 0 && screen.Length == 0) return;
+            var args = "p1401.diagnose" + string.Concat(logs.Select(f => " --log " + Engine.Q(f)));
+            // typed text: Q escapes quotes but a trailing backslash would eat the closing one
+            if (screen.Length > 0) args += " --stopped " + Engine.Q(screen.Replace("\\", "/").Replace("\"", "'"));
+            var report = scanDir == null ? null : Path.Combine(scanDir, "Report.json");
+            if (report != null && File.Exists(report)) args += " --report " + Engine.Q(report);
+            var lines = new List<string>();
+            int rc = await Engine.Run(args, l => { lock (lines) lines.Add(l); });
+            if (IsDisposed || Disposing) return;
+            var shown = lines.Where(l => l.StartsWith("  ")).Select(l => l.Substring(2)).ToList();
+            if (rc != 0) { Say(Loc.F("The stick logs could not be read for fixes (code {0}); they can still be sent.", rc)); return; }
+            if (shown.Count == 0) return;
+            MessageBox.Show(this, Loc.T("What to change before you start from the stick again:") + "\r\n\r\n" + string.Join("\r\n", shown).Trim(),
                             "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

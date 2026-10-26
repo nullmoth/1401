@@ -187,6 +187,8 @@ namespace A1401
               "它们包含 OpenCore 和 macOS 启动时打印的内容，以及移除序列号后的 U 盘 OpenCore 设置。" +
               "其中的扫描回执记录了已保存的 Windows 硬件观测结果，即使检测失败也会有；它不能证明本机或所插 U 盘具备这些硬件。本机的其他任何内容都不会被发送。\r\n\r\n点\"发送\"立即发送，或点\"取消\"仅保留在本地。" },
             { "Sent ", "已发送 " },
+            { "What to change before you start from the stick again:", "再次从 U 盘启动之前，需要修改的地方：" },
+            { "The stick logs could not be read for fixes (code {0}); they can still be sent.", "无法读取 U 盘日志来给出修复建议（代码 {0}）；日志仍然可以发送。" },
             { " log(s). Report ID ", " 份日志。报告 ID " },
             { " - mention it in the NullMoth Discord if you ask for help.", " - 如需求助，请在 NullMoth Discord 中提及它。" },
             { "The logs could not be sent: ", "日志无法发送：" },
