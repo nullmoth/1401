@@ -77,6 +77,9 @@ def matches(match, facts):
         elif key == "fact":
             if not set(want) <= set(facts.get("fact", [])):
                 return False
+        elif key == "fact_absent":
+            if set(want) & set(facts.get("fact", [])):
+                return False
         elif key in ("cpu_vendor", "laptop", "amd_dgpu", "intel_igpu"):
             if facts.get(key) != want:
                 return False

@@ -45,22 +45,29 @@ def rules(changes):
 
 
 class HybridIntelBoot(unittest.TestCase):
-    def test_alder_lake_turns_off_devirtualise_mmio(self):
-        cfg, changes = build("Intel", "12th Gen Intel(R) Core(TM) i7-12700H", "Alder Lake", devirt=True)
-        self.assertFalse(devmmio(cfg))
-        self.assertIn("hybrid-intel-devmmio", rules(changes))
+    # 10-25: DevirtualiseMmio is forced off on laptops only (1401 #6, public laptop EFIs). Desktops did as well or better
+    # with it on in the stick reports, and the Arrow Lake desktop that runs macOS boots with it on.
+    def test_hybrid_laptops_turn_off_devirtualise_mmio(self):
+        for name, code in (("12th Gen Intel(R) Core(TM) i7-12700H", "Alder Lake"), ("Intel(R) Core(TM) Ultra 9 275HX", "Arrow Lake"),
+                           ("13th Gen Intel(R) Core(TM) i5-13650HX", "")):
+            cfg, changes = build("Intel", name, code, platform="Laptop", devirt=True)
+            self.assertFalse(devmmio(cfg), name)
+            self.assertIn("hybrid-intel-devmmio", rules(changes), name)
 
-    def test_raptor_lake_turns_off_devirtualise_mmio(self):
-        cfg, _ = build("Intel", "14th Gen Intel(R) Core(TM) i9-14900K", "Raptor Lake", devirt=True)
-        self.assertFalse(devmmio(cfg))
+    def test_hybrid_desktops_keep_the_engine_choice(self):
+        for name, code in (("12th Gen Intel(R) Core(TM) i7-12700K", "Alder Lake"), ("14th Gen Intel(R) Core(TM) i9-14900K", "Raptor Lake")):
+            for devirt in (True, False):
+                cfg, changes = build("Intel", name, code, platform="Desktop", devirt=devirt)
+                self.assertEqual(devmmio(cfg), devirt, name)
+                self.assertNotIn("hybrid-intel-devmmio", rules(changes), name)
 
-    def test_core_ultra_turns_off_devirtualise_mmio(self):
-        cfg, _ = build("Intel", "Intel(R) Core(TM) Ultra 9 275HX", "Arrow Lake", devirt=True)
-        self.assertFalse(devmmio(cfg))
-
-    def test_hybrid_detected_by_generation_when_codename_is_missing(self):
-        cfg, _ = build("Intel", "13th Gen Intel(R) Core(TM) i5-13650HX", devirt=True)
-        self.assertFalse(devmmio(cfg))
+    def test_arrow_lake_desktop_gets_the_225f_setting(self):
+        cfg, changes = build("Intel", "Intel(R) Core(TM) Ultra 5 225F", "Arrow Lake", platform="Desktop", devirt=False)
+        self.assertTrue(devmmio(cfg))
+        self.assertIn("arrow-lake-desktop-devmmio", rules(changes))
+        cfg, changes = build("Intel", "Intel(R) Core(TM) Ultra 5 225F", "Arrow Lake", platform="Desktop", devirt=True)
+        self.assertTrue(devmmio(cfg))
+        self.assertNotIn("arrow-lake-desktop-devmmio", rules(changes))
 
     def test_every_hybrid_build_names_the_bios_switch(self):
         for name, code in (("12th Gen Intel(R) Core(TM) i5-12400F", "Alder Lake"),
@@ -93,6 +100,26 @@ class HybridIntelBoot(unittest.TestCase):
     def test_amd_is_left_alone(self):
         cfg, changes = build("AMD", "AMD Ryzen 7 7800X3D 8-Core Processor", "Raphael")
         self.assertNotIn("hybrid-intel-bios", rules(changes))
+
+
+
+class HybridIntelGuide(unittest.TestCase):
+    """policy.py turns DisableIoMapper on for every hybrid Intel build, and the guide used to list VT-d only when it was
+    off, so these PCs were never told the BIOS step that got them past EXITBS:START (1401 #10, #11, #53, #58)."""
+    def settings(self, name, code, iomapper):
+        from p1401 import guide  # noqa: PLC0415
+        report = {"CPU": {"Manufacturer": "Intel", "Processor Name": name, "Codename": code}, "Motherboard": {"Name": "Board"}, "GPU": {}}
+        return {st.name: st for st in guide.bios_settings(report, {"Kernel": {"Quirks": {"DisableIoMapper": iomapper}}})}
+
+    def test_hybrid_intel_is_told_to_turn_vt_d_off_even_with_disableiomapper(self):
+        st = self.settings("Intel(R) Core(TM) Ultra 7 265K", "Arrow Lake", True)
+        self.assertIn("VT-d", st)
+        self.assertTrue(st["VT-d"].required)
+        self.assertIn("X2APIC", st["VT-d"].if_missing)
+
+    def test_older_intel_with_disableiomapper_still_skips_vt_d(self):
+        self.assertNotIn("VT-d", self.settings("Intel(R) Core(TM) i7-9700K", "Coffee Lake", True))
+        self.assertIn("VT-d", self.settings("Intel(R) Core(TM) i7-9700K", "Coffee Lake", False))
 
 
 if __name__ == "__main__":

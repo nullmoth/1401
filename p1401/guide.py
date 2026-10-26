@@ -26,7 +26,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 
-from . import loc
+from . import loc, policy
 
 NVRAM_APPLE = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -239,7 +239,18 @@ def bios_settings(report, config, disabled_devices=None):
                          loc.t("macOS writes a CPU power-management register that CFG Lock freezes."),
                          if_missing=(loc.t("Most BIOSes hide it. Skip it: your EFI already works around CFG Lock.") if cfg else
                                      loc.t("Your EFI does NOT work around this one, so it has to be off."))))
-        if not kq.get("DisableIoMapper"):
+        # 12th-gen and newer Intel: policy.py always turns DisableIoMapper on for these, so the line below used to drop
+        # VT-d from their guide entirely, and VT-d off in the BIOS is exactly what got them past EXITBS:START (1401 #10:
+        # five users on 265K/265KF/275HX/290HX; #11, #53, #58). Firmware with VT-d on can keep DMA remapping running
+        # after OpenCore hands off, which no config setting undoes.
+        if policy.is_intel_hybrid(cpu):
+            s.append(Setting(loc.t("VT-d"), loc.t("Off"), True,
+                             loc.t("On 12th-gen and newer Intel, including Core Ultra, macOS freezes at EXITBS:START with VT-d on. "
+                                   "Turning it off is what got these PCs past it."),
+                             if_missing=loc.t("Some laptops hide it: look on the Advanced or overclocking pages. On some (HONOR) it "
+                                              "appears only after X2APIC is turned off. Turn off Kernel DMA Protection or Pre-boot "
+                                              "DMA Protection too if the BIOS lists them.")))
+        elif not kq.get("DisableIoMapper"):
             s.append(Setting(loc.t("VT-d"), loc.t("Off"), True, loc.t("macOS's own VT-d handling conflicts with most PC firmware.")))
         if igpu_intel:
             s.append(Setting(loc.t("DVMT Pre-Allocated (iGPU memory)"), loc.t("64M or more"), False,

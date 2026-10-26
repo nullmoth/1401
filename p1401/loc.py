@@ -229,6 +229,14 @@ ZH = {
     "VT-d": "VT-d",
     "macOS's own VT-d handling conflicts with most PC firmware.":
         "macOS 自带的 VT-d 处理与大多数 PC 固件冲突。",
+    "On 12th-gen and newer Intel, including Core Ultra, macOS freezes at EXITBS:START with VT-d on. "
+    "Turning it off is what got these PCs past it.":
+        "在 12 代及更新的 Intel（包括 Core Ultra）上，VT-d 开启时 macOS 会卡在 EXITBS:START。关闭它正是这些电脑越过这一步的方法。",
+    "Some laptops hide it: look on the Advanced or overclocking pages. On some (HONOR) it "
+    "appears only after X2APIC is turned off. Turn off Kernel DMA Protection or Pre-boot "
+    "DMA Protection too if the BIOS lists them.":
+        "部分笔记本会隐藏此项：请在 Advanced 或超频页面中查找。有些机型（荣耀）需要先关闭 X2APIC 才会出现。"
+        "如果 BIOS 中有 Kernel DMA Protection 或 Pre-boot DMA Protection，也请一并关闭。",
     "DVMT Pre-Allocated (iGPU memory)": "DVMT Pre-Allocated（核显内存）",
     "Gives Intel graphics enough memory for macOS's framebuffer.":
         "为 Intel 核显分配足够内存以支撑 macOS 的 framebuffer。",

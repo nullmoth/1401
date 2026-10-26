@@ -52,7 +52,8 @@
     {
       "id": "core-ultra-drop-dmar",
       "scope": ["stick", "installed"],
-      "match": {"cpu_class": ["core_ultra"]},
+      "match": {"cpu_class": ["core_ultra"], "fact_absent": ["firmware_no_dmar"]},
+      "match_why": "A Mac whose firmware already hands macOS no DMAR table (VT-d off in the BIOS) needs nothing here: the Core Ultra 5 225F that runs macOS 26 has no DMAR in its firmware tables and no ACPI > Delete entry. The Mac app reads the live ACPI tables and sets firmware_no_dmar.",
       "expect": [{"acpi_delete": "DMAR"}],
       "restart": true,
       "title": "Core Ultra PCs freeze before macOS starts with VT-d on",
@@ -74,13 +75,24 @@
     {
       "id": "hybrid-intel-devmmio",
       "scope": ["stick", "installed"],
-      "match": {"cpu_class": ["intel_hybrid"]},
+      "match": {"cpu_class": ["intel_hybrid"], "laptop": true},
       "expect": [{"path": "Booter.Quirks.DevirtualiseMmio", "eq": false}],
       "restart": true,
-      "title": "12th-gen and newer Intel stops at EXITBS:START with DevirtualiseMmio on",
-      "what": "On Intel CPUs with performance and efficiency cores, startup faults at the kernel hand-off with DevirtualiseMmio on. Turning it off reached the installer on stuck machines.",
-      "steps": ["Open config.plist in EFI/OC.", "Under Booter > Quirks, set DevirtualiseMmio to false.", "If it still stops at EXITBS:START, turn off Hyper-Threading or the E-cores in the BIOS.", "Restart."],
-      "source": "stick logs from stuck hybrid-core machines"
+      "title": "12th-gen and newer Intel laptops stop at EXITBS:START with DevirtualiseMmio on",
+      "what": "On Intel laptops with performance and efficiency cores, startup can fault before macOS starts with DevirtualiseMmio on. Six of seven public laptop setups that run macOS on these CPUs have it off.",
+      "steps": ["Open config.plist in EFI/OC.", "Under Booter > Quirks, set DevirtualiseMmio to false.", "Turn VT-d off in the BIOS; if it still stops at EXITBS:START, turn off Hyper-Threading too.", "Restart."],
+      "source": "1401 #6 (13650HX: type 14 fault with it on); public laptop EFIs on 12th to 14th gen and Arrow Lake"
+    },
+    {
+      "id": "arrow-lake-desktop-devmmio",
+      "scope": ["stick", "installed"],
+      "match": {"cpu_class": ["arrow_lake"], "laptop": false},
+      "expect": [{"path": "Booter.Quirks.DevirtualiseMmio", "eq": true}],
+      "restart": true,
+      "title": "Core Ultra 200 desktops start with DevirtualiseMmio on",
+      "what": "A Core Ultra 5 225F desktop runs macOS 26 with DevirtualiseMmio on, and in our reports Arrow Lake desktops reached the installer only with it on (2 of 20 on, 0 of 11 off).",
+      "steps": ["Open config.plist in EFI/OC.", "Under Booter > Quirks, set DevirtualiseMmio to true.", "Make sure VT-d is off in the BIOS.", "Restart."],
+      "source": "a Core Ultra 5 225F that runs macOS 26; 1401 stick reports"
     },
     {
       "id": "keep-boot-args",

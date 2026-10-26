@@ -310,12 +310,21 @@ def apply(config_path, result, policy):
     # type 14) before macOS starts. On stuck machines, limiting the kernel to one CPU reached the installer's APFS
     # volume, and so did turning DevirtualiseMmio off - boot.efi faults on the firmware's devirtualised MMIO. The
     # Intel baseline keeps DevirtualiseMmio off, so turn it off when the engine left it on.
+    # 10-25: laptops only. Over 448 hybrid-Intel machines in the stick uploads, the ones that got macOS onto their disk
+    # had DevirtualiseMmio on as often or more often than off in every slice (desktops 16% on / 13% off, Arrow Lake
+    # desktops 2 of 20 on / 0 of 11 off), and the Core Ultra 5 225F desktop that runs macOS 26 boots with it on. The
+    # laptops are the case for off: 1401 #6 (13650HX) took a type-14 fault at CR2 0xFF00004C with it on, and six of seven
+    # public laptop EFIs that run macOS on these CPUs have it off. Arrow Lake desktops get the 225F's setting.
     if is_intel_hybrid(cpu):
         bq = cfg.setdefault("Booter", {}).setdefault("Quirks", {})
-        if bq.get("DevirtualiseMmio") is True:
+        if is_laptop and bq.get("DevirtualiseMmio") is True:
             bq["DevirtualiseMmio"] = False
             change("hybrid-intel-devmmio", "DevirtualiseMmio=True", "DevirtualiseMmio=False",
-                   "hybrid-core Intel faults in boot.efi (EXITBS:START, type 14) with firmware MMIO devirtualised")
+                   "hybrid-core Intel laptops fault in boot.efi (EXITBS:START, type 14) with firmware MMIO devirtualised")
+        elif not is_laptop and "Arrow Lake" in (cpu.get("Codename") or "") and bq.get("DevirtualiseMmio") is not True:
+            bq["DevirtualiseMmio"] = True
+            change("arrow-lake-desktop-devmmio", f"DevirtualiseMmio={bq.get('DevirtualiseMmio')}", "DevirtualiseMmio=True",
+                   "the Arrow Lake desktop that runs macOS boots with it on, and Arrow Lake desktops did better with it on")
         # CpuTopologyRebuild re-maps the performance and efficiency cores so the kernel accepts the topology; it is the
         # software stand-in for the BIOS "disable Hyper-Threading / E-cores" that many laptops hide. The kext does not
         # always clear the stop on its own, so name the BIOS switch too when it is available.

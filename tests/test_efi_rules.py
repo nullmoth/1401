@@ -136,6 +136,13 @@ class EfiRules(unittest.TestCase):
         self.assertIn("show-installer-entry", stick)
         self.assertNotIn("show-installer-entry", installed)
 
+    def test_firmware_with_vt_d_off_is_not_told_to_drop_dmar(self):
+        hw = SHAPES[2][1]   # Core Ultra desktop
+        facts = efi_rules.facts_from_report(hw, "24.6.0")
+        self.assertIn("core-ultra-drop-dmar", {i["id"] for i in efi_rules.check(engine_like(), facts, "installed", self.rules)})
+        facts["fact"] = facts["fact"] + ["firmware_no_dmar"]
+        self.assertNotIn("core-ultra-drop-dmar", {i["id"] for i in efi_rules.check(engine_like(), facts, "installed", self.rules)})
+
     def test_every_rule_has_the_text_the_app_shows(self):
         for r in self.rules["rules"]:
             for key in ("title", "what", "steps", "source"):
