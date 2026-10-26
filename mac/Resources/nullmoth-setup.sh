@@ -326,7 +326,7 @@ if [ -n "$COLLECT" ]; then
     # The live config and its two newest backups only: every install leaves a backup, and 35 of them on one test machine
     # filled the report's 48 file slots before the panics, crash reports and GPU logs were reached.
     cfs=("$mp"/EFI/OC/config.plist)   # a volume name can hold spaces ("NO NAME"): read paths line by line, never split them
-    while IFS= read -r cf; do cfs+=("$cf"); done < <(ls -t "$mp"/EFI/OC/config.plist.nullmoth-* 2>/dev/null | head -n 2)
+    while IFS= read -r cf; do cfs+=("$cf"); done < <(ls -t "$mp"/EFI/OC/config.plist.before-1401-* "$mp"/EFI/OC/config.plist.nullmoth-* 2>/dev/null | head -n 2)
     for cf in "${cfs[@]}"; do
       [ -f "$cf" ] || continue
       out="$COLLECT/$d-efi-$(basename "$cf").txt"
@@ -1530,7 +1530,9 @@ if [ $DRY = 0 ]; then
     inherited=$(owned_amfi_from_prior_record "$OLD_STATE" "$UUID" "$C" "$OCREL" "$(shasum -a 256 "$C" | awk '{print $1}')" "$(get NVRAM.Add.$B.boot-args)")
     for a in $inherited; do case " $ADDED " in *" $a "*) ;; *) ADDED="$ADDED $a";; esac; done
   fi
-  BKC="$C.nullmoth-$(date +%Y%m%d-%H%M%S)"
+  # the name says which file is which: "config.plist.nullmoth-<time>" left people unsure whether it was the original or
+  # the edited one (Discord 10-26); this copy is the config as it was before this run changed it
+  BKC="$C.before-1401-$(date +%Y%m%d-%H%M%S)"
   cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
   ok "backed up the config to $BKC"
   fail=0

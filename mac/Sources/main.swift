@@ -748,7 +748,14 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         return false
     }
     static func recordedDriverVersion() -> String {
-        (try? String(contentsOfFile: "/Library/NullMoth/driver-version", encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let rec = (try? String(contentsOfFile: "/Library/NullMoth/driver-version", encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !rec.isEmpty { return rec }
+        // A driver installed without leaving the record (put on from the 1401 stick, or older than the record) showed no
+        // version, and Check for updates then offered the update every time (Discord 10-26). Every package since 2.1
+        // stamps its version into NVRM.kext, so that is the fallback; an unstamped kext (0.1) stays unknown.
+        let plist = NSDictionary(contentsOfFile: "/Library/Extensions/NVRM.kext/Contents/Info.plist")
+        let v = plist?["CFBundleShortVersionString"] as? String ?? ""
+        return v.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil ? v : ""
     }
     func installedDriverVersion() -> String { App.recordedDriverVersion() }
     func checkUpdate() {

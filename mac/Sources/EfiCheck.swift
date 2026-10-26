@@ -37,7 +37,10 @@ enum EfiCheck {
         }
         // OpenCore's log is ASCII with a NUL-padded tail; a lenient decode keeps every table line.
         let log = (try? Data(contentsOf: folder.appendingPathComponent("opencore.txt"))).map { String(decoding: $0, as: Unicode.ASCII.self) }
-        let scope = read("scope")?.trimmingCharacters(in: .whitespacesAndNewlines) == "stick" ? "stick" : "installed"
+        // The EFI that started this Mac is booting an installed macOS, even when it lives on the 1401 stick: the stick's
+        // installer-only rules (which the Mac setup deliberately undoes, such as NVRM Delete boot-args) do not apply.
+        // 10-26 a Mac started from its stick was told to remove the boot-args entry setup had added on purpose.
+        let scope = "installed"
         let facts = liveFacts(log: log)
         do {
             let issues = try EfiRules.check(cfg, facts: facts, scope: scope, rules: EfiRules.load(rules))

@@ -125,7 +125,9 @@ const NM = {
       if (data.state === "checked") {
         const have = data.installed ? `installed ${esc(data.installed)}, ` : "";
         const kind = data.prerelease ? "early release " : "";
-        $("updr").innerHTML = data.newer ? `${have}newest ${kind}${esc(data.latest)} - ready to update.` : `${have}you have the newest driver (${esc(data.latest)}).`;
+        $("updr").innerHTML = !data.installed
+          ? `1401 could not tell which driver version is installed. The newest ${kind}is ${esc(data.latest)}; updating to it is safe either way.`
+          : data.newer ? `${have}newest ${kind}${esc(data.latest)} - ready to update.` : `${have}you have the newest driver (${esc(data.latest)}).`;
         $("upddrv").hidden = !data.newer;
         $("upddrv").disabled = !data.newer;
         if (data.app) $("updr").innerHTML += data.appNewer ? ` App ${esc(data.appHave)} -> ${esc(data.app)} is ready.` : ` The app (${esc(data.appHave)}) is up to date.`;
@@ -313,6 +315,13 @@ NM.on = (m) => {
       const box = document.createElement("details"), sum = document.createElement("summary"), b = document.createElement("b");
       b.textContent = i.title; sum.appendChild(b); box.appendChild(sum);
       const what = document.createElement("p"); what.textContent = i.what + (i.restart ? " Takes effect at the next restart." : ""); box.appendChild(what);
+      // the exact values in this Mac's config and what each must become
+      if ((i.now || []).length) {
+        const now = document.createElement("div"); now.className = "now";
+        const lab = document.createElement("b"); lab.textContent = "On this Mac: "; now.appendChild(lab);
+        now.appendChild(document.createTextNode(i.now.join(" ")));
+        box.appendChild(now);
+      }
       const ol = document.createElement("ol");
       for (const s of i.steps) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); }
       box.appendChild(ol);

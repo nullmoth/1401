@@ -19,7 +19,8 @@ enum EfiRulesError: Error, CustomStringConvertible {
 struct EfiIssue {
     let id: String, title: String, what: String, steps: [String], restart: Bool
     let failed: [[String: Any]]
-    var json: [String: Any] { ["id": id, "title": title, "what": what, "steps": steps, "restart": restart] }
+    var onThisMac: [String] = []   // the exact values in this config and what each must become
+    var json: [String: Any] { ["id": id, "title": title, "what": what, "steps": steps, "restart": restart, "now": onThisMac] }
 }
 
 enum EfiRules {
@@ -279,6 +280,74 @@ enum EfiRules {
         }
     }
 
+    // MARK: what to change, in this config's own values
+
+    static func shown(_ v: Any?) -> String {
+        switch v {
+        case nil: return "not set"
+        case let n as NSNumber: return isBool(n) ? (n.boolValue ? "true" : "false") : n.stringValue
+        case let s as String: return s.isEmpty ? "empty" : "\"\(s)\""
+        case let d as Data: return String(data: d, encoding: .ascii) ?? "\(d.count) bytes"
+        default: return "\(v!)"
+        }
+    }
+
+    /// One plain line per failed expectation: where it is, what it is now, what it must be. A rule's steps say how in
+    /// general; this says which value on this Mac (10-26: "it doesn't tell you which boot-args need removed").
+    static func describe(_ cfg: NSDictionary, _ p: [String: Any]) -> String {
+        let path = { (s: String) in s.replacingOccurrences(of: ".", with: " > ") }
+        if let any = p["any"] as? [[String: Any]] { return any.map { describe(cfg, $0) }.joined(separator: " or ") }
+        if let k = p["path"] as? String {
+            let now = get(cfg, k) ?? p["default"]
+            if let eq = p["eq"] { return "\(path(k)) is \(shown(now)); set it to \(shown(eq))." }
+            if let fix = p["fix"] { return "\(path(k)) is \(shown(now)); set it to \(shown(fix))." }
+            if let bits = p["bits"] as? Int {
+                let n = (now as? NSNumber)?.intValue ?? 0
+                return "\(path(k)) is \(n); add \(bits) to it, making \(n | bits)."
+            }
+        }
+        if let name = p["kext"] as? String, let enabled = p["enabled"] as? Bool {
+            let ks = list(cfg, "Kernel.Add").filter { kextName($0) == name }
+            let state = ks.isEmpty ? "not listed" : (truthy(ks[0]["Enabled"]) ? "enabled" : "disabled")
+            return "Kernel > Add: \(name) is \(state); set Enabled to \(enabled ? "true" : "false")."
+        }
+        let line = args(cfg).joined(separator: " ")
+        if let a = p["boot_arg"] as? String, let present = p["present"] as? Bool {
+            return "boot-args are \(shown(line)); \(present ? "add" : "remove") \(a)."
+        }
+        if let pre = p["boot_arg_prefix"] as? String {
+            let hits = args(cfg).filter { $0.hasPrefix(pre) }
+            return "boot-args are \(shown(line)); remove \(hits.joined(separator: " "))."
+        }
+        if let item = p["boot_arg_item"] as? [String], item.count == 2 {
+            let old = args(cfg).first { $0.hasPrefix(item[0] + "=") }
+            return old.map { "boot-args have \($0); add ,\(item[1]) to it." } ?? "boot-args are \(shown(line)); add \(item[0])=\(item[1])."
+        }
+        if let lacks = p["list_lacks"] as? [String], lacks.count == 2 { return "\(path(lacks[0])) lists \(lacks[1]); remove that line." }
+        if let sig = p["acpi_delete"] as? String { return "ACPI > Delete has no enabled \(sig) entry; add one." }
+        if let id = p["kernel_block"] as? String { return "Kernel > Block has no enabled \(id) entry; add one." }
+        if let name = p["check"] as? String {
+            switch name {
+            case "no-duplicate-add":
+                var seen = Set<String>(), dups: [String] = []
+                for (section, key) in [("ACPI", "Path"), ("Kernel", "BundlePath")] {
+                    for e in list(cfg, "\(section).Add") { if let k = e[key] as? String { if seen.contains(k) { dups.append(k) } else { seen.insert(k) } } }
+                }
+                return "Listed twice: \(dups.joined(separator: ", "))."
+            case "mmio-whitelist-off":
+                let on = list(cfg, "Booter.MmioWhitelist").filter { truthy($0["Enabled"]) }.map { shown($0["Address"]) }
+                return "Booter > MmioWhitelist entries still enabled: \(on.joined(separator: ", "))."
+            case "replace-within-mask":
+                let bad = list(cfg, "Kernel.Patch").filter { pt in
+                    guard let r = pt["Replace"] as? Data, let m = pt["ReplaceMask"] as? Data, !m.isEmpty, r.count == m.count else { return false }
+                    return Data(zip(r, m).map { $0 & $1 }) != r }.map { shown($0["Comment"]) }
+                return "Kernel > Patch entries to correct: \(bad.joined(separator: ", "))."
+            default: break
+            }
+        }
+        return ""
+    }
+
     // MARK: the two calls the app makes
 
     /// One issue per rule that applies to this machine and that the config does not meet. Rules run in file order on a
@@ -291,8 +360,10 @@ enum EfiRules {
                   try (r["when"] as? [[String: Any]] ?? []).allSatisfy({ try holds(work, $0) }) else { continue }
             let failed = try (r["expect"] as? [[String: Any]] ?? []).filter { try !holds(work, $0) }
             guard !failed.isEmpty else { continue }
-            issues.append(EfiIssue(id: r["id"] as? String ?? "", title: r["title"] as? String ?? "", what: r["what"] as? String ?? "",
-                                   steps: r["steps"] as? [String] ?? [], restart: r["restart"] as? Bool ?? true, failed: failed))
+            var issue = EfiIssue(id: r["id"] as? String ?? "", title: r["title"] as? String ?? "", what: r["what"] as? String ?? "",
+                                 steps: r["steps"] as? [String] ?? [], restart: r["restart"] as? Bool ?? true, failed: failed)
+            issue.onThisMac = failed.map { describe(work, $0) }.filter { !$0.isEmpty }
+            issues.append(issue)
             for e in failed { try apply(work, e) }
         }
         return issues

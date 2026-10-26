@@ -34,6 +34,18 @@ let dmarOn = "OCA: Found 42 ACPI tables\nOCA: Detected table DMAR (52414D44)", d
 if EfiRules.logFacts(dmarOn) != [] || EfiRules.logFacts(dmarOff) != ["firmware_no_dmar"] || EfiRules.logFacts(nil) != [] || EfiRules.logFacts("no tables line") != [] {
     failed += 1; print("DIFFERS: reading VT-d from the OpenCore log")
 } else { passed += 1 }
+// each issue names this config's own values (10-26: "it doesn't tell you which boot-args")
+let sample: [String: Any] = ["Misc": ["Debug": ["Target": 3, "AppleDebug": false, "ApplePanic": false], "Security": ["ExposeSensitiveData": 6]],
+                             "NVRAM": ["Add": [EfiRules.boot: ["boot-args": "-v ctrsmt=full keepsyms=1"]]],
+                             "Kernel": ["Add": [["BundlePath": "CpuTopologyRebuild.kext", "Enabled": true]]]]
+let sampleFacts: [String: Any] = ["macos": "24.6.0", "cpu_vendor": "Intel", "cpu_class": ["arrow_lake", "core_ultra", "intel_hybrid"],
+                                  "chipset": "", "laptop": false, "amd_dgpu": false, "intel_igpu": false, "fact": []]
+let shownIssues = try EfiRules.check(sample, facts: sampleFacts, scope: "installed", rules: rules)
+let lines = shownIssues.flatMap(\.onThisMac).joined(separator: "\n")
+for want in ["Misc > Debug > Target is 3; add 65 to it, making 67.", "remove ctrsmt=full.",
+             "Kernel > Add: CpuTopologyRebuild.kext is enabled; set Enabled to false.", "Misc > Security > ExposeSensitiveData is 6; add 1 to it, making 7."] {
+    if lines.contains(want) { passed += 1 } else { failed += 1; print("DIFFERS: no \"\(want)\" in:\n\(lines)") }
+}
 // a rule the checker cannot read must stop, never pass
 let bad: [String: Any] = ["rules": [["id": "x", "scope": ["installed"], "match": ["gpu_vendr": "AMD"], "expect": []]]]
 var threw = false
