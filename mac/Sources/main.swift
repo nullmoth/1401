@@ -436,9 +436,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         web = WKWebView(frame: .zero, configuration: cfg)
         web.uiDelegate = self
         web.setValue(false, forKey: "drawsBackground")
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 880, height: 800),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "1401"; window.backgroundColor = .black; window.contentView = web; window.center()
+        // The page draws its own striped title bar under a transparent one, so the window's close, minimise and zoom
+        // buttons sit on it; the strip below keeps the window draggable, since the web view takes every click.
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.title = "1401"; window.titlebarAppearsTransparent = true; window.titleVisibility = .hidden
+        window.minSize = NSSize(width: 960, height: 620)
+        window.backgroundColor = .black; window.contentView = web; window.center()
+        let drag = TitleDragView(frame: NSRect(x: 84, y: web.bounds.height - 38, width: max(0, web.bounds.width - 84 - 80), height: 38))
+        drag.autoresizingMask = [.width, .minYMargin]
+        web.addSubview(drag)
         window.makeKeyAndOrderFront(nil)
         web.loadFileURL(res.appendingPathComponent("index.html"), allowingReadAccessTo: res)
         NSApp.activate(ignoringOtherApps: true)
@@ -496,6 +503,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "crashReport": crashReportFromWindow()
         case "sendLogs": sendLogs(sample: b["sample"] as? String ?? "")
         case "gpumap": mapGPU()   // "Map my GPU" (experimental, opt-in)
+        case "mountEfi": DispatchQueue.global().async { self.send("efiMount", EfiCheck.mount()) }
         case "checkEfi": let efi = b["efi"] as? String ?? "auto"; DispatchQueue.global().async { self.send("efiCheck", EfiCheck.run(efi: efi)) }
         case "optionalDiagnostics": optionalDiagnostics()
         case "importDiagnosticReceipt": importDiagnosticReceipt()
@@ -1292,3 +1300,9 @@ let delegate = App()
 app.delegate = delegate
 app.setActivationPolicy(.regular)
 app.run()
+
+/// The draggable part of the page's title bar (between the window buttons and the light/dark switch).
+final class TitleDragView: NSView {
+    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    override func mouseUp(with event: NSEvent) { if event.clickCount == 2 { window?.performZoom(nil) } }
+}

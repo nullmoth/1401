@@ -2,105 +2,131 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'">
 <title>1401</title>
-<link rel="stylesheet" href="guide.css"><link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="app.css">
 </head><body>
-<div class="app" id="top">
-<center class="top">
-<table class="logo" role="presentation" cellspacing="0" cellpadding="0"><tr><td><img class="mark" src="moth-mark.jpg" width="56" height="56" alt=""></td>
-<td class="word"><span class="nm">1401</span> <span class="sy">by NullMoth Systems</span><br><span class="ig">NVIDIA Driver Setup</span> for this Mac</td></tr></table>
-</center>
-<div class="ticker" aria-hidden="true"><span>*** YOUR GEFORCE ON macOS *** NOTHING ABOUT THIS MAC IS SENT ANYWHERE *** EVERY CHANGE IS BACKED UP FIRST *** A WAY BACK IS ALWAYS IN THE BOOT PICKER *** FREE FOREVER ***</span></div>
+<div class="desk" id="desk">
+<div class="sky sky1" aria-hidden="true"></div><div class="sky sky2" aria-hidden="true"></div><div class="sky sky3" aria-hidden="true"></div>
 
-<p class="tabs"><button type="button" class="b tab on" data-t="drv">NVIDIA driver</button> <button type="button" class="b tab" data-t="usb">USB ports</button> <button type="button" class="b tab" data-t="crash">Crash report</button></p>
-<div id="t-drv">
-<p class="panel">Supports configuration of OpenCore setups on macOS 15 and macOS 26 Tahoe (beta), whether 1401 built them or they already existed. The current driver runtime requires macOS 15.5 or later; installation checks the payload before changing the setup. <b>Keep the USB stick or disk OpenCore started this Mac from plugged in</b>: 1401 changes the settings on that one. This driver is new and may not work on every PC; if your setup is not booting yet, start with the <a href="#" id="ocg">OpenCore Install Guide</a>.</p>
-<table class="pc" border="1" cellspacing="2" cellpadding="3"><caption>This Mac:</caption><tbody id="mac"><tr><th>Looking...</th><td>one second</td></tr></tbody></table>
+<header class="bar">
+<span class="ttl" id="ttl">1401 — This Mac</span>
+<button type="button" class="theme" id="theme" aria-label="Switch between light and dark">
+<svg class="moon" viewBox="0 0 12 12" aria-hidden="true"><path d="M8.5 7.5A4 4 0 0 1 4.5 2.2a4 4 0 1 0 4 5.3z"/></svg>
+<svg class="sun" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="2.2"/><path d="M6 .8v1.4M6 9.8v1.4M.8 6h1.4M9.8 6h1.4M2.3 2.3l1 1M8.7 8.7l1 1M2.3 9.7l1-1M8.7 3.3l1-1"/></svg>
+<span class="knob"></span></button>
+</header>
 
-<div id="verdict" class="panel"></div>
+<div class="main">
+<nav class="pane side" aria-label="Sections">
+<button type="button" class="nav tab on" data-t="drv" data-title="This Mac"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>This Mac</button>
+<button type="button" class="nav tab" data-t="efi" data-title="Issues"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>Issues<span class="count" id="efin" hidden></span></button>
+<button type="button" class="nav tab" data-t="tools" data-title="Tools"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18v12H3z"/><path d="M3 7l3-3h12l3 3M10 12h4"/></svg>Tools · Mount EFI</button>
+<button type="button" class="nav tab" data-t="usb" data-title="USB ports"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v14M8 7l4-4 4 4M7 13h10M9 21h6v-4H9z"/></svg>USB ports</button>
+<button type="button" class="nav tab" data-t="crash" data-title="Send a report"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H8l-4 4z"/></svg>Send a report</button>
+<div class="sidefoot">Driver <span id="ver"></span><br><a href="#" id="src">Source code</a> · <a href="#" id="ocg">OpenCore guide</a></div>
+</nav>
 
-<div id="steps" class="panel" hidden>
+<main class="content">
+
+<section id="t-drv">
+<h1>Your Mac, mapped</h1>
+<p class="lede">1401 sets up the NullMoth driver on OpenCore Macs running macOS 15.5 or later, or macOS 26 Tahoe. <b>Keep the USB stick or disk OpenCore started this Mac from plugged in</b>: 1401 changes the settings on that one.</p>
+<table class="pc"><tbody id="mac"><tr><th>Looking...</th><td>one second</td></tr></tbody></table>
+
+<div id="verdict" class="pane card"></div>
+
+<div id="steps" class="pane card" hidden>
 <p class="sh">What happens</p>
 <ol class="todo">
-<li id="s1"><b>Get the driver.</b> <span id="s1t"></span> <button type="button" class="b" id="dl" hidden>Download it</button> <span id="dlp"></span></li>
+<li id="s1"><b>Get the driver.</b> <span id="s1t"></span> <button type="button" class="b go" id="dl" hidden>Download it</button> <span id="dlp"></span></li>
 <li id="s2"><b>Look before touching anything.</b> 1401 reads your OpenCore config and lists every change it would make. Nothing is changed. (macOS asks for your password.) <button type="button" class="b" id="dry" disabled>Show me the changes</button></li>
-<li id="s3"><b>Install.</b> Backs up your OpenCore config, makes exactly the changes listed, installs the driver, and adds <i>1401: Remove NVIDIA driver</i> to your boot picker. <button type="button" class="b" id="go" disabled>Install the driver</button></li>
+<li id="s3"><b>Install.</b> Backs up your OpenCore config, makes exactly the changes listed, installs the driver, and adds <i>1401: Remove NVIDIA driver</i> to your boot picker. <button type="button" class="b go" id="go" disabled>Install the driver</button></li>
 <li id="s4"><b>Restart.</b> If macOS says a system extension was blocked, open <a href="#" id="priv">Privacy &amp; Security</a>, click Allow, and restart once more. <button type="button" class="b" id="rs" disabled>Restart now</button></li>
 </ol>
 <p id="efirow" hidden>The startup partition could not be confirmed. Select the OpenCore partition this Mac started from: <select id="efi"></select></p>
 </div>
 
-<div id="logwrap" hidden><p class="sh">What 1401 is doing</p><pre id="log" aria-live="polite"></pre>
+<div id="logwrap" class="pane card" hidden><p class="sh">What 1401 is doing</p><pre id="log" aria-live="polite"></pre>
 <p class="small"><a href="#" id="logs">Open the log folder</a></p></div>
 
-<div class="panel"><p class="sh">Updates</p>
-<p>Already installed? 1401 checks for the newest NullMoth driver and the newest 1401 app. The app updates itself in place and reopens. For the driver, 1401 downloads it, checks it against the published SHA-256, and installs it the same way as above (your OpenCore config is backed up first). Restart when it is done.</p>
-<p><button type="button" class="b" id="updchk">Check for updates</button> <button type="button" class="b" id="upddrv" hidden>Update driver</button> <button type="button" class="b" id="updapp" hidden>Update the app</button> <span id="updr"></span></p>
-<p><b>Early updates.</b> A new driver goes first to the people who turned this on, and becomes everyone's update only after their machines show it did not make anything worse. Turn it on if you are happy to run a release a day or two early and send logs when something is off; your Mac is offered pre-releases at the next check. Turn it off at any time.</p>
-<p><button type="button" class="b" id="earlyon">Turn early updates on</button> <button type="button" class="b" id="earlyoff" hidden>Turn early updates off</button> <span id="earlyr"></span></p></div>
-<div class="panel"><p class="sh">Update to macOS 26 Tahoe</p>
-<p>From macOS 15: <b>Prepare this Mac for Tahoe</b> installs or updates the NVIDIA driver to this version (it carries the Tahoe driver too), then gets the Mac ready for the update: the driver is parked and the installer gets the small GPU BAR it needs, so the installer screens show. Then install macOS 26 from Software Update. After the update, the first start sets the driver up for Tahoe and restarts once by itself. Changed your mind before updating? <b>Cancel the Tahoe preparation</b> puts everything back.</p>
-<p><button type="button" class="b" id="upd" disabled>Prepare this Mac for Tahoe</button> <button type="button" class="b" id="swu" hidden>Open Software Update</button> <button type="button" class="b" id="updc">Cancel the Tahoe preparation</button> <span id="updt"></span></p></div>
-<div class="panel"><p class="sh">If something goes wrong after you restart</p>
-<p>Restart, and in the OpenCore boot picker choose <b>1401: Remove NVIDIA driver</b>, then your macOS disk. 1401 removes the driver by itself and restarts; this Mac comes back exactly as it was before the install, OpenCore config included. The screen may stay dark until that second restart.</p>
-<p><button type="button" class="b" id="rm">Remove the driver</button></p></div>
-<div class="panel"><p class="sh">Check my EFI</p>
-<p>Checks the OpenCore setup this Mac starts from against the settings that work on PCs like yours, and explains anything that needs changing, with the steps to change it. It only reads: nothing is changed. Asks for your password once.</p>
-<p><button type="button" class="b" id="efichk">Check my EFI</button> <span id="efichkr"></span></p>
-<div id="efiout"></div></div>
-<div class="panel"><p class="sh">Startup text (verbose mode)</p>
+<div class="pane card"><p class="sh">Updates</p>
+<p>1401 checks for the newest NullMoth driver and the newest 1401 app. The app updates itself and reopens. The driver is downloaded, checked against its published SHA-256 and installed the same way as above, with your OpenCore config backed up first.</p>
+<p class="row"><button type="button" class="b go" id="updchk">Check for updates</button> <button type="button" class="b go" id="upddrv" hidden>Update driver</button> <button type="button" class="b go" id="updapp" hidden>Update the app</button> <span id="updr"></span></p>
+<p><b>Early updates.</b> A new driver goes first to people who turn this on, and reaches everyone once their machines show it made nothing worse. Turn it on to get releases a day or two early and send logs when something is off.</p>
+<p class="row"><button type="button" class="b" id="earlyon">Turn early updates on</button> <button type="button" class="b" id="earlyoff" hidden>Turn early updates off</button> <span id="earlyr"></span></p></div>
+
+<div class="pane card"><p class="sh">Update to macOS 26 Tahoe</p>
+<p>From macOS 15, <b>Prepare this Mac for Tahoe</b> installs or updates the driver, parks it, and gives the installer the small GPU BAR it needs so its screens show. Then install macOS 26 from Software Update; the first start after the update sets the driver up for Tahoe and restarts once by itself. <b>Cancel the Tahoe preparation</b> puts everything back.</p>
+<p class="row"><button type="button" class="b" id="upd" disabled>Prepare this Mac for Tahoe</button> <button type="button" class="b" id="swu" hidden>Open Software Update</button> <button type="button" class="b" id="updc">Cancel the Tahoe preparation</button> <span id="updt"></span></p></div>
+
+<div class="pane card"><p class="sh">If something goes wrong after you restart</p>
+<p>In the OpenCore boot picker choose <b>1401: Remove NVIDIA driver</b>, then your macOS disk. 1401 removes the driver and restarts, and this Mac comes back as it was before the install, OpenCore config included. The screen may stay dark until that second restart.</p>
+<p class="row"><button type="button" class="b" id="rm">Remove the driver</button></p></div>
+</section>
+
+<section id="t-efi" hidden>
+<div class="head"><div><h1>Check my EFI</h1>
+<p class="lede">Checks the OpenCore setup this Mac starts from against the settings that work on PCs like yours, and explains anything that needs changing, with the steps. It only reads: nothing is changed. Asks for your password once.</p></div>
+<button type="button" class="b go" id="efichk">Check my EFI</button></div>
+<p id="efichkr"></p>
+<div id="efiout"></div>
+</section>
+
+<section id="t-tools" hidden>
+<h1>Tools</h1>
+<div class="pane card"><p class="sh">Mount EFI</p>
+<p>The EFI partition holds your boot setup. 1401 finds the one this Mac started from, mounts it and opens it in Finder. Asks for your password once.</p>
+<p class="row"><button type="button" class="b go" id="efimount">Mount EFI</button> <span id="efimountr"></span></p></div>
+<div class="pane card"><p class="sh">Startup text (verbose mode)</p>
 <p>Shows what macOS is doing while it starts instead of the Apple logo. Useful if a start hangs. Takes effect at the next restart.</p>
-<p><button type="button" class="b" id="vbon">Turn verbose on</button> <button type="button" class="b" id="vboff">Turn verbose off</button></p>
-</div>
-<div class="panel"><p class="sh">Built-in screen brightness (laptops)</p>
-<p>For a laptop whose built-in screen is wired to the NVIDIA GPU (MUX set to Discrete or dGPU). It lets the driver read the panel's brightness controls from the laptop's firmware. It is off by default because that firmware call stopped some PCs at GPU start. If yours stops there, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker and turn it off here.</p>
-<p><button type="button" class="b" id="blon">Turn brightness control on</button> <button type="button" class="b" id="bloff">Turn it off</button></p></div>
-<div class="panel"><p class="sh">AMD / Intel GPU and NPU driver (test)</p>
-<p>For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe / Arc graphics), and for the NPU in Intel Core Ultra (Meteor Lake, Arrow Lake, Lunar Lake) and AMD Ryzen AI processors. This is an early test build: your Send logs are how it gets fixed. It downloads only the firmware your Mac's GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.</p>
+<p class="row"><button type="button" class="b" id="vbon">Turn verbose on</button> <button type="button" class="b" id="vboff">Turn verbose off</button></p></div>
+<div class="pane card"><p class="sh">Built-in screen brightness (laptops)</p>
+<p>For a laptop whose built-in screen is wired to the NVIDIA GPU (MUX set to Discrete or dGPU). It lets the driver read the panel's brightness controls from the laptop's firmware. It is off by default because that call stopped some PCs at GPU start; if yours stops there, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker and turn it off here.</p>
+<p class="row"><button type="button" class="b" id="blon">Turn brightness control on</button> <button type="button" class="b" id="bloff">Turn it off</button></p></div>
+<div class="pane card"><p class="sh">AMD / Intel GPU and NPU driver (test)</p>
+<p>For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe and Arc graphics), and the NPU in Intel Core Ultra and AMD Ryzen AI processors. An early test build: your Send logs are how it gets fixed. It downloads only the firmware your GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.</p>
 <p>If that GPU drives your screen, the screen can stay dark. Then choose <b>1401: Start once without NVIDIA driver</b> in the boot picker (it parks this driver too) and turn it off here.</p>
-<p><button type="button" class="b" id="gpuon">Turn the test driver on</button> <button type="button" class="b" id="gpuoff">Turn it off</button></p>
-<p><b>Test program.</b> Join it and 1401 sends a short report after every restart while the test driver is on: the driver's kernel messages, any crash, and which GPU and test build you have (your name and serial numbers are removed, as in Send logs). That is how a start that crashes or hangs gets fixed without you doing anything. Leave it at any time; nothing runs after you leave.</p>
-<p><button type="button" class="b" id="teston">Join the test program</button> <button type="button" class="b" id="testoff">Leave it</button> <span id="testr"></span></p></div>
-<div class="panel"><p class="sh">Map my GPU (experimental)</p>
-<p>Runs a few minutes of measurements on this Mac's GPU, the same ones the driver was tuned with on its test card: what Metal reports, a correctness check, memory and compute speed, and a set of small test shaders. Nothing on the Mac is changed and no display mode is touched. The result is saved in the log folder, and Send logs (which asks first) uploads it so the next driver can be tuned for your card.</p>
-<p><button type="button" class="b" id="gpumap">Map my GPU</button> <span id="gpumapr"></span></p></div>
+<p class="row"><button type="button" class="b" id="gpuon">Turn the test driver on</button> <button type="button" class="b" id="gpuoff">Turn it off</button></p>
+<p><b>Test program.</b> While the test driver is on, 1401 sends a short report after every restart: the driver's kernel messages, any crash, and which GPU and build you have (names and serial numbers removed). Leave at any time.</p>
+<p class="row"><button type="button" class="b" id="teston">Join the test program</button> <button type="button" class="b" id="testoff">Leave it</button> <span id="testr"></span></p></div>
+<div class="pane card"><p class="sh">Map my GPU (experimental)</p>
+<p>A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.</p>
+<p class="row"><button type="button" class="b" id="gpumap">Map my GPU</button> <span id="gpumapr"></span></p></div>
+</section>
 
-</div>
-
-<div id="t-usb" hidden>
-<div class="panel"><p class="sh">Map your USB ports</p>
-<p>macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test those ports again after restarting, including USB-C in both orientations and wake from sleep. Ports that never appear in the scan still need separate discovery.</p>
+<section id="t-usb" hidden>
+<h1>USB ports</h1>
+<div class="pane card"><p class="sh">Map your USB ports</p>
+<p>macOS only uses 15 ports per USB controller and has no idea which ones your case actually has. 1401 watches the ports while you plug things in, then writes a map for the ports you select. Test them again after restarting, including USB-C both ways round and wake from sleep.</p>
 <ol class="todo">
-<li><b>Start watching.</b> <button type="button" class="b" id="uw">Start</button></li>
-<li><b>Plug something into each port you use, one at a time</b> &mdash; a USB 3 stick is best, and do each USB-C port both ways round. A port turns <span class="good">green</span> when 1401 sees it. Ports that already have something plugged in count too.</li>
-<li><b>Check the list</b>, pick the plug type for each port, and click <button type="button" class="b" id="uwr">Write the map</button> (macOS asks for your password; your OpenCore config is backed up first).</li>
+<li><b>Start watching.</b> <button type="button" class="b go" id="uw">Start</button></li>
+<li><b>Plug something into each port you use, one at a time.</b> A USB 3 stick is best; do each USB-C port both ways round. A port turns <span class="good">green</span> when 1401 sees it.</li>
+<li><b>Check the list</b>, pick the plug type for each port, and <button type="button" class="b go" id="uwr">Write the map</button> (macOS asks for your password; your OpenCore config is backed up first).</li>
 </ol>
 <p id="uerr" class="bad"></p></div>
 <div id="ports"></div>
-</div>
+</section>
 
-<div id="t-crash" hidden>
-<div class="panel"><p class="sh">Crash report</p>
-<p>If the NVIDIA driver ever crashes this Mac, 1401 asks the next time you log in whether to make a report. You can also make one here.</p>
-<p>The report is a text file on your Desktop with your hardware (CPU, graphics, memory, macOS version) and what failed. 1401 takes out your name, your Mac's name, serial numbers, network addresses and file paths. Read it, then upload it on the NullMoth site if you want to. <b>1401 never sends anything by itself.</b></p>
-<p id="cr"></p>
-<p><button type="button" class="b" id="mk">Make a report</button> <button type="button" class="b" id="up">Open the upload page</button> <button type="button" class="b" id="cf">Buy me a coffee</button> <button type="button" class="b" id="cr">Credits</button></p>
-<p class="sh">Something not working?</p>
-<p><button type="button" class="b" id="sl">Send logs to NullMoth</button> 1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device/CPU map (names, serial numbers and addresses removed). You get a report ID to quote in the NullMoth Discord.</p>
-<p><button type="button" class="b" id="fl">Record the flicker</button> Screen flickering or flashing? Press this while it happens: 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.</p>
+<section id="t-crash" hidden>
+<h1>Something still wrong?</h1>
+<div class="pane card"><p class="sh">Send logs</p>
+<p>1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.</p>
+<p class="row"><button type="button" class="b go" id="sl">Send logs to NullMoth</button> <button type="button" class="b" id="fl">Record the flicker</button></p>
+<p class="small">Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.</p>
 <p id="slr"></p></div>
-<div class="panel"><p class="sh">Optional diagnostics</p>
+<div class="pane card"><p class="sh">Crash report</p>
+<p>If the driver ever crashes this Mac, 1401 asks at the next login whether to make a report. It is a text file on your Desktop with your hardware and what failed, with your name, your Mac's name, serial numbers, addresses and file paths taken out. <b>1401 never sends it by itself.</b></p>
+<p id="cr"></p>
+<p class="row"><button type="button" class="b" id="mk">Make a report</button> <button type="button" class="b" id="up">Open the upload page</button> <button type="button" class="b" id="cf">Buy me a coffee</button> <button type="button" class="b" id="cr">Credits</button></p></div>
+<div class="pane card"><p class="sh">Optional diagnostics</p>
 <p>Capture is unavailable in this version. Send logs still collects hardware, kernel and panic evidence. No security settings have changed.</p>
-<p><button type="button" class="b" id="od">Check optional diagnostics</button> <button type="button" class="b" id="dr">Import saved receipt</button></p>
+<p class="row"><button type="button" class="b" id="od">Check optional diagnostics</button> <button type="button" class="b" id="dr">Import saved receipt</button></p>
 <p class="small">Checking availability starts no trace. A saved receipt needs its own session upload permission and a separate Send logs confirmation.</p>
-<p id="odr" style="white-space:pre-line"></p><p id="drr"></p></div>
-</div>
+<p id="odr"></p><p id="drr"></p></div>
+<p class="legal">© 2026 NullMoth Systems. NullMoth and the moth logo are trademarks of NullMoth Systems.</p>
+</section>
 
-<center class="foot">
-<hr width="80%">
-<p class="badges" aria-hidden="true"><span class="bd bd1">1401</span><span class="bd bd2">MADE FOR<br>macOS 15 + 26</span><span class="bd bd3">NO COOKIES<br>NO TRACKING</span><span class="bd bd4">FREE<br>FOREVER</span></p>
-<p class="counter">You are visitor number <b>000001</b> (it's only ever you &mdash; nothing here leaves this Mac)</p>
-<p>Driver <span id="ver"></span> &middot; <a href="#" id="src">source code</a><br>© 2026 NullMoth Systems<br>NullMoth and the moth logo are trademarks of NullMoth Systems.</p>
-</center>
+</main>
+</div>
 </div>
 <script src="app.js"></script>
 </body></html>

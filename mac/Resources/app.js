@@ -206,9 +206,23 @@ post({ act: "scan" });
 
 document.querySelectorAll(".tab").forEach((b) => (b.onclick = () => {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
-  ["drv", "usb", "crash"].forEach((t) => ($("t-" + t).hidden = t !== b.dataset.t));
+  ["drv", "efi", "tools", "usb", "crash"].forEach((t) => ($("t-" + t).hidden = t !== b.dataset.t));
+  $("ttl").textContent = "1401 — " + b.dataset.title;
   if (b.dataset.t !== "usb") post({ act: "usbStop" });
 }));
+// Light or dark: the switch in the title bar, remembered on this Mac; until it is used, the system's setting decides.
+// Storage can be unavailable; the switch still works for the session.
+function setTheme(light) {
+  $("desk").classList.toggle("light", light);
+  try { localStorage.setItem("theme", light ? "light" : "dark"); } catch (e) { /* the switch still works this session */ }
+}
+(() => {
+  let saved = null;
+  try { saved = localStorage.getItem("theme"); } catch (e) { /* no stored choice */ }
+  $("desk").classList.toggle("light", saved ? saved === "light" : window.matchMedia("(prefers-color-scheme: light)").matches);
+})();
+$("theme").onclick = () => setTheme(!$("desk").classList.contains("light"));
+$("efimount").onclick = () => { $("efimount").disabled = true; $("efimountr").textContent = "Finding the EFI..."; post({ act: "mountEfi" }); };
 const CONN = [[0, "USB 2 Type-A"], [3, "USB 3 Type-A"], [9, "USB-C (flips)"], [10, "USB-C (one way)"], [255, "Inside the case"]];
 function usbConnectorDefault(port) {
   if (port.connectorKnown === true && CONN.some(([value]) => value === port.connector)) return port.connector;
@@ -290,6 +304,7 @@ NM.on = (m) => {
     if (d.cancelled) { $("efichkr").textContent = ""; return; }
     if (!d.ok) { $("efichkr").innerHTML = `<span class="warn">${esc(d.why || "The check did not finish.")}</span>`; return; }
     const n = d.issues.length;
+    $("efin").hidden = !n; $("efin").textContent = n;
     $("efichkr").innerHTML = n ? `<span class="warn">${n} thing${n === 1 ? "" : "s"} to change in ${esc(d.partition)}</span>`
                                : `<span class="good">No problems found in ${esc(d.partition)}</span>`;
     // built from text nodes: the titles and steps come from the rule file, never parsed as HTML
@@ -307,6 +322,12 @@ NM.on = (m) => {
       note.textContent = "Before you edit config.plist, keep a copy of it. If a change stops this Mac from starting, start from your 1401 stick and put the copy back.";
       $("efiout").appendChild(note);
     }
+    return;
+  }
+  if (m.event === "efiMount") {
+    $("efimount").disabled = false;
+    $("efimountr").innerHTML = m.data.cancelled ? "" : m.data.ok ? `<span class="good">Mounted ${esc(m.data.partition)} at ${esc(m.data.where)}</span>`
+                                                              : `<span class="warn">${esc(m.data.why || "The EFI could not be mounted.")}</span>`;
     return;
   }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }

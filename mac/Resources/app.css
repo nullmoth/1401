@@ -1,16 +1,83 @@
-.panel { margin: 0 0 14px; padding: 8px 10px; background: #1a0033; border: 2px outset #663399; }
-.panel p { margin: 6px 0; }
-.todo li { margin: 0 0 10px; }
-.todo li.done b::after { content: "  [DONE]"; color: #00ff00; font: bold 11px "Courier New", Courier, monospace; }
-.todo li.now b { color: #ffcc00; }
-#log { margin: 0; height: 220px; overflow: auto; padding: 6px; background: #000; color: #00ffff;
-       border: 2px inset #663399; font: 12px/1.35 "Courier New", Courier, monospace; white-space: pre-wrap; }
-#log .c { color: #ffcc00; } #log .k { color: #00ff00; } #log .x { color: #ff3333; font-weight: bold; } #log .s { color: #fff; font-weight: bold; }
-.good { color: #00ff00; font-weight: bold; } .bad { color: #ff3333; font-weight: bold; } .warn { color: #ffcc00; font-weight: bold; }
-.small { font-size: 11px; }
-select { font: 12px "Courier New", Courier, monospace; }
-.tabs { margin: 0 0 12px; }
-.tab.on { color: #ffcc00; border-style: inset; }
-.ports { margin: 0 0 14px; }
-.ports td.on { color: #00ff00; font-weight: bold; }
-.ports td.off { color: #8a78a8; }
+/* 1401 for Mac: the NullMoth theme (the site's purples, cyan and amber) as glass over the site's drifting starfield.
+   Colours are tokens on .desk; .desk.light swaps them. Stars live inside the window, which is the app; around it is
+   the user's own desktop. */
+.desk{--text:#e6ddf3;--muted:#a898c2;--soft:#cbbfe0;--link:#c9a3ff;--line:#3b1f5f;--hi:#8b5cc8;--lo:#13081f;--glass:rgba(21,10,36,.5);--glass2:rgba(29,15,49,.6);--well:rgba(0,0,0,.35);--well2:rgba(0,0,0,.55);--ink:#000;--accent:#b98aff;--on-accent:#0b0613;--sel:rgba(124,63,208,.35);--sel-line:#b98aff;--cyan:#58e6ea;--cyan-bg:rgba(88,230,234,.14);--cyan-line:rgba(88,230,234,.45);--cyan-soft:#d6fbfc;--amber:#ffcf70;--amber-bg:rgba(255,207,112,.14);--amber-line:rgba(255,207,112,.45);--amber-soft:#ffe3b0;--btn-a:rgba(92,40,163,.9);--btn-b:rgba(42,17,80,.9);--btn-text:#fff;--btn-hi:rgba(185,138,255,.7);--go-a:#d4b4ff;--go-b:#9a63f0;--go-text:#0b0613;--go-glow:rgba(185,138,255,.45);--title-bg:rgba(11,6,19,.88);--stripe-a:rgba(185,138,255,.32);--stripe-b:rgba(11,6,19,.35);--desk-bg:#000;--star:#fff;--star2:#c9a3ff;--star3:#58e6ea;--neb1:rgba(124,63,208,.6);--neb2:rgba(88,230,234,.3);--neb3:rgba(229,155,255,.32);--scan:rgba(0,0,0,.14);--shadow:rgba(0,0,0,.75);--edge:rgba(255,255,255,.24)}
+.desk.light{--text:#1a0d2e;--muted:#56466f;--soft:#3d2f57;--link:#6a2fc0;--line:#c9b6ea;--hi:#ffffff;--lo:#b9a3dd;--glass:rgba(255,255,255,.55);--glass2:rgba(255,255,255,.66);--well:rgba(124,63,208,.08);--well2:rgba(255,255,255,.88);--ink:#ffffff;--accent:#7c3fd0;--on-accent:#ffffff;--sel:rgba(124,63,208,.14);--sel-line:#7c3fd0;--cyan:#0b6b70;--cyan-bg:rgba(88,230,234,.22);--cyan-line:rgba(11,107,112,.4);--cyan-soft:#0b4f53;--amber:#7a4f00;--amber-bg:rgba(255,207,112,.32);--amber-line:rgba(122,79,0,.35);--amber-soft:#5c3b00;--btn-a:rgba(255,255,255,.95);--btn-b:rgba(226,214,247,.95);--btn-text:#2a1150;--btn-hi:#ffffff;--go-a:#9a63f0;--go-b:#6a2fc0;--go-text:#ffffff;--go-glow:rgba(124,63,208,.3);--title-bg:rgba(255,255,255,.9);--stripe-a:rgba(255,255,255,.85);--stripe-b:rgba(185,138,255,.3);--desk-bg:#efe8fb;--star:#b98aff;--star2:#7c3fd0;--star3:#3fa9ae;--neb1:rgba(185,138,255,.55);--neb2:rgba(88,230,234,.4);--neb3:rgba(229,155,255,.45);--scan:rgba(124,63,208,.04);--shadow:rgba(60,20,110,.28);--edge:rgba(255,255,255,.95)}
+.desk{--s1:#cdb6ff;--s2:#ffffff;--s3:#d9c8ff;--s4:#8e6ad0;--s5:#b89cff;--s6:#58e6ea}
+.desk.light{--s1:#9a63f0;--s2:#7c3fd0;--s3:#b98aff;--s4:#6a2fc0;--s5:#9a63f0;--s6:#2f9a9f}
+.sky{position:absolute;inset:-620px;z-index:0;pointer-events:none;will-change:transform,opacity}
+.sky1{background-image:radial-gradient(3px 3px at 23px 41px,var(--s1) 50%,transparent 51%),radial-gradient(3px 3px at 157px 12px,var(--s2) 50%,transparent 51%),radial-gradient(4px 4px at 201px 187px,var(--s3) 50%,transparent 51%),radial-gradient(3px 3px at 96px 118px,var(--s2) 50%,transparent 51%),radial-gradient(3px 3px at 188px 74px,var(--s5) 50%,transparent 51%),radial-gradient(3px 3px at 52px 205px,var(--s4) 50%,transparent 51%);background-size:240px 240px;animation:drift1 130s linear infinite,twinkle 5s ease-in-out infinite}
+.sky2{background-image:radial-gradient(3px 3px at 91px 133px,var(--s4) 50%,transparent 51%),radial-gradient(3px 3px at 37px 97px,var(--s2) 50%,transparent 51%),radial-gradient(3px 3px at 131px 21px,var(--s5) 50%,transparent 51%),radial-gradient(3px 3px at 158px 162px,var(--s1) 50%,transparent 51%),radial-gradient(3px 3px at 12px 54px,var(--s3) 50%,transparent 51%);background-size:180px 180px;animation:drift2 185s linear infinite,twinkle 7.5s ease-in-out -3s infinite}
+.sky3{background-image:radial-gradient(5px 5px at 61px 211px,var(--s2) 50%,transparent 51%),radial-gradient(4px 4px at 251px 71px,var(--s6) 50%,transparent 51%),radial-gradient(3px 3px at 171px 143px,var(--s1) 50%,transparent 51%),radial-gradient(3px 3px at 218px 262px,var(--s5) 50%,transparent 51%),radial-gradient(3px 3px at 114px 28px,var(--s2) 50%,transparent 51%),radial-gradient(4px 4px at 284px 190px,var(--s3) 50%,transparent 51%);background-size:300px 300px;animation:drift3 250s linear infinite,twinkle 11s ease-in-out -6s infinite}
+@keyframes drift1{to{transform:translate3d(-480px,240px,0)}}
+@keyframes drift2{to{transform:translate3d(-360px,180px,0)}}
+@keyframes drift3{to{transform:translate3d(-600px,300px,0)}}
+@keyframes twinkle{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.sky{animation:none}}
+.desk{--win-bg:rgba(8,3,16,.45)}
+.desk.light{--win-bg:rgba(250,247,255,.5)}
+.theme{margin-left:auto;position:relative;width:46px;height:22px;padding:0 5px;border-radius:999px;border:1px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--well2);box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.theme svg{width:11px;height:11px;fill:none;stroke:var(--muted);stroke-width:1.2;stroke-linecap:round}
+.theme .moon{fill:var(--muted);stroke:none}
+.knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:linear-gradient(180deg,var(--go-a),var(--go-b));box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.6);transition:transform .2s}
+.desk.light .knob{transform:translateX(24px)}
+html,body{margin:0;height:100%;overflow:hidden}
+.desk{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden;font:14px/1.5 -apple-system,"SF Pro Text",Verdana,Geneva,sans-serif;color:var(--text);background-color:var(--desk-bg);background-image:radial-gradient(circle at 14% 20%,var(--neb1) 0,transparent 40%),radial-gradient(circle at 86% 82%,var(--neb2) 0,transparent 38%),radial-gradient(circle at 68% 6%,var(--neb3) 0,transparent 34%)}
+.desk::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:3;background:repeating-linear-gradient(to bottom,transparent 0 2px,var(--scan) 2px 3px)}
+.desk>:not(.sky){position:relative;z-index:1}
+.desk a{color:var(--link)}
+/* the title bar: the window's own close / minimise / zoom buttons sit on its left (full-size content view) */
+.bar{flex:none;height:38px;display:flex;align-items:center;gap:8px;padding:0 14px 0 84px;background:repeating-linear-gradient(180deg,var(--stripe-a) 0 1px,var(--stripe-b) 1px 2px);border-bottom:1px solid var(--line);box-shadow:inset 0 1px 0 var(--edge)}
+.ttl{position:absolute;left:50%;transform:translateX(-50%);padding:2px 14px;font:bold 16px "Times New Roman",Times,serif;letter-spacing:.3px;color:var(--text);background:var(--title-bg);border-radius:6px;box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap}
+.main{flex:1;display:flex;gap:14px;padding:14px;min-height:0;background:var(--win-bg)}
+.pane{border-radius:12px;background:var(--glass);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--line)}
+.side{width:220px;flex:none;display:flex;flex-direction:column;gap:4px;padding:10px}
+.nav{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border:0;border-radius:9px;background:transparent;font:14px -apple-system,Verdana,sans-serif;color:var(--text);text-align:left;cursor:pointer}
+.nav:hover{background:var(--well)}
+.nav.on{background:var(--sel);box-shadow:inset 0 0 0 1px var(--sel-line),inset 0 1px 0 var(--edge);font-weight:bold}
+.count{margin-left:auto;font:bold 12px "Courier New",Courier,monospace;padding:1px 7px;border-radius:9px;background:#ffcf70;color:#0b0613}
+svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.sidefoot{margin-top:auto;padding:12px;border-radius:10px;background:var(--well);font-size:12px;line-height:1.6;color:var(--muted)}
+.content{flex:1;min-width:0;overflow-y:auto;padding:4px 6px 20px 4px}
+.content section{display:flex;flex-direction:column;gap:12px}
+[hidden]{display:none!important}
+h1{margin:0;font:bold 32px "Times New Roman",Times,serif;color:var(--text)}
+.head{display:flex;align-items:flex-end;gap:16px}.head>div{flex:1}
+.lede{margin:4px 0 0;color:var(--muted)}
+.card{padding:14px 16px}
+.card p{margin:6px 0}
+.sh{margin:0 0 4px!important;font:bold 12px "Courier New",Courier,monospace;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.small{font-size:12px;color:var(--muted)}
+.legal{font-size:11px;color:var(--muted);text-align:center}
+.b{font:bold 13px -apple-system,Verdana,sans-serif;min-height:36px;padding:0 16px;border-radius:10px;border:1px solid var(--lo);background:linear-gradient(180deg,var(--btn-a),var(--btn-b));box-shadow:inset 1px 1px 0 var(--btn-hi),inset -1px -1px 0 var(--lo),0 2px 0 var(--shadow);color:var(--btn-text);cursor:pointer}
+.b.go{background:linear-gradient(180deg,var(--go-a),var(--go-b));color:var(--go-text);box-shadow:inset 1px 1px 0 rgba(255,255,255,.7),inset -1px -1px 0 #4b1f86,0 2px 0 var(--shadow),0 0 18px var(--go-glow)}
+.b:disabled{opacity:.45;cursor:default;box-shadow:none}
+.b:active:not(:disabled){transform:translateY(1px)}
+select{font:13px "Courier New",Courier,monospace;color:var(--text);background:var(--well2);border:1px solid var(--line);border-radius:6px;padding:4px}
+.good{color:var(--cyan);font-weight:bold}.bad{color:#ff7092;font-weight:bold}.warn{color:var(--amber);font-weight:bold}
+.desk.light .bad{color:#b0003a}
+/* This Mac: two columns of label / value */
+table.pc{width:100%;border-collapse:separate;border-spacing:0 4px}
+table.pc caption{text-align:left;font:bold 12px "Courier New",Courier,monospace;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:0 0 4px}
+table.pc th,table.pc td{padding:8px 12px;background:var(--glass2);text-align:left;vertical-align:top}
+table.pc th{width:28%;font:bold 12px "Courier New",Courier,monospace;letter-spacing:1px;text-transform:uppercase;color:var(--muted);border-radius:10px 0 0 10px;box-shadow:inset 1px 0 0 var(--line),inset 0 1px 0 var(--line),inset 0 -1px 0 var(--line)}
+table.pc td{border-radius:0 10px 10px 0;box-shadow:inset -1px 0 0 var(--line),inset 0 1px 0 var(--line),inset 0 -1px 0 var(--line)}
+table.ports th{width:auto;border-radius:0}table.ports td{border-radius:0}
+.ports td.on{color:var(--cyan);font-weight:bold}.ports td.off{color:var(--muted)}
+/* steps */
+.todo{margin:6px 0;padding-left:22px}
+.todo li{margin:0 0 10px}
+.todo li.done b::after{content:"  [done]";color:var(--cyan);font:bold 11px "Courier New",Courier,monospace}
+.todo li.now b{color:var(--accent)}
+#log{margin:0;height:220px;overflow:auto;padding:8px;border-radius:10px;background:var(--ink);box-shadow:inset 0 0 0 1px var(--line);color:var(--cyan);font:12px/1.35 "Courier New",Courier,monospace;white-space:pre-wrap}
+#log .c{color:var(--amber)}#log .k{color:var(--cyan)}#log .x{color:#ff7092;font-weight:bold}#log .s{color:var(--text);font-weight:bold}
+#odr{white-space:pre-line}
+/* Check my EFI: one card per issue */
+#efiout{display:flex;flex-direction:column;gap:10px}
+#efiout details{padding:14px 16px;border-radius:12px;background:var(--glass2);box-shadow:inset 0 1px 0 var(--edge),inset 0 0 0 1px var(--line)}
+#efiout summary{cursor:pointer;font-size:16px;list-style:none}
+#efiout summary::before{content:"!";display:inline-block;margin-right:10px;padding:0 8px;border-radius:999px;font:bold 12px "Courier New",Courier,monospace;background:var(--amber-bg);color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber-line)}
+#efiout ol{margin:10px 0 0;padding:10px 14px 10px 32px;border-radius:10px;background:var(--well2);box-shadow:inset 0 0 0 1px var(--line)}
+#efiout>p{color:var(--muted);font-size:13px}
+.theme svg{flex:none}

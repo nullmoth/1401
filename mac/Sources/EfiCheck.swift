@@ -2,6 +2,7 @@
 // The app's EFI check: the facts the rules match on, read from this Mac, checked against the config this Mac starts
 // from. nullmoth-setup.sh --efi-read finds that config the same way an install does (OpenCore's boot path, else the
 // config that sets this Mac's serial, else the only OpenCore partition) and copies it out without changing anything.
+import AppKit
 import Foundation
 import IOKit
 
@@ -45,6 +46,33 @@ enum EfiCheck {
         } catch {
             return ["ok": false, "why": "The EFI rules could not be read: \(error)"]
         }
+    }
+
+    /// Tools > Mount EFI: setup proves which EFI partition this Mac started from (as --efi-read does), and the same root
+    /// shell mounts it, so there is one password prompt; Finder then opens it for the user.
+    static func mount() -> [String: Any] {
+        let fm = FileManager.default, res = Bundle.main.resourceURL!
+        let dir = fm.temporaryDirectory.appendingPathComponent("1401-efi-" + UUID().uuidString)
+        do { try fm.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700]) }
+        catch { return ["ok": false, "why": "Could not make a temporary folder: \(error.localizedDescription)"] }
+        defer { try? fm.removeItem(at: dir) }
+        let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let cmd = Privileged.bundleScript(res.appendingPathComponent("nullmoth-setup.sh").path, ["--efi-read", dir.path])
+            + " && /usr/sbin/diskutil mount \"$(/bin/cat " + q(dir.appendingPathComponent("partition").path) + ")\""
+        let r = Privileged.run(cmd, timeout: 5 * 60)
+        if r.cancelled { return ["ok": false, "cancelled": true] }
+        let part = (try? String(contentsOf: dir.appendingPathComponent("partition"), encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard r.error == nil, !part.isEmpty, part.range(of: #"^disk[0-9]+s[0-9]+$"#, options: .regularExpression) != nil else {
+            let stop = r.output.split(separator: "\n").first { $0.hasPrefix("STOP ") }.map { String($0.dropFirst(5)) }
+            return ["ok": false, "why": stop ?? r.error ?? "The EFI partition could not be found."]
+        }
+        let info = sh("/usr/sbin/diskutil", ["info", part])
+        let where_ = info.split(separator: "\n").first { $0.contains("Mount Point:") }
+            .map { $0.split(separator: ":", maxSplits: 1).last.map { $0.trimmingCharacters(in: .whitespaces) } ?? "" } ?? ""
+        guard !where_.isEmpty else { return ["ok": false, "why": "macOS did not mount \(part)."] }
+        DispatchQueue.main.async { NSWorkspace.shared.open(URL(fileURLWithPath: where_)) }
+        return ["ok": true, "partition": part, "where": where_]
     }
 
     /// The window's "Check my EFI": reads the config through setup (one administrator prompt), then checks it.
