@@ -442,10 +442,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                           styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.title = "1401"; window.titlebarAppearsTransparent = true; window.titleVisibility = .hidden
         window.minSize = NSSize(width: 960, height: 620)
-        window.backgroundColor = .black; window.contentView = web; window.center()
-        let drag = TitleDragView(frame: NSRect(x: 84, y: web.bounds.height - 38, width: max(0, web.bounds.width - 84 - 80), height: 38))
-        drag.autoresizingMask = [.width, .minYMargin]
-        web.addSubview(drag)
+        window.backgroundColor = .black
+        window.contentView = TitleBar.container(web: web, size: window.contentRect(forFrameRect: window.frame).size)
+        window.center()
         window.makeKeyAndOrderFront(nil)
         web.loadFileURL(res.appendingPathComponent("index.html"), allowingReadAccessTo: res)
         NSApp.activate(ignoringOtherApps: true)
@@ -1301,8 +1300,3 @@ app.delegate = delegate
 app.setActivationPolicy(.regular)
 app.run()
 
-/// The draggable part of the page's title bar (between the window buttons and the light/dark switch).
-final class TitleDragView: NSView {
-    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
-    override func mouseUp(with event: NSEvent) { if event.clickCount == 2 { window?.performZoom(nil) } }
-}
