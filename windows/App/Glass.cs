@@ -30,8 +30,13 @@ namespace A1401
         static readonly string PrefFile = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NullMoth", "1401", "theme.txt");
 
+        /// <summary>For --screenshot only: draw in this palette without reading or saving the user's choice.</summary>
+        public static void Force(bool light) { Light = light; forced = true; }
+        static bool forced;
+
         public static void LoadPreference()
         {
+            if (forced) return;
             try { Light = File.Exists(PrefFile) && File.ReadAllText(PrefFile).Trim() == "light"; }
             catch (Exception) { Light = false; }   // an unreadable choice means the default, dark
         }

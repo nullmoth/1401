@@ -40,6 +40,20 @@ jobs:
           $expected = ([xml](Get-Content windows/App/App.csproj)).Project.PropertyGroup.Version
           $actual = [System.Diagnostics.FileVersionInfo]::GetVersionInfo("$env:RUNNER_TEMP/1401-compiled/1401.exe")
           if ($actual.FileVersion -ne "$expected.0") { throw 'Compiled executable file version differs.' }
+      - name: Draw the window, dark and light, for review
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "$env:RUNNER_TEMP/1401-compiled/1401.exe" -ArgumentList '--screenshot', "$env:RUNNER_TEMP/ui-shots" -PassThru -Wait
+          Get-ChildItem "$env:RUNNER_TEMP/ui-shots" | Format-Table Name, Length
+      - name: Keep the window drawings
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: ui-screenshots
+          path: ${{ runner.temp }}/ui-shots/*.png
+          if-no-files-found: warn
+          retention-days: 3
       - name: Select the installed native Windows compiler
         shell: pwsh
         run: |
