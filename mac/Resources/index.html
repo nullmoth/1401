@@ -43,6 +43,10 @@
 <div class="panel"><p class="sh">If something goes wrong after you restart</p>
 <p>Restart, and in the OpenCore boot picker choose <b>1401: Remove NVIDIA driver</b>, then your macOS disk. 1401 removes the driver by itself and restarts; this Mac comes back exactly as it was before the install, OpenCore config included. The screen may stay dark until that second restart.</p>
 <p><button type="button" class="b" id="rm">Remove the driver</button></p></div>
+<div class="panel"><p class="sh">Check my EFI</p>
+<p>Checks the OpenCore setup this Mac starts from against the settings that work on PCs like yours, and explains anything that needs changing, with the steps to change it. It only reads: nothing is changed. Asks for your password once.</p>
+<p><button type="button" class="b" id="efichk">Check my EFI</button> <span id="efichkr"></span></p>
+<div id="efiout"></div></div>
 <div class="panel"><p class="sh">Startup text (verbose mode)</p>
 <p>Shows what macOS is doing while it starts instead of the Apple logo. Useful if a start hangs. Takes effect at the next restart.</p>
 <p><button type="button" class="b" id="vbon">Turn verbose on</button> <button type="button" class="b" id="vboff">Turn verbose off</button></p>

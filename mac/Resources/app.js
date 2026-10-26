@@ -197,6 +197,7 @@ $("testoff").onclick = () => post({ act: "tester", on: false });
 $("earlyon").onclick = () => post({ act: "early", on: true });
 $("earlyoff").onclick = () => post({ act: "early", on: false });
 post({ act: "early" });
+$("efichk").onclick = () => { $("efichk").disabled = true; $("efichkr").textContent = "Reading the EFI..."; $("efiout").textContent = ""; post({ act: "checkEfi" }); };
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
 $("logs").onclick = (e) => { e.preventDefault(); post({ act: "logs" }); };
@@ -282,6 +283,32 @@ NM.on = (m) => {
     return;
   }
   if (m.event === "logsStatus") { $("slr").textContent = m.data.text; return; }
+  if (m.event === "efiCheck") {
+    const d = m.data;
+    $("efichk").disabled = false;
+    $("efiout").textContent = "";
+    if (d.cancelled) { $("efichkr").textContent = ""; return; }
+    if (!d.ok) { $("efichkr").innerHTML = `<span class="warn">${esc(d.why || "The check did not finish.")}</span>`; return; }
+    const n = d.issues.length;
+    $("efichkr").innerHTML = n ? `<span class="warn">${n} thing${n === 1 ? "" : "s"} to change in ${esc(d.partition)}</span>`
+                               : `<span class="good">No problems found in ${esc(d.partition)}</span>`;
+    // built from text nodes: the titles and steps come from the rule file, never parsed as HTML
+    for (const i of d.issues) {
+      const box = document.createElement("details"), sum = document.createElement("summary"), b = document.createElement("b");
+      b.textContent = i.title; sum.appendChild(b); box.appendChild(sum);
+      const what = document.createElement("p"); what.textContent = i.what + (i.restart ? " Takes effect at the next restart." : ""); box.appendChild(what);
+      const ol = document.createElement("ol");
+      for (const s of i.steps) { const li = document.createElement("li"); li.textContent = s; ol.appendChild(li); }
+      box.appendChild(ol);
+      $("efiout").appendChild(box);
+    }
+    if (n) {
+      const note = document.createElement("p");
+      note.textContent = "Before you edit config.plist, keep a copy of it. If a change stops this Mac from starting, start from your 1401 stick and put the copy back.";
+      $("efiout").appendChild(note);
+    }
+    return;
+  }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
   if (m.event === "logsDone") {
     const d = m.data;
