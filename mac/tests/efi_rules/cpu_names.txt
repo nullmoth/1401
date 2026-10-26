@@ -1,0 +1,244 @@
+AMD Ryzen 5 7500F 6-Core Processor
+12th Gen Intel(R) Core(TM) i5-12500H
+Intel(R) Core(TM) i5-14600KF
+12th Gen Intel(R) Core(TM) i5-12450H
+AMD Ryzen 7 5700X 8-Core Processor
+12th Gen Intel(R) Core(TM) i7-12700H
+AMD Ryzen 7 9700X 8-Core Processor
+13th Gen Intel(R) Core(TM) i9-13900KF
+AMD Ryzen 7 7800X3D 8-Core Processor
+13th Gen Intel(R) Core(TM) i7-13650HX
+13th Gen Intel(R) Core(TM) i5-13420H
+AMD Ryzen 5 5600 6-Core Processor
+Intel(R) Core(TM) i9-14900HX
+AMD Ryzen 7 5800H with Radeon Graphics
+12th Gen Intel(R) Core(TM) i5-12400F
+AMD Ryzen 5 9600X 6-Core Processor
+13th Gen Intel(R) Core(TM) i5-13600KF
+Intel(R) Core(TM) Ultra 9 275HX
+AMD Ryzen 7 9800X3D 8-Core Processor
+AMD Ryzen 9 8940HX with Radeon Graphics
+AMD Ryzen 5 5600X 6-Core Processor
+Intel(R) Core(TM) i7-14650HX
+12th Gen Intel(R) Core(TM) i7-12650H
+AMD Ryzen 5 3600 6-Core Processor
+Intel(R) Core(TM) Ultra 7 255HX
+AMD Ryzen 9 8945HX with Radeon Graphics
+AMD Ryzen 9 7845HX with Radeon Graphics
+12th Gen Intel(R) Core(TM) i7-12700K
+Intel(R) Core(TM) i5-14600K
+AMD Ryzen 9 9955HX 16-Core Processor
+12th Gen Intel(R) Core(TM) i7-12700
+11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+AMD Ryzen 7 7700X 8-Core Processor
+Intel(R) Core(TM) i9-10900 CPU @ 2.80GHz
+Intel(R) Core(TM) i5-10400F CPU @ 2.90GHz
+AMD Ryzen 7 7435HS
+13th Gen Intel(R) Core(TM) i5-13600K
+AMD Ryzen 5 5500
+13th Gen Intel(R) Core(TM) i7-13700H
+AMD Ryzen 7 260 w/ Radeon 780M Graphics
+Intel(R) Core(TM) i7-14700HX
+Intel(R) Core(TM) i5-14400F
+AMD Ryzen 9 9950X3D 16-Core Processor
+AMD Ryzen 5 7535HS with Radeon Graphics
+13th Gen Intel(R) Core(TM) i9-13900HX
+13th Gen Intel(R) Core(TM) i7-13700K
+12th Gen Intel(R) Core(TM) i5-12490F
+Intel(R) Core(TM) i7-14700F
+AMD Ryzen 7 7735H with Radeon Graphics
+12th Gen Intel(R) Core(TM) i9-12900K
+11th Gen Intel(R) Core(TM) i5-11400H @ 2.70GHz
+Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz
+AMD Ryzen 9 7945HX with Radeon Graphics
+12th Gen Intel(R) Core(TM) i7-12700KF
+12th Gen Intel(R) Core(TM) i5-12600KF
+AMD Ryzen 7 8845HS w/ Radeon 780M Graphics
+13th Gen Intel(R) Core(TM) i7-13620H
+AMD Ryzen 7 7840HS w/ Radeon 780M Graphics
+AMD Ryzen 7 5800X 8-Core Processor
+13th Gen Intel(R) Core(TM) i9-13900H
+AMD Ryzen 7 7840H with Radeon 780M Graphics
+AMD Ryzen 7 5700X3D 8-Core Processor
+Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz
+Intel(R) Core(TM) Ultra 9 290HX Plus
+Intel(R) Core(TM) Ultra 9 185H
+Intel(R) Core(TM) i7-8700K CPU @ 3.70GHz
+Intel(R) Core(TM) i5-14500
+Intel(R) Core(TM) i5-10200H CPU @ 2.40GHz
+AMD Ryzen 7 4800H with Radeon Graphics
+Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz
+Intel(R) Core(TM) i5-14400
+AMD Ryzen 7 9850X3D 8-Core Processor
+AMD Ryzen 7 6800H with Radeon Graphics
+12th Gen Intel(R) Core(TM) i5-1235U
+Intel(R) Core(TM) Ultra 7 270K Plus
+Intel(R) Core(TM) Ultra 7 265KF
+AMD Ryzen 7 5700G with Radeon Graphics
+13th Gen Intel(R) Core(TM) i5-13400F
+Intel(R) Xeon(R) CPU E5-2697 v4 @ 2.30GHz
+Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz
+Intel(R) Core(TM) i7-14700KF
+Intel(R) Core(TM) i7-14700K
+Intel(R) Core(TM) i7-10870H CPU @ 2.20GHz
+AMD Ryzen 9 7900X 12-Core Processor
+AMD Ryzen 7 5800XT 8-Core Processor
+AMD Ryzen 7 5800X3D 8-Core Processor
+AMD Ryzen 5 2600 Six-Core Processor
+13th Gen Intel(R) Core(TM) i9-13980HX
+13th Gen Intel(R) Core(TM) i9-13900K
+13th Gen Intel(R) Core(TM) i7-13700KF
+12th Gen Intel(R) Core(TM) i7-1260P
+12th Gen Intel(R) Core(TM) i5-12450HX
+11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz
+Intel(R) Xeon(R) CPU E5-2689 0 @ 2.60GHz
+Intel(R) Core(TM) Ultra 7 265F
+AMD Ryzen 7 7735HS with Radeon Graphics
+Intel(R) Core(TM) Ultra 5 245KF
+Intel(R) Core(TM) i9-10980XE CPU @ 3.00GHz
+Intel(R) Core(TM) i7-9700KF CPU @ 3.60GHz
+Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz
+Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz
+Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
+Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz
+Genuine Intel(R) 0000
+AMD Ryzen 7 7445HS w/ Radeon 740M Graphics
+13th Gen Intel(R) Core(TM) i7-13700F
+13th Gen Intel(R) Core(TM) i5-13500H
+12th Gen Intel(R) Core(TM) i5-12400
+11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz
+Intel(R) Xeon(R) CPU E3-1231 v3 @ 3.40GHz
+Intel(R) Core(TM) Ultra 5 225H
+Intel(R) Core(TM) i3-1005G1 CPU @ 1.20GHz
+AMD Ryzen 9 9900X 12-Core Processor
+AMD Ryzen 9 7940HX with Radeon Graphics
+AMD Ryzen 7 7700 8-Core Processor
+AMD Ryzen 5 7535H with Radeon Graphics
+AMD Ryzen 5 6600H with Radeon Graphics
+13th Gen Intel(R) Core(TM) i5-13400
+12th Gen Intel(R) Core(TM) i5-12600K
+11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz
+11th Gen Intel(R) Core(TM) i7-11700F @ 2.50GHz
+Intel(R) Core(TM) Ultra 7 265K
+Intel(R) Core(TM) Ultra 5 125H
+Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
+Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz
+AMD Ryzen AI 9 H 365 w/ Radeon 880M
+AMD Ryzen 9 7950X3D 16-Core Processor
+AMD Ryzen 9 7940H w/ Radeon 780M Graphics
+AMD Ryzen 9 5900HX with Radeon Graphics
+AMD Ryzen 7 8845H w/ Radeon 780M Graphics
+AMD Ryzen 7 8745H w/ Radeon 780M Graphics
+AMD Ryzen 5 8400F 6-Core Processor
+13th Gen Intel(R) Core(TM) i5-13500HX
+12th Gen Intel(R) Core(TM) i3-12100
+Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz
+Intel(R) Core(TM) i7-10875H CPU @ 2.30GHz
+AMD Ryzen 9 7950X 16-Core Processor
+AMD Ryzen 7 250 w/ Radeon 780M Graphics
+AMD Ryzen 5 7600X 6-Core Processor
+AMD Ryzen 5 5600H with Radeon Graphics
+Intel(R) Xeon(R) CPU E5-2678 v3 @ 2.50GHz
+Intel(R) Core(TM) Ultra 5 245K
+Intel(R) Core(TM) i9-14900K
+Intel(R) Core(TM) i9-10940X CPU @ 3.30GHz
+Intel(R) Core(TM) i7-9700F CPU @ 3.00GHz
+Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz
+Intel(R) Core(TM) i7-10700KF CPU @ 3.80GHz
+Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz
+Intel(R) Core(TM) i7-10700F CPU @ 2.90GHz
+Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz
+Intel(R) Core(TM) i5-8400 CPU @ 2.80GHz
+Intel(R) Core(TM) i5-7500T CPU @ 2.70GHz
+Intel(R) Core(TM) i5-7200U CPU @ 2.50GHz
+Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+Intel(R) Core(TM) i5-5200U CPU @ 2.20GHz
+Intel(R) Core(TM) i5-4460 CPU @ 3.20GHz
+Intel(R) Core(TM) i5-10500 CPU @ 3.10GHz
+Intel(R) Core(TM) i3-9100F CPU @ 3.60GHz
+Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz
+Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz
+Intel(R) Core(TM) 7 240H
+Intel(R) Core(TM) 5 210H
+Intel(R) Celeron(R) N4020 CPU @ 1.10GHz
+AMD Ryzen 9 6900HS with Radeon Graphics
+AMD Ryzen 9 5950X 16-Core Processor
+AMD Ryzen 7 7840H w/ Radeon 780M Graphics
+AMD Ryzen 7 3800X 8-Core Processor
+AMD Ryzen 7 3700X 8-Core Processor
+AMD Ryzen 7 2700X Eight-Core Processor
+AMD Ryzen 5 7640HS w/ Radeon 760M Graphics
+AMD Ryzen 5 7600X3D 6-Core Processor
+AMD Ryzen 5 7600 6-Core Processor
+AMD Ryzen 5 7235HS
+AMD Ryzen 5 5600G with Radeon Graphics
+AMD Ryzen 5 4600G with Radeon Graphics
+AMD Ryzen 3 3200G with Radeon Vega Graphics
+AMD Athlon(tm) X4 840 Quad Core Processor
+13th Gen Intel(R) Core(TM) i9-13950HX
+13th Gen Intel(R) Core(TM) i9-13900KS
+13th Gen Intel(R) Core(TM) i9-13900F
+13th Gen Intel(R) Core(TM) i5-13490F
+13th Gen Intel(R) Core(TM) i5-13400T
+12th Gen Intel(R) Core(TM) i9-12950HX
+12th Gen Intel(R) Core(TM) i9-12900H
+12th Gen Intel(R) Core(TM) i7-12800HX
+12th Gen Intel(R) Core(TM) i7-12800H
+12th Gen Intel(R) Core(TM) i7-12700F
+12th Gen Intel(R) Core(TM) i5-12500T
+12th Gen Intel(R) Core(TM) i5-1245U
+11th Gen Intel(R) Core(TM) i9-11950H @ 2.60GHz
+11th Gen Intel(R) Core(TM) i9-11900KF @ 3.50GHz
+11th Gen Intel(R) Core(TM) i5-11400 @ 2.60GHz
+Intel(R) Xeon(R) CPU E5-1650 v2 @ 3.50GHz
+Intel(R) Core(TM) Ultra 5 336H
+Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz
+Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz
+Intel(R) Core(TM) i7-5960X CPU @ 3.00GHz
+Intel(R) Core(TM) i3-7100 CPU @ 3.90GHz
+Genuine Intel(R) CPU 0000 @ 3.30GHz
+AMD Ryzen 9 5900X 12-Core Processor
+AMD Ryzen 9 3900X 12-Core Processor
+AMD Ryzen 7 7745HX with Radeon Graphics
+AMD Ryzen 7 5800U with Radeon Graphics
+AMD Ryzen 7 5700
+AMD Ryzen 5 8500G w/ Radeon 740M Graphics
+AMD Ryzen 5 5600XT 6-Core Processor
+AMD Ryzen 5 5500F 6-Core Processor
+AMD Ryzen 5 3550H with Radeon Vega Mobile Gfx
+AMD Ryzen 3 7335U with Radeon Graphics
+13th Gen Intel(R) Core(TM) i9-13900
+13th Gen Intel(R) Core(TM) i7-1360P
+13th Gen Intel(R) Core(TM) i3-1315U
+11th Gen Intel(R) Core(TM) i5-11300H @ 3.10GHz
+Intel(R) Pentium(R) CPU 2117U @ 1.80GHz
+Intel(R) Xeon(R) W-2133 CPU @ 3.60GHz
+Intel(R) Xeon(R) Silver 4110 CPU @ 2.10GHz
+Intel(R) Xeon(R) Gold 5122 CPU @ 3.60GHz
+Intel(R) Xeon(R) CPU E5-2666 v3 @ 2.90GHz
+Intel(R) Core(TM) Ultra 9 285K
+Intel(R) Core(TM) i9-8950HK CPU @ 2.90GHz
+Intel(R) Core(TM) i9-10900X CPU @ 3.70GHz
+Intel(R) Core(TM) i7-10810U CPU @ 1.10GHz
+Intel(R) Core(TM) i5-9500F CPU @ 3.00GHz
+Intel(R) Core(TM) i5-7360U CPU @ 2.30GHz
+Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz
+Intel(R) Core(TM) i5-4300U CPU @ 1.90GHz
+Intel(R) Core(TM) i5-10600KF CPU @ 4.10GHz
+Intel(R) Core(TM) i5-10500H CPU @ 2.50GHz
+Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz
+Intel(R) Celeron(R) N4000 CPU @ 1.10GHz
+AMD Ryzen AI 7 350 w/ Radeon 860M
+AMD Ryzen 9 9950X 16-Core Processor
+AMD Ryzen 5 PRO 4650G with Radeon Graphics
+AMD Ryzen 5 8600G w/ Radeon 760M Graphics
+AMD Ryzen 5 4600H with Radeon Graphics
+13th Gen Intel(R) Core(TM) i7-13700HX
+13th Gen Intel(R) Core(TM) i7-1355U
+12th Gen Intel(R) Core(TM) i9-12900HK
+12th Gen Intel(R) Core(TM) i9-12900
+11th Gen Intel(R) Core(TM) i3-1125G4 @ 2.00GHz
+Intel(R) Core(TM) i7-3770K CPU @ 3.50GHz
+Intel(R) Core(TM) i7-3520M CPU @ 2.90GHz
+Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz

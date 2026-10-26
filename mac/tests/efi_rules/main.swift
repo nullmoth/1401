@@ -23,6 +23,17 @@ for c in vectors["cases"] as! [[String: Any]] {
         print("DIFFERS: \(c["name"]!)\n  swift:  \(issues.map(\.id)) after fix \(after)\n  python: \(c["issues"]!) after fix \(c["after_fix"]!)")
     }
 }
+// the CPU families from real brand strings, as the Python side decided them with no codename
+for c in vectors["cpu_names"] as! [[String: Any]] {
+    let got = EfiRules.cpuClasses(vendor: c["vendor"] as! String, name: c["name"] as! String)
+    if got == c["classes"] as! [String] { passed += 1 } else {
+        failed += 1; print("DIFFERS: cpu \(c["name"]!): swift \(got), python \(c["classes"]!)")
+    }
+}
+let dmarOn = "OCA: Found 42 ACPI tables\nOCA: Detected table DMAR (52414D44)", dmarOff = "OCA: Found 40 ACPI tables\nOCA: Detected table FACP"
+if EfiRules.logFacts(dmarOn) != [] || EfiRules.logFacts(dmarOff) != ["firmware_no_dmar"] || EfiRules.logFacts(nil) != [] || EfiRules.logFacts("no tables line") != [] {
+    failed += 1; print("DIFFERS: reading VT-d from the OpenCore log")
+} else { passed += 1 }
 // a rule the checker cannot read must stop, never pass
 let bad: [String: Any] = ["rules": [["id": "x", "scope": ["installed"], "match": ["gpu_vendr": "AMD"], "expect": []]]]
 var threw = false

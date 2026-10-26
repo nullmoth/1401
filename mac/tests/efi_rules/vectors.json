@@ -3425,5 +3425,1462 @@
   "c7": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KCTxrZXk+QUNQSTwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCQk8a2V5PlBhdGg8L2tleT4KCQkJCTxzdHJpbmc+U1NEVC1FQy5hbWw8L3N0cmluZz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5EZWxldGU8L2tleT4KCQk8YXJyYXkvPgoJPC9kaWN0PgoJPGtleT5Cb290ZXI8L2tleT4KCTxkaWN0PgoJCTxrZXk+TW1pb1doaXRlbGlzdDwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkFkZHJlc3M8L2tleT4KCQkJCTxpbnRlZ2VyPjQyNzgxOTAwODA8L2ludGVnZXI+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5RdWlya3M8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5BbGxvd1JlbG9jYXRpb25CbG9jazwva2V5PgoJCQk8dHJ1ZS8+CgkJCTxrZXk+QXZvaWRSdW50aW1lRGVmcmFnPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5EZXZpcnR1YWxpc2VNbWlvPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5EaXNhYmxlVmFyaWFibGVXcml0ZTwva2V5PgoJCQk8ZmFsc2UvPgoJCQk8a2V5PlByb3ZpZGVDdXN0b21TbGlkZTwva2V5PgoJCQk8dHJ1ZS8+CgkJCTxrZXk+U2V0dXBWaXJ0dWFsTWFwPC9rZXk+CgkJCTx0cnVlLz4KCQk8L2RpY3Q+Cgk8L2RpY3Q+Cgk8a2V5Pktlcm5lbDwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPkxpbHUua2V4dDwvc3RyaW5nPgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCTwvZGljdD4KCQkJPGRpY3Q+CgkJCQk8a2V5PkJ1bmRsZVBhdGg8L2tleT4KCQkJCTxzdHJpbmc+V2hhdGV2ZXJHcmVlbi5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCQk8ZGljdD4KCQkJCTxrZXk+QnVuZGxlUGF0aDwva2V5PgoJCQkJPHN0cmluZz5JbnRlbEJsdWV0b290aEZpcm13YXJlLmtleHQ8L3N0cmluZz4KCQkJCTxrZXk+RW5hYmxlZDwva2V5PgoJCQkJPHRydWUvPgoJCQk8L2RpY3Q+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPlJlc3RyaWN0RXZlbnRzLmtleHQ8L3N0cmluZz4KCQkJCTxrZXk+RW5hYmxlZDwva2V5PgoJCQkJPHRydWUvPgoJCQk8L2RpY3Q+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPkNwdVRvcG9sb2d5UmVidWlsZC5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCQk8ZGljdD4KCQkJCTxrZXk+QnVuZGxlUGF0aDwva2V5PgoJCQkJPHN0cmluZz5OVk1lRml4LmtleHQ8L3N0cmluZz4KCQkJCTxrZXk+RW5hYmxlZDwva2V5PgoJCQkJPGZhbHNlLz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5CbG9jazwva2V5PgoJCTxhcnJheS8+CgkJPGtleT5QYXRjaDwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkNvbW1lbnQ8L2tleT4KCQkJCTxzdHJpbmc+bWFza2VkPC9zdHJpbmc+CgkJCQk8a2V5PlJlcGxhY2U8L2tleT4KCQkJCTxkYXRhPgoJCQkJRHc4PQoJCQkJPC9kYXRhPgoJCQkJPGtleT5SZXBsYWNlTWFzazwva2V5PgoJCQkJPGRhdGE+CgkJCQlEdzg9CgkJCQk8L2RhdGE+CgkJCTwvZGljdD4KCQk8L2FycmF5PgoJCTxrZXk+UXVpcmtzPC9rZXk+CgkJPGRpY3Q+CgkJCTxrZXk+RGlzYWJsZUlvTWFwcGVyPC9rZXk+CgkJCTxmYWxzZS8+CgkJPC9kaWN0PgoJPC9kaWN0PgoJPGtleT5NaXNjPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkJvb3Q8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5IaWRlQXV4aWxpYXJ5PC9rZXk+CgkJCTxmYWxzZS8+CgkJCTxrZXk+UGlja2VyTW9kZTwva2V5PgoJCQk8c3RyaW5nPkJ1aWx0aW48L3N0cmluZz4KCQkJPGtleT5TaG93UGlja2VyPC9rZXk+CgkJCTx0cnVlLz4KCQk8L2RpY3Q+CgkJPGtleT5EZWJ1Zzwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PkFwcGxlRGVidWc8L2tleT4KCQkJPHRydWUvPgoJCQk8a2V5PkFwcGxlUGFuaWM8L2tleT4KCQkJPHRydWUvPgoJCQk8a2V5PlRhcmdldDwva2V5PgoJCQk8aW50ZWdlcj42NzwvaW50ZWdlcj4KCQk8L2RpY3Q+CgkJPGtleT5TZWN1cml0eTwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PkV4cG9zZVNlbnNpdGl2ZURhdGE8L2tleT4KCQkJPGludGVnZXI+NzwvaW50ZWdlcj4KCQk8L2RpY3Q+Cgk8L2RpY3Q+Cgk8a2V5Pk5WUkFNPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkFkZDwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PjdDNDM2MTEwLUFCMkEtNEJCQi1BODgwLUZFNDE5OTVDOUY4Mjwva2V5PgoJCQk8ZGljdD4KCQkJCTxrZXk+Ym9vdC1hcmdzPC9rZXk+CgkJCQk8c3RyaW5nPi12IGN0cnNtdD1mdWxsIGtlZXBzeW1zPTE8L3N0cmluZz4KCQkJCTxrZXk+Y3NyLWFjdGl2ZS1jb25maWc8L2tleT4KCQkJCTxkYXRhPgoJCQkJQUFBQUFBPT0KCQkJCTwvZGF0YT4KCQkJPC9kaWN0PgoJCTwvZGljdD4KCQk8a2V5PkRlbGV0ZTwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PjdDNDM2MTEwLUFCMkEtNEJCQi1BODgwLUZFNDE5OTVDOUY4Mjwva2V5PgoJCQk8YXJyYXkvPgoJCTwvZGljdD4KCTwvZGljdD4KCTxrZXk+UGxhdGZvcm1JbmZvPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkdlbmVyaWM8L2tleT4KCQk8ZGljdC8+Cgk8L2RpY3Q+Cgk8a2V5PlVFRkk8L2tleT4KCTxkaWN0PgoJCTxrZXk+RHJpdmVyczwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJCTxrZXk+UGF0aDwva2V5PgoJCQkJPHN0cmluZz5PcGVuUnVudGltZS5lZmk8L3N0cmluZz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5RdWlya3M8L2tleT4KCQk8ZGljdC8+Cgk8L2RpY3Q+CjwvZGljdD4KPC9wbGlzdD4K",
   "c8": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KCTxrZXk+QUNQSTwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCQk8a2V5PlBhdGg8L2tleT4KCQkJCTxzdHJpbmc+U1NEVC1FQy5hbWw8L3N0cmluZz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5EZWxldGU8L2tleT4KCQk8YXJyYXkvPgoJPC9kaWN0PgoJPGtleT5Cb290ZXI8L2tleT4KCTxkaWN0PgoJCTxrZXk+TW1pb1doaXRlbGlzdDwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkFkZHJlc3M8L2tleT4KCQkJCTxpbnRlZ2VyPjQyNzgxOTAwODA8L2ludGVnZXI+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTxmYWxzZS8+CgkJCTwvZGljdD4KCQk8L2FycmF5PgoJCTxrZXk+UXVpcmtzPC9rZXk+CgkJPGRpY3Q+CgkJCTxrZXk+QWxsb3dSZWxvY2F0aW9uQmxvY2s8L2tleT4KCQkJPHRydWUvPgoJCQk8a2V5PkF2b2lkUnVudGltZURlZnJhZzwva2V5PgoJCQk8dHJ1ZS8+CgkJCTxrZXk+RGV2aXJ0dWFsaXNlTW1pbzwva2V5PgoJCQk8ZmFsc2UvPgoJCQk8a2V5PkRpc2FibGVWYXJpYWJsZVdyaXRlPC9rZXk+CgkJCTxmYWxzZS8+CgkJCTxrZXk+UHJvdmlkZUN1c3RvbVNsaWRlPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5TZXR1cFZpcnR1YWxNYXA8L2tleT4KCQkJPGZhbHNlLz4KCQk8L2RpY3Q+Cgk8L2RpY3Q+Cgk8a2V5Pktlcm5lbDwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPkxpbHUua2V4dDwvc3RyaW5nPgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCTwvZGljdD4KCQkJPGRpY3Q+CgkJCQk8a2V5PkJ1bmRsZVBhdGg8L2tleT4KCQkJCTxzdHJpbmc+V2hhdGV2ZXJHcmVlbi5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTxmYWxzZS8+CgkJCTwvZGljdD4KCQkJPGRpY3Q+CgkJCQk8a2V5PkJ1bmRsZVBhdGg8L2tleT4KCQkJCTxzdHJpbmc+SW50ZWxCbHVldG9vdGhGaXJtd2FyZS5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCQk8ZGljdD4KCQkJCTxrZXk+QnVuZGxlUGF0aDwva2V5PgoJCQkJPHN0cmluZz5SZXN0cmljdEV2ZW50cy5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCQk8ZGljdD4KCQkJCTxrZXk+QnVuZGxlUGF0aDwva2V5PgoJCQkJPHN0cmluZz5DcHVUb3BvbG9neVJlYnVpbGQua2V4dDwvc3RyaW5nPgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCTwvZGljdD4KCQkJPGRpY3Q+CgkJCQk8a2V5PkJ1bmRsZVBhdGg8L2tleT4KCQkJCTxzdHJpbmc+TlZNZUZpeC5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTxmYWxzZS8+CgkJCTwvZGljdD4KCQk8L2FycmF5PgoJCTxrZXk+QmxvY2s8L2tleT4KCQk8YXJyYXkvPgoJCTxrZXk+UGF0Y2g8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5Db21tZW50PC9rZXk+CgkJCQk8c3RyaW5nPm1hc2tlZDwvc3RyaW5nPgoJCQkJPGtleT5SZXBsYWNlPC9rZXk+CgkJCQk8ZGF0YT4KCQkJCUR3OD0KCQkJCTwvZGF0YT4KCQkJCTxrZXk+UmVwbGFjZU1hc2s8L2tleT4KCQkJCTxkYXRhPgoJCQkJRHc4PQoJCQkJPC9kYXRhPgoJCQk8L2RpY3Q+CgkJPC9hcnJheT4KCQk8a2V5PlF1aXJrczwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PkRpc2FibGVJb01hcHBlcjwva2V5PgoJCQk8ZmFsc2UvPgoJCTwvZGljdD4KCTwvZGljdD4KCTxrZXk+TWlzYzwva2V5PgoJPGRpY3Q+CgkJPGtleT5Cb290PC9rZXk+CgkJPGRpY3Q+CgkJCTxrZXk+SGlkZUF1eGlsaWFyeTwva2V5PgoJCQk8ZmFsc2UvPgoJCQk8a2V5PlBpY2tlck1vZGU8L2tleT4KCQkJPHN0cmluZz5CdWlsdGluPC9zdHJpbmc+CgkJCTxrZXk+U2hvd1BpY2tlcjwva2V5PgoJCQk8dHJ1ZS8+CgkJPC9kaWN0PgoJCTxrZXk+RGVidWc8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5BcHBsZURlYnVnPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5BcHBsZVBhbmljPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5UYXJnZXQ8L2tleT4KCQkJPGludGVnZXI+Njc8L2ludGVnZXI+CgkJPC9kaWN0PgoJCTxrZXk+U2VjdXJpdHk8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5FeHBvc2VTZW5zaXRpdmVEYXRhPC9rZXk+CgkJCTxpbnRlZ2VyPjc8L2ludGVnZXI+CgkJPC9kaWN0PgoJPC9kaWN0PgoJPGtleT5OVlJBTTwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8ZGljdD4KCQkJPGtleT43QzQzNjExMC1BQjJBLTRCQkItQTg4MC1GRTQxOTk1QzlGODI8L2tleT4KCQkJPGRpY3Q+CgkJCQk8a2V5PmJvb3QtYXJnczwva2V5PgoJCQkJPHN0cmluZz4tdiBjdHJzbXQ9ZnVsbCBrZWVwc3ltcz0xIC1pYnRjb21wYXRiZXRhIHJldnBhdGNoPXNidm1tPC9zdHJpbmc+CgkJCQk8a2V5PmNzci1hY3RpdmUtY29uZmlnPC9rZXk+CgkJCQk8ZGF0YT4KCQkJCUFBQUFBQT09CgkJCQk8L2RhdGE+CgkJCTwvZGljdD4KCQk8L2RpY3Q+CgkJPGtleT5EZWxldGU8L2tleT4KCQk8ZGljdD4KCQkJPGtleT43QzQzNjExMC1BQjJBLTRCQkItQTg4MC1GRTQxOTk1QzlGODI8L2tleT4KCQkJPGFycmF5Lz4KCQk8L2RpY3Q+Cgk8L2RpY3Q+Cgk8a2V5PlBsYXRmb3JtSW5mbzwva2V5PgoJPGRpY3Q+CgkJPGtleT5HZW5lcmljPC9rZXk+CgkJPGRpY3QvPgoJPC9kaWN0PgoJPGtleT5VRUZJPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkRyaXZlcnM8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCQk8a2V5PlBhdGg8L2tleT4KCQkJCTxzdHJpbmc+T3BlblJ1bnRpbWUuZWZpPC9zdHJpbmc+CgkJCTwvZGljdD4KCQk8L2FycmF5PgoJCTxrZXk+UXVpcmtzPC9rZXk+CgkJPGRpY3QvPgoJPC9kaWN0Pgo8L2RpY3Q+CjwvcGxpc3Q+Cg==",
   "c9": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KCTxrZXk+QUNQSTwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCQk8a2V5PlBhdGg8L2tleT4KCQkJCTxzdHJpbmc+U1NEVC1FQy5hbWw8L3N0cmluZz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5EZWxldGU8L2tleT4KCQk8YXJyYXkvPgoJPC9kaWN0PgoJPGtleT5Cb290ZXI8L2tleT4KCTxkaWN0PgoJCTxrZXk+TW1pb1doaXRlbGlzdDwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkFkZHJlc3M8L2tleT4KCQkJCTxpbnRlZ2VyPjQyNzgxOTAwODA8L2ludGVnZXI+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5RdWlya3M8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5BbGxvd1JlbG9jYXRpb25CbG9jazwva2V5PgoJCQk8dHJ1ZS8+CgkJCTxrZXk+QXZvaWRSdW50aW1lRGVmcmFnPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5EZXZpcnR1YWxpc2VNbWlvPC9rZXk+CgkJCTx0cnVlLz4KCQkJPGtleT5EaXNhYmxlVmFyaWFibGVXcml0ZTwva2V5PgoJCQk8ZmFsc2UvPgoJCQk8a2V5PlByb3ZpZGVDdXN0b21TbGlkZTwva2V5PgoJCQk8dHJ1ZS8+CgkJCTxrZXk+U2V0dXBWaXJ0dWFsTWFwPC9rZXk+CgkJCTx0cnVlLz4KCQk8L2RpY3Q+Cgk8L2RpY3Q+Cgk8a2V5Pktlcm5lbDwva2V5PgoJPGRpY3Q+CgkJPGtleT5BZGQ8L2tleT4KCQk8YXJyYXk+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPkxpbHUua2V4dDwvc3RyaW5nPgoJCQkJPGtleT5FbmFibGVkPC9rZXk+CgkJCQk8dHJ1ZS8+CgkJCTwvZGljdD4KCQkJPGRpY3Q+CgkJCQk8a2V5PkJ1bmRsZVBhdGg8L2tleT4KCQkJCTxzdHJpbmc+V2hhdGV2ZXJHcmVlbi5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCQk8ZGljdD4KCQkJCTxrZXk+QnVuZGxlUGF0aDwva2V5PgoJCQkJPHN0cmluZz5JbnRlbEJsdWV0b290aEZpcm13YXJlLmtleHQ8L3N0cmluZz4KCQkJCTxrZXk+RW5hYmxlZDwva2V5PgoJCQkJPHRydWUvPgoJCQk8L2RpY3Q+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPlJlc3RyaWN0RXZlbnRzLmtleHQ8L3N0cmluZz4KCQkJCTxrZXk+RW5hYmxlZDwva2V5PgoJCQkJPHRydWUvPgoJCQk8L2RpY3Q+CgkJCTxkaWN0PgoJCQkJPGtleT5CdW5kbGVQYXRoPC9rZXk+CgkJCQk8c3RyaW5nPkNwdVRvcG9sb2d5UmVidWlsZC5rZXh0PC9zdHJpbmc+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJPC9kaWN0PgoJCQk8ZGljdD4KCQkJCTxrZXk+QnVuZGxlUGF0aDwva2V5PgoJCQkJPHN0cmluZz5OVk1lRml4LmtleHQ8L3N0cmluZz4KCQkJCTxrZXk+RW5hYmxlZDwva2V5PgoJCQkJPGZhbHNlLz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5CbG9jazwva2V5PgoJCTxhcnJheS8+CgkJPGtleT5QYXRjaDwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkNvbW1lbnQ8L2tleT4KCQkJCTxzdHJpbmc+bWFza2VkPC9zdHJpbmc+CgkJCQk8a2V5PlJlcGxhY2U8L2tleT4KCQkJCTxkYXRhPgoJCQkJRHc4PQoJCQkJPC9kYXRhPgoJCQkJPGtleT5SZXBsYWNlTWFzazwva2V5PgoJCQkJPGRhdGE+CgkJCQlEdzg9CgkJCQk8L2RhdGE+CgkJCTwvZGljdD4KCQk8L2FycmF5PgoJCTxrZXk+UXVpcmtzPC9rZXk+CgkJPGRpY3Q+CgkJCTxrZXk+RGlzYWJsZUlvTWFwcGVyPC9rZXk+CgkJCTxmYWxzZS8+CgkJPC9kaWN0PgoJPC9kaWN0PgoJPGtleT5NaXNjPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkJvb3Q8L2tleT4KCQk8ZGljdD4KCQkJPGtleT5IaWRlQXV4aWxpYXJ5PC9rZXk+CgkJCTxmYWxzZS8+CgkJCTxrZXk+UGlja2VyTW9kZTwva2V5PgoJCQk8c3RyaW5nPkJ1aWx0aW48L3N0cmluZz4KCQkJPGtleT5TaG93UGlja2VyPC9rZXk+CgkJCTx0cnVlLz4KCQk8L2RpY3Q+CgkJPGtleT5EZWJ1Zzwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PkFwcGxlRGVidWc8L2tleT4KCQkJPHRydWUvPgoJCQk8a2V5PkFwcGxlUGFuaWM8L2tleT4KCQkJPHRydWUvPgoJCQk8a2V5PlRhcmdldDwva2V5PgoJCQk8aW50ZWdlcj42NzwvaW50ZWdlcj4KCQk8L2RpY3Q+CgkJPGtleT5TZWN1cml0eTwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PkV4cG9zZVNlbnNpdGl2ZURhdGE8L2tleT4KCQkJPGludGVnZXI+NzwvaW50ZWdlcj4KCQk8L2RpY3Q+Cgk8L2RpY3Q+Cgk8a2V5Pk5WUkFNPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkFkZDwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PjdDNDM2MTEwLUFCMkEtNEJCQi1BODgwLUZFNDE5OTVDOUY4Mjwva2V5PgoJCQk8ZGljdD4KCQkJCTxrZXk+Ym9vdC1hcmdzPC9rZXk+CgkJCQk8c3RyaW5nPi12IGN0cnNtdD1mdWxsIGtlZXBzeW1zPTEgLWlidGNvbXBhdGJldGEgcmV2cGF0Y2g9c2J2bW08L3N0cmluZz4KCQkJCTxrZXk+Y3NyLWFjdGl2ZS1jb25maWc8L2tleT4KCQkJCTxkYXRhPgoJCQkJQUFBQUFBPT0KCQkJCTwvZGF0YT4KCQkJPC9kaWN0PgoJCTwvZGljdD4KCQk8a2V5PkRlbGV0ZTwva2V5PgoJCTxkaWN0PgoJCQk8a2V5PjdDNDM2MTEwLUFCMkEtNEJCQi1BODgwLUZFNDE5OTVDOUY4Mjwva2V5PgoJCQk8YXJyYXkvPgoJCTwvZGljdD4KCTwvZGljdD4KCTxrZXk+UGxhdGZvcm1JbmZvPC9rZXk+Cgk8ZGljdD4KCQk8a2V5PkdlbmVyaWM8L2tleT4KCQk8ZGljdC8+Cgk8L2RpY3Q+Cgk8a2V5PlVFRkk8L2tleT4KCTxkaWN0PgoJCTxrZXk+RHJpdmVyczwva2V5PgoJCTxhcnJheT4KCQkJPGRpY3Q+CgkJCQk8a2V5PkVuYWJsZWQ8L2tleT4KCQkJCTx0cnVlLz4KCQkJCTxrZXk+UGF0aDwva2V5PgoJCQkJPHN0cmluZz5PcGVuUnVudGltZS5lZmk8L3N0cmluZz4KCQkJPC9kaWN0PgoJCTwvYXJyYXk+CgkJPGtleT5RdWlya3M8L2tleT4KCQk8ZGljdC8+Cgk8L2RpY3Q+CjwvZGljdD4KPC9wbGlzdD4K"
- }
+ },
+ "cpu_names": [
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 7500F 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12500H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-14600KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12450H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5700X 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12700H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 9700X 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7800X3D 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13650HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13420H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5600 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-14900HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5800H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12400F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 9600X 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13600KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 9 275HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 9800X3D 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 8940HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5600X 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-14650HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12650H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 3600 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 7 255HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 8945HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7845HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12700K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-14600K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 9 9955HX 16-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12700",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7700X 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-10900 CPU @ 2.80GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10400F CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 7435HS",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13600K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5500",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13700H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 260 w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-14700HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-14400F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 9950X3D 16-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 7535HS with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13700K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12490F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-14700F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 7735H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i9-12900K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i5-11400H @ 2.70GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7945HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12700KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12600KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13620H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7840HS w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5800X 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7840H with Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5700X3D 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 9 290HX Plus",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 9 185H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-8700K CPU @ 3.70GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-14500",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10200H CPU @ 2.40GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 4800H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-14400",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 9850X3D 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 6800H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-1235U",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 7 270K Plus",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 7 265KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5700G with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13400F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E5-2697 v4 @ 2.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-14700KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-14700K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10870H CPU @ 2.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7900X 12-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5800XT 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5800X3D 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 2600 Six-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13980HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13700KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-1260P",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12450HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E5-2689 0 @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 7 265F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 7735HS with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 5 245KF",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-10980XE CPU @ 3.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-9700KF CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Genuine Intel(R) 0000",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7445HS w/ Radeon 740M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13700F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13500H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12400",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E3-1231 v3 @ 3.40GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 5 225H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i3-1005G1 CPU @ 1.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 9900X 12-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7940HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7700 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 7535H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 6600H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13400",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12600K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i7-11700F @ 2.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 7 265K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 5 125H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen AI 9 H 365 w/ Radeon 880M",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7950X3D 16-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7940H w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 9 5900HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 8845H w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 8745H w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 8400F 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13500HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i3-12100",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10875H CPU @ 2.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 7950X 16-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 250 w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 7600X 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5600H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E5-2678 v3 @ 2.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 5 245K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-14900K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-10940X CPU @ 3.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-9700F CPU @ 3.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10700KF CPU @ 3.80GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10700F CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-8400 CPU @ 2.80GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-7500T CPU @ 2.70GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-7200U CPU @ 2.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-5200U CPU @ 2.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-4460 CPU @ 3.20GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10500 CPU @ 3.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i3-9100F CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) 7 240H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) 5 210H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Celeron(R) N4020 CPU @ 1.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 9 6900HS with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 9 5950X 16-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7840H w/ Radeon 780M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 3800X 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 3700X 8-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 2700X Eight-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 7640HS w/ Radeon 760M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 7600X3D 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 7600 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 7235HS",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5600G with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 4600G with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 3 3200G with Radeon Vega Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Athlon(tm) X4 840 Quad Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13950HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900KS",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13490F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i5-13400T",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i9-12950HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i9-12900H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12800HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12800H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i7-12700F",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-12500T",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i5-1245U",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i9-11950H @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i9-11900KF @ 3.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i5-11400 @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E5-1650 v2 @ 3.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 5 336H",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-5960X CPU @ 3.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i3-7100 CPU @ 3.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Genuine Intel(R) CPU 0000 @ 3.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 9 5900X 12-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 9 3900X 12-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 7 7745HX with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5800U with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 7 5700",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 8500G w/ Radeon 740M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5600XT 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 5500F 6-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 3550H with Radeon Vega Mobile Gfx",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 3 7335U with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i9-13900",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-1360P",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i3-1315U",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i5-11300H @ 3.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Pentium(R) CPU 2117U @ 1.80GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) W-2133 CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) Silver 4110 CPU @ 2.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) Gold 5122 CPU @ 3.60GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Xeon(R) CPU E5-2666 v3 @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "arrow_lake",
+    "core_ultra",
+    "intel_hybrid"
+   ],
+   "name": "Intel(R) Core(TM) Ultra 9 285K",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-8950HK CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i9-10900X CPU @ 3.70GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-10810U CPU @ 1.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-9500F CPU @ 3.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-7360U CPU @ 2.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-4590 CPU @ 3.30GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-4300U CPU @ 1.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10600KF CPU @ 4.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-10500H CPU @ 2.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i5-1035G1 CPU @ 1.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Celeron(R) N4000 CPU @ 1.10GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen AI 7 350 w/ Radeon 860M",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 9 9950X 16-Core Processor",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 PRO 4650G with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "zen45"
+   ],
+   "name": "AMD Ryzen 5 8600G w/ Radeon 760M Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [],
+   "name": "AMD Ryzen 5 4600H with Radeon Graphics",
+   "vendor": "AMD"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-13700HX",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "13th Gen Intel(R) Core(TM) i7-1355U",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i9-12900HK",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [
+    "intel_hybrid"
+   ],
+   "name": "12th Gen Intel(R) Core(TM) i9-12900",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "11th Gen Intel(R) Core(TM) i3-1125G4 @ 2.00GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-3770K CPU @ 3.50GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-3520M CPU @ 2.90GHz",
+   "vendor": "Intel"
+  },
+  {
+   "classes": [],
+   "name": "Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz",
+   "vendor": "Intel"
+  }
+ ]
 }

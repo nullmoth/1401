@@ -496,6 +496,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "crashReport": crashReportFromWindow()
         case "sendLogs": sendLogs(sample: b["sample"] as? String ?? "")
         case "gpumap": mapGPU()   // "Map my GPU" (experimental, opt-in)
+        case "checkEfi": let efi = b["efi"] as? String ?? "auto"; DispatchQueue.global().async { self.send("efiCheck", EfiCheck.run(efi: efi)) }
         case "optionalDiagnostics": optionalDiagnostics()
         case "importDiagnosticReceipt": importDiagnosticReceipt()
         case "verbose": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--verbose", (b["on"] as? Bool ?? false) ? "on" : "off"])
@@ -1270,6 +1271,11 @@ if argv == [argv[0], "--hardware-map"] {
     exit(0)
 }
 if argv.contains("--scan") { print(json(App.scanMac(table()))); exit(0) }
+// the EFI check on a folder nullmoth-setup.sh --efi-read already filled (no password prompt; for tests and support)
+if let i = argv.firstIndex(of: "--efi-check"), i + 1 < argv.count {
+    let out = EfiCheck.check(folder: URL(fileURLWithPath: argv[i + 1]), rules: Bundle.main.resourceURL!.appendingPathComponent("efi_rules.json"))
+    print(json(out)); exit(out["ok"] as? Bool == true ? 0 : 1)
+}
 if argv.contains("--usb") { print(json(usbControllers())); exit(0) }
 if let i = argv.firstIndex(of: "--crash-report"), i + 1 < argv.count {
     let cr = driverCrashes(sinceInstallOnly: false)

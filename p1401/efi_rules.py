@@ -11,10 +11,14 @@ import copy
 import json
 import os
 import plistlib
+import re
 import sys
 
 from . import policy
 
+# Arrow Lake by name, for a scan with no codename (the Mac app sees only the brand string): Core Ultra 200 desktop and
+# mobile parts (225F, 265KF, 270K Plus, 255HX, 255U). 200V is Lunar Lake and 300 is Panther Lake, so neither matches.
+ARROW_LAKE_NAME = re.compile(r"Core\(TM\) Ultra [3579] 2\d\d(?:K|KF|F|T|H|HX|U)?(?: Plus)?\b(?!V)")
 RULES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "efi_rules.json")
 BOOT = policy.BOOT
 _MISSING = object()
@@ -43,7 +47,7 @@ def facts_from_report(hardware, macos_version, disabled_devices=None):
         classes.add("intel_hybrid")
     if cpu.get("Manufacturer") == "Intel" and ("Core(TM) Ultra" in name or any(c in code for c in ("Meteor Lake", "Arrow Lake", "Lunar Lake"))):
         classes.add("core_ultra")
-    if "Arrow Lake" in code:
+    if cpu.get("Manufacturer") == "Intel" and ("Arrow Lake" in code or (not code and ARROW_LAKE_NAME.search(name))):
         classes.add("arrow_lake")
     facts = set()
     if storage_drives.wants_nvmefix(hw):

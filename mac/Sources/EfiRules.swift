@@ -75,6 +75,32 @@ enum EfiRules {
         return true
     }
 
+    /// The CPU families the rules match on, from the brand string alone (a Mac has no codename). The same tests as
+    /// p1401/policy.py and efi_rules.py with an empty codename; checked against every brand string in
+    /// tests/efi_rules/cpu_names.txt.
+    static func cpuClasses(vendor: String, name: String) -> [String] {
+        func has(_ pattern: String, _ caseless: Bool = false) -> Bool {
+            name.range(of: pattern, options: caseless ? [.regularExpression, .caseInsensitive] : .regularExpression) != nil
+        }
+        var c: [String] = []
+        if vendor == "AMD" && has(#"Ryzen AI\b|Ryzen [3579] (?:[79]\d\d0(?:X3D|X|F)?|8\d00[FG])\b|Ryzen [3579] [78]\d[45]\d(?:HX3D|HX|HS|H|U)\b"#, true) {
+            c.append("zen45")
+        }
+        if vendor == "Intel" {
+            if has(#"Core\(TM\) Ultra|1[234]th Gen.*Core\(TM\)"#, true) { c.append("intel_hybrid") }
+            if name.contains("Core(TM) Ultra") { c.append("core_ultra") }
+            if has(#"Core\(TM\) Ultra [3579] 2\d\d(?:K|KF|F|T|H|HX|U)?(?: Plus)?\b(?!V)"#) { c.append("arrow_lake") }
+        }
+        return c.sorted()
+    }
+
+    /// Facts read from OpenCore's own log of this boot: which ACPI tables the firmware handed it. Without a log nothing
+    /// is known, and no fact is added (a rule that needs one then applies, which is the safe direction).
+    static func logFacts(_ log: String?) -> [String] {
+        guard let log = log, log.contains("OCA: Found") else { return [] }
+        return log.contains("Detected table DMAR") ? [] : ["firmware_no_dmar"]
+    }
+
     // MARK: reading the config
 
     static func isBool(_ n: NSNumber) -> Bool { CFGetTypeID(n) == CFBooleanGetTypeID() }

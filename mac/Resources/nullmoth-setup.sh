@@ -44,10 +44,11 @@ SCOPE=${NULLMOTH_COLLECT_SCOPE:-full}
 want() { [ "$SCOPE" = full ] || [ "$1" = driver ]; }   # want full: Send logs only; want driver: both scopes
 AGENT=/Library/LaunchAgents/com.nullmoth.crashcheck.plist
 RECOVER=/Library/LaunchDaemons/com.nullmoth.recover.plist
-KNOBS=(); PROFILE=""; COLLECT=""; UPD=""; VERB=""; PKG=""; SHA=""; CFG=""; EFI=auto; DRY=0; REMOVE=0; USBMAP=""; TOOL=""; APPBIN=""; MOUNTED=""; T=""; PKGDIR=""
+KNOBS=(); PROFILE=""; COLLECT=""; UPD=""; VERB=""; EFIREAD=""; PKG=""; SHA=""; CFG=""; EFI=auto; DRY=0; REMOVE=0; USBMAP=""; TOOL=""; APPBIN=""; MOUNTED=""; T=""; PKGDIR=""
 while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
+  --efi-read) EFIREAD=$2; shift;;
   --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
@@ -747,7 +748,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
@@ -888,7 +889,7 @@ else
   ok "OpenCore config: $EFI ($C)"
   # Installation uses the verified or explicitly selected startup partition.
   # Implicit migration cannot establish ownership of another disk's boot files.
-  if [ $DRY = 0 ] && [ -z "$VERB" ] && [ "${UPD:-}" != finish ] && on_usb "$EFI"; then
+  if [ $DRY = 0 ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ "${UPD:-}" != finish ] && on_usb "$EFI"; then
     note "OpenCore remains on the selected startup stick. Keep it attached for every restart; automatic copying onto another EFI partition is disabled"
     note "Existing internal Windows and vendor boot files were left untouched. Review the internal boot setup separately before removing the stick"
     # The stranding case: this Mac started OpenCore from the removable stick, and the internal disk macOS runs from has
@@ -907,6 +908,21 @@ fi
 # to edit a file that was fine. Say which one it is.
 cat "$C" >/dev/null 2>&1 || stop "macOS did not let 1401 read $C. Open System Settings > Privacy & Security > Files and Folders (or Full Disk Access), allow 1401 to use removable volumes, then try again"
 plutil -lint "$C" >/dev/null || stop "$C is not a valid plist - fix it before installing"
+
+if [ -n "$EFIREAD" ]; then
+  # The app's EFI check: copy out the config this Mac starts from and OpenCore's newest log of a start (it lists the
+  # ACPI tables the firmware handed over, which is how the app knows whether VT-d is on). Read only: nothing on the
+  # partition changes. The folder is the app's own and gets handed back to its owner.
+  [ -d "$EFIREAD" ] && [ ! -L "$EFIREAD" ] || stop "--efi-read needs an existing folder"
+  cp "$C" "$EFIREAD/config.plist" || stop "could not copy $C"
+  # the newest log that lists the ACPI tables: OpenCore can leave a pre-sized file of zeros for a start it never wrote to
+  oclog=""; for f in $(ls -t "$MP"/opencore-*.txt 2>/dev/null); do grep -aq "OCA: Found" "$f" && { oclog=$f; break; }; done
+  [ -n "$oclog" ] && cp "$oclog" "$EFIREAD/opencore.txt"
+  on_usb "$EFI" && echo stick > "$EFIREAD/scope" || echo installed > "$EFIREAD/scope"
+  echo "$EFI" > "$EFIREAD/partition"
+  chown -R "$(stat -f %u "$EFIREAD")" "$EFIREAD"
+  ok "read $C${oclog:+ and $(basename "$oclog")}"; cleanup; echo "RESULT ok"; exit 0
+fi
 
 if [ -n "$VERB" ]; then
   # Verbose startup = boot argument -v. It goes in the config (OpenCore rewrites boot-args every boot when NVRAM Delete

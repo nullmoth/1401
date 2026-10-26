@@ -6,7 +6,7 @@ OUT=${1:-build}; APP=$OUT/1401.app
 SDK=$(xcrun --sdk macosx --show-sdk-path)
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework WebKit -framework Metal -framework IOKit \
-  Sources/main.swift Sources/TesterLane.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/EfiRules.swift -o "$APP/Contents/MacOS/1401"
+  Sources/main.swift Sources/TesterLane.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/EfiRules.swift Sources/EfiCheck.swift -o "$APP/Contents/MacOS/1401"
 # The EFI checker reads the same rule file 1401 for Windows builds from; it ships only when it decides every case the
 # Python checker decided the same way (tests/efi_rules, cases from tools/efi_rules_vectors.py).
 T=$(mktemp -d)
