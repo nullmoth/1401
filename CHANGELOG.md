@@ -3,6 +3,11 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.6.1
+- A new look for 1401 on Mac and Windows: the NullMoth colours as glass panels over the site's drifting starfield, a sidebar for each part of the app, and a light/dark switch in the title bar that remembers your choice.
+- Mac app: the sidebar holds This Mac, Issues (Check my EFI, with a count of what to change), Tools, USB ports and Send a report. **Mount EFI** in Tools finds the EFI partition this Mac started from, mounts it and opens it in Finder, with one password prompt.
+- Bundles NVIDIA driver 2.6.1, the same driver as 2.6.0.
+
 ## 2.6.0
 - Bundles NVIDIA driver 2.6.0: updating the driver takes one restart. macOS's "system extensions updated" notice no longer needs approving and a second restart.
 - 12th-gen and newer Intel, Core Ultra included: the BIOS checklist tells you to turn VT-d off. It used to leave VT-d out for exactly these PCs, and turning it off is what got them past EXITBS:START (#10, #11, #53, #58). When the BIOS hides it, the checklist says where to look: the Advanced or overclocking pages, X2APIC off first on some laptops (HONOR), and Kernel DMA Protection.
