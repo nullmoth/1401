@@ -219,7 +219,8 @@ function setTheme(light) {
 (() => {
   let saved = null;
   try { saved = localStorage.getItem("theme"); } catch (e) { /* no stored choice */ }
-  $("desk").classList.toggle("light", saved ? saved === "light" : window.matchMedia("(prefers-color-scheme: light)").matches);
+  const prefersLight = typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: light)").matches;
+  $("desk").classList.toggle("light", saved ? saved === "light" : prefersLight);
 })();
 $("theme").onclick = () => setTheme(!$("desk").classList.contains("light"));
 $("efimount").onclick = () => { $("efimount").disabled = true; $("efimountr").textContent = "Finding the EFI..."; post({ act: "mountEfi" }); };
