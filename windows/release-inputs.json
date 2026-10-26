@@ -1,9 +1,9 @@
 {
   "baseline_url": "https://github.com/nullmoth/1401/releases/download/v1.14.3/1401-Windows-1.14.3.zip",
   "baseline_sha256": "e287bf4b09805dbf697f915fa6867a15a422764c46b8733dfd9f46bc0e6043b6",
-  "driver_release": "v2.5.5",
-  "mac_asset": "1401-Mac-2.5.5.zip",
-  "mac_sha256": "10dd2fcc5ef38d4b45253c885cb9af93d1e163c89b329af7c8048384ec028526",
+  "driver_release": "v2.6.0",
+  "mac_asset": "1401-Mac-2.6.0.zip",
+  "mac_sha256": "23309882c63f81372b8dbf0f1fc8b6f62f82f0ae99b64e289c87cfec9104546d",
   "opencore_url": "https://github.com/acidanthera/OpenCorePkg/releases/download/1.0.8/OpenCore-1.0.8-RELEASE.zip",
   "opencore_sha256": "2011e8b7216ecb2645d97ea710df965947edd406846e92050b9bc4190be6d27b",
   "fixture_slug": "optiplex-5050-micro",
