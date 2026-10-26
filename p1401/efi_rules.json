@@ -85,7 +85,7 @@
     {
       "id": "keep-boot-args",
       "scope": ["stick"],
-      "scope_why": "Installer stick only. The Mac app's setup (nullmoth-setup.sh) adds boot-args to NVRAM Delete on the EFI a Mac starts from, on purpose, so OpenCore rewrites the driver's boot flags every start; 154 of 196 recent uploads flagged here were sticks that setup had already done that to.",
+      "scope_why": "Installer stick only. The Mac app's setup (nullmoth-setup.sh) adds boot-args to NVRAM Delete on the EFI a Mac starts from, on purpose, so OpenCore rewrites the driver's boot flags every start; of 196 stick configs uploaded 10-20 to 10-25 that delete boot-args, 180 carry 1401's own logging setting and 154 the driver's boot-args, so they are 1401 sticks changed after the build.",
       "match": {},
       "expect": [{"list_lacks": ["NVRAM.Delete.7C436110-AB2A-4BBB-A880-FE41995C9F82", "boot-args"]}],
       "restart": false,
