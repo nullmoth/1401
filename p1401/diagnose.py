@@ -111,7 +111,7 @@ def diagnose(logs, stopped="", report=None):
             "OpenCore handed over to macOS and the kernel never printed anything. On these PCs it is almost always a "
             "firmware setting that keeps a device in use across the hand-off.", handoff_steps(hw))
 
-    if re.search(r"pci configuration|iopciconfigurator", said):
+    if re.search(r"pci configuration|iopciconfigurator|^\s*pci\s*$", said):
         add("pci-configuration", "The start stopped at PCI configuration",
             "macOS hung while it mapped the PCI devices. This is the firmware's memory layout for PCI devices.",
             ["Turn Above 4G Decoding On in the BIOS.",
@@ -128,7 +128,9 @@ def diagnose(logs, stopped="", report=None):
              "If it stays black, send these logs with the line you typed, and post the report ID in the NullMoth "
              "Discord so the setup can be finished with you."])
 
-    if re.search(r"panic|caplock|caps ?lock", said) or re.search(r"panic-.*\.txt|Kernel trap at", text):
+    # "a kernel panic didn't occur, but ... a black screen" (typed 10-2x) is the black screen, not a panic
+    typed_panic = re.search(r"panic|caplock|caps ?lock", said) and not any(f["id"] == "black-screen-cursor" for f in out)
+    if typed_panic or re.search(r"panic-.*\.txt|Kernel trap at", text):
         add("kernel-panic", "macOS crashed while starting (kernel panic)",
             "The kernel stopped with an error. The stick saves the panic for 1401 to read.",
             ["Send these logs: the panic file on the stick names the driver that crashed. Post the report ID in the "
@@ -143,11 +145,22 @@ def diagnose(logs, stopped="", report=None):
              "Secure Boot model for this PC.",
              "Write the stick again and start from it."], rebuild=True)
 
-    if re.search(r"no .*mac ?os.*(option|entry)|not has mac os|don.t see mac|only windows", said):
+    if re.search(r"no .*mac ?os.*(option|entry)|not has mac os|don.t see mac|only windows|"
+                 r"(not|n.t) show.*mac ?os|boot into windows", said):
         add("no-macos-entry", "The OpenCore menu shows no macOS entry",
             "The installer is a recovery entry, which OpenCore can hide.",
             ["In the OpenCore menu, press the Space bar to show every entry, then choose 1401.",
              "If there is still none, the stick is not fully written: write it again with 1401."])
+
+    # the installer lists no disk to install on: the firmware hides the drives behind RAID / Intel RST / VMD
+    if re.search(r"sata|(no|n.t see|not see|missing).{0,20}(disk|drive|ssd|nvme)|硬盘|磁盘", said):
+        add("no-disk-in-installer", "The installer does not show your disk",
+            "macOS can only see drives the firmware presents as plain AHCI or NVMe disks. RAID, Intel RST and VMD hide them.",
+            ["In the BIOS set SATA Mode to AHCI (not RAID or Intel RST).",
+             "On Intel boards also turn VMD Controller Off.",
+             "If Windows is installed on that disk, switch Windows to AHCI first (Microsoft's safe-mode steps), or Windows "
+             "will not start afterwards.",
+             "In the installer open Disk Utility, choose View > Show All Devices, and erase the disk you want as APFS."])
 
     if re.search(r"root device|waiting for root", said):
         add("waiting-for-root", "macOS is waiting for the USB stick (Still waiting for root device)",

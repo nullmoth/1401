@@ -261,6 +261,18 @@ ZH = {
     "F12": "F12",
     "F12 (turn on 'F12 Boot Menu' in the BIOS first)": "F12（需先在 BIOS 中开启 'F12 Boot Menu'）",
     # --- stick-log fixes (diagnose.py) ---
+    'The installer does not show your disk':
+        '安装器里看不到你的硬盘',
+    'macOS can only see drives the firmware presents as plain AHCI or NVMe disks. RAID, Intel RST and VMD hide them.':
+        'macOS 只能识别固件以普通 AHCI 或 NVMe 方式呈现的硬盘。RAID、Intel RST 和 VMD 会把硬盘隐藏起来。',
+    'In the BIOS set SATA Mode to AHCI (not RAID or Intel RST).':
+        '在 BIOS 中把 SATA 模式设为 AHCI（不要用 RAID 或 Intel RST）。',
+    'On Intel boards also turn VMD Controller Off.':
+        'Intel 主板还要关闭 VMD 控制器（VMD Controller）。',
+    "If Windows is installed on that disk, switch Windows to AHCI first (Microsoft's safe-mode steps), or Windows will not start afterwards.":
+        '如果这块硬盘上装着 Windows，请先按微软的安全模式步骤把 Windows 切换到 AHCI，否则之后 Windows 将无法启动。',
+    'In the installer open Disk Utility, choose View > Show All Devices, and erase the disk you want as APFS.':
+        '在安装器中打开“磁盘工具”，选择“显示”>“显示所有设备”，然后把要安装的硬盘抹掉为 APFS 格式。',
     'macOS could not find room in memory to start (EB.MM.AKM)':
         'macOS 启动时找不到可用内存空间（EB.MM.AKM）',
     "Apple's boot loader stopped before macOS started: the memory map this PC's firmware gives it has no room for the kernel with the current settings. Starting the same stick again stops the same way.":

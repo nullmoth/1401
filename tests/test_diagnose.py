@@ -71,6 +71,14 @@ class Diagnose(unittest.TestCase):
             with self.subTest(said=said):
                 self.assertEqual(ids(diagnose.diagnose([], said)), [want])
 
+    def test_lines_people_typed_find_the_right_class(self):
+        for said, want in (("A kernel panic didn't occur, but there was only a mouse cursor on a black screen.", ["black-screen-cursor"]),
+                           ("OpenCore did not show booting into macOS as an option, just made me boot into Windows.", ["no-macos-entry"]),
+                           ("my sata disk and hdd sata, im dont see in the hakintosh", ["no-disk-in-installer"]),
+                           ("pci", ["pci-configuration"]), ("pci wifi adapter not working", [])):
+            with self.subTest(said=said):
+                self.assertEqual(ids(diagnose.diagnose([], said)), want)
+
     def test_a_normal_handoff_with_nothing_typed_says_what_the_log_cannot_show(self):
         r = diagnose.diagnose([cpu("AMD Ryzen 7 7735H with Radeon Graphics") + HANDOFF])
         self.assertEqual(ids(r), ["after-handoff"])
@@ -86,7 +94,7 @@ class Diagnose(unittest.TestCase):
                  ([HANDOFF], "")]
         for name in ("Intel(R) Core(TM) Ultra 7 265K", "Intel(R) Core(TM) i7-9700K", "AMD Ryzen 7 7700", "unknown"):
             cases.append(([cpu(name) + HANDOFF], "exitbs"))
-        for said in ("pci configuration", "black cursor", "panic", "prohibited", "only windows", "root device"):
+        for said in ("pci configuration", "black cursor", "panic", "prohibited", "only windows", "root device", "sata disk not seen"):
             cases.append(([], said))
         missing = set()
         for logs, said in cases:
