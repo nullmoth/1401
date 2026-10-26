@@ -12,11 +12,53 @@ namespace A1401
     {
         static Color C(int rgb) { return Color.FromArgb((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255); }
 
-        public static readonly Color Bg = C(0x000000), Panel = C(0x0b0613), Panel2 = C(0x150a24), Line = C(0x3b1f5f),
-            Text = C(0xe6ddf3), Muted = C(0xa898c2), Purple = C(0xb98aff), Purple2 = C(0x7c3fd0), Btn = C(0x4b1f86),
-            BtnEdge = C(0xa77ae6), Cyan = C(0x58e6ea), Err = C(0xff7092),
-            // the site has no amber; a warning still has to read as one next to cyan and pink
-            Amber = C(0xffcf70);
+        static Color A(int a, int rgb) { return Color.FromArgb(a, C(rgb)); }
+
+        // The palette in use; Use(light) swaps it. Dark is the site's; light is the same roles on lavender glass.
+        // The site has no amber; a warning still has to read as one next to cyan and pink.
+        public static Color Bg, Panel, Panel2, Line, Text, Muted, Purple, Purple2, Btn, BtnEdge, Cyan, Err, Amber, LogBg;
+        public static Color DeskBg, Neb1, Neb2, Neb3, StripeA, StripeB, Well2, GoA, GoB, GoText, BtnA, BtnB, BtnText, GlassTint, BarTint;
+        public static Color[] Stars;
+        static Theme() { Use(false); }
+
+        public static void Use(bool light)
+        {
+            if (!light)
+            {
+                Bg = C(0x000000); Panel = C(0x0b0613); Panel2 = C(0x150a24); Line = C(0x3b1f5f); Text = C(0xe6ddf3); Muted = C(0xa898c2);
+                Purple = C(0xb98aff); Purple2 = C(0x7c3fd0); Btn = C(0x4b1f86); BtnEdge = C(0xa77ae6); Cyan = C(0x58e6ea); Err = C(0xff7092);
+                Amber = C(0xffcf70); LogBg = C(0x000001);
+                DeskBg = C(0x000000); Neb1 = A(150, 0x7c3fd0); Neb2 = A(76, 0x58e6ea); Neb3 = A(82, 0xe59bff);
+                StripeA = A(82, 0xb98aff); StripeB = A(90, 0x0b0613); Well2 = A(140, 0x000000);
+                GoA = C(0xd4b4ff); GoB = C(0x9a63f0); GoText = C(0x0b0613); BtnA = A(230, 0x5c28a3); BtnB = A(230, 0x2a1150); BtnText = Color.White;
+                GlassTint = A(150, 0x150a24); BarTint = A(120, 0x0b0613);
+                Stars = new[] { C(0xcdb6ff), C(0xffffff), C(0xd9c8ff), C(0x8e6ad0), C(0xb89cff), C(0x58e6ea) };
+            }
+            else
+            {
+                Bg = C(0xf6f1fd); Panel = C(0xece3fa); Panel2 = C(0xe4d8f7); Line = C(0xc9b6ea); Text = C(0x1a0d2e); Muted = C(0x56466f);
+                Purple = C(0x6a2fc0); Purple2 = C(0x9a63f0); Btn = C(0xe2d6f7); BtnEdge = C(0x7c3fd0); Cyan = C(0x0b6b70); Err = C(0xb0003a);
+                Amber = C(0x7a4f00); LogBg = C(0xfffffe);
+                DeskBg = C(0xefe8fb); Neb1 = A(140, 0xb98aff); Neb2 = A(102, 0x58e6ea); Neb3 = A(115, 0xe59bff);
+                StripeA = A(216, 0xffffff); StripeB = A(76, 0xb98aff); Well2 = A(224, 0xffffff);
+                GoA = C(0x9a63f0); GoB = C(0x6a2fc0); GoText = Color.White; BtnA = A(242, 0xffffff); BtnB = A(242, 0xe2d6f7); BtnText = C(0x2a1150);
+                GlassTint = A(150, 0xffffff); BarTint = A(110, 0xffffff);
+                Stars = new[] { C(0x9a63f0), C(0x7c3fd0), C(0xb98aff), C(0x6a2fc0), C(0x9a63f0), C(0x2f9a9f) };
+            }
+        }
+
+        /// <summary>Each role's colour in one palette mapped to the same role in the other, by ARGB, for recolouring the
+        /// controls that were built with the old palette. Roles that share a colour (Bg and DeskBg) keep the first.</summary>
+        public static System.Collections.Generic.Dictionary<int, Color> Mapping(bool fromLight, bool toLight)
+        {
+            Use(fromLight);
+            var from = new[] { Bg, Panel, Panel2, Line, Text, Muted, Purple, Purple2, Btn, BtnEdge, Cyan, Err, Amber, LogBg };
+            Use(toLight);
+            var to = new[] { Bg, Panel, Panel2, Line, Text, Muted, Purple, Purple2, Btn, BtnEdge, Cyan, Err, Amber, LogBg };
+            var map = new System.Collections.Generic.Dictionary<int, Color>();
+            for (int i = 0; i < from.Length; i++) if (!map.ContainsKey(from[i].ToArgb())) map[from[i].ToArgb()] = to[i];
+            return map;
+        }
 
         // Every face here ships with Windows, same rule as the site. The Chinese UI needs a face that
         // actually carries CJK glyphs: Verdana, Times New Roman and Courier New do not, so Windows
@@ -40,11 +82,11 @@ namespace A1401
             b.UseVisualStyleBackColor = false;
             b.BackColor = primary ? Btn : Panel2;
             b.ForeColor = Color.White;
-            b.FlatAppearance.BorderColor = primary ? BtnEdge : Line;
-            b.FlatAppearance.BorderSize = 2;
-            b.FlatAppearance.MouseOverBackColor = Purple2;
-            b.FlatAppearance.MouseDownBackColor = Line;
+            b.FlatAppearance.BorderSize = 0;
             b.Cursor = Cursors.Hand;
+            // drawn as a rounded glass button (Glass.PaintButton); Tag says which of the two looks
+            b.Tag = primary ? "primary" : null;
+            b.Paint -= Glass.PaintButton; b.Paint += Glass.PaintButton;
         }
 
         public static void Style(ListBox l)

@@ -17,8 +17,11 @@ namespace A1401
         static readonly string[] Steps = { "Introduction", "Check this PC", "Build the Mac setup", "Your BIOS steps", "Create the macOS stick", "Done" };
         int page;
         readonly Label[] side = new Label[Steps.Length];
-        readonly Panel body = new Panel();
-        readonly Panel foot = new Panel();
+        readonly GlassPanel body = new GlassPanel();
+        readonly GlassPanel foot = new GlassPanel();
+        readonly GlassPanel nav = new GlassPanel();
+        readonly Label headTitle = new Label();
+        readonly Timer sky = new Timer { Interval = 100 };
         readonly Label title = new Label(), note = new Label();
         readonly Button back = new Button(), next = new Button();
         readonly TextBox log = new TextBox();
@@ -55,31 +58,52 @@ namespace A1401
             // point-sized fonts grew with the display while the boxes kept their 96-DPI size, so text was cut off.
             // Scale the whole layout with the display, as the Windows Forms designer does for its own forms.
             SuspendLayout();
+            // the palette first, so every control below is built in the colours the user last chose
+            Glass.LoadPreference(); Theme.Use(Glass.Light);
+            DoubleBuffered = true;
             AutoScaleDimensions = new SizeF(96F, 96F); AutoScaleMode = AutoScaleMode.Dpi;
             Text = Loc.T("1401 Assistant");
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             ClientSize = new Size(900, 620);
             FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimumSize = new Size(640, 420);
-            BackColor = Theme.Bg; ForeColor = Theme.Text; Font = Theme.Body;
+            BackColor = Theme.DeskBg; ForeColor = Theme.Text; Font = Theme.Body;
             StartPosition = FormStartPosition.CenterScreen;
             Shown += (o, e) => FitToWorkingArea();
             if (!verificationMode) Shown += (o, e) => OfferStickLogs(false);
             if (!verificationMode) Shown += (o, e) => CheckAppVersion();
 
-            var head = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Panel };
-            var mark = new PictureBox { Image = Theme.Mark(), SizeMode = PictureBoxSizeMode.Zoom, Bounds = new Rectangle(14, 9, 56, 56) };
-            var brand = new Label { Text = "NullMoth", Font = Theme.Brand, ForeColor = Theme.Purple, AutoSize = true, Location = new Point(80, 8) };
-            var sub = new Label { Text = Loc.T("1401 Assistant  -  macOS on the PC you already own"), Font = Theme.Mono, ForeColor = Theme.Cyan, AutoSize = true, Location = new Point(84, 46) };
-            head.Controls.AddRange(new Control[] { mark, brand, sub });
+            // The striped glass title bar: "1401 - <step>" and the light/dark switch; Windows keeps its own window buttons.
+            var head = new GlassPanel { Dock = DockStyle.Top, Height = 44, BackColor = Color.Transparent, Stripes = true };
+            head.Tint = () => Theme.BarTint;
+            headTitle.Font = new Font(Theme.Face("Times New Roman"), 13f, FontStyle.Bold); headTitle.ForeColor = Theme.Text;
+            headTitle.BackColor = Color.Transparent; headTitle.AutoSize = true; headTitle.Location = new Point(16, 11);
+            headTitle.Text = "1401 — " + Loc.T(Steps[0]);
+            var themeSwitch = new ThemeSwitch { Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            themeSwitch.Location = new Point(ClientSize.Width - themeSwitch.Width - 16, 10);
+            themeSwitch.Toggled += (o, e) => { Glass.SetLight(this, !Glass.Light); nav.Invalidate(true); };
+            head.Controls.AddRange(new Control[] { headTitle, themeSwitch });
 
-            var nav = new Panel { Dock = DockStyle.Left, Width = 220, BackColor = Theme.Panel2, Padding = new Padding(12, 16, 8, 8) };
+            nav.Dock = DockStyle.Left; nav.Width = 220; nav.BackColor = Color.Transparent; nav.Padding = new Padding(12, 16, 8, 8);
+            nav.Tint = () => Theme.GlassTint;
             for (int i = Steps.Length - 1; i >= 0; i--)
             {
-                side[i] = new Label { Text = (i + 1) + ".  " + Loc.T(Steps[i]), Dock = DockStyle.Top, Height = 34, Font = Theme.Body, ForeColor = Theme.Muted };
+                side[i] = new Label { Text = "  " + (i + 1) + ".  " + Loc.T(Steps[i]), Dock = DockStyle.Top, Height = 38, Font = Theme.Body,
+                                      ForeColor = Theme.Muted, BackColor = Color.Transparent, TextAlign = ContentAlignment.MiddleLeft };
                 nav.Controls.Add(side[i]);
             }
+            // the current step sits on a rounded highlight, as in the Mac app's sidebar
+            nav.Paint += (o, e) =>
+            {
+                if (side[page] == null) return;
+                var r = side[page].Bounds; r.Inflate(-2, -3);
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = Glass.Round(r, 9))
+                using (var fill = new SolidBrush(Color.FromArgb(Glass.Light ? 40 : 90, Theme.Purple2)))
+                using (var edge = new Pen(Theme.Purple))
+                { e.Graphics.FillPath(fill, path); e.Graphics.DrawPath(edge, path); }
+            };
 
-            foot.Dock = DockStyle.Bottom; foot.Height = 56; foot.BackColor = Theme.Panel;
+            foot.Dock = DockStyle.Bottom; foot.Height = 56; foot.BackColor = Color.Transparent; foot.Tint = () => Theme.BarTint;
             back.Text = Loc.T("< Back"); back.Bounds = new Rectangle(560, 12, 150, 32); Theme.Style(back, false);
             next.Text = Loc.T("Continue >"); next.Bounds = new Rectangle(720, 12, 160, 32); Theme.Style(next);
             back.Click += (s, e) => {
@@ -88,10 +112,11 @@ namespace A1401
             }; next.Click += (s, e) => OnNext();
             foot.Controls.AddRange(new Control[] { back, next });
 
-            body.Dock = DockStyle.Fill; body.Padding = new Padding(24, 18, 24, 12); body.BackColor = Theme.Bg; body.AutoScroll = true;
+            body.Dock = DockStyle.Fill; body.Padding = new Padding(24, 18, 24, 12); body.BackColor = Color.Transparent; body.AutoScroll = true;
+            body.Tint = () => Glass.Light ? Color.FromArgb(120, 250, 247, 255) : Color.FromArgb(105, 8, 3, 16);
             title.Font = Theme.Title; title.ForeColor = Theme.Text; title.AutoSize = false;
             note.AutoSize = true; note.AutoEllipsis = false; note.ForeColor = Theme.Text;
-            log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical; log.BackColor = Color.Black;
+            log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical; log.BackColor = Theme.LogBg;
             log.ForeColor = Theme.Cyan; log.Font = Theme.Log; log.BorderStyle = BorderStyle.FixedSingle;
             log.Bounds = new Rectangle(24, 330, 620, 140);
             bar.Bounds = new Rectangle(24, 300, 620, 18);
@@ -109,7 +134,7 @@ namespace A1401
             osPick.SelectedIndexChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
             expDrivers.Text = Loc.T("Include experimental drivers (Wi-Fi, AMD RDNA 4 graphics, USB and power fixes)");
             expDrivers.AutoSize = true; expDrivers.Checked = false;
-            expDrivers.BackColor = Theme.Panel; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
+            expDrivers.BackColor = Color.Transparent; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
             // Including them changes which kexts the build carries, so a finished build is no longer the right one.
             expDrivers.CheckedChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
             guide.ScriptErrorsSuppressed = true;
@@ -149,6 +174,16 @@ namespace A1401
             body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
+            // The stars drift: ten frames a second repaint the glass panels and the see-through text on them, never the
+            // list, log or web view (those are opaque and would only flicker).
+            sky.Tick += (o, e) =>
+            {
+                foreach (var pane in new Control[] { head, nav, foot }) pane.Invalidate(true);
+                body.Invalidate(false);
+                foreach (Control c in body.Controls) if (c.Visible && c.BackColor == Color.Transparent) c.Invalidate();
+            };
+            sky.Start();
+            FormClosed += (o, e) => sky.Stop();
             body.Resize += (s, e) => LayoutBody();
             foot.Resize += (s, e) => LayoutFooter();
             DpiChanged += (s, e) => { FitToWorkingArea(e.DeviceDpiNew); LayoutBody(); LayoutFooter(); };
@@ -423,6 +458,8 @@ namespace A1401
             if (busy || p < 0 || p >= Steps.Length) return;
             page = p;
             body.AutoScrollPosition = Point.Empty;
+            headTitle.Text = "1401 — " + Loc.T(Steps[p]);
+            nav.Invalidate();
             for (int i = 0; i < Steps.Length; i++)
             {
                 side[i].ForeColor = i == page ? Theme.Purple : (i < page ? Theme.Cyan : Theme.Muted);
