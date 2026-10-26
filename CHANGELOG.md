@@ -3,6 +3,14 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.6.0
+- Bundles NVIDIA driver 2.6.0: updating the driver takes one restart. macOS's "system extensions updated" notice no longer needs approving and a second restart.
+- 12th-gen and newer Intel, Core Ultra included: the BIOS checklist tells you to turn VT-d off. It used to leave VT-d out for exactly these PCs, and turning it off is what got them past EXITBS:START (#10, #11, #53, #58). When the BIOS hides it, the checklist says where to look: the Advanced or overclocking pages, X2APIC off first on some laptops (HONOR), and Kernel DMA Protection.
+- DevirtualiseMmio on 12th-gen and newer Intel follows the PC: off on laptops (1401 #6), on for Core Ultra 200 desktops, as on a Core Ultra 5 225F that runs macOS 26, and as built on other desktops. Measured over 448 of these machines in the stick reports, forcing it off everywhere did not help desktops.
+- One rule file for the EFI settings 1401 builds and the Mac app checks (p1401/efi_rules.json): what each setting is, which machines need it, why, and the steps to change it by hand. Tests hold the builder and both checkers to the same answers, including over 3,465 uploaded stick configs.
+- Writing the stick on Windows builds without Windows PowerShell in System32: 1401 uses a PowerShell on PATH or PowerShell 7 instead of stopping (five runs on one PC). The PC scan does the same.
+- Mac app: **Check my EFI** reads the OpenCore setup your Mac starts from, without changing it, and lists anything that should change, each with the steps to change it.
+
 ## 2.5.5
 - Bundles NVIDIA driver 2.5.5: Discord videos play again, Screen Sharing shows the screen, remote-desktop apps get keyframes from the hardware encoder, and Brave and Edge use the GPU.
 - Fixes 2.5.4's "EFI failed validation: ocvalidate issues=1" with "Include experimental drivers": the KernReserveLow driver's description had a "~", which OpenCore refuses in a comment (#101, thanks myvoow). Every comment in the built config is now kept to the characters OpenCore accepts.
