@@ -60,6 +60,24 @@ def _system_tool(*parts):
     return path if os.path.isfile(path) else parts[-1]
 
 
+def powershell():
+    """Windows PowerShell where Windows keeps it, else any on PATH, else PowerShell 7 (pwsh), which has the same Get-Disk
+    and Format-Volume. 2.5.5 write logs (10-26, five runs on one PC): stripped-down Windows builds remove
+    powershell.exe from System32 and the write stopped before it listed a single disk."""
+    found = _system_tool("WindowsPowerShell", "v1.0", "powershell.exe")
+    if os.path.isfile(found):
+        return found
+    for name in ("powershell.exe", "pwsh.exe"):
+        on_path = shutil.which(name)
+        if on_path:
+            return on_path
+    for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramW6432"), r"C:\Program Files"):
+        pwsh = os.path.join(base or "", "PowerShell", "7", "pwsh.exe")
+        if base and os.path.isfile(pwsh):
+            return pwsh
+    return found
+
+
 # diskpart prints in the OEM code page; "oem" is that codec on Windows (absent elsewhere, where diskpart never runs)
 _OEM = "oem" if os.name == "nt" else "utf-8"
 
@@ -70,7 +88,7 @@ def _ps(script):
     # PowerShell writes in the console's code page (GBK, cp866, ...), not UTF-8: on a Chinese Windows reading its output
     # as UTF-8 raised UnicodeDecodeError and the write stopped with an empty "UsbError:" (1.14.1 write logs). It is told
     # to write UTF-8, and anything that still is not is replaced instead of stopping the write.
-    cmd = [_system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+    cmd = [powershell(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + script]
     try:
         try:

@@ -282,7 +282,8 @@ def collect_storage_drives():
     if platform.system() != "Windows":
         return []
     try:
-        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+        from . import usbwriter  # noqa: PLC0415
+        cmd = [usbwriter.powershell(), "-NoProfile", "-NonInteractive", "-Command",
                "Get-Disk | Select-Object Number,FriendlyName,Model,BusType,Size,IsBoot,IsSystem | ConvertTo-Json -Compress"]
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=30).stdout.strip()
         if not out:
