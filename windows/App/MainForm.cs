@@ -78,8 +78,10 @@ namespace A1401
             headTitle.Font = new Font(Theme.Face("Times New Roman"), 13f, FontStyle.Bold); headTitle.ForeColor = Theme.Text;
             headTitle.BackColor = Color.Transparent; headTitle.AutoSize = true; headTitle.Location = new Point(16, 11);
             headTitle.Text = "1401 — " + Loc.T(Steps[0]);
-            var themeSwitch = new ThemeSwitch { Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            themeSwitch.Location = new Point(ClientSize.Width - themeSwitch.Width - 16, 10);
+            // placed from the bar's own width each time it changes: anchored before the bar was docked to full width,
+            // it sat off the right edge (CI drawing, 10-26)
+            var themeSwitch = new ThemeSwitch();
+            head.Resize += (o, e) => themeSwitch.Location = new Point(head.ClientSize.Width - themeSwitch.Width - 16, (head.ClientSize.Height - themeSwitch.Height) / 2);
             themeSwitch.Toggled += (o, e) => { Glass.SetLight(this, !Glass.Light); nav.Invalidate(true); };
             head.Controls.AddRange(new Control[] { headTitle, themeSwitch });
 
