@@ -3,6 +3,16 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.6.2
+- When the stick does not start macOS, 1401 for Windows now says what to change, in numbered steps, before it offers to send the logs. It reads the stick's logs, the line you type for where the screen stopped, and this PC's scan, and covers: no room in memory to start (EB.MM.AKM), Secure Boot blocking OpenCore's drivers, a stick missing HfsPlus.efi, the Windows entry chosen instead of 1401, a freeze at EXITBS:START (with the settings for your CPU: VT-d on Intel, IOMMU on AMD), a stop at PCI configuration, a black screen with only a cursor after the install, a kernel panic, the prohibited sign, no macOS entry in the menu, an installer that shows no disk (AHCI, VMD) and "waiting for root device".
+- EFI builds work on Windows accounts whose names are not in English: OpenCore's validator could not read the config from such a folder, and every build there stopped with "ocvalidate issues=0" (115 builds).
+- On Chinese Windows, the install guide and the other pages 1401's engine writes are in Chinese too; they were in English.
+- Mac app: the window moves by its title bar again (it could not be dragged in 2.6.1).
+- Mac app: each issue in **Check my EFI** shows what this Mac has now and the exact value to set, for example which boot-args to add. It checks the EFI your Mac starts from, not the rules meant only for the USB stick.
+- Mac app: the installed driver version is read from the driver itself when its record is missing, so it no longer offers an update you already have.
+- Mac app: the copy of your config saved before a change is named `config.plist.before-1401-<date>`, so the original is easy to find.
+- Bundles NVIDIA driver 2.6.2, the same driver as 2.6.0.
+
 ## 2.6.1
 - A new look for 1401 on Mac and Windows: the NullMoth colours as glass panels over the site's drifting starfield, a sidebar for each part of the app, and a light/dark switch in the title bar that remembers your choice.
 - Mac app: the sidebar holds This Mac, Issues (Check my EFI, with a count of what to change), Tools, USB ports and Send a report. **Mount EFI** in Tools finds the EFI partition this Mac started from, mounts it and opens it in Finder, with one password prompt.
