@@ -171,7 +171,10 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # also answers over HTTPS (measured 10-11: session, RecoveryImage and an HTTPS session cookie on HTTP all work),
             # which such a proxy cannot touch. oscdn has no valid HTTPS certificate, so the image itself stays on HTTP and
             # is checked against Apple's signed chunklist as before. A DNS failure keeps the DNS-over-HTTPS route below.
-            recovery_http_refused = isinstance(e, urllib.error.HTTPError) and e.code == 403
+            # 2.6.3 write logs 10-28 (11 PCs): "HTTP Error 400: Bad Request" from osrecovery itself, the bare GET of
+            # http://osrecovery.apple.com/ among them, which Apple answers 200 everywhere else. A 400 there comes from
+            # something on the network rewriting plain HTTP, the same as its 403.
+            recovery_http_refused = isinstance(e, urllib.error.HTTPError) and e.code in (400, 403)
             if (not (secured or rerouted) and url.startswith(OSRECOVERY_HTTP)
                     and (_transient(e) or recovery_http_refused) and not _dns_failure(e)):
                 secured = True
@@ -200,7 +203,7 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # Eight write logs ended here with osrecovery cut off over HTTP and then over HTTPS too ("SSL:
             # UNEXPECTED_EOF_WHILE_READING" on every try): something between the PC and Apple drops both, and the bare
             # error left the user nothing to do.
-            advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and _transient(e) else ""
+            advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and (_transient(e) or (isinstance(e, urllib.error.HTTPError) and e.code == 400)) else ""
             # 2.0.2 write logs 10-15 (3 PCs): oscdn reset the chunklist request on every try, at the DNS-over-HTTPS edge
             # too (WinError 10054), and the stop said only "ConnectionResetError" with nothing to do about it.
             if not advice and _transient(e):

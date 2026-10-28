@@ -103,6 +103,20 @@ class DohFallback(unittest.TestCase):
         self.assertEqual(seen, ["http://osrecovery.apple.com/", "https://osrecovery.apple.com/"])
         resolver.assert_not_called()
 
+    def test_a_400_from_osrecovery_is_asked_over_https_and_then_says_what_to_change(self):
+        seen = []
+
+        def urlopen(req, timeout=0):
+            seen.append(req.full_url)
+            raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {}, None)
+
+        with mock.patch("urllib.request.urlopen", urlopen), mock.patch.object(apple, "_doh") as resolver:
+            with self.assertRaises(apple.AppleError) as cm:
+                apple._open("http://osrecovery.apple.com/", {}, sleep=lambda s: None)
+        self.assertEqual(seen, ["http://osrecovery.apple.com/", "https://osrecovery.apple.com/"])
+        self.assertIn("phone hotspot or a VPN", str(cm.exception))
+        resolver.assert_not_called()
+
     def test_cdn_403_is_not_sent_to_unverified_https(self):
         seen = []
 
