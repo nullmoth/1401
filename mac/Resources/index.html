@@ -88,6 +88,9 @@
 <p class="row"><button type="button" class="b" id="gpuon">Turn the test driver on</button> <button type="button" class="b" id="gpuoff">Turn it off</button></p>
 <p><b>Test program.</b> While the test driver is on, 1401 sends a short report after every restart: the driver's kernel messages, any crash, and which GPU and build you have (names and serial numbers removed). Leave at any time.</p>
 <p class="row"><button type="button" class="b" id="teston">Join the test program</button> <button type="button" class="b" id="testoff">Leave it</button> <span id="testr"></span></p></div>
+<div class="pane card"><p class="sh">Microphone and camera</p>
+<p>With the driver installed, macOS does not ask before an app uses the microphone or camera, so apps such as Discord get silence and never appear under Privacy &amp; Security. Pick the app here to allow it the microphone, camera and screen recording.</p>
+<p class="row"><button type="button" class="b" id="tccg">Allow an app...</button> <span id="tccr"></span></p></div>
 <div class="pane card"><p class="sh">Map my GPU (experimental)</p>
 <p>A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.</p>
 <p class="row"><button type="button" class="b" id="gpumap">Map my GPU</button> <span id="gpumapr"></span></p></div>

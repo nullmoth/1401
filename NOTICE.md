@@ -29,6 +29,7 @@ makes to their output lives in `p1401/` and is recorded per build as a named rul
 | Where | From | License |
 |---|---|---|
 | `p1401/apple.py`: the recovery protocol, the chunklist format, Apple's EFI ROM public key | OpenCorePkg `Utilities/macrecovery/macrecovery.py`, Copyright (c) 2019, vit9696 (key recovery credited there to zhangyoufu) | BSD-3-Clause |
+| `mac/RuntimeCheck/tcc_grant.m`: granting microphone, camera and screen recording through TCC.framework's `TCCAccessSetForBundle` with the `com.apple.private.tcc.manager` entitlement | tccplus, Copyright (c) 2020 Jeremy Legendre, https://github.com/jslegendre/tccplus | MIT |
 
 ## Facts cross-checked, no text copied
 

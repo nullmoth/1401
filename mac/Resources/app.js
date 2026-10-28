@@ -200,6 +200,7 @@ $("earlyon").onclick = () => post({ act: "early", on: true });
 $("earlyoff").onclick = () => post({ act: "early", on: false });
 post({ act: "early" });
 $("efichk").onclick = () => { $("efichk").disabled = true; $("efichkr").textContent = "Reading the EFI..."; $("efiout").textContent = ""; post({ act: "checkEfi" }); };
+$("tccg").onclick = () => { $("tccr").textContent = "Pick the app..."; post({ act: "tccGrant" }); };
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
 $("logs").onclick = (e) => { e.preventDefault(); post({ act: "logs" }); };
@@ -340,6 +341,7 @@ NM.on = (m) => {
                                                               : `<span class="warn">${esc(m.data.why || "The EFI could not be mounted.")}</span>`;
     return;
   }
+  if (m.event === "tccStatus") { $("tccr").innerHTML = m.data.text ? `<span class="${m.data.ok ? "good" : "warn"}">${esc(m.data.text)}</span>` : ""; return; }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
   if (m.event === "logsDone") {
     const d = m.data;
@@ -351,6 +353,9 @@ NM.on = (m) => {
   }
   if (m.event === "crashDone") { $("cr").innerHTML = m.data.ok ? `<span class="good">Saved to your Desktop:</span> ${esc(m.data.path.split("/").pop())}` : `<span class="warn">${esc(m.data.why)}</span>`; return; }
   if (m.event === "scan" && m.data.crashes) $("cr").textContent = m.data.crashes.length ? `${m.data.crashes.length} crash file(s) on this Mac name the driver.` : "No crash that names the driver is on this Mac.";
+  if (m.event === "scan" && m.data.itlwmNeedsHeliPort) {
+    setTimeout(() => $("verdict").insertAdjacentHTML("beforeend", '<p class="warn">Wi-Fi: this Mac\'s Intel Wi-Fi runs on itlwm, which joins networks through its own app, HeliPort, not the Wi-Fi menu. Download HeliPort from github.com/OpenIntelWireless/HeliPort/releases, move it to Applications, open it, and pick your network there. To start it with the Mac, turn on Launch at Login in its menu.</p>'), 0);
+  }
   if (m.event === "scan" && m.data.safemode && m.data.record) {
     setTimeout(() => {
       $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. To turn the driver back on, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');

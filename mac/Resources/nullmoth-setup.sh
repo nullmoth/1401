@@ -1022,6 +1022,20 @@ if [ -n "${GPUTEST:-}" ]; then
   fi
   if [ "$GPUTEST" = on ]; then
     [ -n "$WANT" ] || stop "this Mac has no AMD or Intel GPU for this driver (none is on macOS's PCI list, and no disable-gpu on ${IGPU:-the processor GPU} in OpenCore to undo)"
+    # /Library/GPUBundles is SIP-restricted (rootless.conf: KernelExtensionManagement), so the Vulkan drivers cannot be
+    # copied there while SIP's filesystem protection is on: 2.6.2 downloaded the firmware and then stopped "ditto:
+    # /Library/GPUBundles/nvmtl: Operation not permitted" on an RX 7600 Mac. Checked first, before anything is changed.
+    # The NVIDIA install sets these SIP bits; a Mac with only an AMD/Intel GPU never ran it.
+    if csrutil status 2>/dev/null | grep -qE 'status: enabled\.|Filesystem Protections: enabled'; then
+      cur=$(csr_of); want=$(( cur | SIP_BITS ))
+      if [ $want != $cur ]; then
+        if has NVRAM.Add.$B.csr-active-config; then plutil -replace NVRAM.Add.$B.csr-active-config -data "$(csr_data $want)" "$C"
+        else plutil -insert NVRAM.Add.$B.csr-active-config -data "$(csr_data $want)" "$C"; fi
+        plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+        ok "csr-active-config $(printf '0x%04X' $cur) -> $(printf '0x%04X' $want) in OpenCore's config (backup: $BKC)"
+      fi
+      stop "SIP still protects /Library/GPUBundles, where the AMD/Intel Vulkan drivers go. The SIP setting the driver needs is in OpenCore's config now: restart once (pick macOS in OpenCore as usual), then turn the AMD/Intel driver on again. Nothing else was changed"
+    fi
     # The AMD/Intel driver is its own product (the nmx package, not part of the NVIDIA driver). The app passes the
     # downloaded, checksum-verified package: its AMD/Intel kexts, GPU userland and NPU files are taken from a root-owned
     # copy every time, so turning it on again also brings a newer package's build.
@@ -1071,11 +1085,13 @@ if [ -n "${GPUTEST:-}" ]; then
     rm -rf "$FA"
     # what is still missing: each file from GitLab, else from kernel.org's mirror of the same commit, 2 at a time;
     # curl's retries back off on 429 and 5xx. The file is the script's $2 (macOS xargs -I refuses a command over
-    # 255 bytes, so no {} substitution)
+    # 255 bytes, so no {} substitution). Once GitLab refuses a file (2.6.2: HTTP 403 for every file on some networks,
+    # each printed and each costing a request), the rest go straight to kernel.org.
     awk '{print $2}' "$FWLIST" | while IFS= read -r p; do [ -f "$FT/$p" ] || printf '%s\n' "$p"; done | xargs -P 2 -n 1 sh -c 'mkdir -p "$(dirname "$0/$2")" &&
-      { curl -fsSL --retry 5 --retry-delay 2 -o "$0/$2" "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/$1/$2" ||
-        curl -fsSL --retry 5 --retry-delay 2 -o "$0/$2" "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/$2?id=$1"; }' "$FT" "$COMMIT" \
+      { { [ ! -f "$0/.gitlab-refused" ] && curl -fsL --retry 5 --retry-delay 2 -o "$0/$2" "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/$1/$2"; } ||
+        { : > "$0/.gitlab-refused"; curl -fsSL --retry 5 --retry-delay 2 -o "$0/$2" "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/$2?id=$1"; }; }' "$FT" "$COMMIT" \
       || { rm -rf "$FT" "$FWLIST"; stop "downloading the GPU firmware failed (network?) - nothing was changed"; }
+    rm -f "$FT/.gitlab-refused"
     (cd "$FT" && shasum -a 256 --strict -c --quiet < "$FWLIST") >/dev/null 2>&1 || { rm -rf "$FT" "$FWLIST"; stop "a GPU firmware file did not match its checksum - nothing was changed"; }
     # the names drivers ask for that linux-firmware publishes as links (WHENCE "Link:"), within one directory only
     grep '^#link ' "$MAN" | while read -r _ n _ tgt; do

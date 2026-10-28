@@ -502,6 +502,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "crashReport": crashReportFromWindow()
         case "sendLogs": sendLogs(sample: b["sample"] as? String ?? "")
         case "gpumap": mapGPU()   // "Map my GPU" (experimental, opt-in)
+        case "tccGrant": tccGrant()
         case "mountEfi": DispatchQueue.global().async { self.send("efiMount", EfiCheck.mount()) }
         case "checkEfi": let efi = b["efi"] as? String ?? "auto"; DispatchQueue.global().async { self.send("efiCheck", EfiCheck.run(efi: efi)) }
         case "optionalDiagnostics": optionalDiagnostics()
@@ -560,7 +561,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let oc = sh("/usr/sbin/nvram", ["4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version"])
             .split(separator: "\t").dropFirst().first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-        let kexts = loadedDriverComponentCount(sh("/usr/bin/kmutil", ["showloaded", "--list-only"]))
+        let shown = sh("/usr/bin/kmutil", ["showloaded", "--list-only"])
+        let kexts = loadedDriverComponentCount(shown)
+        // itlwm (not AirportItlwm) joins Wi-Fi through its HeliPort app, never the menu bar: 322 of 1,559 Macs that
+        // reached the desktop (10-23 to 10-27) loaded it and reported "no Wi-Fi interface".
+        let itlwmNeedsHeliPort = shown.contains("com.zxystd.itlwm ") && !shown.contains("com.zxystd.AirportItlwm")
+            && !FileManager.default.fileExists(atPath: "/Applications/HeliPort.app")
         let fm = FileManager.default
         let files = fm.fileExists(atPath: "/Library/GPUBundles/NVMTLDriver.bundle") && fm.fileExists(atPath: "/Library/Extensions/NVRM.kext")
         var arch = "x86_64"
@@ -585,7 +591,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
-                "hwModel": sysctl("hw.model"),
+                "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
                 "profile": { var p = machineProfile(gpus); p["rules"] = Profile.select(rules(), p).ids; return p }()]
     }
 
@@ -633,6 +639,30 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     /// GPU so the next driver can be tuned for it. Each test is its own nullmoth-gpumap process with a time limit; nothing
     /// on the Mac is changed. The result is saved as gpu-map-<time>.json in the log folder, and Send logs (which asks
     /// first) uploads it with the logs.
+    /// "Let an app use the microphone and camera": the user picks the app, nullmoth-tcc-grant asks tccd for the grant.
+    func tccGrant() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = "Allow"
+        panel.message = "Pick the app that should use the microphone, camera and screen recording"
+        guard panel.runModal() == .OK, let app = panel.url else { send("tccStatus", ["text": ""]); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let r = App.runBounded(Bundle.main.resourceURL!.appendingPathComponent("nullmoth-tcc-grant"), [app.path], seconds: 20)
+            let j = (try? JSONSerialization.jsonObject(with: r.out) as? [String: Any]) ?? [:]
+            let name = app.deletingPathExtension().lastPathComponent
+            let text: String
+            if j["ok"] as? Bool == true {
+                let failed = (j["failed"] as? [String] ?? []).map { $0.replacingOccurrences(of: "kTCCService", with: "") }
+                text = "\(name) may now use the microphone and camera" + (failed.isEmpty ? " and record the screen." : " (not: \(failed.joined(separator: ", "))).")
+                    + " Quit and reopen \(name) if it is running."
+            } else {
+                text = "Could not allow \(name): \(j["why"] as? String ?? (r.timedOut ? "the helper did not answer" : "macOS refused the change"))."
+            }
+            DispatchQueue.main.async { self.send("tccStatus", ["text": text, "ok": j["ok"] as? Bool ?? false]) }
+        }
+    }
+
     func mapGPU() {
         DispatchQueue.global(qos: .userInitiated).async {
             let res = Bundle.main.resourceURL!
