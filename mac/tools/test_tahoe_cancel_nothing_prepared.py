@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Cancelling the Tahoe preparation on a Mac it never ran on ends "nothing to cancel" instead of a false "this driver has
-no kexts for macOS 15" stop. Runs the setup script's own guard with stand-in config, NVRAM and pending file; a parked
-driver or a pending file still goes on to the real cancel."""
+no kexts for macOS 15" stop. Runs the setup script's own guard with stand-in config, NVRAM and pending file. A driver
+parked with no pending file gets only -nvoff taken out (its BAR settings are left alone); a pending file still goes on to
+the real cancel."""
 import os
 import pathlib
 import subprocess
@@ -33,6 +34,8 @@ def run(upd, config_args, nvram_args, pending):
             pend.write_text('FROM=15\n')
         script = (f'UPD={upd}; PEND="{pend}"; B=GUID\n'
                   f'get() {{ echo "{config_args}"; }}\nok() {{ echo "OK $*"; }}\ncleanup() {{ :; }}\n'
+                  'step() { echo "STEP $*"; }\nstop() { echo "STOP $*"; exit 1; }\nbackup() { BKC=/x.bak; }\n'
+                  'args_set() { echo "ARGS $*"; }\nplutil() { :; }\nC=/x\n'
                   + guard + 'echo "WENT ON"\n')
         r = subprocess.run(['/bin/bash', '-c', script], capture_output=True, text=True,
                            env=dict(os.environ, PATH=f'{d}/bin:/usr/bin:/bin'), timeout=30)
@@ -43,13 +46,15 @@ out = run('cancel', 'nvfb=1 nvaccel=1', 'nvfb=1 nvaccel=1', pending=False)
 check('cancel with nothing prepared ends cleanly and says so', 'nothing to cancel' in out and 'RESULT ok' in out
       and 'WENT ON' not in out, out.strip())
 out = run('cancel', 'nvfb=1 nvaccel=1', 'nvfb=1 -nvoff', pending=False)
-check('a driver parked in NVRAM still goes on to the real cancel', 'WENT ON' in out and 'nothing to cancel' not in out, out.strip())
+check('a driver parked in NVRAM with nothing pending gets only -nvoff taken out',
+      'ARGS del -nvoff' in out and 'RESULT ok' in out and 'WENT ON' not in out and 'nothing to cancel' not in out, out.strip())
 out = run('cancel', 'nvfb=1 -nvoff', '', pending=False)
-check('a driver parked in the config still goes on to the real cancel', 'WENT ON' in out, out.strip())
+check('a driver parked in the config with nothing pending gets only -nvoff taken out',
+      'ARGS del -nvoff' in out and 'WENT ON' not in out, out.strip())
 out = run('cancel', 'nvfb=1', 'nvfb=1', pending=True)
-check('a pending update still goes on to the real cancel', 'WENT ON' in out, out.strip())
+check('a pending update still goes on to the real cancel', 'WENT ON' in out and 'ARGS' not in out, out.strip())
 out = run('finish', 'nvfb=1', 'nvfb=1', pending=False)
-check('finish is never skipped by this guard', 'WENT ON' in out, out.strip())
+check('finish is never skipped by this guard', 'WENT ON' in out and 'ARGS' not in out, out.strip())
 out = run('cancel', 'nvfb=1 -nvoffx', 'nvfb=1', pending=False)
 check('a different argument that only starts with -nvoff does not count as parked', 'nothing to cancel' in out, out.strip())
 sys.exit(1 if fails else 0)

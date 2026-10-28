@@ -163,7 +163,7 @@ const NM = {
         if (data.ok) { $("swu").hidden = false; $("updt").textContent = "Ready for Tahoe. Open Software Update and install macOS 26."; logLine("OK ready for Tahoe - click Open Software Update and install macOS 26"); }
         else $("updt").textContent = "Tahoe preparation stopped. Review the setup log above.";
       }
-      if (data.mode === "tahoecancel") { $("swu").hidden = true; $("updt").textContent = data.ok ? "Tahoe preparation cancelled: the driver and the installer settings are back." : "Cancel stopped. Review the setup log above."; }
+      if (data.mode === "tahoecancel") { $("swu").hidden = true; $("updt").textContent = data.ok ? "Done: the driver is set to start. Restart the Mac to load it." : "Stopped. Review the setup log above."; }
       post({ act: "scan" });
     }
   },
@@ -352,7 +352,10 @@ NM.on = (m) => {
   if (m.event === "crashDone") { $("cr").innerHTML = m.data.ok ? `<span class="good">Saved to your Desktop:</span> ${esc(m.data.path.split("/").pop())}` : `<span class="warn">${esc(m.data.why)}</span>`; return; }
   if (m.event === "scan" && m.data.crashes) $("cr").textContent = m.data.crashes.length ? `${m.data.crashes.length} crash file(s) on this Mac name the driver.` : "No crash that names the driver is on this Mac.";
   if (m.event === "scan" && m.data.safemode && m.data.record) {
-    setTimeout(() => $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off. To take it out for good, click Remove the driver below.</p>'), 0);
+    setTimeout(() => {
+      $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. To turn the driver back on, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');
+      $("nvon").onclick = () => { $("nvon").disabled = true; post({ act: "osupdate", cancel: true, efi: efi() }); };
+    }, 0);
   }
   prevOn(m);
 };

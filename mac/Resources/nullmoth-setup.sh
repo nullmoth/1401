@@ -1228,6 +1228,15 @@ PL
     if [ "$UPD" = cancel ] && [ ! -f "$PEND" ] && ! { get NVRAM.Add.$B.boot-args; nvram boot-args 2>/dev/null | cut -f2-; } | tr ' ' '\n' | grep -qx -- -nvoff; then
       ok "the Tahoe preparation was not started on this Mac - nothing to cancel"; cleanup; echo "RESULT ok"; exit 0
     fi
+    # -nvoff with no pending update: something else parked the driver (an update prepared by an older 1401, or -nvoff
+    # typed into the config after a black screen). Only -nvoff comes out; the BAR and block settings below are the
+    # pending file's to put back, and with no file they would be fixed defaults, not this Mac's own values.
+    if [ "$UPD" = cancel ] && [ ! -f "$PEND" ]; then
+      step "Turning the NVIDIA driver back on"; backup
+      args_set del -nvoff
+      plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+      ok "-nvoff removed from boot-args (backup: $BKC) - restart to start the driver"; cleanup; echo "RESULT ok"; exit 0
+    fi
     . "$PEND" 2>/dev/null
     # Change back the config "prepare" changed. Prepare's install step can switch the model (iMacPro1,1 to MacPro7,1)
     # while the running Mac still reports the old one, so detection run before the next restart can reject the internal
