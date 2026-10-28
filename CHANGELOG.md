@@ -3,6 +3,16 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.6.3
+- Mac app: Intel Xe graphics for Tiger Lake, Alder Lake and Raptor Lake on macOS 15.8 or 26.7 and later, through b00t0x's WhateverXe (thanks b00t0x). It shows only on the Intel GPUs WhateverXe supports, downloads its parts from the author's GitHub with every file checked, and **Turn it off** puts the config back as it was.
+- Mac app: **Allow an app...** under Microphone and camera lets an app such as Discord use the microphone, camera and screen recording. With the driver installed macOS never asks, so those apps got silence. The method follows tccplus by Jeremy Legendre.
+- Mac app: when the driver is parked by "Start once without NVIDIA driver" or -nvoff, a **Turn the driver on** button removes only that switch.
+- Mac app: the AMD / Intel test driver checks SIP before it downloads anything, and skips a firmware mirror that refuses the download.
+- Mac app: Macs using itlwm for Wi-Fi are told to install HeliPort, the app itlwm joins networks through.
+- The boot picker's "Start once without NVIDIA driver" also starts that one time without WhateverXe.
+- MediaTek RZ616 Bluetooth works: its USB ID gets the firmware entry of its family (#336).
+- Bundles NVIDIA driver 2.6.3.
+
 ## 2.6.2
 - When the stick does not start macOS, 1401 for Windows now says what to change, in numbered steps, before it offers to send the logs. It reads the stick's logs, the line you type for where the screen stopped, and this PC's scan, and covers: no room in memory to start (EB.MM.AKM), Secure Boot blocking OpenCore's drivers, a stick missing HfsPlus.efi, the Windows entry chosen instead of 1401, a freeze at EXITBS:START (with the settings for your CPU: VT-d on Intel, IOMMU on AMD), a stop at PCI configuration, a black screen with only a cursor after the install, a kernel panic, the prohibited sign, no macOS entry in the menu, an installer that shows no disk (AHCI, VMD) and "waiting for root device".
 - EFI builds work on Windows accounts whose names are not in English: OpenCore's validator could not read the config from such a folder, and every build there stopped with "ocvalidate issues=0" (115 builds).
