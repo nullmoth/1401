@@ -1160,6 +1160,19 @@ if [ -n "${GPUTEST:-}" ]; then
     IGOFF=$(echo $IGOFF | tr ' ' '\n' | sort -u | tr '\n' ' '); IGOFF=${IGOFF% }
     if [ -n "$IGOFF" ]; then VENDORS="$VENDORS $IGV"; WANT="$WANT $IGW"; note "the $IGN GPU is switched off in OpenCore ($IGOFF): it is turned back on for the test driver"; fi
   fi
+  # An AMD GPU that Apple's own drivers on this Mac list (RX 400/500, Vega, RX 5000/6000 cards Apple shipped) already
+  # runs with Metal; the test driver took such cards anyway and stopped them at attach (RX 580 and RX 6800/6900 Macs,
+  # 10-22 to 10-27). Apple's lists are read from this Mac's kexts, so they match its macOS. Other AMD GPUs keep it.
+  if [ "$GPUTEST" = on ] && echo " $WANT " | grep -q " -nmxamd "; then
+    AMDIDS=$(ioreg -r -c IOPCIDevice -l -w0 | LC_ALL=C awk -F'<|>' '/\+-o /{if (c=="03" && v=="1002") print d; c=""; v=""; d=""}
+      /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=toupper(substr($2,3,2) substr($2,1,2))} /"class-code" =/{c=substr($2,5,2)}
+      END{if (c=="03" && v=="1002") print d}' | sort -u)
+    APPLEIDS=$(for k in /System/Library/Extensions/AMD*Controller.kext /System/Library/Extensions/AMDRadeonX*.kext; do
+      [ -f "$k/Contents/Info.plist" ] && plutil -p "$k/Contents/Info.plist" 2>/dev/null; done | grep -oE '0x[0-9A-Fa-f]{4}1002' | cut -c3-6 | tr a-f A-F | sort -u)
+    OURS=""; for d in $AMDIDS; do echo "$APPLEIDS" | grep -qx "$d" && note "AMD GPU 1002:$d runs on Apple's own driver: the test driver leaves it alone" || OURS="$OURS $d"; done
+    if [ -n "$AMDIDS" ] && [ -z "$OURS" ]; then WANT=$(echo " $WANT " | sed 's/ -nmxamd / /'); WANT=$(echo $WANT)
+      [ -n "$WANT" ] || stop "this Mac's AMD GPU already runs on Apple's own driver, with Metal; the test driver is only for GPUs macOS has no driver for. Nothing was changed"; fi
+  fi
   if [ "$GPUTEST" = on ]; then
     [ -n "$WANT" ] || stop "this Mac has no AMD or Intel GPU for this driver (none is on macOS's PCI list, and no disable-gpu on ${IGPU:-the processor GPU} in OpenCore to undo)"
     # /Library/GPUBundles is SIP-restricted (rootless.conf: KernelExtensionManagement), so the Vulkan drivers cannot be
