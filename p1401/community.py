@@ -69,7 +69,10 @@ DRIVERS = [
     },
     {   # AMD laptops whose xHCI controllers have one MSI vector: input lags seconds behind without it
         "name": "XhciNudge", "repo": "MonkaKokosowa/XhciNudge", "section": "USB Controllers", "experimental": True,
-        "ids": ["1022-161D", "1022-161E", "1022-15D6", "1022-15D7"],
+        # Strix Point (Ryzen AI 300) xHCI: a Razer Blade 14 on a Ryzen AI 9 365 shows the same lag (1401 #121). The kext
+        # nudges only controllers in D0 with MSI on and never writes them, so a controller that does not need it only
+        # takes one extra interrupt per interval.
+        "ids": ["1022-161D", "1022-161E", "1022-15D6", "1022-15D7", "1022-151A", "1022-151B", "1022-151E", "1022-151F"],
         "builds": {
             v: ("https://github.com/MonkaKokosowa/XhciNudge/releases/download/1.0/XhciNudge-1.0.0.zip",
                 8304, "271659aec947aa2d01300eadb514b138909e6322305163ddcab653403251bd1f") for v in (SEQUOIA, TAHOE)
