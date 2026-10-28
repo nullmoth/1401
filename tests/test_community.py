@@ -77,6 +77,11 @@ class Choice(unittest.TestCase):
         self.assertEqual(names(add), ["KernReserveLow.efi", "XhciNudge"])
         self.assertEqual(community.chosen(machine(USB_Controllers=["8086-A0ED"]), SEQUOIA, True)[0], [])
 
+    def test_strix_point_usb_gets_the_nudge_but_not_the_ram_reserve(self):
+        add, _ = community.chosen(machine(USB_Controllers=["1022-151E"]), TAHOE, experimental=True)
+        self.assertEqual(names(add), ["XhciNudge"])
+        self.assertEqual(community.chosen(machine(USB_Controllers=["1022-151E"]), TAHOE, False)[0], [])
+
 
 class Pins(unittest.TestCase):
     def test_every_pinned_file_is_licensed_for_1401_and_admitted(self):
