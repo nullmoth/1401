@@ -45,6 +45,7 @@ check('a read-only partition whose name has a space is named whole', 'mounted /V
       out.strip()[-160:])
 out = run('msdos, local, nodev, nosuid, noowners')
 check('negative control: a writable partition adds nothing', out.strip() == '[could not back up X]', out.strip())
-check('every backup stop carries the reason', src.count('stop "could not back up $C$(ro_why "$C")"') == 6
+check('every backup stop carries the reason', src.count('could not back up $C') >= 6
+      and src.count('could not back up $C') == src.count('stop "could not back up $C$(ro_why "$C")"')
       and 'stop "could not back up $C"' not in src)
 sys.exit(1 if fails else 0)

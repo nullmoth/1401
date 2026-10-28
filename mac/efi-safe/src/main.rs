@@ -11,9 +11,16 @@ use uefi::{cstr16, guid, print, println, Char16};
 
 const APPLE_BOOT: VariableVendor = VariableVendor(guid!("7c436110-ab2a-4bbb-a880-fe41995c9f82"));
 const SAFE: &[u8] = b"-nvoff";
+// "once" also starts this one time without WhateverXe (Lilu's off switch for it), so a Mac whose Intel Xe graphics
+// leaves the screen dark gets a desktop back the same way; on a Mac without WhateverXe the word does nothing.
+const XE_OFF: &[u8] = b"-wexoff";
+
+fn has_word(args: &[u8], word: &[u8]) -> bool {
+    args.split(|&b| b == b' ' || b == 0).any(|w| w == word)
+}
 
 fn has_safe(args: &[u8]) -> bool {
-    args.split(|&b| b == b' ' || b == 0).any(|w| w == SAFE)
+    has_word(args, SAFE)
 }
 
 fn fail(msg: &str, st: Status) -> Status {
@@ -100,14 +107,23 @@ fn main() -> Status {
         Err(e) if e.status() == Status::NOT_FOUND => Vec::new(),
         Err(e) => return fail("could not read boot-args", e.status()),
     };
-    if has_safe(&current) {
+    let mut words: Vec<&[u8]> = Vec::new();
+    if !has_safe(&current) {
+        words.push(SAFE);
+    }
+    if once && !has_word(&current, XE_OFF) {
+        words.push(XE_OFF);
+    }
+    if words.is_empty() {
         println!("NullMoth: the next macOS start already has the NVIDIA driver off.");
     } else {
         let mut next = current.clone();
-        if !next.is_empty() {
-            next.push(b' ');
+        for w in words {
+            if !next.is_empty() {
+                next.push(b' ');
+            }
+            next.extend_from_slice(w);
         }
-        next.extend_from_slice(SAFE);
         let attrs = VariableAttributes::NON_VOLATILE | VariableAttributes::BOOTSERVICE_ACCESS | VariableAttributes::RUNTIME_ACCESS;
         if let Err(e) = runtime::set_variable(name, &APPLE_BOOT, attrs, &next) {
             return fail("could not write boot-args", e.status());
