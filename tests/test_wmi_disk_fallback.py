@@ -48,6 +48,15 @@ class WmiListing(unittest.TestCase):
         self.assertTrue(any("booted from" in w for w in why) and any("system partition" in w for w in why), why)
         self.assertTrue(usbwriter.eligible(disks[1])[0])
 
+    def test_a_usb_disk_boot_partition_does_not_mark_it_the_boot_disk(self):
+        ps, calls = ps_without_storage([SYSTEM, STICK])
+        with patch.object(usbwriter, "_ps", ps), patch.object(usbwriter, "_repair_storage_wmi", return_value=False), \
+             patch("builtins.print"):
+            usbwriter.list_disks()
+        listing = next(c for c in calls if "Win32_DiskDrive | ForEach-Object" in c)
+        self.assertIn("$_.BootPartition -and ($usbd -notcontains $_.DiskIndex)", listing)
+        self.assertIn("USBSTOR\\*", listing)
+
     def test_a_usbstor_device_counts_as_usb_whatever_its_interface_says(self):
         disks, _ = self.listed([{**STICK, "InterfaceType": "SCSI"}])
         self.assertEqual(disks[0]["BusType"], "USB")
@@ -84,8 +93,10 @@ class WmiWrite(unittest.TestCase):
              "Via": "Win32_DiskDrive"}
         s = usbwriter.wmi_check_script(d)
         for need in ("Win32_DiskDrive", "-ne 15998753280", "'SanDisk Ultra'", "'4C53'", "$sys -contains 3",
-                     "$boot -contains 3", "1401-OS-PARTITIONS"):
+                     "1401-OS-PARTITIONS"):
             self.assertIn(need, s)
+        # the picked stick's own boot partition is not "the disk the computer booted from" (2.6.3: 28 of 29 refused)
+        self.assertNotIn("BootPartition", s)
         for storage in ("Get-Disk", "Get-Partition", "MSFT_Disk", "Clear-Disk", "Format-Volume"):
             self.assertNotIn(storage, s)
         self.assertNotIn("1401-OS-PARTITIONS", usbwriter.wmi_check_script(d, erase_os=True))
