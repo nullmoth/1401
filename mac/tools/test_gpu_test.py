@@ -32,7 +32,7 @@ arm("the NPU licences travel with the NPU firmware",
     "LICENSES/LICENSE.intel_vpu" in paths and "LICENSES/LICENSE.amdnpu" in paths)
 
 # the awk setup runs over ioreg: each device's vendor and class are paired even when class-code comes first
-awk = re.search(r"LC_ALL=C awk -F'<\|>' '(.*?)' \| sort -u\)", SETUP.read_text(), re.S).group(1).replace("\n    ", " ")
+awk = re.search(r"VENDORS=\$\(ioreg -r -c IOPCIDevice -l -w0 \| LC_ALL=C awk -F'<\|>' '(.*?)' \| sort -u\)", SETUP.read_text(), re.S).group(1).replace("\n    ", " ")
 sample = """+-o PXSX@0  <class IOPCIDevice>
     | "class-code" = <00000300>
     | "vendor-id" = <02100000>

@@ -194,6 +194,8 @@ $("blon").onclick = () => post({ act: "backlight", on: true, efi: efi() });
 $("bloff").onclick = () => post({ act: "backlight", on: false, efi: efi() });
 $("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
+$("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });
+$("xeoff").onclick = () => post({ act: "xe", on: false, efi: efi() });
 $("teston").onclick = () => post({ act: "tester", on: true });
 $("testoff").onclick = () => post({ act: "tester", on: false });
 $("earlyon").onclick = () => post({ act: "early", on: true });

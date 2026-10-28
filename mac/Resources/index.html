@@ -88,6 +88,10 @@
 <p class="row"><button type="button" class="b" id="gpuon">Turn the test driver on</button> <button type="button" class="b" id="gpuoff">Turn it off</button></p>
 <p><b>Test program.</b> While the test driver is on, 1401 sends a short report after every restart: the driver's kernel messages, any crash, and which GPU and build you have (names and serial numbers removed). Leave at any time.</p>
 <p class="row"><button type="button" class="b" id="teston">Join the test program</button> <button type="button" class="b" id="testoff">Leave it</button> <span id="testr"></span></p></div>
+<div class="pane card" id="xecard" hidden><p class="sh">Intel Xe graphics (WhateverXe, test)</p>
+<p>For Tiger Lake, Alder Lake and Raptor Lake Intel graphics on macOS 15.8 or 26.7 and later. It uses <a href="https://github.com/b00t0x/WhateverXe">WhateverXe</a> by b00t0x: 1401 adds it to OpenCore, you restart, then press <b>Turn it on</b> again to install its graphics package. Those parts come straight from the author's GitHub, each checked. WhateverGreen is turned off while it is on; <b>Turn it off</b> puts everything back.</p>
+<p>If the screen stays dark after the restart, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker: that start also leaves WhateverXe off. Then turn it off here.</p>
+<p class="row"><button type="button" class="b" id="xeon">Turn it on</button> <button type="button" class="b" id="xeoff">Turn it off</button></p></div>
 <div class="pane card"><p class="sh">Microphone and camera</p>
 <p>With the driver installed, macOS does not ask before an app uses the microphone or camera, so apps such as Discord get silence and never appear under Privacy &amp; Security. Pick the app here to allow it the microphone, camera and screen recording.</p>
 <p class="row"><button type="button" class="b" id="tccg">Allow an app...</button> <span id="tccr"></span></p></div>

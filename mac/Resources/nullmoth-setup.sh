@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --xe) XE=$2; shift;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -119,6 +119,7 @@ kurl() { case $1 in
   AMFIPass.kext) echo "https://github.com/dortania/OpenCore-Legacy-Patcher/raw/main/payloads/Kexts/Acidanthera/AMFIPass-v1.4.1-RELEASE.zip 07b266145906db41f4b13a7938fbb173ea28888cc1fa65f84417f8820adc961e";;
   USBToolBox.kext) echo "https://github.com/USBToolBox/kext/releases/download/1.2.0/USBToolBox-1.2.0-RELEASE.zip c315a3a5acfd496dd97d0d19b4fbd1d487103d2fd541c5651583d4c9cebcfe07";;
   RestrictEvents.kext) echo "https://github.com/dortania/build-repo/releases/download/RestrictEvents-9265e78/RestrictEvents-1.1.7-RELEASE.zip e5a8c15adeba9251be2709899214fe7fd847f6d38fca6c09adb65e9b2af64f0a";;
+  WhateverXe.kext) echo "https://github.com/b00t0x/WhateverXe/releases/download/0.6.1/WhateverXe-0.6.1-RELEASE.zip 46c8cd684461db7f84a971e7479770c423f73d52d45addfb48242176b9eb04fc";;
 esac; }
 # Downloads $1 into $KT/$1.x (checked against its SHA-256) before anything is changed; stops on any failure. $2 = where it goes.
 fetch_kext() {
@@ -961,6 +962,145 @@ if [ -n "${BACKLIGHT:-}" ]; then
   [ "$BACKLIGHT" = on ] && nv="$nv nvrmacpibl=1"
   nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies"
   ok "built-in screen brightness $BACKLIGHT - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${XE:-}" ]; then
+  # Intel Xe graphics through WhateverXe (b00t0x, BSD-3), for the Tiger Lake, Alder Lake and Raptor Lake GPUs it accepts.
+  # WhateverXe needs two things from its author that NullMoth does not redistribute: the WhateverXe Graphics package
+  # (Apple's Intel graphics drivers, adapted and re-signed) and the AMFIPass build signed for it. Both are downloaded
+  # here, on this Mac, from the author's own GitHub at pinned versions, each checked against its SHA-256; there is no
+  # mirror for them. WhateverXe's own rules apply: Lilu first, WhateverGreen off, SIP at least 0x803, and the package
+  # installed only after a start with WhateverXe loaded. So "on" runs twice: the first adds the kexts to OpenCore and
+  # asks for a restart, the second installs the graphics package. "Off" undoes exactly what "on" recorded.
+  case "$XE" in on|off) ;; *) stop "--xe takes on or off";; esac
+  XS=$ST/xe-state; KX="$(dirname "$C")/Kexts"; XG=b4d3889206a609e29e991a833d8d91c2d110a661
+  XPKG_URL=https://github.com/b00t0x/WhateverXe-Graphics/releases/download/v0.3.2/WhateverXe-Graphics-0.3.2.pkg
+  XPKG_SHA=7ac6c7149248c483efbd93555294d587a93d81392421f3af8a4f5b1b5fcc0101
+  XAMFI_URL=https://github.com/b00t0x/WhateverXe-Graphics/raw/$XG/extras/AMFIPass-v1.4.1-Mod-RELEASE.zip
+  XAMFI_SHA=71f41de42e355d2a83e6f093ef34a5b24d0a9c9a9085830b2317f1b874f56250
+  XUNI_URL=https://raw.githubusercontent.com/b00t0x/WhateverXe-Graphics/$XG/uninstall.sh
+  XUNI_SHA=aad40b6bd2a25b72584f7343a06bb532feab33b3611ac70b1a22731946acbc8b
+  kix() { local i=0 p; while p=$(get Kernel.Add.$i.BundlePath); do [ "$p" = "$1" ] && { echo $i; return; }; i=$((i+1)); done; }
+  upstream() {  # $1 url, $2 sha256, $3 file: the author's GitHub only, never a mirror
+    [ -n "$KT" ] || KT=$(mktemp -d) || stop "could not create a download folder"
+    curl -fsSL --connect-timeout 20 --max-time 900 --retry 2 --retry-delay 3 -o "$KT/$3" "$1" \
+      || stop "$3 could not be downloaded from its author ($1). Check the internet connection and try again"
+    [ "$(shasum -a 256 "$KT/$3" | awk '{print $1}')" = "$2" ] || stop "$3 did not match its SHA-256; nothing was changed. Try again"; }
+  xe_pkg_in() { pkgutil --pkgs 2>/dev/null | grep -q '^org\.b00t0x\.WhateverXe\.'; }
+  ent() { printf '{"Arch":"x86_64","BundlePath":"%s","Comment":"%s","Enabled":true,"ExecutablePath":"Contents/MacOS/%s","MaxKernel":"","MinKernel":"","PlistPath":"Contents/Info.plist"}' "$1" "$2" "${1%.kext}"; }
+  if [ "$XE" = on ]; then
+    [ "$(sysctl -n machdep.cpu.vendor 2>/dev/null)" = GenuineIntel ] || stop "Intel Xe graphics needs an Intel processor"
+    # the processor GPU at 00:02.0 (class 03): the IDs WhateverXe 0.6.1 selects a backend for (docs/device-selection.md)
+    XID=$(ioreg -r -c IOPCIDevice -l -w0 | LC_ALL=C awk -F'<|>' '/\+-o /{if (c=="03" && v=="8086") print d; c=""; v=""; d=""}
+      /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=toupper(substr($2,3,2) substr($2,1,2))} /"class-code" =/{c=substr($2,5,2)}
+      END{if (c=="03" && v=="8086") print d}' | head -1)
+    [ -n "$XID" ] || stop "macOS does not see the Intel GPU (it may be switched off in OpenCore with disable-gpu or -wegnoigpu)"
+    case " 9A40 9A49 9A60 9A68 9A70 9A78 46D0 46D1 46D2 46D3 46D4 46A3 46A6 46A8 46AA 46B3 46C3 A7A0 A7A1 A7A8 A7A9 A7AA A7AB A7AC A7AD 4680 4682 4688 468A 468B 4690 4692 4693 A780 A781 A782 A783 A788 A789 A78A A78B " in
+      *" $XID "*) ;; *) stop "this Intel GPU (8086:$XID) is not one WhateverXe supports (Tiger Lake, Alder Lake and Raptor Lake Xe graphics)";; esac
+    # WhateverXe 0.6.1 runs on Sequoia 15.8 and later and on Tahoe 26.7 and later
+    XV=$(sw_vers -productVersion); XM=${XV%%.*}; XN=${XV#*.}; XN=${XN%%.*}
+    { [ "$XM" = 15 ] && [ "$XN" -ge 8 ]; } || { [ "$XM" = 26 ] && [ "$XN" -ge 7 ]; } || stop "WhateverXe needs macOS 15.8 or later, or 26.7 or later (this Mac has $XV)"
+    # one Intel GPU driver at a time: the AMD/Intel test driver (NMXGPU) takes the same GPU
+    for a in $(get NVRAM.Add.$B.boot-args) $(nvram boot-args 2>/dev/null | cut -f2-); do
+      [ "$a" = -nmxintel ] && stop "the AMD / Intel test driver is on for this Intel GPU - turn it off first"; done
+    if kmutil showloaded --list-only 2>/dev/null | grep -q 'org\.b00t0x\.WhateverXe '; then
+      # second run: WhateverXe is loaded, so the graphics package goes in now
+      step "Installing WhateverXe Graphics (from its author, SHA-256 checked)"
+      upstream "$XPKG_URL" "$XPKG_SHA" WhateverXe-Graphics.pkg
+      installer -pkg "$KT/WhateverXe-Graphics.pkg" -target / > "$ST/xe-installer.log" 2>&1 || stop "the WhateverXe Graphics installer failed (log: $ST/xe-installer.log)"
+      xe_pkg_in || stop "the WhateverXe Graphics package did not record its install (log: $ST/xe-installer.log)"
+      ok "Intel Xe graphics installed - restart to use it"; cleanup; echo "RESULT ok"; exit 0
+    fi
+    [ -f "$XS" ] && { ok "WhateverXe is already in OpenCore's config - restart, then turn Intel Xe graphics on again to install its graphics package"; cleanup; echo "RESULT ok"; exit 0; }
+    step "Adding WhateverXe to OpenCore"
+    fetch_kext WhateverXe.kext "$KX"
+    upstream "$XAMFI_URL" "$XAMFI_SHA" AMFIPass-Mod.zip
+    ditto -x -k "$KT/AMFIPass-Mod.zip" "$KT/amfi.x" && [ -f "$KT/amfi.x/AMFIPass.kext/Contents/Info.plist" ] || stop "AMFIPass (WhateverXe build) could not be unpacked; nothing was changed"
+    li=$(kix Lilu.kext); [ -n "$li" ] && [ -d "$KX/Lilu.kext" ] || stop "WhateverXe needs Lilu, and this OpenCore config has none"
+    BKC="$C.nullmoth-xe-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"; ok "backed up the config to $BKC"
+    rec="BKC=$BKC"; fail=0
+    plutil -replace Kernel.Add.$li.Enabled -bool true "$C" || fail=1
+    # WhateverXe straight after Lilu; AMFIPass after it (a Lilu plugin too). An AMFIPass already there is kept aside and
+    # comes back with "off": WhateverXe's graphics stack is signed for the modified build only.
+    [ -d "$KX/WhateverXe.kext" ] && rm -rf "$KX/WhateverXe.kext"
+    ditto "$KT/WhateverXe.kext.x/WhateverXe.kext" "$KX/WhateverXe.kext" || fail=1
+    [ -n "$(kix WhateverXe.kext)" ] || plutil -insert Kernel.Add.$((li + 1)) -json "$(ent WhateverXe.kext 'Intel Xe graphics (WhateverXe)')" "$C" || fail=1
+    echo "CHANGE Kernel -> Add: WhateverXe.kext (after Lilu)"
+    if [ -d "$KX/AMFIPass.kext" ]; then
+      mv "$KX/AMFIPass.kext" "$KX/AMFIPass.kext.nullmoth-xe" || fail=1; rec="$rec
+AMFI_KEPT=1"
+      echo "CHANGE Kexts: AMFIPass.kext -> the WhateverXe build (yours kept as AMFIPass.kext.nullmoth-xe)"
+    fi
+    ditto "$KT/amfi.x/AMFIPass.kext" "$KX/AMFIPass.kext" || fail=1
+    ai=$(kix AMFIPass.kext)
+    if [ -n "$ai" ]; then
+      [ "$(get Kernel.Add.$ai.Enabled)" = true ] || { plutil -replace Kernel.Add.$ai.Enabled -bool true "$C" || fail=1; rec="$rec
+AMFI_ENABLED=1"; }
+    else
+      plutil -insert Kernel.Add.$(( $(kix WhateverXe.kext) + 1 )) -json "$(ent AMFIPass.kext 'AMFIPass (WhateverXe build)')" "$C" || fail=1; rec="$rec
+AMFI_ADDED=1"
+      echo "CHANGE Kernel -> Add: AMFIPass.kext"
+    fi
+    wi=$(kix WhateverGreen.kext)
+    if [ -n "$wi" ] && [ "$(get Kernel.Add.$wi.Enabled)" = true ]; then
+      plutil -replace Kernel.Add.$wi.Enabled -bool false "$C" || fail=1; rec="$rec
+WEG_OFF=1"
+      echo "CHANGE Kernel -> Add: WhateverGreen.kext off (WhateverXe replaces it; it comes back with off)"
+    fi
+    # WhateverXe's required boot arguments (its README): only the ones not already there are added, and only those go with "off"
+    xa=" $(get NVRAM.Add.$B.boot-args) "
+    for a in -allow3d -disablegfxfirmware; do case "$xa" in *" $a "*) ;; *) xa="$xa$a "; rec="$rec\nARG=$a"; echo "CHANGE boot-args: add $a (WhateverXe needs it)";; esac; done
+    xa=$(echo $xa)
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$xa" "$C" || fail=1
+    else plutil -insert NVRAM.Add.$B.boot-args -string "$xa" "$C" || fail=1; fi
+    cur=$(csr_of); want=$(( cur | 0x803 ))
+    if [ "$want" != "$cur" ]; then
+      if has NVRAM.Add.$B.csr-active-config; then plutil -replace NVRAM.Add.$B.csr-active-config -data "$(csr_data $want)" "$C" || fail=1
+      else plutil -insert NVRAM.Add.$B.csr-active-config -data "$(csr_data $want)" "$C" || fail=1; fi
+      rec="$rec
+CSR_OLD=$cur
+CSR_NEW=$want"; echo "CHANGE csr-active-config $(printf '0x%04X' $cur) -> $(printf '0x%04X' $want) (WhateverXe needs at least 0x803)"
+    fi
+    if [ $fail = 1 ] || ! plutil -lint "$C" >/dev/null; then
+      cp -p "$BKC" "$C"; rm -rf "$KX/WhateverXe.kext"
+      [ -d "$KX/AMFIPass.kext.nullmoth-xe" ] && { rm -rf "$KX/AMFIPass.kext"; mv "$KX/AMFIPass.kext.nullmoth-xe" "$KX/AMFIPass.kext"; }
+      case "$rec" in *AMFI_ADDED=1*) rm -rf "$KX/AMFIPass.kext";; esac
+      stop "editing the config failed - the original is restored"
+    fi
+    mkdir -p "$ST" && printf '%b\n' "$rec" > "$XS" || stop "could not record the change in $XS"
+    ok "WhateverXe added to OpenCore - restart (pick macOS in OpenCore as usual), then turn Intel Xe graphics on again to install its graphics package"
+    cleanup; echo "RESULT ok"; exit 0
+  fi
+  # off
+  [ -f "$XS" ] || xe_pkg_in || stop "Intel Xe graphics is not on"
+  if xe_pkg_in; then
+    step "Removing WhateverXe Graphics (its author's uninstall script, SHA-256 checked)"
+    upstream "$XUNI_URL" "$XUNI_SHA" xe-uninstall.sh
+    /bin/bash "$KT/xe-uninstall.sh" > "$ST/xe-uninstall.log" 2>&1 || stop "WhateverXe Graphics removal failed (log: $ST/xe-uninstall.log)"
+    ok "WhateverXe Graphics removed"
+  fi
+  if [ -f "$XS" ]; then
+    BKC=""; AMFI_KEPT=""; AMFI_ADDED=""; AMFI_ENABLED=""; WEG_OFF=""; CSR_OLD=""; CSR_NEW=""; XARGS=""
+    # one key=value per line; only these keys are read, never evaluated
+    while IFS= read -r l; do case "$l" in
+      BKC=*) BKC=${l#BKC=};; AMFI_KEPT=1) AMFI_KEPT=1;; AMFI_ADDED=1) AMFI_ADDED=1;; AMFI_ENABLED=1) AMFI_ENABLED=1;;
+      WEG_OFF=1) WEG_OFF=1;; CSR_OLD=[0-9]*) CSR_OLD=${l#CSR_OLD=};; CSR_NEW=[0-9]*) CSR_NEW=${l#CSR_NEW=};;
+      ARG=-allow3d|ARG=-disablegfxfirmware) XARGS="$XARGS ${l#ARG=}";; esac; done < "$XS"
+    BKO="$C.nullmoth-xeoff-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKO" || stop "could not back up $C$(ro_why "$C")"; fail=0
+    i=$(kix WhateverXe.kext); [ -n "$i" ] && { plutil -remove Kernel.Add.$i "$C" || fail=1; }; rm -rf "$KX/WhateverXe.kext"
+    i=$(kix AMFIPass.kext)
+    if [ "$AMFI_ADDED" = 1 ]; then [ -n "$i" ] && { plutil -remove Kernel.Add.$i "$C" || fail=1; }; rm -rf "$KX/AMFIPass.kext"
+    elif [ "$AMFI_KEPT" = 1 ] && [ -d "$KX/AMFIPass.kext.nullmoth-xe" ]; then rm -rf "$KX/AMFIPass.kext"; mv "$KX/AMFIPass.kext.nullmoth-xe" "$KX/AMFIPass.kext" || fail=1
+      [ "$AMFI_ENABLED" = 1 ] && [ -n "$i" ] && { plutil -replace Kernel.Add.$i.Enabled -bool false "$C" || fail=1; }; fi
+    i=$(kix WhateverGreen.kext); [ "$WEG_OFF" = 1 ] && [ -n "$i" ] && { plutil -replace Kernel.Add.$i.Enabled -bool true "$C" || fail=1; }
+    if [ -n "$XARGS" ]; then xa=""; for a in $(get NVRAM.Add.$B.boot-args); do case " $XARGS " in *" $a "*) ;; *) xa="$xa $a";; esac; done
+      plutil -replace NVRAM.Add.$B.boot-args -string "${xa# }" "$C" || fail=1; fi
+    # SIP goes back only when nothing else changed it since
+    [ -n "$CSR_NEW" ] && [ "$(csr_of)" = "$CSR_NEW" ] && { plutil -replace NVRAM.Add.$B.csr-active-config -data "$(csr_data "$CSR_OLD")" "$C" || fail=1; }
+    if [ $fail = 1 ] || ! plutil -lint "$C" >/dev/null; then cp -p "$BKO" "$C"; stop "editing the config failed - it is as it was (backup: $BKO)"; fi
+    rm -f "$XS"; ok "WhateverXe taken out of OpenCore (backup: $BKO)"
+  fi
+  ok "Intel Xe graphics off - restart to finish"; cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${GPUTEST:-}" ]; then
