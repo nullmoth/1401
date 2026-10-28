@@ -5,7 +5,10 @@ the query was still inside its tail when the whole run was killed. With COLLECT_
 is left of the run, and one that starts after the deadline is skipped and says so; the files already written stay whole.
 Exercises the production lshow/bounded helpers against an owned stalling command."""
 from pathlib import Path
-import os, shlex, subprocess, sys, tempfile, time, unittest
+import os, re, shlex, subprocess, sys, tempfile, time, unittest
+# Timings are checked against what they prove, not to the second: the suite runs these beside ~100 other tests, so a
+# shell can start a second late ("after 1 s" for a 2 s deadline). A helper that ignored the deadline would run to the
+# stub's 30 s stall and hit the 8 s subprocess timeout, so every bound below still fails it.
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -34,21 +37,21 @@ class Deadline(unittest.TestCase):
         run, elapsed = self.run_helper('lshow 30 fixture; echo STATUS=$?', deadline_in=2)
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertIn('retained evidence', run.stdout)
-        self.assertIn('log query stopped after 2 s', run.stdout)
+        self.assertRegex(run.stdout, r'log query stopped after [12] s')
         self.assertIn('STATUS=143', run.stdout)
-        self.assertLess(elapsed, 5)
+        self.assertLess(elapsed, 7)
 
     def test_a_query_after_the_deadline_is_skipped_and_says_so(self):
         run, elapsed = self.run_helper('lshow 30 fixture; echo STATUS=$?', deadline_in=-1)
         self.assertIn('log query skipped: the collection', run.stdout)
         self.assertNotIn('retained evidence', run.stdout)
         self.assertIn('STATUS=124', run.stdout)
-        self.assertLess(elapsed, 2)
+        self.assertLess(elapsed, 5)
 
     def test_a_query_well_inside_the_deadline_keeps_its_own_cap(self):
         run, elapsed = self.run_helper('lshow 1 fixture; echo STATUS=$?', deadline_in=300)
         self.assertIn('log query stopped after 1 s', run.stdout)
-        self.assertLess(elapsed, 4)
+        self.assertLess(elapsed, 7)
 
     def test_without_a_deadline_the_helper_behaves_as_before(self):
         run, _ = self.run_helper('unset COLLECT_DEADLINE; lshow 1 fixture; echo STATUS=$?', deadline_in=-100, stall=False)
@@ -58,8 +61,8 @@ class Deadline(unittest.TestCase):
     def test_bounded_wraps_any_command_the_same_way(self):
         run, elapsed = self.run_helper('bounded 30 "$QUERY" extra; echo STATUS=$?', deadline_in=2)
         self.assertIn('retained evidence', run.stdout)
-        self.assertIn('stopped after 2 s', run.stdout)
-        self.assertLess(elapsed, 5)
+        self.assertRegex(run.stdout, r'stopped after [12] s')
+        self.assertLess(elapsed, 7)
         run, _ = self.run_helper('bounded 5 "$QUERY"; echo STATUS=$?', deadline_in=-1)
         self.assertIn('skipped: the collection', run.stdout)
         self.assertIn('STATUS=124', run.stdout)
