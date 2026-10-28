@@ -12,7 +12,7 @@ struct Package {
     static let version = "2.6.3"
     static let name = "nullmoth-nvidia-2.6.3.tar.gz"
     static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.6.3/nullmoth-nvidia-2.6.3.tar.gz")!
-    static let sha256 = "52d15834489dd3973a1923bad408886992858868a240024af1f0ffcc1dfbc6ef"
+    static let sha256 = "5fca1043e4855142128df8ab22b0c52747a6e8a8d6a346fe73a17e68f2519988"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
