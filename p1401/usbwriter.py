@@ -168,11 +168,16 @@ def _wmi_disks():
     (22 PCs): Get-Disk and MSFT_Disk listed 0 disks while Win32_DiskDrive listed 2-4; on 8 of them the Storage Management
     Provider service (smphost) did not exist at all, which no repair brings back. Index is the PhysicalDrive number the
     storage cmdlets and diskpart use. The boot and system disks are found through the partitions Windows boots from and
-    runs from, so eligible() refuses them exactly as it does a Get-Disk listing."""
+    runs from, so eligible() refuses them exactly as it does a Get-Disk listing.
+    Win32_DiskPartition.BootPartition marks a disk's active (MBR) or EFI system (GPT) partition, which every bootable
+    stick has, a stick 1401 wrote before included. Counted on USB disks it refused the picked stick as "the disk the
+    computer booted from": 2.6.3 uploads, 28 of the 29 writes that took this route. It is counted on the other disks
+    only; a USB disk Windows runs from is still refused through the system drive ($sys)."""
     out = _ps("""$ErrorActionPreference = 'SilentlyContinue'
 $sysd = $env:SystemDrive
 $sys = @(Get-WmiObject -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$sysd'} WHERE AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object { $_.DiskIndex })
-$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object { $_.BootPartition } | ForEach-Object { $_.DiskIndex })
+$usbd = @(Get-WmiObject -Class Win32_DiskDrive | Where-Object { $_.InterfaceType -eq 'USB' -or ($_.PNPDeviceID + '') -like 'USBSTOR\\*' } | ForEach-Object { $_.Index })
+$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object { $_.BootPartition -and ($usbd -notcontains $_.DiskIndex) } | ForEach-Object { $_.DiskIndex })
 @(Get-WmiObject -Class Win32_DiskDrive | ForEach-Object {
   [pscustomobject]@{ Index = $_.Index; Model = $_.Model; SerialNumber = $_.SerialNumber; PNPDeviceID = $_.PNPDeviceID;
     InterfaceType = $_.InterfaceType; MediaType = $_.MediaType; Size = [int64]$_.Size;
@@ -344,11 +349,10 @@ if (-not $d.Count) {{ throw '1401: disk {n} is not attached any more (Windows re
 $d = $d[0]
 $sysd = $env:SystemDrive
 $sys = @(Get-WmiObject -Query "ASSOCIATORS OF {{Win32_LogicalDisk.DeviceID='$sysd'}} WHERE AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object {{ $_.DiskIndex }})
-$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object {{ $_.BootPartition }} | ForEach-Object {{ $_.DiskIndex }})
 $usb = ($d.InterfaceType -eq 'USB') -or (($d.PNPDeviceID + '') -like 'USBSTOR\\*')
 if ([int64]$d.Size -ne {size} -or ($d.Model + '').Trim() -ne {_q(disk.get('FriendlyName'))} -or
     ($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip())} -or -not $usb -or
-    ($sys -contains {n}) -or ($boot -contains {n})) {{
+    ($sys -contains {n})) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
 """ + ("" if erase_os else f"""$odd = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object {{ $_.DiskIndex -eq {n} -and ($_.Type + '') -like '*Unknown*' }})
