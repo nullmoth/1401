@@ -160,6 +160,45 @@ class MediaTekKexts(unittest.TestCase):
         self.assertNotIn(kext_data.kext_index_by_name[netsupport.MTK_WIFI_KEXT], km.checked)
 
 
+class BtMissingIds(unittest.TestCase):
+    """#336: an RZ616 (0e8d:0616) got SimpleMtkBtFw, which does not list that ID, and Bluetooth stayed off."""
+
+    def _efi(self, d, extra=None):
+        import plistlib
+        k = os.path.join(d, "EFI", "OC", "Kexts", "SimpleMtkBtFw.kext", "Contents")
+        os.makedirs(k)
+        pers = {"SimpleMtkBtFw_MT7922A_35f5_7922": {"IOClass": "SimpleMtkBtFw", "idVendor": 0x35F5, "idProduct": 0x7922},
+                "SimpleMtkBtFw_MT7921_0e8d_0608": {"IOClass": "SimpleMtkBtFw", "idVendor": 0x0E8D, "idProduct": 0x0608}}
+        pers.update(extra or {})
+        with open(os.path.join(k, "Info.plist"), "wb") as fh:
+            plistlib.dump({"IOKitPersonalities": pers}, fh)
+        return os.path.join(k, "Info.plist")
+
+    def _load(self, p):
+        import plistlib
+        with open(p, "rb") as fh:
+            return plistlib.load(fh)["IOKitPersonalities"]
+
+    def test_an_unlisted_rz616_gets_a_copy_of_the_mt7922_entry(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = self._efi(d); notes = []
+            added = netsupport.add_missing_bt_ids(d, _report(bt={"b": "0E8D-0616"}), notes)
+            self.assertEqual(added, ["0E8D-0616"], notes)
+            e = self._load(p)["SimpleMtkBtFw_MT7922A_0e8d_0616"]
+            self.assertEqual((e["idVendor"], e["idProduct"], e["IOClass"]), (0x0E8D, 0x0616, "SimpleMtkBtFw"))
+
+    def test_an_id_already_listed_is_left_alone(self):
+        # NEGATIVE CONTROL: the kext already matches 0e8d:0608, so nothing is written.
+        with tempfile.TemporaryDirectory() as d:
+            p = self._efi(d); before = self._load(p)
+            self.assertEqual(netsupport.add_missing_bt_ids(d, _report(bt={"b": "0E8D-0608"}), []), [])
+            self.assertEqual(self._load(p), before)
+
+    def test_no_kext_in_the_efi_changes_nothing(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(netsupport.add_missing_bt_ids(d, _report(bt={"b": "0E8D-0616"}), []), [])
+
+
 @unittest.skipUnless(os.path.isdir(os.path.join(REPO, "upstream", "OpCore-Simplify")),
                      "engine datasets not present")
 class BtHashVerified(unittest.TestCase):

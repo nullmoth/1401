@@ -241,6 +241,52 @@ def support_from_pci(customization, notices):
     return status
 
 
+# MediaTek Bluetooth IDs SimpleMtkBtFw 1.0.0's Info.plist does not list although the cards behind them are the chips it
+# drives: 1401 enabled the kext for them and Bluetooth stayed off (#336, RZ616 0e8d:0616; works once the ID is listed).
+# The kext reads the chip at run time, so its personalities differ only in idVendor/idProduct: each missing ID gets a
+# copy of its family's personality, on this PC's own EFI, never in a file NullMoth distributes.
+MTK_BT_FAMILY = {"0E8D-7961": "MT7921", "0E8D-0608": "MT7921", "0E8D-0616": "MT7922A", "0E8D-7922": "MT7922A"}
+
+
+def add_missing_bt_ids(out_dir, customization, notices):
+    """Adds a personality to EFI/OC/Kexts/SimpleMtkBtFw.kext for each MediaTek Bluetooth ID present here that the
+    kext does not match. Fail-safe: any problem is a notice and the kext is left as it was."""
+    import plistlib  # noqa: PLC0415
+    present = [d.upper() for d in _devices(customization, "Bluetooth")]
+    wanted = [d for d in present if d in MTK_BT_FAMILY]
+    path = os.path.join(out_dir, "EFI", "OC", "Kexts", MTK_BT_KEXT + ".kext", "Contents", "Info.plist")
+    if not wanted or not os.path.isfile(path):
+        return []
+    try:
+        with open(path, "rb") as fh:
+            info = plistlib.load(fh)
+        pers = info.get("IOKitPersonalities") or {}
+        have = {(v.get("idVendor"), v.get("idProduct")) for v in pers.values() if isinstance(v, dict)}
+        added = []
+        for dev in wanted:
+            vid, pid = (int(x, 16) for x in dev.split("-"))
+            if (vid, pid) in have:
+                continue
+            fam = MTK_BT_FAMILY[dev]
+            template = next((v for k, v in sorted(pers.items()) if k.startswith(f"SimpleMtkBtFw_{fam}_") and "idProduct" in v), None)
+            if template is None:
+                notices.append(f"Bluetooth: {dev} needs a {fam} entry in SimpleMtkBtFw and the kext has none to copy; it stays off.")
+                continue
+            entry = dict(template); entry["idVendor"], entry["idProduct"] = vid, pid
+            pers[f"SimpleMtkBtFw_{fam}_{dev.lower().replace('-', '_')}"] = entry
+            have.add((vid, pid)); added.append(dev)
+        if added:
+            info["IOKitPersonalities"] = pers
+            tmp = path + ".tmp"
+            with open(tmp, "wb") as fh:
+                plistlib.dump(info, fh)
+            os.replace(tmp, path)
+            notices.append("Bluetooth: SimpleMtkBtFw now also matches " + ", ".join(added) + " (this PC's MediaTek card).")
+        return added
+    except (OSError, ValueError, plistlib.InvalidFileException) as e:
+        notices.append(f"Bluetooth: could not add this PC's MediaTek Bluetooth ID to SimpleMtkBtFw ({e}); it may stay off.")
+        return []
+
 def write_marker(build_dir, status):
     """Record the network-support status beside the EFI for the writer. Fail-safe: a write that cannot happen just
     means the writer falls back to its old behaviour, never a failed build."""

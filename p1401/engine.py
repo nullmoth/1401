@@ -906,6 +906,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # Tell the writer, without re-scanning, whether this machine can reach the internet in the installer,
                 # so it can default to the offline (local-image) path for a PC that has no supported network adapter.
                 netsupport.write_marker(out_dir, net_status)
+                netsupport.add_missing_bt_ids(out_dir, cust, h.notices)   # MediaTek BT IDs the kext does not list (#336)
                 _keep_identity(out_dir, prior_identity, machine_key, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
