@@ -1540,6 +1540,18 @@ for k in "${FETCH[@]+"${FETCH[@]}"}"; do fetch_kext $k "$KX"; done
 lp=$(kpos Lilu.kext); ap=$(kpos AMFIPass.kext)
 [ -n "$ap" ] && [ -n "$lp" ] && [ "$ap" -lt "$lp" ] && stop "AMFIPass.kext loads before Lilu.kext in Kernel -> Add; move it below Lilu in the config, then try again"
 NEEDAMFIPASS=$(( ${#ADDK[@]} + ${#FETCH[@]} ))
+# IntelBTPatcher can panic bluetoothd at every start ("IOGMD: not wired for the IODMACommand" with the kext in the
+# backtrace; upstream OpenIntelWireless/IntelBluetoothFirmware #486). Uploads 10-22..10-28: 24 such panics from 7 Tahoe
+# laptops, one restarting 10 times in 20 minutes. The kext only adds Bluetooth LE fixes; IntelBluetoothFirmware still
+# loads the firmware without it, so a Mac whose own saved panic names it gets it switched off.
+PANICDIR="${PANICDIR:-/Library/Logs/DiagnosticReports}"
+btpatcher_panicked() { local f; for f in "$PANICDIR"/*.panic "$PANICDIR"/Retired/*.panic; do
+  [ -f "$f" ] && grep -qF 'IOGMD: not wired' "$f" && grep -qF 'com.zxystd.IntelBTPatcher(' "$f" && return 0; done; return 1; }
+bp=$(kpos IntelBTPatcher.kext)
+if [ -n "$bp" ] && [ "$(get Kernel.Add.$bp.Enabled)" = true ] && btpatcher_panicked; then
+  EDITS+=("Kernel.Add.$bp.Enabled|-bool|false")
+  echo "CHANGE Kernel -> Add: turn IntelBTPatcher.kext off (this Mac's saved panic shows it crashing Bluetooth at start)"
+fi
 # Tahoe preparation: macOS 26 refuses Mac models it dropped ("This version of Mac OS X is not supported on this platform").
 # Every desktop 1401 built before 1.14 is iMacPro1,1, one of them, so the update stopped there on every such PC (10-12, the
 # the test machine). Desktops take MacPro7,1, which runs macOS 15 and 26, with RestrictEvents (its memory and PCI slot pages),
