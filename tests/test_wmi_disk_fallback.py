@@ -54,7 +54,11 @@ class WmiListing(unittest.TestCase):
              patch("builtins.print"):
             usbwriter.list_disks()
         listing = next(c for c in calls if "Win32_DiskDrive | ForEach-Object" in c)
-        self.assertIn("$_.BootPartition -and ($usbd -notcontains $_.DiskIndex)", listing)
+        # a USB disk's own boot partition counts only when the started-from EFI partition is unknown; the disk
+        # holding that partition is the boot disk
+        self.assertIn("$_.BootPartition -and (-not $espKnown -or $usbd -notcontains $_.DiskIndex)", listing)
+        self.assertIn("if ($espKnown) { $boot += $espDisk }", listing)
+        self.assertIn("mountvol.exe", listing)
         self.assertIn("USBSTOR\\*", listing)
 
     def test_a_usbstor_device_counts_as_usb_whatever_its_interface_says(self):
@@ -95,8 +99,11 @@ class WmiWrite(unittest.TestCase):
         for need in ("Win32_DiskDrive", "-ne 15998753280", "'SanDisk Ultra'", "'4C53'", "$sys -contains 3",
                      "1401-OS-PARTITIONS"):
             self.assertIn(need, s)
-        # the picked stick's own boot partition is not "the disk the computer booted from" (2.6.3: 28 of 29 refused)
-        self.assertNotIn("BootPartition", s)
+        # the picked stick's own boot partition is not "the disk the computer booted from" (2.6.3: 28 of 29 refused):
+        # the disk is refused when it holds the EFI partition Windows started from, or, when that is unknown, any boot
+        # partition (the rule before 2.6.4)
+        self.assertIn("$bootHere = if ($espKnown) { $espDisk -eq 3 } else {", s)
+        self.assertIn("-or $bootHere)", s)
         for storage in ("Get-Disk", "Get-Partition", "MSFT_Disk", "Clear-Disk", "Format-Volume"):
             self.assertNotIn(storage, s)
         self.assertNotIn("1401-OS-PARTITIONS", usbwriter.wmi_check_script(d, erase_os=True))
