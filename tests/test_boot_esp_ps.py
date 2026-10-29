@@ -27,11 +27,13 @@ $sys = @(Get-WmiObject -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$sysd
 $fw = (Get-ItemProperty HKLM:\\System\\CurrentControlSet\\Control -Name PEFirmwareType -ErrorAction SilentlyContinue).PEFirmwareType
 @{ known = $espKnown; esp = $espDisk; sys = @($sys); firmware = $fw } | ConvertTo-Json -Compress"""))
         print("probe:", out)
-        if out["firmware"] == 2:     # UEFI: the EFI partition must be found, and on the Windows disk
+        if out["firmware"] == 2:     # UEFI: the EFI partition must be found
             self.assertTrue(out["known"], out)
+        # On UEFI it is the EFI partition, on legacy BIOS the active partition Windows reports as its system volume
+        # (on the CI runner that is C: itself). Either way, when found it is on the disk Windows runs from; when not
+        # found the callers keep the conservative rule.
+        if out["known"]:
             self.assertIn(out["esp"], out["sys"] if isinstance(out["sys"], list) else [out["sys"]], out)
-        else:                        # legacy BIOS: unknown, so the callers keep the conservative rule
-            self.assertFalse(out["known"], out)
         letters_after = self.run_ps("(Get-WmiObject Win32_LogicalDisk | ForEach-Object { $_.DeviceID }) -join ','")
         self.assertEqual(letters_before, letters_after, "the probe left a drive letter mounted")
 
