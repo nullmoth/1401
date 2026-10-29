@@ -79,7 +79,7 @@ jobs:
         shell: pwsh
         run: |
           & "$env:RUNNER_TEMP/1401-stage/1401/engine/python/python.exe" -B tools/check_windows_package.py --stage "$env:RUNNER_TEMP/1401-stage" --repo "$env:GITHUB_WORKSPACE" --cache "$env:RUNNER_TEMP/1401-cache" --output "$env:RUNNER_TEMP/windows-verification.json"
-          if ($LASTEXITCODE -ne 0) { Get-Content "$env:RUNNER_TEMP/windows-verification.json" -ErrorAction SilentlyContinue | Select-String -Pattern 'failed_step|error_type|failure_locations|"ok"' -Context 0,3; throw 'Windows packaged verification failed.' }
+          if ($LASTEXITCODE -ne 0) { & "$env:RUNNER_TEMP/1401-stage/1401/engine/python/python.exe" -c "import json,sys; d=json.load(open(sys.argv[1])); print(json.dumps({k: d.get(k) for k in ('failed_step', 'regression_tests', 'test_failure_locations')}, indent=1))" "$env:RUNNER_TEMP/windows-verification.json"; throw 'Windows packaged verification failed.' }
       - name: Run the probes that need real Windows (EFI partition, WMI, mountvol)
         shell: pwsh
         run: |
