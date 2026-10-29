@@ -3,6 +3,15 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.6.4
+- Writing the stick no longer stops with "this is the disk the computer booted from" on PCs whose Windows storage service lists no disks. On that route, 1401 counted the stick's own boot partition as the PC's, and 28 of 29 such writes stopped there.
+- When Apple's recovery server answers "400 Bad Request", 1401 asks again over HTTPS. If it still fails, it says what to change (antivirus web scanning, a hotspot or a VPN) instead of showing only the error.
+- Mac app: if a Mac's saved kernel panic shows IntelBTPatcher crashing Bluetooth at startup ("IOGMD: not wired"), the next driver update turns that kext off. Bluetooth keeps working through IntelBluetoothFirmware. Seven Tahoe laptops had this panic, one restarting ten times in twenty minutes.
+- Mac app: a **HiDPI (Retina) modes** switch. It lets "looks like" sizes larger than half the screen stick, for example 1920 x 1080 on a 2560 x 1440 screen, including sizes added with BetterDisplay; without it they switched back.
+- Laptops with AMD Ryzen AI 300 (Strix Point) processors are offered the USB input-lag fix XhciNudge when experimental drivers are on (#121).
+- Mac app: the AMD / Intel test driver leaves alone any GPU that Apple's own drivers run.
+- Bundles NVIDIA driver 2.6.4.
+
 ## 2.6.3
 - Mac app: Intel Xe graphics for Tiger Lake, Alder Lake and Raptor Lake on macOS 15.8 or 26.7 and later, through b00t0x's WhateverXe (thanks b00t0x). It shows only on the Intel GPUs WhateverXe supports, downloads its parts from the author's GitHub with every file checked, and **Turn it off** puts the config back as it was.
 - Mac app: **Allow an app...** under Microphone and camera lets an app such as Discord use the microphone, camera and screen recording. With the driver installed macOS never asks, so those apps got silence. The method follows tccplus by Jeremy Legendre.
