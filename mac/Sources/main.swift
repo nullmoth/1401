@@ -510,6 +510,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "verbose": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--verbose", (b["on"] as? Bool ?? false) ? "on" : "off"])
         case "backlight": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto",
                               extra: ["--backlight", (b["on"] as? Bool ?? false) ? "on" : "off"])
+        case "hidpi": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto",
+                          extra: ["--hidpi", (b["on"] as? Bool ?? false) ? "on" : "off"])
         // the opt-in AMD/Intel GPU driver (setup --gpu-test); --tool tells setup where the firmware list sits
         // a Mac with no NVIDIA card has no driver install behind it: the checked package rides along so setup can take
         // the AMD/Intel test driver from it (setup verifies the SHA-256 again on a root-owned copy)

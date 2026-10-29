@@ -192,6 +192,8 @@ $("vbon").onclick = () => post({ act: "verbose", on: true, efi: efi() });
 $("vboff").onclick = () => post({ act: "verbose", on: false, efi: efi() });
 $("blon").onclick = () => post({ act: "backlight", on: true, efi: efi() });
 $("bloff").onclick = () => post({ act: "backlight", on: false, efi: efi() });
+$("hdon").onclick = () => post({ act: "hidpi", on: true, efi: efi() });
+$("hdoff").onclick = () => post({ act: "hidpi", on: false, efi: efi() });
 $("gpuon").onclick = () => post({ act: "gputest", on: true, efi: efi() });
 $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });

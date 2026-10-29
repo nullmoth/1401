@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --xe) XE=$2; shift;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -749,7 +749,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
@@ -962,6 +962,25 @@ if [ -n "${BACKLIGHT:-}" ]; then
   [ "$BACKLIGHT" = on ] && nv="$nv nvrmacpibl=1"
   nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies"
   ok "built-in screen brightness $BACKLIGHT - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${HIDPI:-}" ]; then
+  # The app's "HiDPI (Retina) modes": boot-arg nvfbhidpi=1 lets NVRMFB back a "looks like" mode with a desktop up to
+  # twice the panel's size; without it such a desktop is larger than the scanout allocation and the mode reverts (GH
+  # #221; the driver has had it since 2.0.5). Chat 10-28: 1920x1080 HiDPI on a 2560x1440 panel would not stick, even
+  # through BetterDisplay, and nothing in the app turned it on. Opt-in: the doubled desktop costs video memory.
+  case "$HIDPI" in on|off) ;; *) stop "--hidpi takes on or off";; esac
+  step "Turning HiDPI modes $HIDPI"
+  BKC="$C.nullmoth-hidpi-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  new=""; for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = nvfbhidpi=1 ] || new="$new $a"; done
+  [ "$HIDPI" = on ] && new="$new nvfbhidpi=1"; new=${new# }
+  if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"
+  else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+  plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+  nv=""; for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = nvfbhidpi=1 ] || nv="$nv $a"; done
+  [ "$HIDPI" = on ] && nv="$nv nvfbhidpi=1"
+  nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies"
+  ok "HiDPI modes $HIDPI - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${XE:-}" ]; then
