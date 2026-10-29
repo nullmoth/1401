@@ -1563,7 +1563,7 @@ NEEDAMFIPASS=$(( ${#ADDK[@]} + ${#FETCH[@]} ))
 # backtrace; upstream OpenIntelWireless/IntelBluetoothFirmware #486). Uploads 10-22..10-28: 24 such panics from 7 Tahoe
 # laptops, one restarting 10 times in 20 minutes. The kext only adds Bluetooth LE fixes; IntelBluetoothFirmware still
 # loads the firmware without it, so a Mac whose own saved panic names it gets it switched off.
-PANICDIR="${PANICDIR:-/Library/Logs/DiagnosticReports}"
+PANICDIR=/Library/Logs/DiagnosticReports   # fixed: this runs as root, so no caller picks the folder
 btpatcher_panicked() { local f; for f in "$PANICDIR"/*.panic "$PANICDIR"/Retired/*.panic; do
   [ -f "$f" ] && grep -qF 'IOGMD: not wired' "$f" && grep -qF 'com.zxystd.IntelBTPatcher(' "$f" && return 0; done; return 1; }
 bp=$(kpos IntelBTPatcher.kext)

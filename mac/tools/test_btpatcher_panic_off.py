@@ -15,6 +15,9 @@ source = (ROOT / "Resources/nullmoth-setup.sh").read_text()
 start = source.index("# IntelBTPatcher can panic bluetoothd")
 end = source.index("# Tahoe preparation:", start)
 BLOCK = source[start:end]
+FIXED = "PANICDIR=/Library/Logs/DiagnosticReports"
+assert BLOCK.count(FIXED) == 1, "setup must name the panic folder itself"
+BLOCK = BLOCK.replace(FIXED, 'PANICDIR="$2"')
 
 HARNESS = r'''
 set -u
@@ -41,8 +44,8 @@ def run(panic_text, enabled=True):
         pd = pathlib.Path(d, "reports"); pd.mkdir()
         if panic_text is not None:
             pd.joinpath("Kernel-2026-10-28-153524.panic").write_text('{"bug_type":"210"}\n{"macOSPanicString":"%s"}' % panic_text)
-        r = subprocess.run(["/bin/bash", "-c", HARNESS, "h", str(cfg)], capture_output=True, text=True,
-                           env={"PATH": "/usr/bin:/bin", "PANICDIR": str(pd)})
+        r = subprocess.run(["/bin/bash", "-c", HARNESS, "h", str(cfg), str(pd)], capture_output=True, text=True,
+                           env={"PATH": "/usr/bin:/bin"})
         return r.returncode, r.stdout
 
 

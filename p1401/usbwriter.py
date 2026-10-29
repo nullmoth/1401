@@ -163,6 +163,32 @@ def _as_list(out):
 WMI_SIZE_SLACK = 16 * (1 << 20)
 
 
+# The disk holding the EFI system partition this Windows started from, for the WMI route (no storage cmdlets).
+# Win32_DiskPartition.BootPartition marks every disk's active/EFI partition, a bootable stick's too, so it cannot say
+# which one the PC booted from; the volume Windows reports as its system volume can. It is found by its drive letter
+# when it has one, else mounted for a moment with `mountvol <letter> /s` (removed again at once); then classic WMI maps
+# the letter to a disk. $espKnown stays $false when neither works (legacy BIOS start, no free letter), and the callers
+# then refuse every disk with a boot partition, as before 2.6.4.
+_BOOT_ESP_PS = r"""$espDisk = -1; $espKnown = $false
+try {
+  $sv = @(Get-WmiObject -Class Win32_Volume -Filter "SystemVolume=True" -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter })
+  $tmp = $null
+  if ($sv.Count) { $l = $sv[0].DriveLetter } else {
+    $used = @(Get-WmiObject -Class Win32_LogicalDisk | ForEach-Object { $_.DeviceID.Substring(0, 1).ToUpper() })
+    $free = @('R','S','T','U','V','W','X','Y','Z') | Where-Object { $used -notcontains $_ } | Select-Object -First 1
+    $l = $null
+    if ($free) { & mountvol.exe "$($free):" /s 2>&1 | Out-Null; if ($LASTEXITCODE -eq 0) { $l = "$($free):"; $tmp = $l } }
+  }
+  if ($l) {
+    for ($i = 0; $i -lt 10 -and -not $espKnown; $i++) {
+      $d = @(Get-WmiObject -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$l'} WHERE AssocClass=Win32_LogicalDiskToPartition" -ErrorAction SilentlyContinue | ForEach-Object { $_.DiskIndex })
+      if ($d.Count) { $espDisk = [int]$d[0]; $espKnown = $true } else { Start-Sleep -Milliseconds 300 }
+    }
+  }
+} catch { } finally { if ($tmp) { & mountvol.exe $tmp /d 2>&1 | Out-Null } }
+"""
+
+
 def _wmi_disks():
     """Every disk through classic WMI (Win32_DiskDrive), in list_disks' fields, marked Via=Win32_DiskDrive. 2.5.4 logs
     (22 PCs): Get-Disk and MSFT_Disk listed 0 disks while Win32_DiskDrive listed 2-4; on 8 of them the Storage Management
@@ -174,10 +200,11 @@ def _wmi_disks():
     computer booted from": 2.6.3 uploads, 28 of the 29 writes that took this route. It is counted on the other disks
     only; a USB disk Windows runs from is still refused through the system drive ($sys)."""
     out = _ps("""$ErrorActionPreference = 'SilentlyContinue'
-$sysd = $env:SystemDrive
+""" + _BOOT_ESP_PS + """$sysd = $env:SystemDrive
 $sys = @(Get-WmiObject -Query "ASSOCIATORS OF {Win32_LogicalDisk.DeviceID='$sysd'} WHERE AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object { $_.DiskIndex })
 $usbd = @(Get-WmiObject -Class Win32_DiskDrive | Where-Object { $_.InterfaceType -eq 'USB' -or ($_.PNPDeviceID + '') -like 'USBSTOR\\*' } | ForEach-Object { $_.Index })
-$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object { $_.BootPartition -and ($usbd -notcontains $_.DiskIndex) } | ForEach-Object { $_.DiskIndex })
+$boot = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object { $_.BootPartition -and (-not $espKnown -or $usbd -notcontains $_.DiskIndex) } | ForEach-Object { $_.DiskIndex })
+if ($espKnown) { $boot += $espDisk }
 @(Get-WmiObject -Class Win32_DiskDrive | ForEach-Object {
   [pscustomobject]@{ Index = $_.Index; Model = $_.Model; SerialNumber = $_.SerialNumber; PNPDeviceID = $_.PNPDeviceID;
     InterfaceType = $_.InterfaceType; MediaType = $_.MediaType; Size = [int64]$_.Size;
@@ -343,16 +370,17 @@ def wmi_check_script(disk, erase_os=False):
     if not ok:
         raise UsbError("refusing: " + "; ".join(why))
     n, size = int(disk["Number"]), int(disk["Size"])
-    return f"""$ErrorActionPreference = 'Stop'
+    return _BOOT_ESP_PS + f"""$ErrorActionPreference = 'Stop'
 $d = @(Get-WmiObject -Class Win32_DiskDrive -ErrorAction SilentlyContinue | Where-Object {{ $_.Index -eq {n} }})
 if (-not $d.Count) {{ throw '1401: disk {n} is not attached any more (Windows renumbered the stick). Nothing was erased. Press Refresh, pick the stick again and write.' }}
 $d = $d[0]
 $sysd = $env:SystemDrive
 $sys = @(Get-WmiObject -Query "ASSOCIATORS OF {{Win32_LogicalDisk.DeviceID='$sysd'}} WHERE AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object {{ $_.DiskIndex }})
 $usb = ($d.InterfaceType -eq 'USB') -or (($d.PNPDeviceID + '') -like 'USBSTOR\\*')
+$bootHere = if ($espKnown) {{ $espDisk -eq {n} }} else {{ @(Get-WmiObject -Class Win32_DiskPartition | Where-Object {{ $_.BootPartition -and $_.DiskIndex -eq {n} }}).Count -gt 0 }}
 if ([int64]$d.Size -ne {size} -or ($d.Model + '').Trim() -ne {_q(disk.get('FriendlyName'))} -or
     ($d.SerialNumber + '').Trim() -ne {_q((disk.get('SerialNumber') or '').strip())} -or -not $usb -or
-    ($sys -contains {n})) {{
+    ($sys -contains {n}) -or $bootHere) {{
   throw '1401: disk {n} is not the USB stick you picked any more. Nothing was erased.'
 }}
 """ + ("" if erase_os else f"""$odd = @(Get-WmiObject -Class Win32_DiskPartition | Where-Object {{ $_.DiskIndex -eq {n} -and ($_.Type + '') -like '*Unknown*' }})
