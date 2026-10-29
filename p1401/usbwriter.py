@@ -173,7 +173,7 @@ _BOOT_ESP_PS = r"""$espDisk = -1; $espKnown = $false
 try {
   $sv = @(Get-WmiObject -Class Win32_Volume -Filter "SystemVolume=True" -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter })
   $tmp = $null
-  if ($sv.Count) { $l = $sv[0].DriveLetter } else {
+  if ($sv.Count -eq 1) { $l = $sv[0].DriveLetter } else {
     $used = @(Get-WmiObject -Class Win32_LogicalDisk | ForEach-Object { $_.DeviceID.Substring(0, 1).ToUpper() })
     $free = @('R','S','T','U','V','W','X','Y','Z') | Where-Object { $used -notcontains $_ } | Select-Object -First 1
     $l = $null
