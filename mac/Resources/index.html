@@ -82,6 +82,9 @@
 <div class="pane card"><p class="sh">Built-in screen brightness (laptops)</p>
 <p>For a laptop whose built-in screen is wired to the NVIDIA GPU (MUX set to Discrete or dGPU). It lets the driver read the panel's brightness controls from the laptop's firmware. It is off by default because that call stopped some PCs at GPU start; if yours stops there, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker and turn it off here.</p>
 <p class="row"><button type="button" class="b" id="blon">Turn brightness control on</button> <button type="button" class="b" id="bloff">Turn it off</button></p></div>
+<div class="pane card"><p class="sh">HiDPI (Retina) modes</p>
+<p>Lets HiDPI "looks like" sizes work, for example 1920 x 1080 on a 2560 x 1440 screen, including ones added with a tool such as BetterDisplay. Without it such a size is refused and switches back. The driver draws the desktop at up to twice the screen's size, which uses more video memory. Takes effect at the next restart.</p>
+<p class="row"><button type="button" class="b" id="hdon">Turn HiDPI modes on</button> <button type="button" class="b" id="hdoff">Turn them off</button></p></div>
 <div class="pane card"><p class="sh">AMD / Intel GPU and NPU driver (test)</p>
 <p>For the AMD and Intel GPUs macOS has no driver for (Ryzen APUs, Radeon RX 7000/9000, Intel Iris Xe and Arc graphics), and the NPU in Intel Core Ultra and AMD Ryzen AI processors. An early test build: your Send logs are how it gets fixed. It downloads only the firmware your GPU and NPU need from linux-firmware (every file checked) and takes effect at the next restart.</p>
 <p>If that GPU drives your screen, the screen can stay dark. Then choose <b>1401: Start once without NVIDIA driver</b> in the boot picker (it parks this driver too) and turn it off here.</p>
