@@ -68,6 +68,11 @@ ro_why() {      # $1 = a file; explains a failed write when macOS mounted its pa
   local m; m=$(df -P "$(dirname "$1")" 2>/dev/null | awk 'NR==2{m=$6; for(i=7;i<=NF;i++) m=m" "$i; print m}')
   [ -n "$m" ] && mount | grep -F " on $m (" | grep -q "read-only" || return 0
   echo " - macOS mounted $m read-only, so nothing on it can be changed. Run First Aid on that partition in Disk Utility (if it was left unclean by Windows, turn off Fast Startup there and shut Windows down once), check the stick's write-lock switch, then try again"; }
+is_ntfs() {     # $1 = a partition. A Windows (NTFS) partition is "Microsoft Basic Data" like a FAT32 1401 stick on GPT,
+  # but firmware does not start OpenCore from it and macOS mounts it read-only: an EFI folder copied there was picked as
+  # the OpenCore partition and its config backup failed (driver issue #453).
+  # third-party NTFS drivers name it ufsd_NTFS or tuxera_ntfs, so any personality that says NTFS counts
+  diskutil info "$1" 2>/dev/null | grep -qiE '(Type \(Bundle\)|File System Personality):.*ntfs'; }
 mount_efi() {   # $1 = device or partition UUID; sets MOUNT_POINT in this shell
   local mp; mp=$(mnt "$1")
   if [ -z "$mp" ]; then diskutil mount "$1" >/dev/null 2>&1 || return 1; MOUNTED="$MOUNTED $1"; mp=$(mnt "$1"); fi
@@ -789,6 +794,7 @@ else
     if [ -z "$found" ]; then
       # OpenCore can live on an EFI partition or on any FAT32 partition (a 1401 stick is a FAT32 data partition)
       for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
+        is_ntfs "$d" && { echo "NOTE $d: Windows (NTFS) partition, skipped - OpenCore does not start from it"; continue; }
         mount_efi "$d" || continue; mp=$MOUNT_POINT; [ -n "$(ocrel_in "$mp")" ] && found="$found $d"; done
     fi
     n=$(echo $found | wc -w | tr -d ' ')
