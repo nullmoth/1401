@@ -866,6 +866,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     }
     func updateDriver(efi: String) {
         guard let l = latest else { send("upd", ["state": "error", "why": "check for an update first"]); return }
+        // Refused before the choice is offered: Cancel must never drop a download that is already running, and a chosen
+        // file must not start a second install while one runs (run() would return without a word).
+        if pendingDownload != nil { send("dl", ["state": "error", "why": "a download is already running; wait for it to finish"]); return }
+        if runningSetup { send("dl", ["state": "error", "why": "setup is still running; try again when it has finished"]); return }
         let alert = NSAlert()
         alert.icon = NSApplication.shared.applicationIconImage
         alert.messageText = "Download a driver, or choose a driver file from your Mac."
@@ -901,23 +905,26 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 cancelUpdateDriver()
                 return
             }
-            let tmpDir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent(UUID().uuidString)
-            try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-            let tmpURL = tmpDir.appendingPathComponent(url.lastPathComponent)
-
-            // Make a copy and treat it as if it had been downloaded.
-            do { try FileManager.default.copyItem(at: url, to: tmpURL)
-            } catch { cancelUpdateDriver(); return }
-            
-            DispatchQueue.main.async { [unowned self] in
-                processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi))
+            // The chosen file is installed only when it is byte for byte the package the release lists: the same
+            // SHA-256 from SHA256SUMS.txt that a download is checked against. It is copied first and the copy is the one
+            // checked and installed, so the file cannot change between the check and the install.
+            let tmpDir = support.appendingPathComponent("local-\(UUID().uuidString)")
+            let tmpURL = tmpDir.appendingPathComponent(name)
+            defer { try? FileManager.default.removeItem(at: tmpDir) }
+            do {
+                try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: url, to: tmpURL)
+            } catch { send("dl", ["state": "error", "why": "could not read \(url.lastPathComponent): \(error.localizedDescription)"]); return }
+            guard sha256(tmpURL) == sha else {
+                send("dl", ["state": "error", "why": "\(url.lastPathComponent) is not \(name) (its SHA-256 does not match the release), so nothing was installed"])
+                return
             }
+            processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi))
         }
     }
     func cancelUpdateDriver() {
-        pendingDownload = nil
-        send("upd", ["state": "error", "why": "Driver installation was cancelled. Nothing was changed."])
+        // "dl" error, not "upd" error: it gives the Update driver button back instead of hiding it
+        send("dl", ["state": "error", "why": "Driver update cancelled. Nothing was changed."])
     }
     func download() {
         startDownload(name: Package.name, sha: Package.sha256, url: Package.url, efi: nil)
