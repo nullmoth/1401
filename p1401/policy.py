@@ -404,6 +404,26 @@ def apply(config_path, result, policy):
             change("dedupe-add", ", ".join(dups), "one entry each",
                    f"{label} listed the same file twice; OpenCore's validator refuses that")
 
+    # Two kexts that do the same job, both enabled. Field panics "[kalloc.type.var*.16]: element modified after free"
+    # (21 reports, some before any NullMoth kext loads) had one of these pairs in all 11 configs that came with them,
+    # and none of the 49 other panics did: USBInjectAll beside USBToolBox (two USB port maps), IntelMausi beside
+    # IntelSnowMausi (two drivers for the same Ethernet controller). USBToolBox is the map the builder makes, and
+    # IntelMausi is the current driver, so the other one of each pair goes off.
+    # (literal rule names in change(): tests/test_efi_rules.py reads them with a parser)
+    def drop_second(keep, drop):
+        on = {k["BundlePath"].split("/")[-1] for k in kexts if isinstance(k, dict) and k.get("Enabled")}
+        if keep not in on or drop not in on:
+            return False
+        for k in kexts:
+            if isinstance(k, dict) and k.get("BundlePath", "").split("/")[-1] == drop:
+                k["Enabled"] = False
+        return True
+    why = "two kexts doing the same job; configs with both crashed with 'element modified after free'"
+    if drop_second("USBToolBox.kext", "USBInjectAll.kext"):
+        change("kext-conflict-usb", "USBToolBox.kext and USBInjectAll.kext both enabled", "USBInjectAll.kext off", why)
+    if drop_second("IntelMausi.kext", "IntelSnowMausi.kext"):
+        change("kext-conflict-mausi", "IntelMausi.kext and IntelSnowMausi.kext both enabled", "IntelSnowMausi.kext off", why)
+
     # 10-07 (stick logs + their configs): boot.efi stopped with
     # EB.MM.AKM Err(0xE) / STOP 0x16 ("Couldn't allocate runtime area") on Ryzen boards with SetupVirtualMap on. The engine
     # turns it off only for chipsets it can NAME (B450 X470 A520 B550 X570 TRX40), and Hardware Sniffer reads an AMD chipset

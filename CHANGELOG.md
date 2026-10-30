@@ -6,6 +6,7 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 ## 2.6.5
 - Rebuilding a stick from its boot logs now reaches the kernel's boot arguments. Once one start had stored boot-args in the PC's NVRAM, OpenCore refused every later build's ("ignored, exists"), so added options such as npci=0x2000 never applied until NVRAM was reset by hand (#124, #126). When the logs show no installed macOS on an internal disk, the stick now replaces the stored boot-args; a PC that runs macOS keeps its own and is told to reset NVRAM once.
 - If the screen stops inside the touchpad driver's start ("VoodooGPIO... Loading GPIO Data for AMD"), the rebuilt stick leaves the VoodooI2C touchpad stack off; the keyboard keeps working and a USB mouse drives the installer (#124).
+- Two kext pairs that do the same job are never both on: USBInjectAll with USBToolBox, and IntelMausi with IntelSnowMausi. Configs with either pair crashed at startup with "element modified after free". 1401 leaves USBInjectAll and IntelSnowMausi off when it builds, and the Mac app's EFI check flags either pair in an existing config and fixes it.
 - Mac app: setup no longer picks a Windows (NTFS) partition as the OpenCore partition. An EFI folder copied onto one was chosen, and its config backup failed because macOS cannot write NTFS (nvidia-macos-driver #453).
 
 ## 2.6.4
