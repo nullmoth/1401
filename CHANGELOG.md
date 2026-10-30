@@ -8,7 +8,7 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 - If the screen stops inside the touchpad driver's start ("VoodooGPIO... Loading GPIO Data for AMD"), the rebuilt stick leaves the VoodooI2C touchpad stack off; the keyboard keeps working and a USB mouse drives the installer (#124).
 - Two kext pairs that do the same job are never both on: USBInjectAll with USBToolBox, and IntelMausi with IntelSnowMausi. Every config in the field reports with the startup crash "element modified after free" had one of these pairs on. 1401 leaves USBInjectAll and IntelSnowMausi off when it builds, and the Mac app's EFI check flags either pair in an existing config and fixes it.
 - Mac app: setup no longer picks a Windows (NTFS) partition as the OpenCore partition. An EFI folder copied onto one was chosen, and its config backup failed because macOS cannot write NTFS (nvidia-macos-driver #453).
-- Mac app: a driver update can use the driver package from the 1401 download you already have, instead of downloading it again. The file must match the release's SHA-256 exactly (PR #125, thanks developforapple).
+- Mac app: a driver update can use the driver package from the 1401 download you already have, instead of downloading it again. The file must match the release's SHA-256 exactly (PR #125, thanks developforapple / wangbo).
 - Bundles NVIDIA driver 2.6.5.
 
 ## 2.6.4
