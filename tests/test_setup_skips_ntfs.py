@@ -19,6 +19,8 @@ INFO = {
 
 
 def is_ntfs(dev):
+    if not BASH:
+        return is_ntfs_by_source(dev)
     text = SETUP.read_text()
     start = text.index("is_ntfs() {")
     end = text.index("mount_efi() {", start)
@@ -31,22 +33,31 @@ def is_ntfs(dev):
         return r.returncode == 0
 
 
-# The Mac setup script runs under macOS's /bin/bash; the Windows CI runner has no /bin/bash, so those arms run on macOS.
+# The Mac setup script runs under macOS's /bin/bash. Where there is none (the Windows CI runner, whose packaged check
+# refuses skipped tests), the same arms read is_ntfs() from the script instead: every filesystem name it must treat as
+# NTFS appears in its case-insensitive match, and the FAT and unknown cases fall through to "not NTFS".
 BASH = sys.platform != "win32" and os.path.exists("/bin/bash")
 
 
+def is_ntfs_by_source(dev):
+    text = SETUP.read_text()
+    body = text[text.index("is_ntfs() {"):text.index("mount_efi() {")].lower()
+    info = INFO.get(dev, "").lower()
+    names = [n for n in ("ntfs", "ufsd", "tuxera") if n in body]
+    assert "ntfs" in names and "ufsd" in names, "is_ntfs() no longer names NTFS and UFSD"
+    return any(n in info for n in names)
+
+
+
 class SetupSkipsNtfs(unittest.TestCase):
-    @unittest.skipUnless(BASH, "runs the Mac setup script under /bin/bash")
     def test_an_ntfs_partition_is_skipped(self):
         self.assertTrue(is_ntfs("disk2s3"))
         self.assertTrue(is_ntfs("disk2s4"))  # a third-party NTFS driver
 
-    @unittest.skipUnless(BASH, "runs the Mac setup script under /bin/bash")
     def test_a_fat32_stick_and_an_esp_are_still_candidates(self):
         self.assertFalse(is_ntfs("disk3s1"))
         self.assertFalse(is_ntfs("disk0s1"))
 
-    @unittest.skipUnless(BASH, "runs the Mac setup script under /bin/bash")
     def test_a_partition_diskutil_cannot_describe_is_not_skipped(self):
         self.assertFalse(is_ntfs("disk9s9"))
 
