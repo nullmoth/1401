@@ -43,7 +43,8 @@ def engine_like():
                    "Quirks": {"DevirtualiseMmio": True, "SetupVirtualMap": True, "ProvideCustomSlide": True,
                               "AvoidRuntimeDefrag": True, "AllowRelocationBlock": False, "DisableVariableWrite": False}},
         "Kernel": {"Add": [{"BundlePath": n, "Enabled": True} for n in
-                           ("Lilu.kext", "WhateverGreen.kext", "IntelBluetoothFirmware.kext", "RestrictEvents.kext", "CpuTopologyRebuild.kext")]
+                           ("Lilu.kext", "WhateverGreen.kext", "IntelBluetoothFirmware.kext", "RestrictEvents.kext", "CpuTopologyRebuild.kext",
+                            "USBToolBox.kext", "USBInjectAll.kext", "IntelMausi.kext", "IntelSnowMausi.kext")]
                           + [{"BundlePath": "NVMeFix.kext", "Enabled": False}],
                    "Block": [], "Patch": [{"Comment": "masked", "Replace": b"\xff\xff", "ReplaceMask": b"\x0f\x0f"}],
                    "Quirks": {"DisableIoMapper": False}},
