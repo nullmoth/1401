@@ -22,6 +22,10 @@ _MMIO = re.compile(r"OCABC: MMIO devirt (?:0x)?([0-9A-Fa-f]{6,16}) \((?:0x)?([0-
 _ABC = re.compile(r"OCABC: ALRBL \d+ .*?DEVMMIO (\d) .*?WRUNPROT (\d)")
 _CHOSEN = re.compile(r"OCB: Should boot from \d+\. [^\n]*?\(T:(\d+)\|")
 _MACOS_DISK = re.compile(r"OCB: Registering entry [^\n]*\(T:2\|[^\n]* - (?![^\n]*USB\()")
+# OpenCore writes NVRAM > Add only where the variable does not exist yet; the stick does not delete boot-args (policy
+# keep-boot-args), so once one start has stored them every later build's boot arguments are refused with this line.
+_BOOTARGS_KEPT = re.compile(r"OCVAR: Setting NVRAM 7C436110-AB2A-4BBB-A880-FE41995C9F82:boot-args - ignored, exists")
+BOOT_GUID = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
 
 
 def _boot(t):
@@ -65,7 +69,7 @@ def read_logs(paths):
 def findings(texts):
     """What the logs show, newest-boot-last order not assumed: any log showing a failure counts."""
     out = {"startimage_aborted": False, "stop16": False, "secureboot_dmg": False, "mmio": [], "devirt_ran": False, "boots": [],
-           "vmap": None, "mat": None}
+           "vmap": None, "mat": None, "bootargs_kept": False, "macos_disk": False}
     seen = set()
     for t in texts:
         out["startimage_aborted"] |= "StartImage failed - Aborted" in t
@@ -75,6 +79,8 @@ def findings(texts):
         # "OC: Driver HfsPlus.efi at 0 cannot be loaded - Access Denied!" and the PC hangs there
         out["uefi_secureboot"] = out.get("uefi_secureboot", False) or bool(re.search(r"OC: Driver \S+ at \d+ cannot be loaded - Access Denied", t))
         out["devirt_ran"] |= "OCABC: MMIO devirt" in t
+        out["bootargs_kept"] |= bool(_BOOTARGS_KEPT.search(t))
+        out["macos_disk"] |= bool(_MACOS_DISK.search(t))
         out["no_slide"] = out.get("no_slide", False) or "No slide values are usable" in t
         # the firmware's memory attributes table: "MAT support is 0" on any boot means the firmware has none
         for mat in re.findall(r"OCABC: MAT support is ([01])", t):
@@ -228,6 +234,21 @@ def apply(cfg, result, texts, change, stopped_at=""):
                "the start stopped there. Turn Secure Boot off in the BIOS (on ASUS boards: Boot -> Secure Boot -> OS Type "
                "'Other OS'), then start from the stick again",
                "every driver OpenCore loaded was refused with Access Denied")
+    # The PC kept boot arguments from an earlier start, so the boot arguments of this build (and every bootlog step that
+    # adds one, npci or ps2rst) would never reach macOS: 1401 #124 and #126 each edited boot-args for several starts that
+    # all ran with the old ones, until they reset NVRAM by hand. When no start listed a macOS volume on an internal disk,
+    # the stored ones can only be an earlier stick's, so this build replaces them. A PC that runs macOS keeps its own
+    # (keep-boot-args) and is told how to apply the new ones.
+    if f["bootargs_kept"]:
+        dl = cfg.setdefault("NVRAM", {}).setdefault("Delete", {}).setdefault(BOOT_GUID, [])
+        if f["macos_disk"]:
+            change("bootlog-note", "", "this PC kept the boot arguments of an earlier start, so the ones in this build do not "
+                   "apply yet. In the OpenCore picker choose Reset NVRAM once, then start the installer again",
+                   "OpenCore refused the stick's boot-args (ignored, exists) and a macOS volume is on an internal disk")
+        elif "boot-args" not in dl:
+            dl.append("boot-args")
+            change("bootlog-own-boot-args", "keep existing boot-args", "Delete boot-args",
+                   "OpenCore refused the stick's boot-args (ignored, exists) and no start listed a macOS volume on an internal disk")
     if f["secureboot_dmg"]:
         sec = cfg.setdefault("Misc", {}).setdefault("Security", {})
         if sec.get("SecureBootModel") != "Disabled" and sec.get("DmgLoading") != "Signed":
@@ -258,7 +279,7 @@ _BT = re.compile(r"Kernel Extensions in backtrace:(.*?)(?:\n\s*\n|Kernel Extensi
 
 def after_handoff(texts, stopped_at=""):
     """Findings from panic files and the user's stopped-at line: kexts to switch off, boot-args to add, and reports."""
-    out = {"disable": [], "args": [], "cfglock": False, "report": []}
+    out = {"disable": [], "args": [], "cfglock": False, "report": [], "i2c_off": False}
     joined = "\n".join(texts) + "\n" + (stopped_at or "")
     for m in _BT.finditer(joined):
         for frag, kext in OPTIONAL_KEXTS.items():
@@ -280,6 +301,14 @@ def after_handoff(texts, stopped_at=""):
     # the second one is what some boards need). The user's stopped line names it.
     if re.search(r"(?i)IOPCIConfigurator|PCI configuration (begin|PCI)", joined):
         out["args"].append("npci")
+    # The touchpad driver hung while it started (no panic, nothing after its own line): an ASUS TUF A15 with an AMD I2C
+    # controller stopped for good at "VoodooGPIOMD::Loading GPIO Data for AMD" (1401 #124) and went on with the
+    # VoodooI2C stack off. Only the user's stopped-at line counts: every OpenCore log names VoodooI2C.kext when it is
+    # injected, so the logs themselves would switch it off on every rebuild.
+    if re.search(r"VoodooGPIO|VoodooI2C[A-Za-z]*::", stopped_at or ""):
+        out["i2c_off"] = True
+        out["report"].append("the touchpad driver (VoodooI2C) hung while starting; it is off now - use a USB mouse for "
+                             "the installer")
     # Dortania: CFG-locked firmware panics in AppleIntelCPUPowerManagement -> AppleCpuPmCfgLock. Only a panic BACKTRACE
     # counts: every OpenCore log on AMD names the kext ("Skipping dummy AppleIntelCPUPowerManagement patch") and its
     # kernel patches have "panic" in their names, which set this on 87 AMD configs (10-10 scan of uploads).
@@ -311,6 +340,14 @@ def apply_after_handoff(cfg, texts, stopped_at, change):
         args.append("ps2rst=0")
         nv["boot-args"] = " ".join(args)
         change("bootlog-ps2-panic", "", "ps2rst=0", "the saved panic is in the laptop keyboard driver (VoodooPS2Controller)")
+    if f["i2c_off"]:
+        # every part of the stack: VoodooI2C.kext, its PlugIns (VoodooGPIO, VoodooI2CServices, VoodooInput) and the
+        # device kexts that require it (VoodooI2CHID, VoodooI2CELAN, ...). VoodooPS2's own VoodooInput stays.
+        for k in kexts:
+            if k.get("BundlePath", "").startswith("VoodooI2C") and k.get("Enabled"):
+                k["Enabled"] = False
+                change("bootlog-i2c-hang-off", k["BundlePath"], "Enabled=False",
+                       "the screen stopped inside the touchpad driver's start (VoodooI2C); it is optional for starting macOS")
     if "npci" in f["args"]:
         cur = next((a for a in args if a.startswith("npci=")), None)
         nxt = "npci=0x2000" if cur is None else ("npci=0x3000" if cur == "npci=0x2000" else None)
@@ -478,7 +515,8 @@ def selftest():
     arm("a panic backtrace through AppleIntelCPUPowerManagement turns AppleCpuPmCfgLock on", after_handoff([intel_panic])["cfglock"])
     arm("control: an AMD OpenCore log naming the kext and a patch called 'panic' is not a CFG-lock panic",
         not after_handoff([amdlog])["cfglock"])
-    arm("negative control: a stopped line that names nothing changes nothing", f == {"disable": [], "args": [], "cfglock": False, "report": []}, f)
+    arm("negative control: a stopped line that names nothing changes nothing",
+        f == {"disable": [], "args": [], "cfglock": False, "report": [], "i2c_off": False}, f)
     print(f"bootfix: {sum(res)}/{len(res)}")
     return all(res)
 
