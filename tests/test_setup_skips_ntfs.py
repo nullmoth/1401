@@ -3,6 +3,7 @@ EFI folder there was chosen and its config backup failed, because macOS mounts N
 import os
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -30,15 +31,22 @@ def is_ntfs(dev):
         return r.returncode == 0
 
 
+# The Mac setup script runs under macOS's /bin/bash; the Windows CI runner has no /bin/bash, so those arms run on macOS.
+BASH = sys.platform != "win32" and os.path.exists("/bin/bash")
+
+
 class SetupSkipsNtfs(unittest.TestCase):
+    @unittest.skipUnless(BASH, "runs the Mac setup script under /bin/bash")
     def test_an_ntfs_partition_is_skipped(self):
         self.assertTrue(is_ntfs("disk2s3"))
         self.assertTrue(is_ntfs("disk2s4"))  # a third-party NTFS driver
 
+    @unittest.skipUnless(BASH, "runs the Mac setup script under /bin/bash")
     def test_a_fat32_stick_and_an_esp_are_still_candidates(self):
         self.assertFalse(is_ntfs("disk3s1"))
         self.assertFalse(is_ntfs("disk0s1"))
 
+    @unittest.skipUnless(BASH, "runs the Mac setup script under /bin/bash")
     def test_a_partition_diskutil_cannot_describe_is_not_skipped(self):
         self.assertFalse(is_ntfs("disk9s9"))
 
