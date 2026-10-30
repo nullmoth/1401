@@ -173,6 +173,30 @@
       "source": "ocvalidate"
     },
     {
+      "id": "kext-conflict-usb",
+      "scope": ["stick", "installed"],
+      "match": {},
+      "when": [{"kext": "USBToolBox.kext", "enabled": true}, {"kext": "USBInjectAll.kext", "enabled": true}],
+      "expect": [{"kext": "USBInjectAll.kext", "enabled": false}],
+      "restart": true,
+      "title": "USBInjectAll and USBToolBox are both on",
+      "what": "Both kexts map USB ports, and configs with both on crashed at startup with \"element modified after free\", sometimes before the NVIDIA driver loaded. USBToolBox with its UTBMap.kext is the one to keep.",
+      "steps": ["Open config.plist in EFI/OC.", "Under Kernel > Add, set Enabled to false on USBInjectAll.kext.", "Restart."],
+      "source": "21 kernel panics 'element modified after free'; all 11 with a config had this pair or the next one"
+    },
+    {
+      "id": "kext-conflict-mausi",
+      "scope": ["stick", "installed"],
+      "match": {},
+      "when": [{"kext": "IntelMausi.kext", "enabled": true}, {"kext": "IntelSnowMausi.kext", "enabled": true}],
+      "expect": [{"kext": "IntelSnowMausi.kext", "enabled": false}],
+      "restart": true,
+      "title": "IntelMausi and IntelSnowMausi are both on",
+      "what": "Both kexts drive the same Intel Ethernet controller, and configs with both on crashed at startup with \"element modified after free\". Keep one: IntelMausi is the one for current macOS.",
+      "steps": ["Open config.plist in EFI/OC.", "Under Kernel > Add, set Enabled to false on IntelSnowMausi.kext.", "Restart."],
+      "source": "21 kernel panics 'element modified after free'; all 11 with a config had this pair or the previous one"
+    },
+    {
       "id": "amd-setupvirtualmap",
       "scope": ["stick", "installed"],
       "match": {"cpu_vendor": "AMD", "cpu_class_not": ["zen45"], "chipset_not_in": ["AM1", "A68H", "A75", "A78", "A85X", "A88X", "A320", "B350", "X370", "X399"]},
