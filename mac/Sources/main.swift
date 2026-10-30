@@ -866,7 +866,65 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     }
     func updateDriver(efi: String) {
         guard let l = latest else { send("upd", ["state": "error", "why": "check for an update first"]); return }
-        startDownload(name: l.name, sha: l.sha, url: l.url, efi: efi)
+        // Refused before the choice is offered: Cancel must never drop a download that is already running, and a chosen
+        // file must not start a second install while one runs (run() would return without a word).
+        if pendingDownload != nil { send("dl", ["state": "error", "why": "a download is already running; wait for it to finish"]); return }
+        if runningSetup { send("dl", ["state": "error", "why": "setup is still running; try again when it has finished"]); return }
+        let alert = NSAlert()
+        alert.icon = NSApplication.shared.applicationIconImage
+        alert.messageText = "Download a driver, or choose a driver file from your Mac."
+        alert.addButton(withTitle: "Download Driver")
+        alert.addButton(withTitle: "Choose Driver File…")
+        alert.addButton(withTitle: "Cancel")
+        alert.beginSheetModal(for: window) { response in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [unowned self] in
+                switch response {
+                case .alertFirstButtonReturn:
+                    startDownload(name: l.name, sha: l.sha, url: l.url, efi: efi)
+                case .alertSecondButtonReturn:
+                    selectLocalDriverFile(name: l.name, sha: l.sha, efi: efi)
+                case .alertThirdButtonReturn:
+                    cancelUpdateDriver()
+                default: break
+                }
+            }
+        }
+    }
+    func selectLocalDriverFile(name: String, sha: String, efi: String?) {
+        let panel = NSOpenPanel()
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.zip, .gzip]
+        panel.title = "Choose a Driver File"
+        panel.message = "Select a driver file to install."
+        panel.prompt = "Choose"
+        panel.beginSheetModal(for: window) { [unowned self] response in
+            guard response == .OK, let url = panel.url else {
+                cancelUpdateDriver()
+                return
+            }
+            // The chosen file is installed only when it is byte for byte the package the release lists: the same
+            // SHA-256 from SHA256SUMS.txt that a download is checked against. It is copied first and the copy is the one
+            // checked and installed, so the file cannot change between the check and the install.
+            let tmpDir = support.appendingPathComponent("local-\(UUID().uuidString)")
+            let tmpURL = tmpDir.appendingPathComponent(name)
+            defer { try? FileManager.default.removeItem(at: tmpDir) }
+            do {
+                try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: url, to: tmpURL)
+            } catch { send("dl", ["state": "error", "why": "could not read \(url.lastPathComponent): \(error.localizedDescription)"]); return }
+            guard sha256(tmpURL) == sha else {
+                send("dl", ["state": "error", "why": "\(url.lastPathComponent) is not \(name) (its SHA-256 does not match the release), so nothing was installed"])
+                return
+            }
+            processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi))
+        }
+    }
+    func cancelUpdateDriver() {
+        // "dl" error, not "upd" error: it gives the Update driver button back instead of hiding it
+        send("dl", ["state": "error", "why": "Driver update cancelled. Nothing was changed."])
     }
     func download() {
         startDownload(name: Package.name, sha: Package.sha256, url: Package.url, efi: nil)
@@ -964,8 +1022,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         guard let pending = pendingDownload, pending.id == t.taskIdentifier else { return }
         let plan = pending.plan
         let code = (t.response as? HTTPURLResponse)?.statusCode ?? 0
-        let dst = support.appendingPathComponent(plan.name)
         guard code == 200 else { send("dl", ["state": "error", "why": "the server answered HTTP \(code)"]); return }
+        processDriverFile(at: loc, plan: plan)
+    }
+    private func processDriverFile(at loc: URL, plan: DownloadPlan) {
+        let dst = support.appendingPathComponent(plan.name)
         guard sha256(loc) == plan.sha else { send("dl", ["state": "error", "why": "the download does not match its SHA-256, so it was thrown away"]); return }
         do {
             if FileManager.default.fileExists(atPath: dst.path) {
