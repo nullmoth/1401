@@ -6,8 +6,10 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 ## 2.6.5
 - Rebuilding a stick from its boot logs now reaches the kernel's boot arguments. Once one start had stored boot-args in the PC's NVRAM, OpenCore refused every later build's ("ignored, exists"), so added options such as npci=0x2000 never applied until NVRAM was reset by hand (#124, #126). When the logs show no installed macOS on an internal disk, the stick now replaces the stored boot-args; a PC that runs macOS keeps its own and is told to reset NVRAM once.
 - If the screen stops inside the touchpad driver's start ("VoodooGPIO... Loading GPIO Data for AMD"), the rebuilt stick leaves the VoodooI2C touchpad stack off; the keyboard keeps working and a USB mouse drives the installer (#124).
-- Two kext pairs that do the same job are never both on: USBInjectAll with USBToolBox, and IntelMausi with IntelSnowMausi. Configs with either pair crashed at startup with "element modified after free". 1401 leaves USBInjectAll and IntelSnowMausi off when it builds, and the Mac app's EFI check flags either pair in an existing config and fixes it.
+- Two kext pairs that do the same job are never both on: USBInjectAll with USBToolBox, and IntelMausi with IntelSnowMausi. Every config in the field reports with the startup crash "element modified after free" had one of these pairs on. 1401 leaves USBInjectAll and IntelSnowMausi off when it builds, and the Mac app's EFI check flags either pair in an existing config and fixes it.
 - Mac app: setup no longer picks a Windows (NTFS) partition as the OpenCore partition. An EFI folder copied onto one was chosen, and its config backup failed because macOS cannot write NTFS (nvidia-macos-driver #453).
+- Mac app: a driver update can use the driver package from the 1401 download you already have, instead of downloading it again. The file must match the release's SHA-256 exactly (PR #125, thanks developforapple).
+- Bundles NVIDIA driver 2.6.5.
 
 ## 2.6.4
 - Writing the stick no longer stops with "this is the disk the computer booted from" on PCs whose Windows storage service lists no disks. On that route, 1401 counted the stick's own boot partition as the PC's, and 28 of 29 such writes stopped there. It now refuses the disk holding the partition Windows actually started from.
