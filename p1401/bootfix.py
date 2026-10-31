@@ -84,7 +84,9 @@ def findings(texts):
         out["no_slide"] = out.get("no_slide", False) or "No slide values are usable" in t
         # "Only 1/256 slide values are usable!" then EB.MM.AKM: the same shortage with a slide or two left. 2.6.5 stick
         # logs NM-5M1X8T8J, NM-SR9QEMRP (i5-1145G7, 1 of 256) and NM-VV9QT2F3 (i9-14900HX, 6 of 256) stopped at STOP 0x16
-        # this way, and the Intel step below, which looked only for "No slide values", left their builds unchanged.
+        # this way, and the Intel step below, which looks only for "No slide values", left their builds unchanged and
+        # said nothing. Which slide count makes DevirtualiseMmio the fix is not measured (65 of 256 left was ruled out
+        # before, test_intel_akm_devirt), so these get the BIOS checklist and no quirk change.
         out["few_slides"] = out.get("few_slides", False) or bool(re.search(r"OCABC: Only \d+/\d+ slide values are usable", t))
         # the firmware's memory attributes table: "MAT support is 0" on any boot means the firmware has none
         for mat in re.findall(r"OCABC: MAT support is ([01])", t):
@@ -174,15 +176,18 @@ def apply(cfg, result, texts, change, stopped_at=""):
     # (i5-12400F, i7-12700K, i5-12500 desktops; i5-13420H and i5-13450HX laptops before them), every one with
     # DevirtualiseMmio off - the hybrid-core policy turns it off for PCs that fault at EXITBS:START with it on. So the
     # stick's own log decides: off and no slide -> on (Dortania KASLR guide); on and still no slide -> say so.
-    if cpu == "Intel" and failed and (f.get("no_slide") or (f.get("few_slides") and f["stop16"])):
+    if cpu == "Intel" and failed and not f.get("no_slide") and f.get("few_slides") and f["stop16"]:
+        change("bootlog-note", "", "macOS's loader found too little free memory for the kernel (EB.MM.AKM; OpenCore had "
+               "only some kernel slides). In the BIOS: Above 4G Decoding on, CSM off, and if there is a setting for it, a "
+               "smaller iGPU memory size (DVMT); then send the logs", "it stopped at EB.MM.AKM with few kernel slides usable")
+    if cpu == "Intel" and failed and f.get("no_slide"):
         before = f"DevirtualiseMmio={quirks.get('DevirtualiseMmio')}"
-        found = "no kernel slide" if f.get("no_slide") else "too few kernel slides"
         if not f["devirt_ran"]:
             quirks["DevirtualiseMmio"] = True
             change("bootlog-intel-akm-devirt", before, "DevirtualiseMmio=True",
-                   f"the stick's last boot found {found} and stopped in boot.efi (EB.MM.AKM) with DevirtualiseMmio off")
+                   "the stick's last boot found no kernel slide and stopped in boot.efi (EB.MM.AKM) with DevirtualiseMmio off")
         else:
-            change("bootlog-note", "", f"this PC found {found} even with the firmware's MMIO devirtualised. In the BIOS: "
+            change("bootlog-note", "", "this PC found no kernel slide even with the firmware's MMIO devirtualised. In the BIOS: "
                    "Above 4G Decoding on, CSM off, and if there is a setting for it, a smaller iGPU memory size (DVMT); "
                    "then send the logs", "it stopped at EB.MM.AKM with DevirtualiseMmio on")
     # Stuck right after the hand-off (the screen freezes on EXITBS:START, the kernel never prints). Dortania's list for
