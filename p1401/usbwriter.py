@@ -466,7 +466,7 @@ def _copy_settled(src, dst, root, tries=6, sleep=time.sleep):
             if attempt == tries - 1:
                 # 2.6.5 write logs NM-A7T6904A, NM-667B19WZ: the image was written and read back, then the stick's drive
                 # disappeared for the whole retry window and the stop was a bare "FileNotFoundError: ... 'E:\\'".
-                if not os.path.isdir(root):
+                if getattr(error, "filename", None) == root and not os.path.isdir(root):
                     raise UsbError(f"the stick's drive {root} went away while the EFI was copied, after the macOS image "
                                    "was written and checked: the stick dropped off USB. Plug it into a USB port on the "
                                    "back of the PC (not a hub or front panel) and write again; if it happens again, use "
