@@ -185,6 +185,18 @@ def run_ocvalidate(config_path):
     return p.returncode == 0 and issues == 0, issues, text
 
 
+def _listing(folder, limit=24):
+    """The file names in a folder, for a stop line. 2.6.5 build logs (6 builds, 3 PCs, 10-31) stopped on "UEFI driver
+    missing on disk: HfsPlus.efi" (and apfs_aligned.efi), files OpenCore's binary-data download puts there, with nothing
+    saying whether the folder held none of those files (that download never reached the build) or only lost this one (a
+    security program removed it). The listing tells the two apart."""
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError as e:
+        return f"unreadable ({type(e).__name__})"
+    return ", ".join(names[:limit]) + (f" and {len(names) - limit} more" if len(names) > limit else "") if names else "nothing"
+
+
 def invariants(efi_dir):
     """Checks the files ocvalidate never looks at. Returns a list of failures (empty means fine)."""
     oc = os.path.join(efi_dir, "EFI", "OC")
@@ -214,7 +226,7 @@ def invariants(efi_dir):
             fails.append(f"SSDT missing on disk: {a['Path']}")
     for d in cfg["UEFI"]["Drivers"]:
         if d.get("Enabled") and not os.path.isfile(os.path.join(oc, "Drivers", d["Path"])):
-            fails.append(f"UEFI driver missing on disk: {d['Path']}")
+            fails.append(f"UEFI driver missing on disk: {d['Path']} (EFI/OC/Drivers holds: {_listing(os.path.join(oc, 'Drivers'))})")
     for t in cfg["Misc"].get("Tools", []):
         if t.get("Enabled") and not os.path.isfile(os.path.join(oc, "Tools", t["Path"])):
             fails.append(f"tool missing on disk: {t['Path']}")
