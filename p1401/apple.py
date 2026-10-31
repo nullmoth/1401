@@ -20,6 +20,7 @@ import http.client
 import json
 import os
 import random
+import re
 import string
 import socket
 import struct
@@ -307,7 +308,33 @@ def unwrap_chunklist(data, limit=1 << 20):
 
 
 def fetch_chunklist(info):
-    return unwrap_chunklist(_asset(info["chunklist_url"], info["chunklist_token"]).read())
+    # 2.6.5 write logs NM-M4GJC038, NM-P2K5TB61, NM-1W7TC6BA (one PC, 10-31): oscdn answered 403 to the chunklist and the
+    # stop was the bare "HTTP Error 403: Forbidden" - the image request already gets one fresh token on a 403, the
+    # chunklist did not, and the stop said nothing about what to change.
+    fetch = lambda: _asset(info["chunklist_url"], info["chunklist_token"])  # noqa: E731
+    try:
+        r = fetch()
+    except AppleError as e:
+        if "HTTP Error 403" not in str(e):
+            raise
+        r = _after_403(info, e, fetch, key="chunklist_token")
+    return _not_a_web_page(unwrap_chunklist(r.read()))
+
+
+def _not_a_web_page(data):
+    """A chunklist that is an HTML page was not sent by Apple: 2.6.5 write log NM-M3T3QXFK stopped on "not an Apple
+    chunklist (magic=b'<!DO' ...)", which named neither the page nor what to do. A network that answers plain HTTP with
+    its own page (a hotel or school sign-in page, a web filter, a proxy login) does that. The page title is shown so the
+    user and the report can tell which; parse_chunklist would refuse it anyway."""
+    head = data[:4096].lstrip().lower()
+    if not (head.startswith(b"<!doctype html") or head.startswith(b"<html")):
+        return data
+    m = re.search(rb"<title[^>]*>([^<]{0,120})", data[:65536], re.I)
+    title = m.group(1).decode("utf-8", "replace").strip() if m else ""
+    raise AppleError("this network answered Apple's download server with its own web page"
+                     + (f' ("{title}")' if title else "") + " instead of the file - a sign-in page (hotel, school, "
+                     "office Wi-Fi), a web filter or a proxy. Open any http:// site in a browser and sign in, or connect "
+                     "through a phone hotspot or a VPN, and press Next")
 
 
 def download(info, usb_root, progress=None):
@@ -361,7 +388,8 @@ def download(info, usb_root, progress=None):
                     except (AppleError, OSError, http.client.HTTPException) as e:
                         pos = done + len(part)
                         if not (window and pos - conn_start >= window):
-                            note(f"connection at {conn_start} gave {pos - conn_start} B, then {type(e).__name__}")
+                            note(f"connection at {conn_start} gave {pos - conn_start} B, then {type(e).__name__}"
+                                 + (_empty_answer(r) if pos == conn_start else ""))
                         if window and pos - conn_start >= window:
                             # windowed mode: this connection delivered its whole window - normal, open the next one
                             r.close()
@@ -649,14 +677,15 @@ def _refresh(info):
         return
     if fresh.get("product") == info.get("product"):
         info["image_url"], info["image_token"] = fresh["image_url"], fresh["image_token"]
+        info["chunklist_url"], info["chunklist_token"] = fresh["chunklist_url"], fresh["chunklist_token"]
 
 
-def _after_403(info, e, fetch):
-    """oscdn refused the image token: ask osrecovery for a fresh one once and fetch again. The stop says which of the two
-    failed, so a report tells a token that could not be renewed from a network that refuses every token."""
-    old = info["image_token"]
+def _after_403(info, e, fetch, key="image_token"):
+    """oscdn refused the image (or chunklist) token: ask osrecovery for a fresh one once and fetch again. The stop says
+    which of the two failed, so a report tells a token that could not be renewed from a network that refuses every token."""
+    old = info.get(key)
     _refresh(info)
-    if info["image_token"] == old:
+    if info.get(key) == old:
         raise AppleError(f"{e} - osrecovery gave no fresh token to try again.{CDN_REFUSED}") from e
     try:
         return fetch()
@@ -684,6 +713,22 @@ def _resume(info, offset, window=0, delay=2):
         r.close()
         raise AppleError(f"Apple's server would not resume the image at byte {offset} (status {getattr(r, 'status', '?')})")
     return r
+
+
+def _empty_answer(r):
+    """What a connection that delivered no byte answered, for the STOP line. 27 write logs on 2.6.5 (10-30..31) end with
+    every windowed request answered 206 with the right Content-Range and then no body, while the same request from
+    elsewhere returns all 524288 bytes from Apple's server (measured 10-31). The headers say who answered: Apple's
+    edge names itself (Server, X-Responding-Server), a proxy or scanner usually adds Via or its own Server. Never raises."""
+    try:
+        h = getattr(r, "headers", None)
+        if h is None:
+            return ""
+        keep = ("Content-Length", "Transfer-Encoding", "Server", "Via", "X-Cache", "X-Responding-Server", "Connection")
+        got = [f"{k}={str(h.get(k))[:60]}" for k in keep if h.get(k) is not None]
+        return f" [status {getattr(r, 'status', '?')}; {', '.join(got) or 'no headers'}]"
+    except Exception:  # noqa: BLE001 - only a description; the download decides what happens next
+        return ""
 
 
 def _memory_note():
