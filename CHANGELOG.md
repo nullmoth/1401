@@ -3,6 +3,14 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.6.6
+- Recovery downloads: when Apple's server refuses the file list (403), 1401 asks again with a fresh token. A web page served in place of the file list, and a connection that answers with no data, are now named in the stop message instead of a bare error.
+- Writing the stick: when Z: to G: are all taken, 1401 also tries F:, E: and D:, and lists the letters in use if none is free. A stick Windows reports offline now says why and how to bring it online, and a stick that drops off USB after the image is written says so in one line.
+- Building: when OpenCore's check finds a driver missing, the stop lists what is in EFI/OC/Drivers.
+- Intel PCs that stop at "EB.MM.AKM" with only a few kernel slides free get the BIOS checklist (Above 4G Decoding, CSM off, a smaller iGPU memory).
+- Mac app: the stops for "runtime payload requires macOS" and "OpenCore's startup partition could not be confirmed" now name the macOS version and the partition the Mac started from.
+- Bundles NVIDIA driver 2.6.6.
+
 ## 2.6.5
 - Rebuilding a stick from its boot logs now reaches the kernel's boot arguments. Once one start had stored boot-args in the PC's NVRAM, OpenCore refused every later build's ("ignored, exists"), so added options such as npci=0x2000 never applied until NVRAM was reset by hand (#124, #126). When the logs show no installed macOS on an internal disk, the stick now replaces the stored boot-args; a PC that runs macOS keeps its own and is told to reset NVRAM once.
 - If the screen stops inside the touchpad driver's start ("VoodooGPIO... Loading GPIO Data for AMD"), the rebuilt stick leaves the VoodooI2C touchpad stack off; the keyboard keeps working and a USB mouse drives the installer (#124).
