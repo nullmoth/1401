@@ -115,6 +115,11 @@
    "license": "BSD-3-Clause",
    "class": "permissive"
   },
+  "b00t0x/WhateverXe": {
+   "license": "BSD-3-Clause",
+   "class": "permissive",
+   "evidence": "LICENSE in the repo; the Mac app fetches release 0.6.1 from its author, pinned by sha256 (nullmoth-setup.sh)"
+  },
   "blankmac/AlpsHID": {
    "license": "none",
    "class": "none",
