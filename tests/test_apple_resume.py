@@ -267,3 +267,78 @@ class FirstRequest403(unittest.TestCase):
         first = src[:src.index("with _open_part(img + \".part\", dest) as fh:")]
         self.assertIn('"HTTP Error 403" not in str(e)', first)
         self.assertIn("_after_403(info, e,", first)
+
+
+class ChunklistRefusals(unittest.TestCase):
+    """2.6.5 write logs: a 403 on the chunklist stopped bare, and a web page served as the chunklist stopped as "not an
+    Apple chunklist (magic=b'<!DO' ...)"."""
+
+    @staticmethod
+    def forbidden(url):
+        return apple.AppleError(f"{url}: HTTPError: HTTP Error 403: Forbidden")
+
+    def test_a_403_on_the_chunklist_gets_a_fresh_token_and_the_chunklist_arrives(self):
+        info, seen = dict(INFO), []
+        def asset(url, token, extra=None):
+            seen.append(token)
+            if token == "t":
+                raise self.forbidden(url)
+            return Stream(b"CNKL-bytes")
+        def refresh(i):
+            i["chunklist_token"] = "fresh"
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", refresh):
+            self.assertEqual(apple.fetch_chunklist(info), b"CNKL-bytes")
+        self.assertEqual(seen, ["t", "fresh"])
+
+    def test_negative_control_a_chunklist_refused_again_stops_naming_the_network(self):
+        def asset(url, token, extra=None):
+            raise self.forbidden(url)
+        def refresh(i):
+            i["chunklist_token"] = "fresh"
+        with patch.object(apple, "_asset", asset), patch.object(apple, "_refresh", refresh):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple.fetch_chunklist(dict(INFO))
+        self.assertIn("refused again with a fresh token", str(cm.exception))
+        self.assertIn("hotspot or a VPN", str(cm.exception))
+
+    def test_a_refresh_renews_the_chunklist_token_too(self):
+        info = {**INFO, "name": apple.TARGETS[25][0], "board": apple.TARGETS[25][1]}
+        fresh = {"product": "test", "image_url": "u2", "image_token": "i2", "chunklist_url": "c2", "chunklist_token": "k2"}
+        with patch.object(apple, "image_info", lambda major: fresh):
+            apple._refresh(info)
+        self.assertEqual((info["chunklist_url"], info["chunklist_token"]), ("c2", "k2"))
+
+    def test_a_web_page_served_as_the_chunklist_is_named_with_its_title(self):
+        page = b"<!DOCTYPE html><html><head><title>Guest Wi-Fi sign in</title></head><body></body></html>"
+        with patch.object(apple, "_asset", lambda url, token, extra=None: Stream(page)):
+            with self.assertRaises(apple.AppleError) as cm:
+                apple.fetch_chunklist(dict(INFO))
+        self.assertIn("its own web page", str(cm.exception))
+        self.assertIn("Guest Wi-Fi sign in", str(cm.exception))
+        self.assertNotIn("magic=", str(cm.exception))
+
+    def test_negative_control_real_chunklist_bytes_are_not_taken_for_a_page(self):
+        with patch.object(apple, "_asset", lambda url, token, extra=None: Stream(b"CNKL" + b"\0" * 40)):
+            self.assertEqual(apple.fetch_chunklist(dict(INFO)), b"CNKL" + b"\0" * 40)
+
+
+class EmptyAnswerEvidence(unittest.TestCase):
+    """27 write logs on 2.6.5 end with windows answered 206 and no body; the STOP now says what answered."""
+
+    def test_an_empty_connection_names_its_status_and_headers(self):
+        def empty(e):
+            s = Stream(b"", status=206, content_range=f"bytes 10-{len(IMAGE)-1}/{len(IMAGE)}")
+            s.headers["Content-Length"] = "0"
+            s.headers["Via"] = "1.1 scanner"
+            return s
+        opens = [lambda e: Stream(IMAGE, drop_after=10)] + [empty] * 40
+        with patch.object(apple, "_refresh", lambda info: None):
+            got, calls, err = Resume.run_download(Resume(), opens)
+        self.assertIsNone(got)
+        self.assertIn("connection at 10 gave 0 B, then AppleError [status 206; Content-Length=0, Via=1.1 scanner]", err)
+
+    def test_negative_control_a_connection_that_gave_bytes_carries_no_header_note(self):
+        opens = [lambda e: Stream(IMAGE, drop_after=10)] + [lambda e: Stream(b"", status=206, content_range=f"bytes 10-{len(IMAGE)-1}/{len(IMAGE)}")] * 40
+        with patch.object(apple, "_refresh", lambda info: None):
+            got, calls, err = Resume.run_download(Resume(), opens)
+        self.assertIn("connection at 0 gave 10 B, then AppleError;", err)
