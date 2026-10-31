@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 
 from . import amd_gpu
 from . import amd_rdna4
+from . import intel_gpu
 from . import community
 from . import downloads
 from . import netsupport
@@ -747,6 +748,9 @@ def _nullmoth_gpu_pass(checker, h):
         # Navi 48 cards are described in full by the RDNA 4 display-driver pass (amd_rdna4), so skip them here.
         amd_notes = amd_gpu.notes(checker.hardware_report, skip_ids=amd_rdna4.NAVI48_IDS)
         h.notices.extend(amd_notes)
+        # Per-Intel-Xe-GPU notice: no Apple driver from Tiger Lake on, so the user sees before building that it runs on
+        # basic display and, for the IDs WhateverXe covers, that the Mac app offers it as an opt-in test afterwards.
+        h.notices.extend(intel_gpu.notes(checker.hardware_report, nvidia=bool(hit)))
         if not hit:
             basic = nullmoth.basic_display(checker.hardware_report) if exited else None
             if not basic:
@@ -754,9 +758,9 @@ def _nullmoth_gpu_pass(checker, h):
                     raise exited
                 return
             checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
-            # The AMD notice for this card is more specific than the generic BASIC_NOTE, so skip the generic one when
-            # the card kept on the firmware framebuffer is the AMD GPU already described above.
-            if amd_gpu.classify(gpus.get(basic, {})) is None:
+            # The AMD or Intel notice for this card is more specific than the generic BASIC_NOTE, so skip the generic
+            # one when the card kept on the firmware framebuffer is a GPU already described above.
+            if amd_gpu.classify(gpus.get(basic, {})) is None and intel_gpu.classify(gpus.get(basic, {})) is None:
                 h.notices.append(nullmoth.BASIC_NOTE.format(name=basic))
             return
         h.policy.prefer["macOS"] = h.policy.macos or nullmoth.DEFAULT_DARWIN
