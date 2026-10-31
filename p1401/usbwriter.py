@@ -34,7 +34,12 @@ OS_TYPES = "'{7c3457ef-0000-11aa-aa11-00306543ecac}','{48465300-0000-11aa-aa11-0
 TIMEOUT = 300  # seconds, so a hung format fails instead of waiting forever
 # 1401\\Recovery beside 1401.exe: a recovery image the user brings (see cli_write)
 RECOVERY_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "Recovery"))
-FIELDS = "Number,FriendlyName,SerialNumber,UniqueId,BusType,Size,IsBoot,IsSystem,IsOffline,IsReadOnly,PartitionStyle"
+FIELDS = "Number,FriendlyName,SerialNumber,UniqueId,BusType,Size,IsBoot,IsSystem,IsOffline,OfflineReason,IsReadOnly,PartitionStyle"
+# MSFT_Disk.OfflineReason, as Microsoft documents the values
+OFFLINE_REASONS = {1: "Windows' SAN policy keeps new disks offline", 2: "a redundant path to another disk",
+                   3: "a snapshot disk", 4: "its disk signature collides with another disk's",
+                   5: "Windows ran out of resources for it", 6: "it had critical write failures",
+                   7: "Windows wants a data integrity scan"}
 
 
 # Windows errors a raw sector write ends with on sticks that diskpart still erases: 5 access denied, 1117 I/O device error
@@ -285,7 +290,12 @@ def eligible(disk, allow_large=False):
     if disk.get("IsSystem"):
         why.append("this disk holds the system partition")
     if disk.get("IsOffline"):
-        why.append("the disk is offline")
+        # 2.6.5 write logs (6, two sticks, 10-31): the bare "the disk is offline" said neither why nor what to do.
+        # Windows keeps the reason in MSFT_Disk.OfflineReason.
+        reason = OFFLINE_REASONS.get(disk.get("OfflineReason"), "")
+        why.append("Windows has this stick offline" + (f" ({reason})" if reason else "") + ". Open Disk Management "
+                   "(right-click Start), right-click the stick's disk and choose Online, or unplug it and plug it into "
+                   "another USB port, then press Write again")
     if disk.get("IsReadOnly"):
         why.append("the disk is read-only (a lock switch, or a failing stick)")
     size = int(disk.get("Size") or 0)
@@ -454,6 +464,13 @@ def _copy_settled(src, dst, root, tries=6, sleep=time.sleep):
             return
         except (shutil.Error, OSError) as error:
             if attempt == tries - 1:
+                # 2.6.5 write logs NM-A7T6904A, NM-667B19WZ: the image was written and read back, then the stick's drive
+                # disappeared for the whole retry window and the stop was a bare "FileNotFoundError: ... 'E:\\'".
+                if not os.path.isdir(root):
+                    raise UsbError(f"the stick's drive {root} went away while the EFI was copied, after the macOS image "
+                                   "was written and checked: the stick dropped off USB. Plug it into a USB port on the "
+                                   "back of the PC (not a hub or front panel) and write again; if it happens again, use "
+                                   "another stick") from error
                 # shutil.Error carries one (source, destination, reason) per file: the STOP was that whole list with
                 # the user's paths in it (1.15 write log 10-14, WinError 433 on every BlueToolFixup file). One line.
                 if isinstance(error, shutil.Error) and error.args and isinstance(error.args[0], list) and error.args[0]:
@@ -470,12 +487,17 @@ def _copy_settled(src, dst, root, tries=6, sleep=time.sleep):
 
 
 def _free_letter():
+    """A drive letter for the stick: Z: down to G: first, then F:, E: and D:. 2.6.5 write logs (one PC, 7 writes,
+    10-31) stopped "no free drive letter between G: and Z:" with nothing saying which letters were taken or by what,
+    and D: to F: were never tried. The stop now lists the letters Windows reports in use."""
     import string  # noqa: PLC0415
     used = {d[0].upper() for d in (os.listdrives() if hasattr(os, "listdrives") else [])}
-    for c in reversed(string.ascii_uppercase[6:]):
+    for c in list(reversed(string.ascii_uppercase[6:])) + ["F", "E", "D"]:
         if c not in used and not os.path.exists(c + ":\\"):
             return c
-    raise UsbError("no free drive letter between G: and Z:")
+    raise UsbError("no free drive letter between D: and Z: (in use: " + (" ".join(sorted(used)) or "none listed") + "). "
+                   "Disconnect network drives and card readers you do not need, or remove a letter in Disk Management, "
+                   "and press Write again")
 
 
 # diskpart exits with the HRESULT of the command that failed. 0x80070005 is "access denied": seen on 1.13 (two
@@ -658,7 +680,10 @@ Write-Output "LETTER=$letter"
             break
         time.sleep(0.5)
     if not os.path.isdir(root):
-        raise UsbError(f"diskpart finished but {root} did not appear")
+        # 2.6.5 write logs (3 PCs): this stop gave no clue whether the partition existed without a letter or was gone;
+        # the stick search's own answer (empty when it found nothing) is now part of it.
+        seen = " ".join((out or "").split())[-300:]
+        raise UsbError(f"diskpart finished but {root} did not appear (the stick search said: {seen or 'nothing'})")
     return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile)
 
 
