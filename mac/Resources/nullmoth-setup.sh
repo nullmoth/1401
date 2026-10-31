@@ -781,7 +781,9 @@ T=$(mktemp -d /var/tmp/nullmoth.XXXX) || stop "could not create runtime prefligh
 tar -xzf "$PKG" -C "$T" || stop "could not unpack the package for runtime compatibility checking"
 RUNTIME_PREFLIGHT="$T/pkgroot/nullmoth-runtime-check.sh"
 [ -x "$RUNTIME_PREFLIGHT" ] || stop "the package has no runtime compatibility checker"
-/bin/bash "$RUNTIME_PREFLIGHT" "$T/pkgroot" "$(sw_vers -productVersion)" || stop "the userland runtime cannot load on this macOS version; EFI and driver files were not changed"
+# 2.6.5 setup logs (5, 10-31): "runtime payload requires macOS 15.5.0; this system is older" with no word on which macOS
+# this Mac runs, so a report could not tell 15.4 from 14.x. The stop names it.
+/bin/bash "$RUNTIME_PREFLIGHT" "$T/pkgroot" "$(sw_vers -productVersion)" || stop "the userland runtime cannot load on macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion 2>/dev/null)); EFI and driver files were not changed"
 rm -rf "$T"; T=""
 fi
 
@@ -881,6 +883,11 @@ else
     fi
     if [ "$BOOT_BOUND" != 1 ]; then
       for d in $found; do echo "NOTE candidate $d"; done
+      # 2.6.5 setup logs NM-FEPPPTQZ, NM-M3G4YM2Z (three candidates) stopped here with no boot-path, so nothing said why
+      # the partition OpenCore names was not matched. The boot-path and each candidate's identity follow the candidate
+      # list on their own lines (the app reads "NOTE candidate <disk>" lines as the choices it offers).
+      echo "NOTE boot-path: $(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2- | head -c 300)"
+      for d in $found; do echo "NOTE partition $d: $(diskutil info "$d" 2>/dev/null | awk -F': *' '/Partition UUID|Partition Offset|Disk Size|Device Location|Protocol/{printf "%s=%s; ", $1, $2}' | sed 's/^ *//; s/   */ /g' | head -c 300)"; done
       # Mac 1.9/1.10 logs 10-10 (5 uploads, one candidate each): OpenCore hides boot-path and its version when
       # Misc > Security > ExposeSensitiveData lacks bits 0x1/0x2, so nothing proves which partition started the Mac, and
       # editing one that did not would install the driver without its settings or the removal tool. Say how to fix it.
