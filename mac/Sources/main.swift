@@ -765,11 +765,17 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let name: String
         let sha: String
         let efi: String?
+        // A package from the newest release must also carry a NullMoth signature (Ed25519, release key compiled in):
+        // its SHA-256 comes from SHA256SUMS.txt in that same release, so whoever can replace the release's files could
+        // replace both, and the package runs as root. The package this app was built with is pinned by its compiled-in
+        // SHA-256 instead (fromRelease false).
+        var fromRelease = false
+        var sig: String? = nil
     }
     var pendingDownload: (id: Int, plan: DownloadPlan)? = nil
     var runningSetup = false
     lazy var downloadSession = URLSession(configuration: .default, delegate: self, delegateQueue: .main)
-    var latest: (version: String, name: String, url: URL, sha: String)? = nil
+    var latest: (version: String, name: String, url: URL, sha: String, sig: String?)? = nil
     var latestApp: (version: String, name: String, url: URL, sha: String, sig: URL?)? = nil
     static func releaseAppVersion(_ name: String) -> String? {
         guard let match = name.range(of: #"^1401-Mac-([0-9]+\.[0-9]+(?:\.[0-9]+)?)\.zip$"#, options: .regularExpression) else { return nil }
@@ -840,8 +846,13 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                     guard let n = x["name"] as? String, n == a.1 + ".sig",
                           let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
                     return u }.first }
+                // the package's detached signature, read now (off the main thread) and checked before anything installs it
+                let pkgSig: String? = assets.compactMap { x -> URL? in
+                    guard let n = x["name"] as? String, n == pkg.1 + ".sig",
+                          let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
+                    return u }.first.flatMap { syncGet($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
                 DispatchQueue.main.async {
-                    self.latest = (pkg.0, pkg.1, pkg.2, sha)
+                    self.latest = (pkg.0, pkg.1, pkg.2, sha, pkgSig)
                     if let a = appz, appSha.count == 64 { self.latestApp = (a.0, a.1, a.2, appSha, appSig) }
                 }
                 let have = self.installedDriverVersion()
@@ -853,14 +864,14 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             }.resume()
         }.resume()
     }
-    func startDownload(name: String, sha: String, url: URL, efi: String?) {
+    func startDownload(name: String, sha: String, url: URL, efi: String?, fromRelease: Bool = false, sig: String? = nil) {
         // A click while busy used to return silently, leaving "Downloading the newest driver..." on screen for good.
         if pendingDownload != nil { send("dl", ["state": "error", "why": "a download is already running; wait for it to finish"]); return }
         if runningSetup { send("dl", ["state": "error", "why": "setup is still running; try again when it has finished"]); return }
         do { try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true) }
         catch { send("dl", ["state": "error", "why": error.localizedDescription]); return }
         let task = downloadSession.downloadTask(with: url)
-        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi))
+        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease, sig: sig))
         send("dl", ["state": "start"])
         task.resume()
     }
@@ -880,9 +891,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [unowned self] in
                 switch response {
                 case .alertFirstButtonReturn:
-                    startDownload(name: l.name, sha: l.sha, url: l.url, efi: efi)
+                    startDownload(name: l.name, sha: l.sha, url: l.url, efi: efi, fromRelease: true, sig: l.sig)
                 case .alertSecondButtonReturn:
-                    selectLocalDriverFile(name: l.name, sha: l.sha, efi: efi)
+                    selectLocalDriverFile(name: l.name, sha: l.sha, efi: efi, sig: l.sig)
                 case .alertThirdButtonReturn:
                     cancelUpdateDriver()
                 default: break
@@ -890,7 +901,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             }
         }
     }
-    func selectLocalDriverFile(name: String, sha: String, efi: String?) {
+    func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {
         let panel = NSOpenPanel()
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
         panel.canChooseFiles = true
@@ -919,7 +930,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 send("dl", ["state": "error", "why": "\(url.lastPathComponent) is not \(name) (its SHA-256 does not match the release), so nothing was installed"])
                 return
             }
-            processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi))
+            processDriverFile(at: tmpURL, plan: DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: true, sig: sig))
         }
     }
     func cancelUpdateDriver() {
@@ -1028,6 +1039,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     private func processDriverFile(at loc: URL, plan: DownloadPlan) {
         let dst = support.appendingPathComponent(plan.name)
         guard sha256(loc) == plan.sha else { send("dl", ["state": "error", "why": "the download does not match its SHA-256, so it was thrown away"]); return }
+        if plan.fromRelease {
+            guard let sig = plan.sig, ReleaseSignature.verify(zip: loc, signatureBase64: sig) else {
+                send("dl", ["state": "error", "why": "the driver package is not signed by NullMoth, so it was not installed"]); return }
+        }
         do {
             if FileManager.default.fileExists(atPath: dst.path) {
                 _ = try FileManager.default.replaceItemAt(dst, withItemAt: loc)
