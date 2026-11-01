@@ -928,13 +928,22 @@ if [ -n "$EFIREAD" ]; then
   # ACPI tables the firmware handed over, which is how the app knows whether VT-d is on). Read only: nothing on the
   # partition changes. The folder is the app's own and gets handed back to its owner.
   [ -d "$EFIREAD" ] && [ ! -L "$EFIREAD" ] || stop "--efi-read needs an existing folder"
-  cp "$C" "$EFIREAD/config.plist" || stop "could not copy $C"
+  # The folder belongs to the user, so any program running as that user could put a symlink at config.plist (or any
+  # name below) while the password prompt is up, and root's cp or ">" would write through it to a file of its choosing.
+  # Everything is written into a folder only root can open, handed to the folder's owner, and then renamed into place:
+  # a rename replaces a symlink at the target instead of following it (mv -h: not even one to a directory).
+  ER=$(mktemp -d /private/var/tmp/nullmoth-efiread.XXXXXX) || stop "could not make a private folder for the EFI copy"
+  cp "$C" "$ER/config.plist" || { rm -rf "$ER"; stop "could not copy $C"; }
   # the newest log that lists the ACPI tables: OpenCore can leave a pre-sized file of zeros for a start it never wrote to
   oclog=""; for f in $(ls -t "$MP"/opencore-*.txt 2>/dev/null); do grep -aq "OCA: Found" "$f" && { oclog=$f; break; }; done
-  [ -n "$oclog" ] && cp "$oclog" "$EFIREAD/opencore.txt"
-  on_usb "$EFI" && echo stick > "$EFIREAD/scope" || echo installed > "$EFIREAD/scope"
-  echo "$EFI" > "$EFIREAD/partition"
-  chown -R "$(stat -f %u "$EFIREAD")" "$EFIREAD"
+  [ -n "$oclog" ] && cp "$oclog" "$ER/opencore.txt"
+  on_usb "$EFI" && echo stick > "$ER/scope" || echo installed > "$ER/scope"
+  echo "$EFI" > "$ER/partition"
+  chown -R "$(stat -f %u "$EFIREAD")" "$ER" && chmod 0644 "$ER"/* || { rm -rf "$ER"; stop "could not hand the EFI copy back"; }
+  for f in config.plist opencore.txt scope partition; do
+    [ ! -e "$ER/$f" ] || mv -fh "$ER/$f" "$EFIREAD/$f" || { rm -rf "$ER"; stop "could not place $f"; }
+  done
+  rm -rf "$ER"
   ok "read $C${oclog:+ and $(basename "$oclog")}"; cleanup; echo "RESULT ok"; exit 0
 fi
 
