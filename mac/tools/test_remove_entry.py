@@ -10,7 +10,7 @@ DRV = _pl.Path(_os.environ.get("NULLMOTH_DRIVER") or _pl.Path(__file__).resolve(
 
 ROOT = Path(__file__).resolve().parents[1]
 BOOT = '7C436110-AB2A-4BBB-A880-FE41995C9F82'
-OLD_REV = '4ba580e'
+OLD_REV = '57798ba'
 
 
 def old_source():
