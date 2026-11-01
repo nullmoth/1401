@@ -40,8 +40,12 @@ enum Privileged {
         defer { try? fm.removeItem(at: dir) }
         let out = dir.appendingPathComponent("output.txt")
         let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-        // root writes the output, then hands the file back to this user so the app can read and delete it
-        let shell = "{ \(command) ; } > \(q(out.path)) 2>&1; /usr/sbin/chown \(getuid()) \(q(out.path)); exit 0"
+        // root writes the output, then hands the file back to this user so the app can read and delete it.
+        // The folder belongs to this user, so any program running as this user can swap output.txt for a symlink while
+        // the password prompt is up. A plain ">" then truncated the symlink's target as root, and chown followed it and
+        // handed that file (for example /etc/sudoers) to this user. noclobber (set -C) makes root create the file
+        // itself and refuse one that already exists, symlink or not, and chown -h never follows a link.
+        let shell = "set -C; { \(command) ; } > \(q(out.path)) 2>&1; /usr/sbin/chown -h \(getuid()) \(q(out.path)); exit 0"
         let source = "do shell script \"" + shell.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + (admin ? "\" with administrator privileges" : "\"")
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
