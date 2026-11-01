@@ -281,10 +281,32 @@ def latest_release(get_json, get_text):
                     out[key] = (name, url, sums[name])
     if out["driver"] is None:
         raise RuntimeError("the latest release has no driver package listed in SHA256SUMS.txt")
+    out["sigs"] = {n: u for n, u in assets.items() if n and n.endswith(".sig") and u and u.startswith("https://")}
     return out
 
 
-def update(dirs, rel, fetch):
+def _signed(path, name, sig_url, fetch, key):
+    """Raises unless `path` carries a valid NullMoth release signature (release_sig.py). A SHA-256 from the release's own
+    SHA256SUMS.txt proves only that the release agrees with itself; these files run as root on a Mac (the driver
+    package) or as administrator here (the 1401 app), so whoever could replace a release's files must not be able to
+    replace what 1401 installs."""
+    from . import release_sig  # noqa: PLC0415
+    if not sig_url:
+        raise RuntimeError(f"{name} is not signed by NullMoth (the release has no {name}.sig) - nothing was changed")
+    fetch(sig_url, path + ".sig")
+    try:
+        with open(path + ".sig", encoding="ascii", errors="replace") as fh:
+            sig = fh.read(4096)
+    finally:
+        try:
+            os.remove(path + ".sig")
+        except OSError:
+            pass
+    if not release_sig.verify_file(path, sig, key or release_sig.PUBLIC_KEY):
+        raise RuntimeError(f"{name}'s signature is not NullMoth's - nothing was changed")
+
+
+def update(dirs, rel, fetch, sigkey=None):
     """Puts the newest driver package (and 1401 Mac app) from `rel` into every folder in `dirs` (the app's NullMoth
     folder, then any 1401 stick's NullMoth folder), verified by SHA-256, and removes older copies there - the stick
     writer takes the first package it finds. Downloads once, into dirs[0]. Returns the lines to show."""
@@ -306,13 +328,21 @@ def update(dirs, rel, fetch):
         name, url, want = item
         os.makedirs(dirs[0], exist_ok=True)
         src = os.path.join(dirs[0], name)
+        sig_url = (rel.get("sigs") or {}).get(name + ".sig")
         if not (os.path.exists(src) and sha(src) == want):
             fetch(url, src + ".part")
             if sha(src + ".part") != want:
                 os.remove(src + ".part")
                 raise RuntimeError(f"{name} does not match the SHA-256 published with it - nothing was replaced")
+            try:
+                _signed(src + ".part", name, sig_url, fetch, sigkey)
+            except RuntimeError:
+                os.remove(src + ".part")
+                raise
             os.replace(src + ".part", src)
             lines.append(f"downloaded {name}")
+        else:
+            _signed(src, name, sig_url, fetch, sigkey)
         for d in dirs:
             os.makedirs(d, exist_ok=True)
             dst = os.path.join(d, name)
@@ -335,7 +365,8 @@ _WIN_RE = re.compile(r"^1401-Windows-(\d+\.\d+\.\d+)\.zip$")
 
 
 def latest_windows(get_json, get_text):
-    """The newest 1401 Windows app: (version, name, url, sha256) from the 1401 release, hashed by its SHA256SUMS.txt."""
+    """The newest 1401 Windows app: (version, name, url, sha256, signature url or None) from the 1401 release, hashed by
+    its SHA256SUMS.txt; app_update() refuses it without a signature."""
     rel = get_json(WIN_RELEASE_API)
     assets = {a.get("name"): a.get("browser_download_url") for a in rel.get("assets", []) if isinstance(a, dict)}
     if not assets.get("SHA256SUMS.txt"):
@@ -349,19 +380,21 @@ def latest_windows(get_json, get_text):
     for name, url in assets.items():
         m = _WIN_RE.match(name or "")
         if m and url and url.startswith("https://") and name in sums and (best is None or _vkey(m.group(1)) > _vkey(best[0])):
-            best = (m.group(1), name, url, sums[name])
+            sig = assets.get(name + ".sig")
+            best = (m.group(1), name, url, sums[name], sig if sig and sig.startswith("https://") else None)
     if best is None:
         raise RuntimeError("the latest 1401 release has no Windows app listed in SHA256SUMS.txt")
     return best
 
 
-def app_update(current, work, rel, fetch):
+def app_update(current, work, rel, fetch, sigkey=None):
     """'Update 1401': None when `current` is the newest, else the folder holding the verified new 1401 (with 1401.exe).
     The zip must match its published SHA-256 and every entry must stay inside the folder it unpacks to (no ../ paths)."""
     import hashlib  # noqa: PLC0415
     import shutil  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
-    version, name, url, want = rel
+    version, name, url, want = rel[:4]
+    sig_url = rel[4] if len(rel) > 4 else None
     if _vkey(version) <= _vkey(current):
         return None
     shutil.rmtree(work, ignore_errors=True)
@@ -375,6 +408,11 @@ def app_update(current, work, rel, fetch):
     if h.hexdigest() != want:
         os.remove(z + ".part")
         raise RuntimeError(f"{name} does not match the SHA-256 published with it - nothing was changed")
+    try:
+        _signed(z + ".part", name, sig_url, fetch, sigkey)
+    except RuntimeError:
+        os.remove(z + ".part")
+        raise
     os.replace(z + ".part", z)
     out = os.path.realpath(os.path.join(work, "unpacked"))
     with zipfile.ZipFile(z) as zf:
@@ -455,10 +493,17 @@ def selftest():
     # --- Update driver (newest release, verified by its own SHA256SUMS.txt) - no network: fake release + fetch
     import hashlib  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
+    import base64  # noqa: PLC0415
+    from . import release_sig  # noqa: PLC0415
+    seed = hashlib.sha256(b"1401 selftest key, never a release key").digest()
+    tkey = release_sig.sign(b"", seed)[1]
+    tsig = lambda b: base64.b64encode(release_sig.sign(b, seed)[0])  # noqa: E731
     blob = {"https://x/nullmoth-nvidia-1.0.7.tar.gz": b"driver 1.0.7", "https://x/1401-Mac-1.0.10.zip": b"mac 1.0.10"}
     hx = {k.rsplit("/", 1)[1]: hashlib.sha256(v).hexdigest() for k, v in blob.items()}
+    blob.update({k + ".sig": tsig(v) for k, v in list(blob.items())})
     sums = "".join(f"{h}  {n}\n" for n, h in hx.items())
     api = {"assets": [{"name": n, "browser_download_url": "https://x/" + n} for n in hx] +
+           [{"name": n + ".sig", "browser_download_url": "https://x/" + n + ".sig"} for n in hx] +
            [{"name": "nullmoth-nvidia-9.9.9.tar.gz", "browser_download_url": "https://x/unlisted"},
             {"name": "SHA256SUMS.txt", "browser_download_url": "https://x/sums"}]}
     rel = latest_release(lambda u: api, lambda u: sums)
@@ -471,19 +516,32 @@ def selftest():
         open(os.path.join(d, "nullmoth-nvidia-1.0.6.tar.gz"), "wb").write(b"old")
         open(os.path.join(d, "1401-Mac-1.0.9.zip"), "wb").write(b"old")
     got = []
-    lines = update([app, stick], rel, lambda u, p: (got.append(u), open(p, "wb").write(blob[u])))
+    lines = update([app, stick], rel, lambda u, p: (got.append(u), open(p, "wb").write(blob[u])), sigkey=tkey)
+    got = [u for u in got if not u.endswith(".sig")]
     arm("Update driver downloads each file once, puts both in the app folder and on the stick, removes the old copies",
         len(got) == 2 and sorted(os.listdir(app)) == sorted(os.listdir(stick)) == ["1401-Mac-1.0.10.zip", "nullmoth-nvidia-1.0.7.tar.gz"],
         (len(got), sorted(os.listdir(stick))))
     bad = tempfile.mkdtemp(prefix="1401-selftest-")
     open(os.path.join(bad, "nullmoth-nvidia-1.0.6.tar.gz"), "wb").write(b"old")
     try:
-        update([bad], {"driver": rel["driver"], "mac": None}, lambda u, p: open(p, "wb").write(b"tampered"))
+        update([bad], {"driver": rel["driver"], "mac": None, "sigs": rel["sigs"]},
+               lambda u, p: open(p, "wb").write(b"tampered"), sigkey=tkey)
         refused = False
     except RuntimeError:
         refused = True
     arm("a download that does not match its published SHA-256 is refused and the old package stays",
         refused and os.listdir(bad) == ["nullmoth-nvidia-1.0.6.tar.gz"], os.listdir(bad))
+    # the release's own SHA256SUMS.txt is not enough: an unsigned package, or one signed by another key, is refused
+    for label, r3, k3 in (("an unsigned package", {"driver": rel["driver"], "mac": None, "sigs": {}}, tkey),
+                          ("a package signed by another key", rel, release_sig.sign(b"", b"\x01" * 32)[1])):
+        nd = tempfile.mkdtemp(prefix="1401-selftest-")
+        try:
+            update([nd], {"driver": r3["driver"], "mac": None, "sigs": r3["sigs"]}, lambda u, p: open(p, "wb").write(blob[u]), sigkey=k3)
+            refused = False
+        except RuntimeError:
+            refused = True
+        arm(f"{label} is refused and nothing is placed", refused and os.listdir(nd) == [], os.listdir(nd))
+        shutil.rmtree(nd, ignore_errors=True)
     # --- Update 1401 (the Windows app itself)
     import io  # noqa: PLC0415
     import zipfile  # noqa: PLC0415
@@ -496,6 +554,7 @@ def selftest():
         return b.getvalue()
     good = mkzip({"1401/1401.exe": b"exe", "1401/engine/x.py": b"x"})
     wapi = {"assets": [{"name": "1401-Windows-1.14.0.zip", "browser_download_url": "https://x/w"},
+                       {"name": "1401-Windows-1.14.0.zip.sig", "browser_download_url": "https://x/w.sig"},
                        {"name": "1401-Windows-9.0.0.zip", "browser_download_url": "https://x/unlisted"},
                        {"name": "SHA256SUMS.txt", "browser_download_url": "https://x/s"}]}
     wsums = hashlib.sha256(good).hexdigest() + "  1401-Windows-1.14.0.zip\n"
@@ -506,17 +565,28 @@ def selftest():
     arm("startup check: 1.1.0 is outdated against 1.14.2, 1.14.2 and 1.15.0 are not",
         outdated("1.1.0", "1.14.2") and outdated("1.13.0", "1.14.2") and not outdated("1.14.2", "1.14.2")
         and not outdated("1.15.0", "1.14.2"), "1.1.0 / 1.13.0 vs 1.14.2")
-    got = app_update("1.13.0", os.path.join(wt, "b"), wrel, lambda u, p: open(p, "wb").write(good))
+    wfetch = lambda u, p, b=good: open(p, "wb").write(tsig(b) if u.endswith(".sig") else b)  # noqa: E731
+    got = app_update("1.13.0", os.path.join(wt, "b"), wrel, wfetch, sigkey=tkey)
     arm("a newer, verified app unpacks to a folder holding 1401.exe", got and os.path.isfile(os.path.join(got, "1401.exe")), got)
     for label, blob in (("a tampered download", b"tampered"), ("a zip with a ../ entry",
                         mkzip({"1401/1401.exe": b"e", "../evil.txt": b"x"}))):
-        r2 = (wrel[0], wrel[1], wrel[2], hashlib.sha256(blob).hexdigest()) if blob != b"tampered" else wrel
+        r2 = (wrel[0], wrel[1], wrel[2], hashlib.sha256(blob).hexdigest(), wrel[4]) if blob != b"tampered" else wrel
         try:
-            app_update("1.13.0", os.path.join(wt, "c"), r2, lambda u, p, b=blob: open(p, "wb").write(b))
+            app_update("1.13.0", os.path.join(wt, "c"), r2,
+                       lambda u, p, b=blob: open(p, "wb").write(tsig(b) if u.endswith(".sig") else b), sigkey=tkey)
             ok_ = False
         except RuntimeError:
             ok_ = True
         arm(f"{label} is refused", ok_ and not os.path.exists(os.path.join(wt, "evil.txt")), label)
+    for label, r4, f4 in (("an unsigned Windows app", wrel[:4] + (None,), lambda u, p: open(p, "wb").write(good)),
+                          ("a Windows app whose signature is for other bytes", wrel,
+                           lambda u, p: open(p, "wb").write(tsig(b"other") if u.endswith(".sig") else good))):
+        try:
+            app_update("1.13.0", os.path.join(wt, "d"), r4, f4, sigkey=tkey)
+            ok_ = False
+        except RuntimeError:
+            ok_ = True
+        arm(f"{label} is refused and not unpacked", ok_ and not os.path.exists(os.path.join(wt, "d", "unpacked")), label)
     shutil.rmtree(wt, ignore_errors=True)
     print(f"{sum(res)}/{len(res)} passed")
     return 0 if all(res) else 1
