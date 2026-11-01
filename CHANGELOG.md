@@ -9,6 +9,8 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 - Building: when OpenCore's check finds a driver missing, the stop lists what is in EFI/OC/Drivers.
 - Intel PCs that stop at "EB.MM.AKM" with only a few kernel slides free get the BIOS checklist (Above 4G Decoding, CSM off, a smaller iGPU memory).
 - Mac app: the stops for "runtime payload requires macOS" and "OpenCore's startup partition could not be confirmed" now name the macOS version and the partition the Mac started from.
+- Security: 1401 for Windows installs its own update, and puts a driver or Mac app on the stick, only with a valid NullMoth signature; anything unsigned or changed is refused.
+- Security (Mac app): administrator steps no longer write through files another program could swap in your user folder, and driver updates need a valid NullMoth signature.
 - Bundles NVIDIA driver 2.6.6.
 
 ## 2.6.5
