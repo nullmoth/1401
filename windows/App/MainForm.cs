@@ -32,6 +32,10 @@ namespace A1401
         // Off unless the user ticks it: the community AMD RDNA 4 display driver and the MediaTek Wi-Fi driver are
         // unproven on most of the hardware they claim, and each takes over something the machine needs to be usable.
         readonly CheckBox expDrivers = new CheckBox();
+        // Off unless the user ticks it. Ticked, the stick's NullMoth\system-profile.json carries an "opt_in" request that
+        // the Mac app honours once, after the NVIDIA driver is set up, through its own signed install and CPU check.
+        // Unticked, the stick is written exactly as before.
+        readonly CheckBox armApps = new CheckBox();
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
@@ -139,6 +143,9 @@ namespace A1401
             expDrivers.BackColor = Color.Transparent; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
             // Including them changes which kexts the build carries, so a finished build is no longer the right one.
             expDrivers.CheckedChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
+            armApps.Text = Loc.T("Also set up ARM apps (opt-in): after the NVIDIA driver, the 1401 Mac app installs NullMoth's ARM app support if this Mac's processor can run it.");
+            armApps.AutoSize = true; armApps.Checked = false;
+            armApps.BackColor = Color.Transparent; armApps.ForeColor = Theme.Text; armApps.Font = Theme.Picker;
             guide.ScriptErrorsSuppressed = true;
             ocLink.Text = Loc.T("OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"); ocLink.AutoSize = true;
             ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
@@ -173,7 +180,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             // The stars drift: ten frames a second repaint the glass panels and the see-through text on them, never the
@@ -316,6 +323,14 @@ namespace A1401
                 cursor = Math.Max(disks.Bottom, refresh.Bottom) + 12;
             }
 
+            if (armApps.Visible)
+            {
+                armApps.AutoSize = false;
+                int armHeight = Math.Max(24, armApps.GetPreferredSize(new Size(width, 0)).Height);
+                armApps.SetBounds(left, cursor, width, armHeight);
+                cursor = armApps.Bottom + 12;
+            }
+
             if (bar.Visible)
             {
                 bar.SetBounds(left, cursor, width, Math.Max(18, bar.Height));
@@ -445,7 +460,7 @@ namespace A1401
 
         void Show(params Control[] on)
         {
-            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink }) c.Visible = on.Contains(c);
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, armApps }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
             appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
@@ -519,7 +534,10 @@ namespace A1401
                 case 4:
                     note.Text = Loc.T("Plug in the USB stick that will become the macOS installer. EVERYTHING on it is erased.\r\n" +
                         "1401 downloads macOS from Apple onto it and adds the startup files") + Loc.T(summary.Contains("NVIDIA") ? " and the NullMoth NVIDIA driver." : ".");
-                    next.Text = Loc.T(written ? "Continue >" : "Erase and create"); Show(disks, refresh, bar, log); next.Enabled = true; FillDisks(); break;
+                    next.Text = Loc.T(written ? "Continue >" : "Erase and create");
+                    // the ARM apps request is acted on after the NVIDIA driver is set up, so only a stick that carries it offers it
+                    if (summary.Contains("NVIDIA")) Show(disks, refresh, armApps, bar, log); else Show(disks, refresh, bar, log);
+                    armApps.Enabled = !written; next.Enabled = true; FillDisks(); break;
                 case 5:
                     note.Text = Loc.T("The macOS stick is ready.\r\n\r\n1. Restart and open your board's boot menu (the key is in your BIOS steps), then choose the stick.\r\n" +
                         "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer. The screen can stay still for up to two minutes while macOS is read from the stick: do not restart.\r\n" +
@@ -727,6 +745,7 @@ namespace A1401
                 var report = Path.Combine(scanDir, "Report.json");
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
                 if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
+                if (armApps.Checked && armApps.Visible) args += " --arm-apps";
                 var writeLines = new List<string>();
                 int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
                 // The stick holds a Mac or Windows partition (an older macOS installer, or a disk with a system on it).

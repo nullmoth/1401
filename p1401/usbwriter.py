@@ -544,7 +544,8 @@ def _diskpart(script):
         os.remove(sp)
 
 
-def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, machine_profile=None, erase_os=False):
+def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, machine_profile=None, erase_os=False,
+          opt_in=None):
     """Erases the stick, then writes Apple's recovery image (checked chunk by chunk) and the EFI. Returns the drive root."""
     from . import apple  # noqa: PLC0415
     ok, why = eligible(disk, allow_large)
@@ -561,7 +562,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
             raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
     if disk.get("Via") == "Win32_DiskDrive":
         root = _write_wmi_erase(disk, erase_os)
-        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk))
+        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
     _ps(check_script(disk, erase_os))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
@@ -691,7 +692,7 @@ Write-Output "LETTER=$letter"
         # the stick search's own answer (empty when it found nothing) is now part of it.
         seen = " ".join((out or "").split())[-300:]
         raise UsbError(f"diskpart finished but {root} did not appear (the stick search said: {seen or 'nothing'})")
-    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk))
+    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
 
 
 def _write_wmi_erase(disk, erase_os):
@@ -723,7 +724,7 @@ def stick_name(disk):
     return both or "the USB stick"
 
 
-def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick="the USB stick"):
+def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick="the USB stick", opt_in=None):
     """Everything after the erase: the recovery image (checked as it arrives and read back), the EFI, the driver."""
     from . import apple  # noqa: PLC0415
     from . import machine_handoff  # noqa: PLC0415
@@ -771,7 +772,7 @@ def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile
         os.makedirs(cache, exist_ok=True)
         driver = nullmoth.stage(root, cache, fetch=_fetch)
     if machine_profile is not None:
-        machine_handoff.copy_to_installer(machine_profile, root)
+        machine_handoff.copy_to_installer(machine_profile, root, opt_in)
     return {"root": root, "nullmoth": driver, **got}
 
 
@@ -978,6 +979,7 @@ def refind(disks, uid, size, name):
 
 def cli_write(argv):
     """write <disk number> <EFI build dir> <darwin major> [--driver <tar.gz>] [--extra <file>]... [--profile <Report.json>] [--allow-large]
+    [--arm-apps]
     The Windows app's write step. Every line printed is "STEP|OK|PROGRESS|STOP ..." so the window can show it."""
     from . import apple, nullmoth, netsupport  # noqa: PLC0415
     num, efi, darwin = int(argv[0]), argv[1], int(argv[2])
@@ -1066,10 +1068,14 @@ def cli_write(argv):
         if pct != last[0]:
             last[0] = pct; print(f"PROGRESS {pct} downloading macOS recovery from Apple", flush=True)
     print(f"STEP erasing and writing disk {num} ({disk.get('FriendlyName')})", flush=True)
+    opt_in = machine_handoff.opt_in(arm_apps="--arm-apps" in argv)
     res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff,
-                erase_os="--erase-os-partitions" in argv)
+                erase_os="--erase-os-partitions" in argv, opt_in=opt_in)
     root = res["root"]
     print('OK verified build profile written to the stick (live identity remains unverified)', flush=True)
+    if opt_in:
+        print('OK ARM apps requested: the 1401 Mac app sets them up after the NVIDIA driver, if this Mac can run them',
+              flush=True)
     for f in opt("--extra"):
         d = os.path.join(root, "NullMoth"); os.makedirs(d, exist_ok=True)
         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
