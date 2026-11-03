@@ -4,6 +4,7 @@
 import Foundation
 import AppKit
 import UniformTypeIdentifiers
+import CryptoKit
 
 // ARM apps (opt-in): translates apps built only for Apple silicon so they run on this Intel Mac. Turning it on
 // downloads NullMoth's translator package (signed manifest -> SHA-256 -> release signature, the same chain as the test
@@ -42,29 +43,42 @@ enum ArmApps {
               let v = j["version"] as? String, let n = j["name"] as? String, let sha = (j["sha256"] as? String)?.lowercased(),
               let u = (j["url"] as? String).flatMap(URL.init(string:)), u.scheme == "https",
               let s = (j["sig"] as? String).flatMap(URL.init(string:)), s.scheme == "https",
-              validSha(sha), validPackageName(n) else { return nil }
+              validSha(sha), validPackageName(n), manifestNamesMatch(version: v, name: n, url: u) else { return nil }
         return Build(version: v, name: n, url: u, sha256: sha, sig: s)
     }
 
-    /// Downloads the package into Application Support (or reuses the copy there) and returns its path only when both its
-    /// SHA-256 and the release signature over its bytes check out.
-    static func fetch(_ b: Build) -> (path: String?, why: String?) {
+    /// The package name is exactly nullmoth-arm-<the manifest's version>.tar.gz and the download link ends in that name,
+    /// so a signed package of another NullMoth product, or another version, cannot stand in for this one.
+    static func manifestNamesMatch(version: String, name: String, url: URL) -> Bool {
+        version.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"#, options: .regularExpression) != nil
+            && name == "nullmoth-arm-\(version).tar.gz" && url.lastPathComponent == name
+    }
+
+    /// Gets the package (the copy already in Application Support, or a fresh download) into memory ONCE, checks the
+    /// SHA-256 and the release signature on that same buffer, and only then writes that buffer to disk. Hashing and
+    /// verifying the file in two separate reads let another program running as this user swap it between the two.
+    /// The returned digest is the one root re-checks on its private copy, so root installs only verified bytes.
+    static func fetch(_ b: Build) -> (path: String?, sha256: String?, why: String?) {
         let dst = support.appendingPathComponent(b.name)
-        if sha256(dst) != b.sha256 {
-            guard let data = syncGet(b.url, timeout: 1800) else { return (nil, "the ARM translator package did not download") }
-            do {
-                try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-                try data.write(to: dst, options: .atomic)
-            } catch { return (nil, error.localizedDescription) }
-            guard sha256(dst) == b.sha256 else {
-                try? FileManager.default.removeItem(at: dst); return (nil, "the ARM translator package does not match its SHA-256") }
+        let hex = { (d: Data) in SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined() }
+        var data = (try? Data(contentsOf: dst)) ?? Data()
+        if data.isEmpty || hex(data) != b.sha256 {
+            guard let d = syncGet(b.url, timeout: 1800) else { return (nil, nil, "the ARM translator package did not download") }
+            data = d
         }
+        let digest = hex(data)
+        guard digest == b.sha256 else {
+            try? FileManager.default.removeItem(at: dst); return (nil, nil, "the ARM translator package does not match its SHA-256") }
         guard let sig = syncGet(b.sig, timeout: 30), let text = String(data: sig, encoding: .utf8),
-              ReleaseSignature.verify(zip: dst, signatureBase64: text) else {
+              ReleaseSignature.verify(data: data, signatureBase64: text) else {
             try? FileManager.default.removeItem(at: dst)
-            return (nil, "the ARM translator package is not signed by NullMoth, so it was not installed")
+            return (nil, nil, "the ARM translator package is not signed by NullMoth, so it was not installed")
         }
-        return (dst.path, nil)
+        do {
+            try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+            try data.write(to: dst, options: .atomic)
+        } catch { return (nil, nil, error.localizedDescription) }
+        return (dst.path, digest, nil)
     }
 
     /// The root shell line that installs a checked package. The download sits in a folder this user owns, so another
@@ -289,18 +303,33 @@ extension ArmApps {
         return false
     }
 
+    /// The banner event for the page, or nil when there is nothing to show.
+    static func banner(request: Bool, decision: [String: Any]?, driverInstalled: Bool, cpuFeatures: String) -> [String: Any]? {
+        guard shouldHonourRequest(request: request, decision: decision, driverInstalled: driverInstalled) else { return nil }
+        if let why = cpuGate(features: cpuFeatures) {
+            return ["kind": "request", "canRun": false, "text": "1401 for Windows set up ARM apps for this Mac, but \(why)."]
+        }
+        return ["kind": "request", "canRun": true,
+                "text": "1401 for Windows set up ARM apps for this Mac. Press Turn on to finish (your password is needed once)."]
+    }
+
     /// Whether to act on the request: there is one, the NVIDIA driver was installed (the request only rides a driver
     /// install), and nobody has decided yet. A recorded decision, on or off, from the user or an earlier request, wins.
     static func shouldHonourRequest(request: Bool, decision: [String: Any]?, driverInstalled: Bool) -> Bool {
         request && driverInstalled && decision == nil
     }
 
-    /// The CPU floor the translator needs, checked before anything is downloaded on the automatic path (nm-arm check
-    /// ships inside the package, so it can only run after the install). x86-64-v2 plus AES, from the CPU's own flags.
+    /// The CPU floor the translator needs: AES, PCLMULQDQ, SSE4.2 and POPCNT, the same minimum the package's own check
+    /// uses. nm-arm check ships inside the package, so this runs before anything is offered. Features only, never the
+    /// vendor: an AMD processor with these flags passes exactly as an Intel one does.
     static func cpuGate(features: String) -> String? {
         let have = Set(features.uppercased().split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" }).map(String.init))
-        let missing = ["SSE3", "SSSE3", "SSE4.1", "SSE4.2", "POPCNT", "CX16", "AES"].filter { !have.contains($0) }
+        let missing = ["AES", "PCLMULQDQ", "SSE4.2", "POPCNT"].filter { !have.contains($0) }
         return missing.isEmpty ? nil : "this processor lacks \(missing.joined(separator: ", ")), which translated apps need"
+    }
+
+    static func cpuFeatures() -> String {
+        ["machdep.cpu.features", "machdep.cpu.leaf7_features", "machdep.cpu.extfeatures"].map { sysctl($0) }.joined(separator: " ")
     }
 }
 
@@ -323,9 +352,13 @@ extension App {
 
     func armAction(_ b: [String: Any]) {
         switch b["op"] as? String ?? "" {
-        case "status": armStatus(); armWindowsRequest(afterInstall: false)
+        case "status": armStatus(); armWindowsRequest()
         case "check": armBusy("Checking this Mac..."); armStatus()
-        case "on": armTurnOn(source: "user")
+        case "on": armTurnOn(source: b["from"] as? String == "windows" ? ArmApps.windowsSource : "user")
+        case "notNow":
+            // the banner's "Not now": a decision, so it does not come back; the card's own Turn on still works
+            if ArmApps.decision() == nil { ArmApps.saveDecision(on: false, source: ArmApps.windowsSource, skipped: "not now") }
+            armStatus()
         case "off": armTurnOff()
         case "clt":
             // Apple's own installer window; no password is needed to ask for it
@@ -350,9 +383,10 @@ extension App {
         }
     }
 
-    /// Turn on, from the button (source "user") or from a 1401 for Windows request: the same verified path either way.
-    /// A request that fails installs nothing and is recorded as off with its reason, so it never fires again; a failed
-    /// button press records nothing, so the user can simply try again.
+    /// Turn on, from the card's button (source "user") or from the 1401 for Windows banner's button: the same verified
+    /// path either way, and only ever after the user pressed it. From the banner, a failure installs nothing and is
+    /// recorded as off with its reason, so the banner does not come back; a failed press of the card's own button records
+    /// nothing, so the user can simply try again.
     func armTurnOn(source: String = "user") {
         let auto = source != "user"
         let lead = auto ? "1401 for Windows asked for ARM apps. " : ""
@@ -362,14 +396,12 @@ extension App {
                 if auto { ArmApps.saveDecision(on: false, source: source, skipped: why) }
                 self.armFail((auto ? "ARM apps (asked for in 1401 for Windows): not set up - " : "") + why)
             }
-            if auto, let why = ArmApps.cpuGate(features: sysctl("machdep.cpu.features") + " " + sysctl("machdep.cpu.leaf7_features")) {
-                return fail("Not installed: \(why).")
-            }
+            if auto, let why = ArmApps.cpuGate(features: ArmApps.cpuFeatures()) { return fail("Not installed: \(why).") }
             guard let b = ArmApps.latest() else { return fail("Could not read the ARM translator package list from nullmothsystems.com.") }
             self.armBusy(lead + "Downloading the ARM translator \(b.version) and checking its signature...")
             let got = ArmApps.fetch(b)
-            guard let path = got.path else { return fail("Not installed: \(got.why ?? "the package could not be checked").") }
-            guard let cmd = ArmApps.installCommand(package: path, sha: b.sha256) else { return fail("Not installed: the package list is malformed.") }
+            guard let path = got.path, let digest = got.sha256 else { return fail("Not installed: \(got.why ?? "the package could not be checked").") }
+            guard let cmd = ArmApps.installCommand(package: path, sha: digest) else { return fail("Not installed: the package list is malformed.") }
             self.armBusy(lead + "Waiting for your Mac password (a macOS window asks for it) to install the ARM translator...")
             DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
             let r = Privileged.run(cmd, timeout: 20 * 60)
@@ -383,22 +415,21 @@ extension App {
         }
     }
 
-    /// A 1401 for Windows request, consumed once: after a successful driver install (afterInstall, which also reads the
-    /// sticks still attached) or at the first launch after one (the profile setup saved under /Library/NullMoth).
-    func armWindowsRequest(afterInstall: Bool) {
-        guard ArmApps.job == nil else { return }
-        if !afterInstall { guard !ArmApps.autoChecked else { return }; ArmApps.autoChecked = true }
+    /// A 1401 for Windows request, shown once: at the first app launch after a driver install, when the profile setup
+    /// saved under /Library/NullMoth asks for ARM apps and nothing is decided yet, the page opens the ARM card with a
+    /// banner. Nothing is installed until the user presses Turn on there; Turn on, Turn off and "Not now" all record a
+    /// decision, which hides the banner for good. A CPU that cannot run translated apps gets the reason, not the button.
+    func armWindowsRequest() {
+        guard !ArmApps.autoChecked else { return }
+        ArmApps.autoChecked = true
         DispatchQueue.global(qos: .userInitiated).async {
             var records: [[String: Any]] = []
             if let d = try? Data(contentsOf: URL(fileURLWithPath: ArmApps.installedProfile)),
                let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] { records.append(j) }
-            if afterInstall { records.append(App.machineProfile([])) }
-            let driverInstalled = afterInstall || !App.recordedDriverVersion().isEmpty
-            guard ArmApps.shouldHonourRequest(request: ArmApps.windowsRequest(records), decision: ArmApps.decision(),
-                                              driverInstalled: driverInstalled) else { return }
-            // already installed by hand before any decision was recorded: record it, nothing to install
-            if ArmApps.isInstalled { ArmApps.saveDecision(on: true, source: ArmApps.windowsSource); return self.armStatus() }
-            DispatchQueue.main.async { self.armTurnOn(source: ArmApps.windowsSource) }
+            guard let banner = ArmApps.banner(request: ArmApps.windowsRequest(records), decision: ArmApps.decision(),
+                                              driverInstalled: !App.recordedDriverVersion().isEmpty,
+                                              cpuFeatures: ArmApps.cpuFeatures()) else { return }
+            DispatchQueue.main.async { self.send("arm", banner) }
         }
     }
 

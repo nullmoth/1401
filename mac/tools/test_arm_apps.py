@@ -30,9 +30,11 @@ def arm(name, ok, detail=""):
 
 # source-level arms
 fetch = src.split("static func fetch(", 1)[1].split("static func installCommand(", 1)[0]
-arm("the package is checked against its SHA-256 and the release signature, and a bad one is deleted",
-    "sha256(dst) == b.sha256" in fetch and "ReleaseSignature.verify(zip: dst, signatureBase64: text)" in fetch
+arm("the SHA-256 and the signature are checked on ONE in-memory buffer, written to disk only afterwards",
+    "let digest = hex(data)" in fetch and "ReleaseSignature.verify(data: data, signatureBase64: text)" in fetch
+    and "verify(zip:" not in fetch and fetch.index("verify(data: data") < fetch.index("data.write(to: dst")
     and fetch.count("removeItem(at: dst)") == 2)
+arm("root is handed the digest of the verified buffer", "installCommand(package: path, sha: digest)" in src)
 arm("the manifest takes only https links, a 64-hex SHA-256 and a nullmoth-arm-*.tar.gz name",
     'u.scheme == "https"' in src and 's.scheme == "https"' in src and "validSha(sha), validPackageName(n)" in src)
 inst = src.split("static func installCommand(", 1)[1].split("static func validUser(", 1)[0]
@@ -58,19 +60,24 @@ arm("the page has the card and its controls",
 ev = js.split("function armEvent(d)", 1)[1].split("\nfunction render(", 1)[0]
 arm("every error and refusal reaches the page escaped", 'kind === "error"' in ev and "esc(d.why)" in ev and "esc(c.why" in ev)
 auto = src.split("func armTurnOn(source:", 1)[1].split("func armWindowsRequest(", 1)[0]
-arm("a request uses the same verified Turn on path and records source 1401-windows; its failure records off with the reason",
+arm("the banner's Turn on is the same verified path, records source 1401-windows, and a failure records off with the reason",
     "ArmApps.saveDecision(on: true, source: source)" in auto and "ArmApps.saveDecision(on: false, source: source, skipped: why)" in auto
-    and "self.armTurnOn(source: ArmApps.windowsSource)" in src)
+    and 'b["from"] as? String == "windows" ? ArmApps.windowsSource' in src)
 arm("turning off by hand records the user's off", 'ArmApps.saveDecision(on: false, source: "user")' in src)
-arm("the request fires only after a successful driver install, after its result went to the page, or at launch",
-    'if mode == "install" && succeeded && !cancelled { self.armWindowsRequest(afterInstall: true) }' in main
-    and 'armWindowsRequest(afterInstall: false)' in src)
+arm("Not now records a decision so the banner shows once", 'skipped: "not now"' in src)
+arm("nothing installs on its own: the request only sends a banner, never calls Turn on",
+    "armTurnOn" not in src.split("func armWindowsRequest()", 1)[1].split("func armTurnOff()", 1)[0]
+    and "armWindowsRequest" not in main)
+arm("the page opens Tools with the ARM card first and the banner on it",
+    'kind === "request"' in js and '$("armreqon").hidden = !d.canRun' in js and 'sec.insertBefore(card, first)' in js
+    and 'id="armreq"' in html and 'id="armreqno"' in html)
 arm("Translate is enabled only when on and the check passed", '$("armtr").disabled = !(A.on && A.ok) || A.running' in js)
 
 # compile ArmApps.swift against stand-ins for the rest of the app
 STUBS = r'''
 import Foundation
 import AppKit
+import CryptoKit
 let support = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("arm-test-support")
 let logs = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("arm-test-logs")
 func sh(_ path: String, _ args: [String]) -> String {
@@ -80,11 +87,20 @@ func sh(_ path: String, _ args: [String]) -> String {
     let d = o.fileHandleForReading.readDataToEndOfFile(); p.waitUntilExit()
     return String(decoding: d, as: UTF8.self)
 }
-func syncGet(_ url: URL, timeout: TimeInterval) -> Data? { nil }
+// served from ARM_TEST_SERVE/<last path component>
+func syncGet(_ url: URL, timeout: TimeInterval) -> Data? {
+    guard let dir = ProcessInfo.processInfo.environment["ARM_TEST_SERVE"] else { return nil }
+    return try? Data(contentsOf: URL(fileURLWithPath: dir).appendingPathComponent(url.lastPathComponent))
+}
 func sha256(_ url: URL) -> String? { nil }
 func redact(_ s: String) -> String { s }
 func sysctl(_ k: String) -> String { "" }
-enum ReleaseSignature { static func verify(zip: URL, signatureBase64: String) -> Bool { false } }
+// a stand-in key: the "signature" is the package's own SHA-256 prefixed with SIGNED:
+enum ReleaseSignature {
+    static func verify(data: Data, signatureBase64: String) -> Bool {
+        signatureBase64 == "SIGNED:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
 enum Privileged {
     struct Result { let output: String; let error: String?; let cancelled: Bool }
     static func run(_ c: String, timeout: TimeInterval) -> Result { Result(output: "", error: nil, cancelled: false) }
@@ -138,6 +154,24 @@ case "decision":
     let d = ArmApps.decision()!
     print(before, d["on"] as! Bool, d["source"] as! String, d["skipped"] as! String)
     try? FileManager.default.removeItem(at: ArmApps.decisionFile)
+case "banner":
+    // a[2]: request yes/no; a[3]: decision JSON or none; a[4]: cpu features
+    let dec = a[3] == "none" ? nil : (try! JSONSerialization.jsonObject(with: Data(a[3].utf8)) as! [String: Any])
+    if let b = ArmApps.banner(request: a[2] == "yes", decision: dec, driverInstalled: true, cpuFeatures: a[4]) {
+        print(b["canRun"] as! Bool ? "BUTTON" : "NOBUTTON", b["text"] as! String)
+    } else { print("NONE") }
+case "names2":
+    let u = { (s: String) in URL(string: s)! }
+    print(ArmApps.manifestNamesMatch(version: "1.2", name: "nullmoth-arm-1.2.tar.gz", url: u("https://x/d/nullmoth-arm-1.2.tar.gz")),
+          ArmApps.manifestNamesMatch(version: "1.2", name: "nullmoth-arm-1.3.tar.gz", url: u("https://x/d/nullmoth-arm-1.3.tar.gz")),
+          ArmApps.manifestNamesMatch(version: "1.2", name: "nullmoth-arm-1.2.tar.gz", url: u("https://x/d/nullmoth-driver-2.7.tar.gz")),
+          ArmApps.manifestNamesMatch(version: "../1", name: "nullmoth-arm-../1.tar.gz", url: u("https://x/d/1.tar.gz")))
+case "fetch":
+    // a[2]: sha the manifest claims; a[3]: sig file name
+    let b = ArmApps.Build(version: "1.0", name: "nullmoth-arm-1.0.tar.gz", url: URL(string: "https://x/nullmoth-arm-1.0.tar.gz")!,
+                          sha256: a[2], sig: URL(string: "https://x/" + a[3])!)
+    let r = ArmApps.fetch(b)
+    print(r.path ?? "NOPATH", r.sha256 ?? "NOSHA", r.why ?? "OK")
 case "cpu":
     print(ArmApps.cpuGate(features: a[2]) ?? "OK")
 default: break
@@ -184,10 +218,46 @@ with tempfile.TemporaryDirectory() as d:
     arm("no driver install, no action", decide([req], None, "no") == "true false")
     arm("the decision record round-trips with its source and reason (and an absent file reads as no decision)",
         run("decision") == "true false 1401-windows no network", run("decision"))
-    full = "FPU SSE3 SSSE3 SSE4.1 SSE4.2 POPCNT CX16 AES AVX1.0 AVX2"
-    arm("a v2 CPU with AES passes the automatic path's CPU gate", run("cpu", full) == "OK", run("cpu", full))
+    full = "FPU SSE3 PCLMULQDQ SSSE3 SSE4.1 SSE4.2 POPCNT AES AVX1.0 AVX2"
+    arm("a CPU with AES, PCLMULQDQ, SSE4.2 and POPCNT passes the gate (by features, any vendor)", run("cpu", full) == "OK", run("cpu", full))
     out = run("cpu", full.replace(" AES", ""))
-    arm("negative control: no AES stops the automatic path before any download", "lacks AES" in out, out)
+    arm("negative control: no AES fails the gate with the reason", "lacks AES" in out, out)
+
+    # the banner: shown once, for a request with no decision; a CPU that cannot run it gets the reason and no button
+    out = run("banner", "yes", "none", full)
+    arm("request + no decision shows the banner with Turn on", out.startswith("BUTTON 1401 for Windows set up ARM apps for this Mac. Press Turn on"), out)
+    out = run("banner", "yes", json.dumps({"on": False, "source": "1401-windows", "skipped": "not now"}), full)
+    arm("negative control: a prior decision (Not now) hides the banner", out == "NONE", out)
+    out = run("banner", "yes", json.dumps({"on": True, "source": "user"}), full)
+    arm("a prior decision (on) hides the banner", out == "NONE", out)
+    out = run("banner", "no", "none", full)
+    arm("no request means no banner", out == "NONE", out)
+    out = run("banner", "yes", "none", full.replace(" AES", ""))
+    arm("negative control: a CPU without AES shows the reason and no Turn on button", out.startswith("NOBUTTON") and "lacks AES" in out, out)
+
+    names2 = run("names2")
+    arm("the manifest's name and link must be nullmoth-arm-<its own version>.tar.gz (another product or version is refused)",
+        names2 == "true false false false", names2)
+
+    # fetch: hash and signature on one buffer; a bad signature or SHA leaves nothing behind
+    import hashlib as _h
+    serve = d / "serve"; serve.mkdir()
+    payload = b"arm package bytes"
+    (serve / "nullmoth-arm-1.0.tar.gz").write_bytes(payload)
+    psha = _h.sha256(payload).hexdigest()
+    (serve / "good.sig").write_text("SIGNED:" + psha)
+    (serve / "bad.sig").write_text("SIGNED:" + "0" * 64)
+    env = dict(os.environ, ARM_TEST_SERVE=str(serve))
+    frun = lambda *a: subprocess.run([str(exe), "fetch", *a], capture_output=True, text=True, timeout=60, env=env).stdout.split()
+    got = frun(psha, "good.sig")
+    arm("a signed package is written and its verified digest returned",
+        len(got) == 3 and got[1] == psha and got[2] == "OK" and pathlib.Path(got[0]).read_bytes() == payload, " ".join(got))
+    fetched = pathlib.Path(got[0]) if got and got[0] != "NOPATH" else None
+    got = frun(psha, "bad.sig")
+    arm("negative control: a bad signature returns nothing and removes the download",
+        got[:2] == ["NOPATH", "NOSHA"] and (fetched is None or not fetched.exists()), " ".join(got))
+    got = frun("1" * 64, "good.sig")
+    arm("negative control: bytes that differ from the manifest's SHA-256 return nothing", got[:2] == ["NOPATH", "NOSHA"], " ".join(got))
 
     # the install line, run in a sandbox: a good package installs; a package swapped after the check does not run
     sandbox = d / "root"; sandbox.mkdir()
@@ -212,6 +282,16 @@ with tempfile.TemporaryDirectory() as d:
     ran.unlink(missing_ok=True)
     out = sandboxed(run("install", str(good), "0" * 64))
     arm("negative control: a package whose bytes differ from the checked SHA-256 is refused and its installer never runs",
+        "NULLMOTH_ARM_INSTALLED" not in out and "changed after it was checked" in out and not ran.exists(), out.strip())
+    # the swap: the user-owned download changes after the app checked it; root re-hashes its own copy and refuses
+    swapped = d / "nullmoth-arm-1.0-swap.tar.gz"
+    shutil.copy(good, swapped)
+    cmd = run("install", str(swapped), sha)
+    with tarfile.open(swapped, "w:gz") as t:
+        t.add(pkgdir / "pkgroot", arcname="pkgroot")
+        extra = d / "evil"; extra.write_text("x"); t.add(extra, arcname="pkgroot/evil")
+    out = sandboxed(cmd)
+    arm("negative control: a package swapped after the check is refused by root and its installer never runs",
         "NULLMOTH_ARM_INSTALLED" not in out and "changed after it was checked" in out and not ran.exists(), out.strip())
     arm("a quote in the SHA-256 yields no command at all", run("install", str(good), "a" * 63 + "'") == "NIL")
 
