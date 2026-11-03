@@ -542,6 +542,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             } else if let pk = b["pkg"] as? String, !pk.isEmpty {
                 run(mode: "tahoe", pkg: pk, efi: b["efi"] as? String ?? "auto", extra: ["--update", "prepare"])
             }
+        // ARM apps (opt-in): translating Apple silicon apps for this Mac (ArmApps.swift)
+        case "arm": armAction(b)
         case "swupdate": NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!)
         default: break
         }
@@ -1202,6 +1204,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                            ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast)
                 }
                 .prefix(24)
+            // the ARM translator's own logs (~/Library/Logs/NullMoth/arm), newest first, as copies in this session so the
+            // queue redacts and uploads them like every other file
+            files += self.armLogCopies(into: dir)
             for crash in userApplicationCrashes() {
                 let target = dir.appendingPathComponent("macos-" + crash.lastPathComponent)
                 if (try? fm.copyItem(at: crash, to: target)) != nil { files.append(target) }
@@ -1247,6 +1252,29 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             ids = sent.ids; errs += sent.errors; acknowledgements = sent.acknowledgements
             DispatchQueue.main.async { self.send("logsDone", ["ok": !ids.isEmpty, "ids": ids, "errors": errs, "localPath": dir.path]) }
         }
+    }
+
+    /// Up to 8 of the newest ARM translator logs, copied as arm-<name>.txt; a big log keeps its last 3 MB, where the
+    /// failure is.
+    func armLogCopies(into dir: URL) -> [URL] {
+        let fm = FileManager.default
+        let date = { (u: URL) in (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
+        let found = ((try? fm.contentsOfDirectory(at: ArmApps.logDir, includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey])) ?? [])
+            .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+            .sorted { date($0) > date($1) }.prefix(8)
+        var out: [URL] = []
+        for f in found {
+            guard let h = try? FileHandle(forReadingFrom: f) else { continue }
+            defer { try? h.close() }
+            let size = (try? h.seekToEnd()) ?? 0
+            try? h.seek(toOffset: size > 3 << 20 ? size - (3 << 20) : 0)
+            guard let data = try? h.readToEnd() else { continue }
+            let target = dir.appendingPathComponent("arm-" + f.deletingPathExtension().lastPathComponent + ".txt")
+            if (try? data.write(to: target, options: .atomic)) != nil {
+                try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path); out.append(target)
+            }
+        }
+        return out
     }
 
     func crashReportFromWindow() {
