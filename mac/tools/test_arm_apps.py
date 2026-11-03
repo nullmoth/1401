@@ -39,10 +39,10 @@ inst = src.split("static func installCommand(", 1)[1].split("static func validUs
 order = [inst.find(k) for k in ("mktemp -d /private/var/root/", "/bin/cp -X", "shasum -a 256", "tar -xzf", "install.sh\\\" && echo")]
 arm("root copies, re-checks the SHA-256 on its copy, then unpacks, then installs (in that order)",
     all(i >= 0 for i in order) and order == sorted(order), str(order))
-turn_on = src.split("func armTurnOn()", 1)[1].split("func armTurnOff()", 1)[0]
+turn_on = src.split("func armTurnOn(source:", 1)[1].split("func armTurnOff()", 1)[0]
 arm("success is the installer's marker line plus the installed command, never the absence of an error",
     "r.output.contains(ArmApps.installedMarker), ArmApps.isInstalled" in turn_on)
-arm("a cancelled password prompt is reported, not silent", "if r.cancelled { return self.armFail(" in turn_on)
+arm("a cancelled password prompt is reported, not silent", "if r.cancelled { return fail(" in turn_on and "self.armFail(" in turn_on)
 job = src.split("final class Job", 1)[1].split("\n}\n", 1)[0]
 arm("translation runs as the user (a plain Process, no password prompt)", "Privileged" not in job and "osascript" not in job)
 translate = src.split("func armTranslate()", 1)[1]
@@ -57,6 +57,14 @@ arm("the page has the card and its controls",
     all(f'id="{i}"' in html for i in ("armcard", "armon", "armoff", "armchk", "armclt", "armtr", "armbar", "armcancel", "armapps")))
 ev = js.split("function armEvent(d)", 1)[1].split("\nfunction render(", 1)[0]
 arm("every error and refusal reaches the page escaped", 'kind === "error"' in ev and "esc(d.why)" in ev and "esc(c.why" in ev)
+auto = src.split("func armTurnOn(source:", 1)[1].split("func armWindowsRequest(", 1)[0]
+arm("a request uses the same verified Turn on path and records source 1401-windows; its failure records off with the reason",
+    "ArmApps.saveDecision(on: true, source: source)" in auto and "ArmApps.saveDecision(on: false, source: source, skipped: why)" in auto
+    and "self.armTurnOn(source: ArmApps.windowsSource)" in src)
+arm("turning off by hand records the user's off", 'ArmApps.saveDecision(on: false, source: "user")' in src)
+arm("the request fires only after a successful driver install, after its result went to the page, or at launch",
+    'if mode == "install" && succeeded && !cancelled { self.armWindowsRequest(afterInstall: true) }' in main
+    and 'armWindowsRequest(afterInstall: false)' in src)
 arm("Translate is enabled only when on and the check passed", '$("armtr").disabled = !(A.on && A.ok) || A.running' in js)
 
 # compile ArmApps.swift against stand-ins for the rest of the app
@@ -75,6 +83,7 @@ func sh(_ path: String, _ args: [String]) -> String {
 func syncGet(_ url: URL, timeout: TimeInterval) -> Data? { nil }
 func sha256(_ url: URL) -> String? { nil }
 func redact(_ s: String) -> String { s }
+func sysctl(_ k: String) -> String { "" }
 enum ReleaseSignature { static func verify(zip: URL, signatureBase64: String) -> Bool { false } }
 enum Privileged {
     struct Result { let output: String; let error: String?; let cancelled: Bool }
@@ -83,6 +92,8 @@ enum Privileged {
 final class App: NSObject {
     func send(_ e: String, _ d: Any) {}
     static func runBounded(_ exe: URL, _ args: [String], seconds: Double) -> (status: Int32, out: Data, timedOut: Bool) { (0, Data(), false) }
+    static func machineProfile(_ g: [[String: Any]]) -> [String: Any] { [:] }
+    static func recordedDriverVersion() -> String { "" }
 }
 '''
 HARNESS = r'''
@@ -114,6 +125,21 @@ case "job":
     if a[3] == "cancel" { Thread.sleep(forTimeInterval: 1.0); job.stop() }
     if done.wait(timeout: .now() + 20) == .timedOut { print("TIMEOUT"); exit(1) }
     lk.lock(); print(result, lines.joined(separator: ",")); lk.unlock()
+case "decide":
+    // a[2]: JSON array of profile records; a[3]: decision JSON or "none"; a[4]: driver installed
+    let recs = try! JSONSerialization.jsonObject(with: Data(a[2].utf8)) as! [[String: Any]]
+    let dec = a[3] == "none" ? nil : (try! JSONSerialization.jsonObject(with: Data(a[3].utf8)) as! [String: Any])
+    let req = ArmApps.windowsRequest(recs)
+    print(req, ArmApps.shouldHonourRequest(request: req, decision: dec, driverInstalled: a[4] == "yes"))
+case "decision":
+    try? FileManager.default.removeItem(at: ArmApps.decisionFile)
+    let before = ArmApps.decision() == nil
+    ArmApps.saveDecision(on: false, source: "1401-windows", skipped: "no network")
+    let d = ArmApps.decision()!
+    print(before, d["on"] as! Bool, d["source"] as! String, d["skipped"] as! String)
+    try? FileManager.default.removeItem(at: ArmApps.decisionFile)
+case "cpu":
+    print(ArmApps.cpuGate(features: a[2]) ?? "OK")
 default: break
 }
 '''
@@ -138,6 +164,30 @@ with tempfile.TemporaryDirectory() as d:
     arm("Open accepts only apps inside ~/Applications/NullMoth ARM (no ../ escape)", names[4] == "true false false", names[4])
     arm("progress lines parse, pct is clamped, plain output is kept, blanks dropped",
         run("progress") == "lift 100.0 plain text line true", run("progress"))
+
+    # the 1401 for Windows request: consumed only with no recorded decision, after a driver install, literal true only
+    import json
+    req = {"opt_in": {"arm_apps": True, "from": "1401-windows", "schema": 1}}
+    def decide(records, decision, driver="yes"):
+        return run("decide", json.dumps(records), "none" if decision is None else json.dumps(decision), driver)
+    arm("a request with no prior decision turns ARM apps on (installed profile's windows_candidates)",
+        decide([{"windows_candidates": [{}, req]}], None) == "true true", decide([{"windows_candidates": [{}, req]}], None))
+    arm("a request read straight from a stick's profile counts too", decide([req], None) == "true true")
+    arm("negative control: a prior off (user turned it off) is respected",
+        decide([{"windows_candidates": [req]}], {"on": False, "source": "user"}) == "true false")
+    arm("negative control: a request already handled (skipped with a reason) never fires again",
+        decide([{"windows_candidates": [req]}], {"on": False, "source": "1401-windows", "skipped": "no network"}) == "true false")
+    arm("a prior on is left alone", decide([{"windows_candidates": [req]}], {"on": True, "source": "user"}) == "true false")
+    arm("no request means no change", decide([{"windows_candidates": [{}]}, {}], None) == "false false")
+    arm("arm_apps of 1 or \"true\" is not a request",
+        decide([{"opt_in": {"arm_apps": 1}}, {"opt_in": {"arm_apps": "true"}}], None) == "false false")
+    arm("no driver install, no action", decide([req], None, "no") == "true false")
+    arm("the decision record round-trips with its source and reason (and an absent file reads as no decision)",
+        run("decision") == "true false 1401-windows no network", run("decision"))
+    full = "FPU SSE3 SSSE3 SSE4.1 SSE4.2 POPCNT CX16 AES AVX1.0 AVX2"
+    arm("a v2 CPU with AES passes the automatic path's CPU gate", run("cpu", full) == "OK", run("cpu", full))
+    out = run("cpu", full.replace(" AES", ""))
+    arm("negative control: no AES stops the automatic path before any download", "lacks AES" in out, out)
 
     # the install line, run in a sandbox: a good package installs; a package swapped after the check does not run
     sandbox = d / "root"; sandbox.mkdir()
