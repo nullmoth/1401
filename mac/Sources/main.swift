@@ -12,7 +12,7 @@ struct Package {
     static let version = "2.7"
     static let name = "nullmoth-nvidia-2.7.tar.gz"
     static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.7/nullmoth-nvidia-2.7.tar.gz")!
-    static let sha256 = "f0ed136369cbb8875a981fe33c5095b1c19dc68cabbd17bd85cff05eb6f77bac"
+    static let sha256 = "63583c2bda20a36d31c35f9c5b0b52f33de9c4de2320e62c9dd681b5f686c523"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -1204,7 +1204,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                            ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast)
                 }
                 .prefix(24)
-            // the ARM translator's own logs (~/Library/Logs/NullMoth/arm), newest first, as copies in this session so the
+            // the ARM translator's own logs (~/Library/Logs/NullMoth/arm), newest first, as copies in this report so the
             // queue redacts and uploads them like every other file
             files += self.armLogCopies(into: dir)
             for crash in userApplicationCrashes() {
