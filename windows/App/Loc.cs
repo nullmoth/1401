@@ -64,6 +64,8 @@ namespace A1401
             { "macOS 26 Tahoe", "macOS 26 Tahoe" },
             { "Include experimental drivers (Wi-Fi, AMD RDNA 4 graphics, USB and power fixes)",
               "包含实验性驱动程序（Wi-Fi、AMD RDNA 4 显卡、USB 与电源修复）" },
+            { "Also set up ARM apps (opt-in): after the NVIDIA driver, the 1401 Mac app installs NullMoth's ARM app support if this Mac's processor can run it.",
+              "同时设置 ARM 应用（可选）：装好 NVIDIA 驱动后，如果这台 Mac 的处理器支持，1401 Mac 应用会安装 NullMoth 的 ARM 应用支持。" },
             { "Credits", "致谢" },
             { " for this PC, as a ", "，为本机生成的机型为 " },
             { ". The startup files passed OpenCore's own check.", "。启动文件已通过 OpenCore 自带的检查。" },
