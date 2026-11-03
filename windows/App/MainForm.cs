@@ -143,7 +143,7 @@ namespace A1401
             expDrivers.BackColor = Color.Transparent; expDrivers.ForeColor = Theme.Text; expDrivers.Font = Theme.Picker;
             // Including them changes which kexts the build carries, so a finished build is no longer the right one.
             expDrivers.CheckedChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
-            armApps.Text = Loc.T("Also set up ARM apps (opt-in): after the NVIDIA driver, the 1401 Mac app installs NullMoth's ARM app support if this Mac's processor can run it.");
+            armApps.Text = Loc.T("Also set up ARM apps (opt-in): after macOS starts, 1401 offers to finish setting up ARM app support with one click, if this Mac's processor can run it.");
             armApps.AutoSize = true; armApps.Checked = false;
             armApps.BackColor = Color.Transparent; armApps.ForeColor = Theme.Text; armApps.Font = Theme.Picker;
             guide.ScriptErrorsSuppressed = true;

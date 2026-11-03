@@ -1074,7 +1074,7 @@ def cli_write(argv):
     root = res["root"]
     print('OK verified build profile written to the stick (live identity remains unverified)', flush=True)
     if opt_in:
-        print('OK ARM apps requested: the 1401 Mac app sets them up after the NVIDIA driver, if this Mac can run them',
+        print('OK ARM apps requested: after macOS starts, the 1401 Mac app offers to finish setting them up, if this Mac can run them',
               flush=True)
     for f in opt("--extra"):
         d = os.path.join(root, "NullMoth"); os.makedirs(d, exist_ok=True)

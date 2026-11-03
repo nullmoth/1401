@@ -4,9 +4,9 @@ before.
 Ticked, the stick's NullMoth/system-profile.json carries one extra top-level key,
     "opt_in": {"arm_apps": true, "from": "1401-windows", "schema": 1}
 which the Mac app reads (it already loads every stick's system-profile.json into its machine profile, and the driver
-setup keeps that record in /Library/NullMoth/system-profile.json). The Mac app acts on it once, after the NVIDIA driver
-is set up, through its own signed and SHA-256 checked install and only when its CPU check passes. Nothing on Windows
-downloads or installs the ARM package.
+setup keeps that record in /Library/NullMoth/system-profile.json). On its first launch after setup the Mac app offers
+one click to finish the signed, SHA-256 checked install, or names why this Mac's processor cannot run it. Nothing on
+Windows downloads or installs the ARM package, and the window's text must not promise more than that offer.
 
 The arms drive the real copy_to_installer() and cli_write() with the disk and Apple stubbed, and read the window's
 source for the default and the flag it passes.
@@ -105,6 +105,9 @@ class ArmAppsOptIn(unittest.TestCase):
         start = FORM.index('armApps.Text = Loc.T("') + len('armApps.Text = Loc.T("')
         text = FORM[start:FORM.index('");', start)]
         self.assertIn("(opt-in)", text)
+        # the Mac side offers a click, it does not install by itself: the text must say so and never claim an install
+        self.assertIn("offers to finish", text)
+        self.assertNotIn("installs", text)
         self.assertIn('{ "' + text + '",', LOC)
 
 

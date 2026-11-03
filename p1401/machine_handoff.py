@@ -77,8 +77,9 @@ def opt_in(arm_apps=False):
 
     The Mac app reads every stick's NullMoth/system-profile.json into its machine profile and the driver setup keeps
     that record in /Library/NullMoth/system-profile.json, so the request survives the stick being removed. The Mac app
-    honours "arm_apps" once, only when its own ARM apps switch has no recorded decision, and only through its signed
-    and SHA-256 checked install after its CPU check passes."""
+    acts on "arm_apps" once, only when it has no recorded ARM apps decision: it offers the user one click to finish the
+    setup (the signed and SHA-256 checked install, with the password asked once), or names the reason this Mac's
+    processor cannot run it. Nothing is installed without the user pressing Turn on."""
     return {'arm_apps': True, 'from': '1401-windows', 'schema': 1} if arm_apps else None
 
 
