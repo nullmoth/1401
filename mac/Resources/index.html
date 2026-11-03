@@ -101,6 +101,13 @@
 <div class="pane card"><p class="sh">Map my GPU (experimental)</p>
 <p>A few minutes of measurements on this Mac's GPU: what Metal reports, a correctness check, memory and compute speed, and small test shaders. Nothing is changed and no display mode is touched. The result goes in the log folder, and Send logs uploads it so the next driver can be tuned for your card.</p>
 <p class="row"><button type="button" class="b" id="gpumap">Map my GPU</button> <span id="gpumapr"></span></p></div>
+<div class="pane card" id="armcard"><p class="sh">ARM apps (opt-in)</p>
+<p>Apps built only for Apple silicon can be translated to run on this Mac. Translation takes minutes for a small app and up to an hour or more for a big one. The original app is never changed: the translated copy goes to Applications &gt; NullMoth ARM. Turning this off removes the translator and the translated copies, and your 2.7 driver keeps working.</p>
+<p class="row"><button type="button" class="b" id="armon">Turn on</button> <button type="button" class="b" id="armoff" hidden>Turn off</button> <button type="button" class="b" id="armchk" hidden>Check this Mac</button> <button type="button" class="b" id="armclt" hidden>Install Command Line Tools</button> <button type="button" class="b go" id="armtr" hidden disabled>Translate an app...</button></p>
+<p id="armr"></p>
+<div id="armprog" hidden><progress id="armbar" max="100" style="width:100%"></progress>
+<p class="row"><span id="armmsg" class="small"></span> <button type="button" class="b" id="armcancel">Cancel</button></p></div>
+<div id="armapps"></div></div>
 </section>
 
 <section id="t-usb" hidden>
