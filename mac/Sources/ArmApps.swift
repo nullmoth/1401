@@ -249,6 +249,59 @@ enum ArmApps {
 // "arm" event, so nothing fails silently. ArmApps.job is only touched on the main thread.
 extension ArmApps {
     static var job: Job?
+    static var autoChecked = false   // the Windows request is looked at once per app launch (main thread)
+}
+
+// The decision record: who last turned ARM apps on or off, or why a request from 1401 for Windows was skipped. Having
+// one is what makes that request fire only once, and it is how a user who turned ARM apps off stays off.
+extension ArmApps {
+    static let decisionFile = support.appendingPathComponent("arm.json")
+    static let windowsSource = "1401-windows"
+    static let installedProfile = "/Library/NullMoth/system-profile.json"
+
+    static func decision() -> [String: Any]? {
+        guard let d = try? Data(contentsOf: decisionFile),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any], j["on"] is Bool else { return nil }
+        return j
+    }
+
+    static func saveDecision(on: Bool, source: String, skipped: String? = nil) {
+        var j: [String: Any] = ["on": on, "source": source, "time": ISO8601DateFormatter().string(from: Date())]
+        if let skipped { j["skipped"] = skipped }
+        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        if let d = try? JSONSerialization.data(withJSONObject: j, options: [.prettyPrinted, .sortedKeys]) {
+            try? d.write(to: decisionFile, options: .atomic)
+        }
+    }
+
+    /// True only for opt_in.arm_apps that is the JSON literal true in one of the Windows profiles (a record's
+    /// windows_candidates, or a stick's profile itself). 1, "true" or a missing key are not a request.
+    static func windowsRequest(_ records: [[String: Any]]) -> Bool {
+        let isTrue = { (v: Any?) -> Bool in
+            guard let n = v as? NSNumber else { return false }
+            return CFGetTypeID(n) == CFBooleanGetTypeID() && n.boolValue
+        }
+        for r in records {
+            for c in [r] + ((r["windows_candidates"] as? [[String: Any]]) ?? []) {
+                if isTrue((c["opt_in"] as? [String: Any])?["arm_apps"]) { return true }
+            }
+        }
+        return false
+    }
+
+    /// Whether to act on the request: there is one, the NVIDIA driver was installed (the request only rides a driver
+    /// install), and nobody has decided yet. A recorded decision, on or off, from the user or an earlier request, wins.
+    static func shouldHonourRequest(request: Bool, decision: [String: Any]?, driverInstalled: Bool) -> Bool {
+        request && driverInstalled && decision == nil
+    }
+
+    /// The CPU floor the translator needs, checked before anything is downloaded on the automatic path (nm-arm check
+    /// ships inside the package, so it can only run after the install). x86-64-v2 plus AES, from the CPU's own flags.
+    static func cpuGate(features: String) -> String? {
+        let have = Set(features.uppercased().split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" }).map(String.init))
+        let missing = ["SSE3", "SSSE3", "SSE4.1", "SSE4.2", "POPCNT", "CX16", "AES"].filter { !have.contains($0) }
+        return missing.isEmpty ? nil : "this processor lacks \(missing.joined(separator: ", ")), which translated apps need"
+    }
 }
 
 extension App {
@@ -270,9 +323,9 @@ extension App {
 
     func armAction(_ b: [String: Any]) {
         switch b["op"] as? String ?? "" {
-        case "status": armStatus()
+        case "status": armStatus(); armWindowsRequest(afterInstall: false)
         case "check": armBusy("Checking this Mac..."); armStatus()
-        case "on": armTurnOn()
+        case "on": armTurnOn(source: "user")
         case "off": armTurnOff()
         case "clt":
             // Apple's own installer window; no password is needed to ask for it
@@ -297,23 +350,55 @@ extension App {
         }
     }
 
-    func armTurnOn() {
-        armBusy("Reading the ARM translator package list...")
+    /// Turn on, from the button (source "user") or from a 1401 for Windows request: the same verified path either way.
+    /// A request that fails installs nothing and is recorded as off with its reason, so it never fires again; a failed
+    /// button press records nothing, so the user can simply try again.
+    func armTurnOn(source: String = "user") {
+        let auto = source != "user"
+        let lead = auto ? "1401 for Windows asked for ARM apps. " : ""
+        armBusy(lead + "Reading the ARM translator package list...")
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let b = ArmApps.latest() else { return self.armFail("Could not read the ARM translator package list from nullmothsystems.com.") }
-            self.armBusy("Downloading the ARM translator \(b.version) and checking its signature...")
+            let fail = { (why: String) in
+                if auto { ArmApps.saveDecision(on: false, source: source, skipped: why) }
+                self.armFail((auto ? "ARM apps (asked for in 1401 for Windows): not set up - " : "") + why)
+            }
+            if auto, let why = ArmApps.cpuGate(features: sysctl("machdep.cpu.features") + " " + sysctl("machdep.cpu.leaf7_features")) {
+                return fail("Not installed: \(why).")
+            }
+            guard let b = ArmApps.latest() else { return fail("Could not read the ARM translator package list from nullmothsystems.com.") }
+            self.armBusy(lead + "Downloading the ARM translator \(b.version) and checking its signature...")
             let got = ArmApps.fetch(b)
-            guard let path = got.path else { return self.armFail("Not installed: \(got.why ?? "the package could not be checked").") }
-            guard let cmd = ArmApps.installCommand(package: path, sha: b.sha256) else { return self.armFail("Not installed: the package list is malformed.") }
-            self.armBusy("Waiting for your Mac password (a macOS window asks for it) to install the ARM translator...")
+            guard let path = got.path else { return fail("Not installed: \(got.why ?? "the package could not be checked").") }
+            guard let cmd = ArmApps.installCommand(package: path, sha: b.sha256) else { return fail("Not installed: the package list is malformed.") }
+            self.armBusy(lead + "Waiting for your Mac password (a macOS window asks for it) to install the ARM translator...")
             DispatchQueue.main.async { NSApp.activate(ignoringOtherApps: true) }
             let r = Privileged.run(cmd, timeout: 20 * 60)
-            if r.cancelled { return self.armFail("Not installed: the password prompt was cancelled.") }
+            if r.cancelled { return fail("Not installed: the password prompt was cancelled.") }
             guard r.output.contains(ArmApps.installedMarker), ArmApps.isInstalled else {
                 let tail = r.output.split(whereSeparator: \.isNewline).suffix(6).joined(separator: "\n")
-                return self.armFail("The ARM translator did not install. " + redact(r.error ?? "") + (tail.isEmpty ? "" : "\n" + redact(tail)))
+                return fail("The ARM translator did not install. " + redact(r.error ?? "") + (tail.isEmpty ? "" : "\n" + redact(tail)))
             }
-            self.armStatus(["note": "On: the ARM translator \(b.version) is installed."])
+            ArmApps.saveDecision(on: true, source: source)
+            self.armStatus(["note": lead + "On: the ARM translator \(b.version) is installed."])
+        }
+    }
+
+    /// A 1401 for Windows request, consumed once: after a successful driver install (afterInstall, which also reads the
+    /// sticks still attached) or at the first launch after one (the profile setup saved under /Library/NullMoth).
+    func armWindowsRequest(afterInstall: Bool) {
+        guard ArmApps.job == nil else { return }
+        if !afterInstall { guard !ArmApps.autoChecked else { return }; ArmApps.autoChecked = true }
+        DispatchQueue.global(qos: .userInitiated).async {
+            var records: [[String: Any]] = []
+            if let d = try? Data(contentsOf: URL(fileURLWithPath: ArmApps.installedProfile)),
+               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] { records.append(j) }
+            if afterInstall { records.append(App.machineProfile([])) }
+            let driverInstalled = afterInstall || !App.recordedDriverVersion().isEmpty
+            guard ArmApps.shouldHonourRequest(request: ArmApps.windowsRequest(records), decision: ArmApps.decision(),
+                                              driverInstalled: driverInstalled) else { return }
+            // already installed by hand before any decision was recorded: record it, nothing to install
+            if ArmApps.isInstalled { ArmApps.saveDecision(on: true, source: ArmApps.windowsSource); return self.armStatus() }
+            DispatchQueue.main.async { self.armTurnOn(source: ArmApps.windowsSource) }
         }
     }
 
@@ -338,6 +423,7 @@ extension App {
             for f in (try? fm.contentsOfDirectory(atPath: support.path)) ?? [] where ArmApps.validPackageName(f) {
                 try? fm.removeItem(at: support.appendingPathComponent(f))
             }
+            ArmApps.saveDecision(on: false, source: "user")
             self.armStatus(["note": "Off: the ARM translator and its translated apps are removed."])
         }
     }

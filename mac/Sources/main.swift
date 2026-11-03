@@ -1403,6 +1403,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 self.runningSetup = false
                 if cancelled { self.send("run", ["state": "cancelled", "mode": mode]) }
                 else { self.send("run", ["state": "end", "mode": mode, "ok": succeeded, "log": log.path]) }
+                // ARM apps asked for in 1401 for Windows: only after the driver install itself succeeded, and only
+                // after its result was reported, so it cannot change that result
+                if mode == "install" && succeeded && !cancelled { self.armWindowsRequest(afterInstall: true) }
             }
         }
     }
