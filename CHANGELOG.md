@@ -4,6 +4,8 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
 ## 2.7
+- ARM apps (opt-in, experimental): the Mac app has an ARM apps card that installs NullMoth's translator for apps built only for Apple silicon, checks the Mac, and translates, opens, and removes apps. The package is checked against its SHA-256 and the NullMoth release signature before anything is installed.
+- 1401 for Windows: tick Also set up ARM apps (opt-in) on a fresh install, and the Mac app offers a one-click finish on first start.
 - Writing the stick: 1401 checks that Apple will serve the download before erasing your USB stick. If Apple refuses, the stick is not touched.
 - Apple's 406, 405, 408, 425, and 429 answers are retried like server errors, try another route, and the message says Apple refused, not that your network failed.
 - A resume that can never succeed (416) stops at once and says why.
