@@ -204,7 +204,7 @@ with tempfile.TemporaryDirectory() as d:
     req = {"opt_in": {"arm_apps": True, "from": "1401-windows", "schema": 1}}
     def decide(records, decision, driver="yes"):
         return run("decide", json.dumps(records), "none" if decision is None else json.dumps(decision), driver)
-    arm("a request with no prior decision turns ARM apps on (installed profile's windows_candidates)",
+    arm("a request with no prior decision shows the offer (installed profile windows_candidates)",
         decide([{"windows_candidates": [{}, req]}], None) == "true true", decide([{"windows_candidates": [{}, req]}], None))
     arm("a request read straight from a stick's profile counts too", decide([req], None) == "true true")
     arm("negative control: a prior off (user turned it off) is respected",
