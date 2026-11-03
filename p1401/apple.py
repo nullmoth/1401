@@ -102,7 +102,7 @@ REFRESH_EVERY = 4
 
 # 2.6.6 write logs, measured 11-02 over the raw uploads of 10-31..11-02 (780 write logs): 328 stops were
 # "HTTP Error 406: Not Acceptable" from oscdn and 11 were "HTTP Error 405: Method Not Allowed" from
-# osrecovery, and 333 of those 339 landed inside ONE UTC hour (2026-11-01 09:00-09:59) across six app
+# osrecovery, and 333 of those 339 landed inside ONE UTC hour across six app
 # versions back to 1.10.0, with zero in the other 61 hours of the window. That is Apple's side failing for
 # an hour, not a per-network fault and not a per-version one - but 406, 405, 408 and 429 were all outside
 # this test, so each was a single request with no back-off and no reroute, and 323 of the 328 had already
