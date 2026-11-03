@@ -38,7 +38,7 @@ arm("root is handed the digest of the verified buffer", "installCommand(package:
 arm("the manifest takes only https links, a 64-hex SHA-256 and a nullmoth-arm-*.tar.gz name",
     'u.scheme == "https"' in src and 's.scheme == "https"' in src and "validSha(sha), validPackageName(n)" in src)
 inst = src.split("static func installCommand(", 1)[1].split("static func validUser(", 1)[0]
-order = [inst.find(k) for k in ("mktemp -d /private/var/root/", "/bin/cp -X", "shasum -a 256", "tar -xzf", "install.sh\\\" && echo")]
+order = [inst.find(k) for k in ("mktemp -d /private/var/root/", "/bin/cp -X", "shasum -a 256", "tar -xzf", "install.sh\\\"; rc=$?")]
 arm("root copies, re-checks the SHA-256 on its copy, then unpacks, then installs (in that order)",
     all(i >= 0 for i in order) and order == sorted(order), str(order))
 turn_on = src.split("func armTurnOn(source:", 1)[1].split("func armTurnOff()", 1)[0]
@@ -107,7 +107,11 @@ enum Privileged {
 }
 final class App: NSObject {
     func send(_ e: String, _ d: Any) {}
-    static func runBounded(_ exe: URL, _ args: [String], seconds: Double) -> (status: Int32, out: Data, timedOut: Bool) { (0, Data(), false) }
+    // canned nm-arm answers from ARM_TEST_CLI_OUT / ARM_TEST_CLI_STATUS
+    static func runBounded(_ exe: URL, _ args: [String], seconds: Double) -> (status: Int32, out: Data, timedOut: Bool) {
+        let env = ProcessInfo.processInfo.environment
+        return (Int32(env["ARM_TEST_CLI_STATUS"] ?? "0") ?? 0, Data((env["ARM_TEST_CLI_OUT"] ?? "").utf8), false)
+    }
     static func machineProfile(_ g: [[String: Any]]) -> [String: Any] { [:] }
     static func recordedDriverVersion() -> String { "" }
 }
@@ -172,6 +176,11 @@ case "fetch":
                           sha256: a[2], sig: URL(string: "https://x/" + a[3])!)
     let r = ArmApps.fetch(b)
     print(r.path ?? "NOPATH", r.sha256 ?? "NOSHA", r.why ?? "OK")
+case "list":
+    let l = ArmApps.parseList(try? JSONSerialization.jsonObject(with: Data(a[2].utf8)))
+    print(l.map { $0.map { $0["name"]! + "=" + $0["path"]! }.joined(separator: ";") } ?? "NIL")
+case "remove":
+    print(ArmApps.remove(a[2]) ?? "OK")
 case "cpu":
     print(ArmApps.cpuGate(features: a[2]) ?? "OK")
 default: break
@@ -232,12 +241,31 @@ with tempfile.TemporaryDirectory() as d:
     arm("a prior decision (on) hides the banner", out == "NONE", out)
     out = run("banner", "no", "none", full)
     arm("no request means no banner", out == "NONE", out)
+    arm("an empty CPU answer (AMD without the sysctl keys) is left to nm-arm check, not refused", run("cpu", " ") == "OK", run("cpu", " "))
+    arm("PCLMUL spelled either way counts", run("cpu", full.replace("PCLMULQDQ", "PCLMUL")) == "OK")
     out = run("banner", "yes", "none", full.replace(" AES", ""))
     arm("negative control: a CPU without AES shows the reason and no Turn on button", out.startswith("NOBUTTON") and "lacks AES" in out, out)
 
     names2 = run("names2")
     arm("the manifest's name and link must be nullmoth-arm-<its own version>.tar.gz (another product or version is refused)",
         names2 == "true false false false", names2)
+
+    # nm-arm list / remove in the package's real shapes (runCLI needs the installed command, so only when it exists)
+    o = str(pathlib.Path.home() / "Applications/NullMoth ARM")
+    def cli(out, status="0", *a):
+        e = dict(os.environ, ARM_TEST_CLI_OUT=out, ARM_TEST_CLI_STATUS=status)
+        return subprocess.run([str(exe), *a], capture_output=True, text=True, timeout=60, env=e).stdout.strip()
+    listing = json.dumps({"apps": [{"name": "L6", "path": o + "/L6.app", "output": o + "/L6.app"},
+                                   {"name": "Old", "output": o + "/Old.app"},
+                                   {"name": "Evil", "path": "/Applications/Safari.app"}], "output_dir": o})
+    out = run("list", listing)
+    arm("nm-arm list's object form is read, output stands in for path, a path outside the folder is dropped",
+        out == f"L6={o}/L6.app;Old={o}/Old.app", out)
+    arm("negative control: a list that is neither the object nor an array is refused", run("list", '{"x":1}') == "NIL")
+    out = cli(json.dumps({"ok": False, "why": "L7 is not in the manifest"}), "2", "remove", "L7")
+    arm("a refused remove shows nm-arm's own reason", out == "could not remove L7: L7 is not in the manifest", out)
+    out = cli(json.dumps({"ok": True, "removed": ["L6"]}), "0", "remove", "L6")
+    arm("a successful remove reports nothing wrong", out == "OK", out)
 
     # fetch: hash and signature on one buffer; a bad signature or SHA leaves nothing behind
     import hashlib as _h
@@ -263,7 +291,7 @@ with tempfile.TemporaryDirectory() as d:
     sandbox = d / "root"; sandbox.mkdir()
     pkgdir = d / "pkg"; (pkgdir / "pkgroot").mkdir(parents=True)
     ran = d / "installer-ran"
-    (pkgdir / "pkgroot/install.sh").write_text(f"#!/bin/bash\ntouch '{ran}'\n")
+    (pkgdir / "pkgroot/install.sh").write_text(f"#!/bin/bash\ntouch '{ran}'\nexit ${{FAKE_RC:-0}}\n")
     good = d / "nullmoth-arm-1.0.tar.gz"
     with tarfile.open(good, "w:gz") as t:
         t.add(pkgdir / "pkgroot", arcname="pkgroot")
@@ -293,6 +321,12 @@ with tempfile.TemporaryDirectory() as d:
     out = sandboxed(cmd)
     arm("negative control: a package swapped after the check is refused by root and its installer never runs",
         "NULLMOTH_ARM_INSTALLED" not in out and "changed after it was checked" in out and not ran.exists(), out.strip())
+    ran.unlink(missing_ok=True)
+    os.environ["FAKE_RC"] = "4"
+    out = sandboxed(run("install", str(good), sha))
+    del os.environ["FAKE_RC"]
+    arm("negative control: an installer that exits 4 gives its reason and no success marker",
+        "NULLMOTH_ARM_INSTALLED" not in out and "cannot run on this Mac" in out, out.strip())
     arm("a quote in the SHA-256 yields no command at all", run("install", str(good), "a" * 63 + "'") == "NIL")
 
     # the uninstall line: absent package = already off; refused when not root-owned or writable by others

@@ -95,7 +95,11 @@ enum ArmApps {
             + "[ \"$h\" = \(sha) ] || { echo 'STOP: the package changed after it was checked'; exit 1; }; "
             + "/bin/mkdir \"$d/x\" && /usr/bin/tar -xzf \"$d/p.tar.gz\" -C \"$d/x\" || { echo 'STOP: the package did not unpack'; exit 1; }; "
             + "[ -f \"$d/x/pkgroot/install.sh\" ] || { echo 'STOP: the package has no installer'; exit 1; }; "
-            + "/bin/bash \"$d/x/pkgroot/install.sh\" && echo \(installedMarker)"
+            // the installer's exit codes: 3 checksum mismatch, 4 its compiler cannot run on this Mac, 5 copy failed
+            + "/bin/bash \"$d/x/pkgroot/install.sh\"; rc=$?; "
+            + "case $rc in 0) echo \(installedMarker);; 3) echo 'STOP: the package failed its own checksum';; "
+            + "4) echo 'STOP: the translator cannot run on this Mac';; 5) echo 'STOP: the files could not be copied';; "
+            + "*) echo \"STOP: the installer exited $rc\";; esac"
     }
 
     /// A short-name only (it is passed to the uninstaller as root and names whose translated copies are removed).
@@ -135,16 +139,23 @@ enum ArmApps {
     /// open them.
     static func list() -> (apps: [[String: String]], why: String?) {
         let r = runCLI(["list"], seconds: 30)
-        guard let arr = r.json as? [Any] else { return ([], r.why ?? "nm-arm list did not return a list") }
+        guard let out = parseList(r.json) else { return ([], r.why ?? "nm-arm list did not return a list") }
+        return (out, r.why)
+    }
+
+    /// nm-arm list prints {"apps": [...], "output_dir": ...}; each app has "path" (older builds: "output"). An entry
+    /// whose path is outside ~/Applications/NullMoth ARM is dropped.
+    static func parseList(_ json: Any?) -> [[String: String]]? {
+        guard let arr = ((json as? [String: Any])?["apps"] as? [Any]) ?? (json as? [Any]) else { return nil }
         var out: [[String: String]] = []
         for e in arr {
             let o = e as? [String: Any]
             guard let name = (o?["name"] as? String) ?? (o?["app"] as? String) ?? (e as? String), validAppName(name) else { continue }
-            let path = (o?["path"] as? String) ?? outputDir.appendingPathComponent(name + ".app").path
+            let path = (o?["path"] as? String) ?? (o?["output"] as? String) ?? outputDir.appendingPathComponent(name + ".app").path
             guard inOutputDir(path) else { continue }
             out.append(["name": name, "path": path])
         }
-        return (out, r.why)
+        return out
     }
 
     static func validAppName(_ n: String) -> Bool {
@@ -161,7 +172,10 @@ enum ArmApps {
         guard validAppName(name) else { return "that is not a translated app's name" }
         let r = App.runBounded(URL(fileURLWithPath: cli), ["remove", name], seconds: 120)
         if r.timedOut { return "nm-arm remove did not finish within 2 minutes" }
-        if r.status != 0 {
+        // stdout is one line: {"ok":true,"removed":[...]} or {"ok":false,"why":"..."}
+        let j = (try? JSONSerialization.jsonObject(with: r.out)) as? [String: Any]
+        if r.status != 0 || j?["ok"] as? Bool == false {
+            if let why = j?["why"] as? String, !why.isEmpty { return "could not remove \(name): \(why)" }
             let text = String(decoding: r.out.prefix(400), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
             return "could not remove \(name) (nm-arm exited \(r.status))" + (text.isEmpty ? "" : ": " + text)
         }
@@ -322,8 +336,12 @@ extension ArmApps {
     /// The CPU floor the translator needs: AES, PCLMULQDQ, SSE4.2 and POPCNT, the same minimum the package's own check
     /// uses. nm-arm check ships inside the package, so this runs before anything is offered. Features only, never the
     /// vendor: an AMD processor with these flags passes exactly as an Intel one does.
+    /// Some AMD systems leave these sysctl keys empty; the package then reads CPUID itself, so an empty answer is not a
+    /// refusal here, and nm-arm check decides after the install. PCLMUL is spelled PCLMULQDQ by macOS; both count.
     static func cpuGate(features: String) -> String? {
-        let have = Set(features.uppercased().split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" }).map(String.init))
+        var have = Set(features.uppercased().split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" }).map(String.init))
+        if have.isEmpty { return nil }
+        if have.contains("PCLMUL") { have.insert("PCLMULQDQ") }
         let missing = ["AES", "PCLMULQDQ", "SSE4.2", "POPCNT"].filter { !have.contains($0) }
         return missing.isEmpty ? nil : "this processor lacks \(missing.joined(separator: ", ")), which translated apps need"
     }
