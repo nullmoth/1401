@@ -100,9 +100,19 @@ WINDOW_MAX_DELAY = 60
 REFRESH_EVERY = 4
 
 
+# 2.6.6 write logs, measured 11-02 over the raw uploads of 10-31..11-02 (780 write logs): 328 stops were
+# "HTTP Error 406: Not Acceptable" from oscdn and 11 were "HTTP Error 405: Method Not Allowed" from
+# osrecovery, and 333 of those 339 landed inside ONE UTC hour (2026-11-01 09:00-09:59) across six app
+# versions back to 1.10.0, with zero in the other 61 hours of the window. That is Apple's side failing for
+# an hour, not a per-network fault and not a per-version one - but 406, 405, 408 and 429 were all outside
+# this test, so each was a single request with no back-off and no reroute, and 323 of the 328 had already
+# erased the user's stick. A status Apple's own servers hand out for an hour is retried like a 5xx.
+RETRY_STATUS = (405, 406, 408, 425, 429, 500, 502, 503, 504)
+
+
 def _transient(e):
     if isinstance(e, urllib.error.HTTPError):
-        return e.code in (500, 502, 503, 504)
+        return e.code in RETRY_STATUS
     return isinstance(e, (urllib.error.URLError, http.client.HTTPException, ConnectionError, TimeoutError, socket.timeout))
 
 
@@ -175,7 +185,10 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # 2.6.3 write logs 10-28 (11 PCs): "HTTP Error 400: Bad Request" from osrecovery itself, the bare GET of
             # http://osrecovery.apple.com/ among them, which Apple answers 200 everywhere else. A 400 there comes from
             # something on the network rewriting plain HTTP, the same as its 403.
-            recovery_http_refused = isinstance(e, urllib.error.HTTPError) and e.code in (400, 403)
+            # 405 and 406 join 400 and 403 here: osrecovery answered "Method Not Allowed" to the
+            # RecoveryImage POST on 11 machines, and HTTPS is the one route a proxy rewriting plain HTTP
+            # cannot touch. It costs one request and is the same reroute 400 already got.
+            recovery_http_refused = isinstance(e, urllib.error.HTTPError) and e.code in (400, 403, 405, 406)
             if (not (secured or rerouted) and url.startswith(OSRECOVERY_HTTP)
                     and (_transient(e) or recovery_http_refused) and not _dns_failure(e)):
                 secured = True
@@ -186,7 +199,10 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # The image CDN has no HTTPS to fall back to. 1.14.2 write logs: oscdn answered "502 Bad Gateway" on every
             # try - the edge server (or a proxy in front of it) this network's DNS picked. After two 5xx in a row the
             # request goes to the address DNS-over-HTTPS gives, a different edge; Apple's signed chunklist still checks it.
-            edge_5xx = (isinstance(e, urllib.error.HTTPError) and e.code in (502, 503, 504) and attempt >= 1
+            # 406 is in this set for the 11-01 09:00 hour: oscdn answered "Not Acceptable" to 328 chunklist
+            # requests, which is an answer from one edge and not a broken connection, so another edge is
+            # exactly what is worth trying. Apple's signed chunklist still checks whatever any edge serves.
+            edge_5xx = (isinstance(e, urllib.error.HTTPError) and e.code in (406, 502, 503, 504) and attempt >= 1
                         and not url.startswith(OSRECOVERY_HTTP))
             if not rerouted and not secured and url.startswith("http://") and (_dns_failure(e) or edge_5xx):
                 host = urlparse(url).hostname
@@ -204,9 +220,22 @@ def _open(url, headers, data=None, sleep=None, doh=None):
             # Eight write logs ended here with osrecovery cut off over HTTP and then over HTTPS too ("SSL:
             # UNEXPECTED_EOF_WHILE_READING" on every try): something between the PC and Apple drops both, and the bare
             # error left the user nothing to do.
-            advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and (_transient(e) or (isinstance(e, urllib.error.HTTPError) and e.code == 400)) else ""
+            # A retried 4xx is Apple ANSWERING, so it does not take the "this network cuts the connection"
+            # wording below: 9 of the 11 "HTTP Error 405" stops were in the same Apple-side hour as the 406s.
+            answered_4xx = isinstance(e, urllib.error.HTTPError) and e.code in RETRY_STATUS and e.code < 500
+            advice = RECOVERY_NETWORK if urlparse(url).hostname == "osrecovery.apple.com" and not answered_4xx and (_transient(e) or (isinstance(e, urllib.error.HTTPError) and e.code == 400)) else ""
             # 2.0.2 write logs 10-15 (3 PCs): oscdn reset the chunklist request on every try, at the DNS-over-HTTPS edge
             # too (WinError 10054), and the stop said only "ConnectionResetError" with nothing to do about it.
+            # An HTTP status is an ANSWER, not a cut connection, and must not be described as one. 328 stops
+            # in the 11-01 09:00 hour read "HTTP Error 406: Not Acceptable" and a bare URL: nothing told the
+            # user that 1401 had tried for two minutes, that their stick was untouched, or that waiting is
+            # the thing to do. Apple's own servers answered this way to every version at once, so the advice
+            # is to wait and try again - not to go hunting through an antivirus that was never the cause.
+            if not advice and answered_4xx:
+                advice = (f" - Apple's download server answered {e.code} to every try over about two minutes. This is "
+                          "usually Apple's side, and it passes: wait a few minutes and press Next again. Nothing on "
+                          "this PC and nothing on the USB stick was changed. If it keeps answering the same way, "
+                          "connect through a phone hotspot or a VPN, or turn off web/HTTPS scanning in your antivirus.")
             if not advice and _transient(e):
                 advice = (" - this network keeps cutting the connection to Apple's download server. Turn off web/HTTPS "
                           "scanning in your antivirus, or connect through a phone hotspot or a VPN, and press Next again.")
@@ -337,12 +366,43 @@ def _not_a_web_page(data):
                      "through a phone hotspot or a VPN, and press Next")
 
 
+PREFLIGHT_BYTES = 64 * 1024  # enough to prove the CDN serves a range of the image; not a download
+
+
+def preflight(info):
+    """Proves Apple will serve this download BEFORE anything is erased: the signed chunklist, verified, and a
+    small range of the image itself. Returns the chunklist bytes, which download() then reuses rather than
+    asking twice.
+
+    Why this exists, measured 11-02 over the raw write logs of 10-31..11-02: of 328 stops that read
+    "HTTP Error 406: Not Acceptable" from oscdn, 323 came AFTER "OK erased the stick and made one FAT32
+    partition". The chunklist is about a megabyte and is the first thing the download asks for, so every one
+    of those users lost whatever was on their stick to learn that Apple would not serve them. Asking first
+    costs one small request and turns that into a stop that changed nothing.
+
+    It is not a guarantee: a download that starts can still be cut later, and that is still handled where it
+    happens. This only moves the failure that was ALREADY certain before the erase to before the erase."""
+    cl = fetch_chunklist(info)
+    chunks = parse_chunklist(cl)          # raises unless Apple's EFI ROM key signed exactly these bytes
+    total = sum(s for s, _ in chunks)
+    want = min(PREFLIGHT_BYTES, chunks[0][0])
+    r = _asset(info["image_url"], info["image_token"], {"Range": f"bytes=0-{want - 1}"})
+    try:
+        got = len(_read_exact(r, want))
+    finally:
+        r.close()
+    info["chunklist_bytes"] = cl
+    return {"chunklist": cl, "chunks": len(chunks), "bytes": total, "sampled": got}
+
+
 def download(info, usb_root, progress=None):
     """Streams the recovery image into <usb_root>/com.apple.recovery.boot/, checking every chunk as it arrives.
     Writes to .part files and only renames them after the last chunk checks out, so a half image never looks done."""
     dest = os.path.join(usb_root, "com.apple.recovery.boot")
     os.makedirs(dest, exist_ok=True)
-    cl = fetch_chunklist(info)
+    # preflight() already fetched and verified this before the stick was erased; asking oscdn for it a second
+    # time is one more chance for an edge to refuse after the disk is already gone.
+    cl = info.get("chunklist_bytes") or fetch_chunklist(info)
     chunks = parse_chunklist(cl)
     total = sum(s for s, _ in chunks)
     img = os.path.join(dest, os.path.basename(urlparse(info["image_url"]).path))
@@ -421,6 +481,23 @@ def download(info, usb_root, progress=None):
                             except (AppleError, OSError, http.client.HTTPException) as again:
                                 if "(status 200)" in str(again):
                                     raise  # the server ignores ranges: no retry can resume, so refuse at once
+                                # 416 means the byte we are asking for is past the end of the object this
+                                # server holds, and Apple's SIGNED chunklist says the image is longer than
+                                # that - so whatever is being served is not the image, and no retry can ever
+                                # satisfy the range. One 2.6.6 write log spent 20 resumes over 15 minutes on
+                                # exactly this: "connection at 0 gave 1048576 B", then 416 to every
+                                # bytes=1048576- request. Refuse at once and say what it means.
+                                # It arrives wrapped in an AppleError through _open, but urllib.error.HTTPError
+                                # is itself an OSError and so can reach this handler unwrapped: match on both,
+                                # or the fix is dead on the path that actually fails.
+                                if getattr(again, "code", None) == 416 or "HTTP Error 416" in str(again):
+                                    raise AppleError(
+                                        f"the download server stopped serving Apple's image after {pos} bytes and then "
+                                        f"refused every request for the rest of it (HTTP 416), while Apple's signed "
+                                        f"chunklist says the image is {total} bytes. Something on this network is "
+                                        f"serving its own short file in place of Apple's download: connect through a "
+                                        f"phone hotspot or a VPN, or turn off web/HTTP scanning in your antivirus, and "
+                                        f"press Next. Nothing was written to the stick from it.") from None
                                 # WAS: a resume whose own request failed (reset, refused range) ended the whole
                                 # download; it is one more empty connection
                                 note(f"resume at {pos} refused: {type(again).__name__} {str(again)[-80:]}")
