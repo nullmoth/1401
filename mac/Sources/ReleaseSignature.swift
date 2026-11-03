@@ -20,6 +20,16 @@ enum ReleaseSignature {
         verify(zip: zip, signatureBase64: signatureBase64, publicKeyBase64: publicKeyBase64)
     }
 
+    // Same, over bytes already in memory: a caller that hashes and verifies one buffer cannot have the file swapped
+    // between the two checks.
+    static func verify(data: Data, signatureBase64: String) -> Bool {
+        let trimmed = signatureBase64.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let sig = Data(base64Encoded: trimmed), sig.count == 64,
+              let keyData = Data(base64Encoded: publicKeyBase64),
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else { return false }
+        return key.isValidSignature(sig, for: data)
+    }
+
     // Same, with the public key passed in. The app always uses the compiled-in key; the extra argument lets the
     // test suite exercise this exact code against a throwaway keypair without touching the real release key.
     static func verify(zip: URL, signatureBase64: String, publicKeyBase64: String) -> Bool {

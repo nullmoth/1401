@@ -37,6 +37,18 @@ function armEvent(d) {
     armButtons();
     return;
   }
+  if (d.kind === "request") {
+    // 1401 for Windows asked for ARM apps: open Tools with this card first, the banner on top of it
+    $("armreqt").textContent = d.text;
+    $("armreqon").hidden = !d.canRun;
+    $("armreq").hidden = false;
+    const tab = document.querySelector('.tab[data-t="tools"]');
+    if (tab) tab.click();
+    const sec = $("t-tools"), card = $("armcard"), first = sec.querySelector(".card");
+    if (first && first !== card) sec.insertBefore(card, first);
+    card.scrollIntoView({ block: "start" });
+    return;
+  }
   if (d.kind === "busy") { A.last = ""; $("armr").textContent = d.text; return; }
   if (d.kind === "error") { A.last = `<span class="warn">${esc(d.why)}</span>`; $("armr").innerHTML = A.last; armButtons(); return; }
   if (d.kind === "progress") {
@@ -246,6 +258,8 @@ $("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });
 $("xeoff").onclick = () => post({ act: "xe", on: false, efi: efi() });
 $("armon").onclick = () => { $("armon").disabled = true; post({ act: "arm", op: "on" }); };
 $("armoff").onclick = () => post({ act: "arm", op: "off" });
+$("armreqon").onclick = () => { $("armreq").hidden = true; $("armon").disabled = true; post({ act: "arm", op: "on", from: "windows" }); };
+$("armreqno").onclick = (e) => { e.preventDefault(); $("armreq").hidden = true; post({ act: "arm", op: "notNow" }); };
 $("armchk").onclick = () => post({ act: "arm", op: "check" });
 $("armclt").onclick = () => post({ act: "arm", op: "clt" });
 $("armtr").onclick = () => { $("armtr").disabled = true; post({ act: "arm", op: "translate" }); };
