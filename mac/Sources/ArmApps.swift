@@ -346,8 +346,11 @@ extension ArmApps {
         return missing.isEmpty ? nil : "this processor lacks \(missing.joined(separator: ", ")), which translated apps need"
     }
 
+    /// The three feature lists, or "" when any of them is blank: the package then reads CPUID itself, and so this
+    /// pre-check steps aside rather than refuse on a partial answer.
     static func cpuFeatures() -> String {
-        ["machdep.cpu.features", "machdep.cpu.leaf7_features", "machdep.cpu.extfeatures"].map { sysctl($0) }.joined(separator: " ")
+        let parts = ["machdep.cpu.features", "machdep.cpu.leaf7_features", "machdep.cpu.extfeatures"].map { sysctl($0) }
+        return parts.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ? "" : parts.joined(separator: " ")
     }
 }
 

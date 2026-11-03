@@ -71,6 +71,9 @@ arm("nothing installs on its own: the request only sends a banner, never calls T
 arm("the page opens Tools with the ARM card first and the banner on it",
     'kind === "request"' in js and '$("armreqon").hidden = !d.canRun' in js and 'sec.insertBefore(card, first)' in js
     and 'id="armreq"' in html and 'id="armreqno"' in html)
+arm("nm-arm check's note is shown in the card, escaped", "if (A.on && c.note)" in ev and "esc(c.note)" in ev)
+arm("a partly blank sysctl answer steps the pre-check aside (the package reads CPUID then)",
+    "parts.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ? \"\"" in src)
 arm("Translate is enabled only when on and the check passed", '$("armtr").disabled = !(A.on && A.ok) || A.running' in js)
 
 # compile ArmApps.swift against stand-ins for the rest of the app

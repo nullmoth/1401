@@ -27,6 +27,8 @@ function armEvent(d) {
     if (!A.on) t += "Off. Nothing is installed.";
     else if (c.ok === true) t += `<span class="good">This Mac can run translated apps</span>` + (c.target ? ` (${esc(c.target)})` : "") + ".";
     else t += `<span class="warn">${esc(c.why || "This Mac did not pass the check.")}</span>`;
+    // nm-arm check's "note": a sentence for the user when the system seems to hide CPU features (a VM, for example)
+    if (A.on && c.note) t += `<br><span class="small">${esc(c.note)}</span>`;
     if (d.listWhy) t += `<br><span class="warn">${esc(d.listWhy)}</span>`;
     $("armr").innerHTML = t;
     $("armclt").hidden = !(A.on && c.prerequisites && c.prerequisites.clt === false);
