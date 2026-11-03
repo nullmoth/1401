@@ -3,6 +3,14 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.7
+- Writing the stick: 1401 checks that Apple will serve the download before erasing your USB stick. If Apple refuses, the stick is not touched.
+- Apple's 406, 405, 408, 425, and 429 answers are retried like server errors, try another route, and the message says Apple refused, not that your network failed.
+- A resume that can never succeed (416) stops at once and says why.
+- A failed readback names the stick and tells the two causes apart: a failing write (try another port) or a stick that reports a size it does not have (use another stick).
+- The read-only message explains the lock switch, and what it means when the stick has none.
+- Bundles the NVIDIA driver and Mac app 2.7.
+
 ## 2.6.6
 - Recovery downloads: when Apple's server refuses the file list (403), 1401 asks again with a fresh token. A web page served in place of the file list, and a connection that answers with no data, are now named in the stop message instead of a bare error.
 - Writing the stick: when Z: to G: are all taken, 1401 also tries F:, E: and D:, and lists the letters in use if none is free. A stick Windows reports offline now says why and how to bring it online, and a stick that drops off USB after the image is written says so in one line.
