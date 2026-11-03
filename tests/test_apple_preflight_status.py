@@ -271,6 +271,104 @@ class RangeRefusedForever(unittest.TestCase):
         self.assertLessEqual(len([r for r in opened if r]), 2, opened)
 
 
+class GaveUpAfterResumes(unittest.TestCase):
+    """Measured 11-02 over the 100 resume give-ups in the raw write logs of 10-31..11-02:
+
+      stalled-in-a-row at give-up      20 on ALL 100 (the RESUMES_WINDOWED cap)
+      total resumes at give-up         20 on 87, then 21..60
+      never printed a PROGRESS line    83 of 100
+      span of the recorded connections min 968 s, median 1084 s, max 3935 s
+      the empty answers                343 of them, every one HTTP 206 with Content-Length 524288
+                                       and NO body; Server nginx on 48 machines, dlb/1.0.2 on 1,
+                                       Via absent on all 343
+      first full connection delivered  exactly 1048576 B on 89 of 100
+
+    So the download server was not cutting the connection: it accepted the range, promised the exact
+    window and sent nothing. The old stop asserted "Something on this network cuts Apple's download".
+    """
+
+    def message(self, got=0, total=1000, seconds=1084, resumes=20, stalled=20):
+        return apple._gave_up(apple.AppleError("stream ended at 0/10485760 bytes of a chunk"),
+                              resumes, stalled, got, total, seconds, ["18s connection at 0 gave 1048576 B"])
+
+    def test_it_no_longer_asserts_the_network_was_the_cause(self):
+        m = self.message()
+        self.assertNotIn("Something on this network cuts", m)
+        self.assertIn("either something between this PC and Apple, or Apple's own download server", m)
+        self.assertIn("cannot tell which", m)
+
+    def test_it_reports_what_was_actually_observed(self):
+        m = self.message(got=210, total=1000, seconds=1084, resumes=26, stalled=20)
+        self.assertIn("26 resumed connections", m)
+        self.assertIn("20 in a row that delivered no data", m)
+        self.assertIn("18 minutes", m)        # 1084 s, which is the measured median
+        self.assertIn("21% of the download", m)
+        self.assertIn("accepting the request and then sending nothing", m)
+        self.assertIn("stream ended at 0/10485760", m)   # the original error is still carried
+        self.assertIn("Last connections: 18s connection at 0 gave 1048576 B", m)
+
+    def test_it_offers_the_three_routes_cheapest_first_and_names_the_sticks_state(self):
+        m = self.message()
+        self.assertLess(m.index("antivirus"), m.index("hotspot or a VPN"))
+        self.assertLess(m.index("hotspot or a VPN"), m.index("wait an hour"))
+        # the stick IS erased by the time the image is being fetched: say so rather than implying it is fine
+        self.assertIn("was erased and is not a working installer", m)
+        self.assertIn("Nothing else on this PC was changed", m)
+
+    def test_NEGATIVE_CONTROL_the_thresholds_were_not_quietly_loosened(self):
+        # All 100 give-ups stopped at 20, but all 100 are FAILURES and so cannot show how often 20 would
+        # have recovered; the code's own history records a write that reached 8 MiB after 19 resumes.
+        # If a later change raises these, this arm is where it has to be argued for.
+        self.assertEqual(apple.RESUMES_WINDOWED, 20)
+        self.assertEqual(apple.RESUMES, 8)
+        self.assertEqual(apple.RESUMES_TOTAL, 400)      # never approached: max observed was 60
+        self.assertEqual(apple.WINDOW_MAX_DELAY, 60)
+
+    def test_a_stalled_connection_prints_a_line_instead_of_going_silent_for_eighteen_minutes(self):
+        said = []
+        # one chunk, a first connection that delivers nothing, then every resume refused: the stall path
+        def urlopen(req, timeout=None):
+            if req.headers.get("Range") is None:
+                return Stream(b"")
+            raise ConnectionResetError(10054, "reset")
+
+        with tempfile.TemporaryDirectory() as root, \
+                patch.object(apple, "parse_chunklist", lambda d: LIST), \
+                patch.object(apple.urllib.request, "urlopen", urlopen), \
+                patch.object(apple.time, "sleep", lambda s: None), \
+                patch("builtins.print", lambda *a, **k: said.append(" ".join(str(x) for x in a))):
+            where = info()
+            where["chunklist_bytes"] = b"cl"
+            with self.assertRaises(apple.AppleError):
+                apple.download(where, root)
+        stall_lines = [s for s in said if "no data from the download server on" in s]
+        self.assertTrue(stall_lines, said[:6])
+        # one line per stalled connection, so the window is never silent, and it says what it is waiting for
+        self.assertGreaterEqual(len(stall_lines), 8)
+        self.assertIn("before stopping", stall_lines[0])
+        self.assertIn("still trying", stall_lines[0])
+
+    def test_the_server_that_answered_a_working_connection_is_recorded(self):
+        # No log, failed or successful, had ever recorded who answers a download that works - which is
+        # exactly why nginx-vs-Apple cannot be settled from the 10-31..11-02 logs.
+        r = Stream(IMAGE)
+        r.headers["Server"] = "nginx"
+        r.headers["Via"] = "1.1 something"
+        line = apple._answered_by(r)
+        self.assertIn("Server=nginx", line)
+        self.assertIn("Via=1.1 something", line)
+        # it must NOT call it Apple's server: that is the open question, not a finding
+        self.assertNotIn("Apple's download server answered", line)
+
+    def test_the_server_line_never_raises_and_never_leaks_a_token(self):
+        self.assertIn("no headers", apple._answered_by(object()))
+        r = Stream(b"")
+        r.headers["Set-Cookie"] = "AssetToken=SECRET"
+        line = apple._answered_by(r)
+        self.assertNotIn("SECRET", line)
+        self.assertNotIn("AssetToken", line)
+
+
 class ReadbackNamesTheStick(unittest.TestCase):
     def test_the_stick_is_named_by_model_and_claimed_size_and_never_by_serial(self):
         got = usbwriter.stick_name({"FriendlyName": "General UDisk", "Size": 31 * 10 ** 9,

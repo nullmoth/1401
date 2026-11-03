@@ -369,6 +369,53 @@ def _not_a_web_page(data):
 PREFLIGHT_BYTES = 64 * 1024  # enough to prove the CDN serves a range of the image; not a download
 
 
+def _gave_up(e, resumes, stalled, got, total, seconds, trail):
+    """The stop after the resumes run out, worded from what was observed rather than from a guess.
+
+    WAS: "Something on this network cuts Apple's download: turn off web/HTTP scanning in your antivirus,
+    or connect through a phone hotspot or a VPN, and press Next." That asserted the cause, and the
+    measurement of 11-02 (the 100 resume give-ups in the raw write logs of 10-31..11-02) says we do not
+    know it. In those logs the connections that delivered nothing were not cut at all: 343 of them
+    answered a well-formed HTTP 206 with Content-Length exactly 524288 - the window 1401 asked for - and
+    then sent no body. A scanner cutting a stream does not answer 206 and promise a length first. Server
+    was nginx on 48 of the 49 machines that recorded it and dlb/1.0.2 on one, and Via was absent on all
+    343, so nothing in front announced itself either. Whether that is Apple's own edge or an interposer
+    cannot be told from these logs, because no log has ever recorded who answers a download that WORKS -
+    which _answered_by now fixes.
+
+    So this says what happened, offers both routes without claiming which applies, and - because the
+    stick is erased by the time the image is being fetched - says plainly what state it is in. The
+    thresholds are NOT changed: all 100 give-ups stopped at exactly 20 stalled connections, but every one
+    of those logs is a FAILURE, so they cannot show how often 20 would have recovered. The code's own
+    history records a write that reached 8 MiB after 19 resumes, which is why the limit is 20 and not 8."""
+    pct = got * 100 // total if total else 0
+    return (f"{e} (after {resumes} resumed connections, {stalled} in a row that delivered no data, "
+            f"over {seconds / 60:.0f} minutes, at {pct}% of the download). The download server kept "
+            f"accepting the request and then sending nothing. That is either something between this PC "
+            f"and Apple, or Apple's own download server: 1401 cannot tell which from here, so try the "
+            f"cheaper fix first. Turn off web/HTTP scanning in your antivirus and press Next again; if it "
+            f"stops here again, try a phone hotspot or a VPN; if it still stops, Apple is likely busy - "
+            f"wait an hour and press Next again. The USB stick was erased and is not a working installer "
+            f"yet, so leave it plugged in and press Next rather than reusing it elsewhere. Nothing else on "
+            f"this PC was changed. Last connections: {'; '.join(trail)}")
+
+
+def _answered_by(r):
+    """Which server answered, for the log. Never raises and never carries a URL, a token or a cookie: only
+    the headers that say who is on the other end."""
+    try:
+        h = getattr(r, "headers", None)
+        if h is None:
+            return "the download server sent no headers to identify itself"
+        got = [f"{k}={str(h.get(k))[:60]}" for k in ("Server", "Via", "X-Cache", "X-Responding-Server")
+               if h.get(k) is not None]
+        # Deliberately not "Apple's server": whether it is Apple's edge or something in front of it is the
+        # very thing these lines exist to settle, so the log states what answered and claims nothing.
+        return "the download server answered: " + (", ".join(got) or "it named itself in no header")
+    except Exception:  # noqa: BLE001 - a description only; nothing downstream depends on it
+        return "the download server could not be identified"
+
+
 def preflight(info):
     """Proves Apple will serve this download BEFORE anything is erased: the signed chunklist, verified, and a
     small range of the image itself. Returns the chunklist bytes, which download() then reuses rather than
@@ -426,6 +473,13 @@ def download(info, usb_root, progress=None):
         if "HTTP Error 403" not in str(e):
             raise
         r = _after_403(info, e, lambda: _asset(info["image_url"], info["image_token"]))
+    # Who answered the connection that WORKED. Measured 11-02 over the 100 resume give-ups in the raw write
+    # logs of 10-31..11-02: 49 of them recorded the headers of an empty answer (Server nginx on 48 machines,
+    # dlb/1.0.2 on 1) and 51 recorded nothing - but NO log, failed or successful, has ever recorded who
+    # answers a download that works. Without that baseline it cannot be said whether "nginx" is Apple's own
+    # edge or something between the PC and Apple, so the stop below must not claim either. One line here
+    # makes the next support cycle able to tell them apart.
+    print("OK " + _answered_by(r), flush=True)
     # WAS: fh was first bound inside the with, so a stick that refused the file made the finally raise
     # UnboundLocalError and hid the real error (1.9.0 write log, 10-10)
     fh = None
@@ -467,12 +521,20 @@ def download(info, usb_root, progress=None):
                             resumes += 1
                             limit = RESUMES_WINDOWED if window else RESUMES
                             if stalled > limit or resumes > RESUMES_TOTAL:
-                                raise AppleError(f"{e} (after {resumes - 1} resumed connections, {stalled - 1} in a row "
-                                                 f"with no progress). Something on this network cuts Apple's download: "
-                                                 f"turn off web/HTTP scanning in your antivirus, or connect through a phone "
-                                                 f"hotspot or a VPN, and press Next. Last connections: {'; '.join(trail)}") from None
+                                raise AppleError(_gave_up(e, resumes - 1, stalled - 1, done + len(part), total,
+                                                          time.monotonic() - t0, trail)) from None
                             if window and stalled > 1 and (stalled - 1) % REFRESH_EVERY == 0:
                                 _refresh(info)
+                            # Say something while this is happening. Measured 11-02 over the 100 resume
+                            # give-ups in the raw write logs of 10-31..11-02: 83 of them never printed a
+                            # single PROGRESS line, and the recorded connections spanned a median of 1084 s
+                            # (min 968 s, max 3935 s) - so for 16 to 65 minutes the window showed a bar at
+                            # zero and no text at all, and users had nothing to tell them whether to wait.
+                            # Every stalled connection prints one line; a healthy windowed download never
+                            # reaches here, so this cannot spam a working write.
+                            print(f"(no data from the download server on {stalled} connection(s) in a row at "
+                                  f"{(done + len(part)) * 100 // total}% - still trying, up to "
+                                  f"{limit} before stopping; each wait is up to {WINDOW_MAX_DELAY} s)", flush=True)
                             window = WINDOW  # from now on never ask for more than one window per connection
                             try:
                                 # back off when nothing arrives
