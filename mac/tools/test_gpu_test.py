@@ -192,7 +192,8 @@ inst = (DRV / "package/install.sh").read_text()
 unin = (DRV / "package/uninstall.sh").read_text()
 arm("the NVIDIA installer installs no NPU userland and no AMD/Intel kexts",
     "Library/NullMoth/npu" not in inst and "NMXNPU" not in inst and "NMXAccel" not in inst)
-arm("the NVIDIA uninstaller removes the NVIDIA driver only", 'KEXTS="NVRM NVAccel NVRMFB NVRMAGDC NVPrimarySelector";' in unin
+# 2.7: the NVIDIA package carries the audio driver it installs on macOS 26 (NMXAudio), so its uninstaller removes it too
+arm("the NVIDIA uninstaller removes the NVIDIA driver (and the audio driver it carries) only", 'KEXTS="NVRM NVAccel NVRMFB NVRMAGDC NVPrimarySelector NMXAudio";' in unin
     and "NMXGPU" not in unin and "/Library/NullMoth/npu" not in unin)
 arm("turning it off clears the NPU opt-in", "ga del nmxnpu=1" in src)
 # the AMD/Intel driver is its own package: setup takes only its kexts, never the NVIDIA driver's cached accelerators
