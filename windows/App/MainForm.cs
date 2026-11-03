@@ -639,6 +639,12 @@ namespace A1401
                     OfferOperationReport("check");
                     return;
                 }
+                // The hardware map rides along with the scan it belongs to, in the same folder as
+                // Report.json, so the identifiers that decide whether a card is supported travel with
+                // every report the user sends. Off the UI thread: enumerating the device tree through WMI
+                // takes seconds on a full desktop and would freeze the window for all of them.
+                // It never fails the check - WriteTo reports its own trouble as the line it returns.
+                Say(await Task.Run(() => HardwareMap.WriteTo(scanDir)));
                 scanned = true; LoadFacts(); await PrepareFirmwareGuide(); Say(Loc.T("Done.")); Go(1); return;
             }
             if (page == 2 && !built)

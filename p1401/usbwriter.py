@@ -297,7 +297,14 @@ def eligible(disk, allow_large=False):
                    "(right-click Start), right-click the stick's disk and choose Online, or unplug it and plug it into "
                    "another USB port, then press Write again")
     if disk.get("IsReadOnly"):
-        why.append("the disk is read-only (a lock switch, or a failing stick)")
+        # 2.6.5/2.6.6 write logs (22, 10-31..11-02): the bare "the disk is read-only (a lock switch, or a
+        # failing stick)" named the two causes and no action, and 15 of the 22 reported it together with
+        # "offline" - which is the pair Windows shows for a stick whose controller has gone read-only to
+        # protect its remaining cells. That stick will not come back; the lock switch will.
+        why.append("Windows cannot write to this stick (it is marked read-only). If the stick has a small lock "
+                   "switch on its side, slide it the other way and press Write again. Sticks with no switch report "
+                   "this when their controller has turned read-only because the memory is worn out, and that cannot "
+                   "be undone - use a different USB stick")
     size = int(disk.get("Size") or 0)
     if size < MIN_DISK:
         why.append(f"too small ({size / GiB:.1f} GiB; the installer needs 2)")
@@ -554,7 +561,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
             raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
     if disk.get("Via") == "Win32_DiskDrive":
         root = _write_wmi_erase(disk, erase_os)
-        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile)
+        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk))
     _ps(check_script(disk, erase_os))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
@@ -684,7 +691,7 @@ Write-Output "LETTER=$letter"
         # the stick search's own answer (empty when it found nothing) is now part of it.
         seen = " ".join((out or "").split())[-300:]
         raise UsbError(f"diskpart finished but {root} did not appear (the stick search said: {seen or 'nothing'})")
-    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile)
+    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk))
 
 
 def _write_wmi_erase(disk, erase_os):
@@ -703,7 +710,20 @@ def _write_wmi_erase(disk, erase_os):
     raise UsbError(f"diskpart finished but {root} did not appear")
 
 
-def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile):
+def stick_name(disk):
+    """How to call this stick back to its owner: its model and the size it claims, never its serial. The write
+    log already carries --stick-name; the readback stop did not, so a user whose PC has three USB devices in
+    it was told "use another USB stick" without being told which one had failed."""
+    name = (disk.get("FriendlyName") or "").strip()
+    try:
+        size = int(disk.get("Size") or 0)
+    except (TypeError, ValueError):
+        size = 0
+    both = " ".join(x for x in [name, f"{size / GiB:.0f} GiB" if size else ""] if x)
+    return both or "the USB stick"
+
+
+def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick="the USB stick"):
     """Everything after the erase: the recovery image (checked as it arrives and read back), the EFI, the driver."""
     from . import apple  # noqa: PLC0415
     from . import machine_handoff  # noqa: PLC0415
@@ -721,9 +741,26 @@ def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile
         except (apple.AppleError, OSError, apple.http.client.HTTPException) as e:
             print(f"(writing them again failed: {type(e).__name__}: {str(e)[-160:]})", flush=True)
     if changed:
-        raise UsbError(f"this stick changed the macOS image after it was written ({len(changed)} of {got['chunks']} parts "
-                       f"read back different: {', '.join(map(str, changed[:12]))}{' ...' if len(changed) > 12 else ''}). "
-                       f"The stick is failing or not the size it claims: use another USB stick.")
+        # Two different faults reach this line, and the counts tell them apart. Measured 11-02 over the raw
+        # write logs of 10-31..11-02: 32 readback stops, of which 16 had ONE to NINETEEN parts different (a
+        # bad write, worth the one rewrite above, which then failed) and 16 had 37 to 82 of 85-92 parts
+        # different - a stick that is not the size it claims, where a rewrite cannot help and is not tried.
+        # 27 of the 32 named a generic controller ("General UDisk" x12, "VendorCo ProductCode" x10,
+        # "Flash USB Disk", "Generic Flash-Disk", "Gene2.0 UDisk2.0", "MXT-USB Storage Device").
+        # Both messages name the stick: a user with several USB devices plugged in was previously told
+        # "use another USB stick" without being told which one had failed.
+        shown = ", ".join(map(str, changed[:12])) + (" ..." if len(changed) > 12 else "")
+        if len(changed) * 4 > got["chunks"]:
+            raise UsbError(f"{stick} did not keep the macOS image: {len(changed)} of {got['chunks']} parts read back "
+                           f"different ({shown}). A stick that loses most of what is written to it is reporting a size "
+                           f"it does not have - this is what counterfeit and worn-out USB sticks do, and writing it "
+                           f"again cannot fix it. Use a different USB stick, from a brand you know, and write again. "
+                           f"Nothing on this PC was changed.")
+        raise UsbError(f"{stick} changed the macOS image after it was written ({len(changed)} of {got['chunks']} parts "
+                       f"read back different: {shown}), and the parts that differed were written a second time and "
+                       f"still came back wrong. The stick is failing. Try another USB port, on the back of the PC, and "
+                       f"write again; if it stops here a second time, use a different USB stick. Nothing on this PC "
+                       f"was changed.")
     _copy_settled(os.path.join(efi_build_dir, "EFI"), os.path.join(root, "EFI"), root)
     verify_efi_copy(os.path.join(efi_build_dir, 'EFI'), os.path.join(root, 'EFI'))
     driver = None
@@ -1010,6 +1047,19 @@ def cli_write(argv):
                 return 1
             raise
         print(f"OK {info['name']} ({info['product']})", flush=True)
+        # Ask Apple for the signed chunklist and a small piece of the image BEFORE the stick is erased.
+        # Measured 11-02 over the raw write logs of 10-31..11-02: 323 of the 328 "HTTP Error 406" stops came
+        # after "OK erased the stick", because the chunklist was the download's first request and the
+        # download ran after the erase. A stop here costs the user nothing.
+        print("STEP checking that Apple will serve the download (nothing is erased yet)", flush=True)
+        try:
+            ready = apple.preflight(info)
+        except apple.AppleError as e:
+            print(f"STOP 1401-APPLE-REFUSED: {e}", flush=True)
+            print("OK your USB stick was not touched: nothing has been erased.", flush=True)
+            return 1
+        print(f"OK Apple is serving {info['name']} ({ready['bytes'] / GiB:.2f} GiB in {ready['chunks']} parts, "
+              f"signed chunklist verified)", flush=True)
     last = [-1]
     def progress(done, total, *_):
         pct = int(done * 100 / total) if total else 0
