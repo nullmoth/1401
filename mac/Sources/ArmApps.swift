@@ -95,8 +95,13 @@ enum ArmApps {
             + "[ \"$h\" = \(sha) ] || { echo 'STOP: the package changed after it was checked'; exit 1; }; "
             + "/bin/mkdir \"$d/x\" && /usr/bin/tar -xzf \"$d/p.tar.gz\" -C \"$d/x\" || { echo 'STOP: the package did not unpack'; exit 1; }; "
             + "[ -f \"$d/x/pkgroot/install.sh\" ] || { echo 'STOP: the package has no installer'; exit 1; }; "
-            // the installer's exit codes: 3 checksum mismatch, 4 its compiler cannot run on this Mac, 5 copy failed
-            + "/bin/bash \"$d/x/pkgroot/install.sh\"; rc=$?; "
+            // the installer's exit codes: 3 checksum mismatch, 4 its compiler cannot run on this Mac, 5 copy failed.
+            // umask 077 above is for the private copy only. The installer runs with the normal 022: under 077 it created
+            // /Library/NullMoth readable by root alone on a Mac that had no driver yet, so nm-arm could not be reached by
+            // the user (2.7; users were passing round `sudo chmod 711 /Library/NullMoth`). The chmod after it repairs a
+            // folder an earlier install left that way, so pressing Turn on again fixes such a Mac.
+            + "(umask 022; /bin/bash \"$d/x/pkgroot/install.sh\"); rc=$?; "
+            + "[ $rc = 0 ] && /bin/chmod 755 /Library/NullMoth /Library/NullMoth/arm; "
             + "case $rc in 0) echo \(installedMarker);; 3) echo 'STOP: the package failed its own checksum';; "
             + "4) echo 'STOP: the translator cannot run on this Mac';; 5) echo 'STOP: the files could not be copied';; "
             + "*) echo \"STOP: the installer exited $rc\";; esac"

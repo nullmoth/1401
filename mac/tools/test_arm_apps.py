@@ -38,7 +38,11 @@ arm("root is handed the digest of the verified buffer", "installCommand(package:
 arm("the manifest takes only https links, a 64-hex SHA-256 and a nullmoth-arm-*.tar.gz name",
     'u.scheme == "https"' in src and 's.scheme == "https"' in src and "validSha(sha), validPackageName(n)" in src)
 inst = src.split("static func installCommand(", 1)[1].split("static func validUser(", 1)[0]
-order = [inst.find(k) for k in ("mktemp -d /private/var/root/", "/bin/cp -X", "shasum -a 256", "tar -xzf", "install.sh\\\"; rc=$?")]
+# 2.7: the installer ran under the private copy's umask 077 and left /Library/NullMoth root-only, hiding nm-arm
+arm("the package installer runs with umask 022, not the private copy's 077", "(umask 022; /bin/bash" in inst)
+arm("a successful install makes /Library/NullMoth and its arm folder traversable again (repairs 2.7 installs)",
+    "/bin/chmod 755 /Library/NullMoth /Library/NullMoth/arm" in inst)
+order = [inst.find(k) for k in ("mktemp -d /private/var/root/", "/bin/cp -X", "shasum -a 256", "tar -xzf", "install.sh\\\"); rc=$?")]
 arm("root copies, re-checks the SHA-256 on its copy, then unpacks, then installs (in that order)",
     all(i >= 0 for i in order) and order == sorted(order), str(order))
 turn_on = src.split("func armTurnOn(source:", 1)[1].split("func armTurnOff()", 1)[0]
