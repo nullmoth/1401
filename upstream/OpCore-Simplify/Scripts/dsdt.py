@@ -267,18 +267,8 @@ class DSDT:
         return (target_files, failed,)
 
     def get_latest_iasl(self):
-        latest_release = self.github.get_latest_release("acpica", "acpica") or {}
+        return "https://github.com/open-acpica/acpica/releases/download/20251212/iasl-win-20251212.zip"
 
-        for line in latest_release.get("body", "").splitlines():
-            if "iasl" in line and ".zip" in line:
-                return line.split("\"")[1]
-
-        for asset in latest_release.get("assets", []):
-            if "/iasl" in asset.get("url") and ".zip" in asset.get("url"):
-                return asset.get("url")
-            
-        return None
-    
     def check_iasl(self, legacy=False, try_downloading=True):
         if sys.platform == "win32":
             targets = (os.path.join(os.path.dirname(os.path.realpath(__file__)), "iasl-legacy.exe" if legacy else "iasl.exe"),)

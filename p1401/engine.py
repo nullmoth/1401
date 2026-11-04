@@ -253,6 +253,28 @@ def _choose_device(prompt, ctx, policy):
     raise UnknownPrompt(f"1401 chose {want!r} as the {kind} device but the engine did not list it:\n{ctx}")
 
 
+def _intel_wifi_answer(context):
+    """The engine's default for Intel Wi-Fi became the laobamac AirportItlwm fork. 1401 keeps itlwm, the kext its builds
+    have been tested with and its Wi-Fi notice describes, until the fork has been tested here. The option number depends
+    on the macOS version, so it is read from the menu the engine just printed."""
+    found = re.search(r"^\s*(\d+)\. itlwm\b", context, re.M)
+    if not found:
+        raise UnknownPrompt(f"the Intel Wi-Fi menu no longer lists itlwm:\n{context}")
+    return found.group(1)
+
+
+def _tahoe_audio_keep_choice(kexts, tahoe_audio):
+    """The engine's audio menu used to offer VoodooHDA as option 2, which selected nothing. Option 2 is now AppleALC plus
+    SimpleHDA, and there is no option that selects nothing. SimpleHDA has no licence, so 1401 does not fetch it, and the
+    VoodooHDA choice must not leave AppleALC on: AppleALC without AppleHDA on macOS 26 gives no audio."""
+    from Scripts.datasets import kext_data  # noqa: PLC0415 - upstream module
+    idx = kext_data.kext_index_by_name
+    simple = kexts[idx["SimpleHDA"]]
+    if simple.checked and tahoe_audio != "applealc":
+        kexts[idx["AppleALC"]].checked = False
+    simple.checked = False
+
+
 # (pattern on the prompt, answer or fn(prompt, context, policy)) - first match wins.
 PROMPT_RULES = [
     (r"^Press Enter", ""),
@@ -260,7 +282,7 @@ PROMPT_RULES = [
     (r"^Please enter the macOS version", lambda p, c, pol: _macos_answer(p, c, pol)),
     (r"^Select audio kext for your system", lambda p, c, pol: "1" if pol.tahoe_audio == "applealc" else "2"),
     (r"^Select kext for your AMD .* GPU \(default", ""),
-    (r"^Select kext for your Intel WiFi device \(default", ""),
+    (r"^Select Intel Wi-Fi kext \(default", lambda p, c, pol: _intel_wifi_answer(c)),
     (r"^Do you want to force load", lambda p, c, pol: "yes" if pol.force_load_unsupported_kexts else "no"),
     (r"^Would you like to scan for WiFi profiles", lambda p, c, pol: "yes" if pol.import_wifi_passwords else "no"),
     (r"^Enter the ID of the codec layout", ""),
@@ -360,43 +382,54 @@ def _load_engine():
     spec.loader.exec_module(mod)
     _patient_downloads()
     _dsdt_signature_fix()
-    _unsupported_igpu_fix()
+    _modern_nvidia_stays_ours()
     from . import tls  # noqa: PLC0415
     tls.install()   # verify against the Windows store + certifi, not certifi alone
     return mod, utils_mod
 
 
-def _unsupported_igpu_fix():
-    """1.10.0 build log (10-10, Intel Iris Xe laptop): "KeyError: 'PciRoot(0x0)/Pci(0x2,0x0)'". For an Intel iGPU macOS has
-    no driver for, the engine's igpu_properties returns no properties, its add_device_property then adds nothing (as
-    intended), and the very next line indexes that missing entry. The iGPU entry is left out of the device-properties
-    pass instead: the result is the one the engine meant (no properties for that GPU) and every other device is untouched."""
-    from Scripts import config_prodigy  # noqa: PLC0415 - upstream module
-    cls = config_prodigy.ConfigProdigy
-    if getattr(cls, "_1401_igpu", False):
-        return
-    orig = cls.deviceproperties
+MODERN_NVIDIA_CODENAMES = ("Turing", "Ampere", "Ada Lovelace", "Blackwell")
 
-    def deviceproperties(self, hardware_report, disabled_devices, macos_version, kexts):
-        gpus = hardware_report.get("GPU", {}) or {}
-        board = hardware_report.get("Motherboard", {}) or {}
-        platform = "NUC" if "NUC" in (board.get("Name") or "") else board.get("Platform")
-        empty = []
-        for name, info in gpus.items():
-            if info.get("Device Type") != "Integrated GPU" or "Intel" not in (info.get("Manufacturer") or ""):
-                continue
-            try:
-                props = self.igpu_properties(platform, (name, info), hardware_report.get("Monitor", {}), macos_version)
-            except Exception:  # noqa: BLE001 - the engine's own call below raises the real error if this one does
-                continue
-            if not props:
-                empty.append(name)
-        if empty:
-            print(f"(no macOS properties for {', '.join(empty)}: left out of device properties)")
-            hardware_report = dict(hardware_report, GPU={k: v for k, v in gpus.items() if k not in empty})
-        return orig(self, hardware_report, disabled_devices, macos_version, kexts)
-    cls.deviceproperties = deviceproperties
-    cls._1401_igpu = True
+
+def _without_modern_nvidia_codename(hardware_report):
+    """A copy of the report in which the engine does not recognise a modern NVIDIA card. Every other field is kept."""
+    gpus = hardware_report.get("GPU") or {}
+    if not any(g.get("Codename") in MODERN_NVIDIA_CODENAMES for g in gpus.values()):
+        return hardware_report
+    return dict(hardware_report, GPU={name: dict(g, Codename="") if g.get("Codename") in MODERN_NVIDIA_CODENAMES else g
+                                      for name, g in gpus.items()})
+
+
+def _modern_nvidia_stays_ours():
+    """The engine (since 8df623a) writes the driver's boot-args, SIP value, an IONDRVSupport block, and AMFIPass for any
+    Turing-or-newer card, and tells the user to follow another project's guide. 1401 decides those itself in
+    nullmoth.apply, which runs only for a card that is live and supported: the stick checks and EFI doctor rely on the
+    boot-args meaning exactly that, and blocking IONDRVSupport on a Mac with no NVIDIA driver yet leaves no display
+    driver. So the engine's branch is switched off here and its other changes are kept."""
+    from Scripts import config_prodigy, kext_maestro  # noqa: PLC0415 - upstream modules
+    cfg = config_prodigy.ConfigProdigy
+    if getattr(cfg, "_1401_modern_nvidia", False):
+        return
+    block, csr, args = cfg.block_kext_bundle, cfg.csr_active_config, cfg.boot_args
+
+    def block_kext_bundle(self, modern_nvidia_gpus, macos_version, kexts):
+        return block(self, False, macos_version, kexts)
+
+    def csr_active_config(self, modern_nvidia_gpus, macos_version):
+        return csr(self, False, macos_version)
+
+    def boot_args(self, hardware_report, macos_version, needs_oclp, kexts, config):
+        return args(self, _without_modern_nvidia_codename(hardware_report), macos_version, needs_oclp, kexts, config)
+
+    cfg.block_kext_bundle, cfg.csr_active_config, cfg.boot_args = block_kext_bundle, csr_active_config, boot_args
+    cfg._1401_modern_nvidia = True
+    km = kext_maestro.KextMaestro
+    select = km.select_required_kexts
+
+    def select_required_kexts(self, hardware_report, macos_version, needs_oclp, acpi_patches):
+        return select(self, _without_modern_nvidia_codename(hardware_report), macos_version, needs_oclp, acpi_patches)
+
+    km.select_required_kexts = select_required_kexts
 
 
 class _Sig(bytes):
@@ -469,8 +502,8 @@ def _opencore_debug(gathering_files):
     cls = gathering_files.gatheringFiles
     original = cls.fetch_latest_products_info
 
-    def fetch_latest_products_info(self, kexts, local_download_history):
-        products = original(self, kexts, local_download_history)
+    def fetch_latest_products_info(self, kexts):
+        products = original(self, kexts)
         try:
             v = self.fetcher.fetch_and_parse_content(self.dortania_builds_url, "json")["OpenCorePkg"]["versions"][0]
             url, sha = v["links"]["debug"], v["hashes"]["debug"]["sha256"]
@@ -519,7 +552,7 @@ def _patient_downloads():
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
         return
-    cls.create_ssl_context = verified_context
+    cls.ssl_context = property(verified_context)
     cls._make_request = make_request
     # 10-07: "TimeoutError: The read operation timed out" while gathering OpenCore and
     # kexts. The connection opened; the stall came mid-body in response.read(), which the engine never retries, so one
@@ -838,9 +871,11 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not o.ac.ensure_dsdt():
                 raise RuntimeError(f"no usable DSDT in {acpi_dir} - the ACPI dump is required")
             _nullmoth_gpu_pass(o.c, h)
-            hw, native, oclp_versions = o.c.check_compatibility(report)
+            hw, native, oclp_versions, _ = o.c.check_compatibility(report)
             res.hardware = hw
-            mv = o.select_macos_version(_wifi_prepass(hw, policy, h, o), native, oclp_versions)
+            # The suggestion is read after the Wi-Fi pre-pass: a card it disables must not hold the version down.
+            o.c.hardware_report = _wifi_prepass(hw, policy, h, o)
+            mv = o.select_macos_version(native, oclp_versions, o.c.get_suggested_macos_version())
             cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
             from . import panel_guard, scan_evidence
             capture = scan_evidence.load_for_report(report_path, res.raw_hardware, expected_report_sha256=res.report_sha256)
@@ -864,6 +899,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
             o.ac.select_acpi_patches(cust, disabled)
             needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
+            _tahoe_audio_keep_choice(o.k.kexts, h.policy.tahoe_audio)
             netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
             amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
             community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes

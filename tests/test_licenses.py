@@ -33,7 +33,7 @@ class Licenses(unittest.TestCase):
 
     def test_a_new_project_must_be_permissive_or_copyleft(self):
         bad = [k for k, e in licenses.table()["projects"].items()
-               if e["class"] not in licenses.ADMITTED and not e.get("grandfathered")]
+               if e["class"] not in licenses.ADMITTED and not e.get("grandfathered") and not e.get("refused")]
         self.assertEqual(bad, [], "only grandfathered projects may be none, restricted or tool-payload")
 
     def test_the_shipped_manifest_hosts_nothing_its_licence_forbids(self):
