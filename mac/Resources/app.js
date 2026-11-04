@@ -76,7 +76,7 @@ function render(m) {
     row("macOS", esc(m.macos) + ([15, 26].includes(m.major) ? "" : ' <span class="bad">(the driver is for macOS 15 and 26)</span>')) +
     row("Processor", m.arch === "x86_64" && !m.translated ? "x86_64" : '<span class="bad">Apple silicon - this driver is for Intel Macs and PCs</span>') +
     row("Graphics", m.gpus.length ? m.gpus.map((g) => esc(g.name) + (g.supported ? (g.tested ? ' <span class="good">listed device, model tested</span>' : ' <span class="warn">listed by NVIDIA, model not tested yet</span>') : g.vendor === "10DE" ? ' <span class="bad">not supported (needs RTX 20 series or newer)</span>' : "")).join("<br>") : "none found") +
-    row("OpenCore", m.opencore ? esc(m.opencore) : '<span class="warn">not detected</span>') +
+    row("OpenCore", m.opencore ? esc(m.opencore) : m.nativeMacPro ? 'not needed: Mac Pro (2019) on Apple\'s firmware <span class="warn">(experimental, needs SIP off)</span>' : '<span class="warn">not detected</span>') +
     row("Installed driver package", m.installedDriverVersion ? esc(m.installedDriverVersion) : "No version record") +
     row("NullMoth driver", on ? '<span class="good">running</span> (' + esc(m.metal.join(", ")) + ")" : m.kexts >= 4 ? '<span class="warn">loaded, no NVIDIA Metal device yet</span>' : m.files ? '<span class="warn">installed, not running yet</span>' : "not installed");
 
@@ -87,13 +87,13 @@ function render(m) {
   else if (!card && (m.hiddenNvidia || []).length) why = `The NVIDIA card (${esc(m.hiddenNvidia.join(", "))}) is on the bus but switched off for macOS, usually by a disable-gpu property in OpenCore's DeviceProperties. Remove it, restart, and open 1401 again.`;
   else if (!card && /^MacBook/.test(m.hwModel || "")) why = "No NVIDIA card was found. On a laptop the card is often switched off before macOS starts: by the BIOS graphics mode (choose Hybrid/MSHybrid or Discrete, not iGPU only) or by a dGPU-off SSDT in OpenCore's ACPI folder. Fix that, restart, and open 1401 again.";
   else if (!card || !card.supported) why = "No supported NVIDIA card was found. The driver needs a GeForce RTX 20 series or newer.";
-  else if (!m.opencore) why = "This Mac does not report OpenCore. The driver's settings live in OpenCore's config, so 1401 will not install without it.";
+  else if (!m.opencore && !m.nativeMacPro) why = "This Mac does not report OpenCore. The driver's settings live in OpenCore's config, so 1401 will not install without it.";
 
   // Keep the checked package available when the driver is already running.
   const pk = m.packages.find((p) => p.ok === "yes"); if (pk) S.pkg = pk.path;
   // Tahoe: only from macOS 15, on a Mac the driver can be installed on, with the checked package (it carries both drivers)
   // (this scan's package, not S.pkg: an ejected disk image must not leave the button pointing at a path that is gone)
-  $("upd").disabled = !pk || m.major !== 15 || !!why;
+  $("upd").disabled = !pk || m.major !== 15 || !!why || !!m.nativeMacPro;   // a Mac Pro (2019) runs macOS 26 as it is
   $("updt").innerHTML = m.major === 26 ? "This Mac already runs macOS 26." : why ? "" : pk ? "" :
     'Needs the driver package: <button type="button" class="b" id="dl3">Download the driver package</button>';
   const d3 = $("dl3"); if (d3) d3.onclick = () => post({ act: "download" });

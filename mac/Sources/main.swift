@@ -603,6 +603,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
+                // A Mac Pro (2019) started by Apple's firmware: no OpenCore, and setup puts the driver's boot-args in its
+                // NVRAM instead (the same three checks setup makes: no OpenCore, MacPro7,1, Apple's T2 chip).
+                "nativeMacPro": oc.isEmpty && sysctl("hw.model") == "MacPro7,1"
+                    && sh("/usr/sbin/system_profiler", ["SPiBridgeDataType"]).contains("Apple T2"),
                 "profile": { var p = machineProfile(gpus); p["rules"] = Profile.select(rules(), p).ids; return p }()]
     }
 

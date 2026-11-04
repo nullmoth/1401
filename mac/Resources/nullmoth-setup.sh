@@ -44,7 +44,7 @@ SCOPE=${NULLMOTH_COLLECT_SCOPE:-full}
 want() { [ "$SCOPE" = full ] || [ "$1" = driver ]; }   # want full: Send logs only; want driver: both scopes
 AGENT=/Library/LaunchAgents/com.nullmoth.crashcheck.plist
 RECOVER=/Library/LaunchDaemons/com.nullmoth.recover.plist
-KNOBS=(); PROFILE=""; COLLECT=""; UPD=""; VERB=""; EFIREAD=""; PKG=""; SHA=""; CFG=""; EFI=auto; DRY=0; REMOVE=0; USBMAP=""; TOOL=""; APPBIN=""; MOUNTED=""; T=""; PKGDIR=""
+NATIVE=0; KNOBS=(); PROFILE=""; COLLECT=""; UPD=""; VERB=""; EFIREAD=""; PKG=""; SHA=""; CFG=""; EFI=auto; DRY=0; REMOVE=0; USBMAP=""; TOOL=""; APPBIN=""; MOUNTED=""; T=""; PKGDIR=""
 while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
@@ -225,6 +225,29 @@ remove_nvram_hook() {   # take the emulated-NVRAM save daemon back out, if an in
   [ -x "$dst/Launchd.command" ] || return 0
   (cd "$dst" && ./Launchd.command uninstall) 2>&1 | sed 's/^/NOTE /'
   rm -rf "$dst"; ok "persistent NVRAM: the save-at-shutdown daemon is removed"; }
+# A Mac Pro (2019) started by Apple's own firmware has no OpenCore: macOS takes boot-args from the Mac's own NVRAM, so the
+# driver's settings go there. It is known by three things at once: OpenCore did not start it (no opencore-version), macOS
+# reports MacPro7,1, and the Mac has Apple's T2 chip. A PC set up as MacPro7,1 has no T2, and its OpenCore is detected.
+native_macpro() {
+  nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:opencore-version >/dev/null 2>&1 && return 1
+  [ "$(sysctl -n hw.model 2>/dev/null)" = MacPro7,1 ] || return 1
+  system_profiler SPiBridgeDataType 2>/dev/null | grep -q 'Apple T2'; }
+# A real Mac that OpenCore Legacy Patcher set up (a Mac Pro 5,1, for one): OCLP records the Mac's own model in its config.
+# That Mac keeps the model OCLP gave it; OCLP decides which macOS it can run, not this setup.
+oclp_real_mac() { has NVRAM.Add.4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102.OCLP-Model; }
+# The driver's boot-args merged into $1 (the same rule as the OpenCore path): sets NEW_ARGS, ADDED and REMOVED.
+merge_native_args() {
+  local a; NEW_ARGS=""; ADDED=""; REMOVED=""
+  for a in $1; do case " $DROP_ARGS " in *" $a "*) echo "CHANGE boot-args: remove $a (it hides the NVIDIA card)"; REMOVED="$REMOVED $a";; *) NEW_ARGS="$NEW_ARGS $a";; esac; done
+  for a in $WANT_ARGS; do
+    case "$a" in nvrmsettle=*) case " $NEW_ARGS " in *" nvrmsettle="*) continue;; esac;; esac   # the user's own value wins
+    case " $NEW_ARGS " in *" $a "*) ;; *) NEW_ARGS="$NEW_ARGS $a"; ADDED="$ADDED $a"; echo "CHANGE boot-args: add $a";; esac; done
+  NEW_ARGS=${NEW_ARGS# }; }
+# Removal on such a Mac: the boot-args the install added come back out of NVRAM; everything else the user set stays.
+strip_native_args() {
+  local a nv=""
+  for a in $(nvram boot-args 2>/dev/null | cut -f2-); do case " $1 " in *" $a "*) ;; *) nv="$nv $a";; esac; done
+  if [ -n "${nv# }" ]; then nvram boot-args="${nv# }"; else nvram -d boot-args; fi; }
 
 # Every log query has its own time cap. Measured 10-12 on a 15.8.1 machine: three "--last 3d" queries took 85 s, 120 s
 # and over 230 s, so the 180 s collection limit killed the job before the kernel log was written (36 of 94 reports since
@@ -606,9 +629,12 @@ if [ $REMOVE = 1 ]; then
     # removal used to stop here (1.8 log 10-10), leaving the user with a driver they could not take out. Without a
     # record nothing is restored from a backup: the driver's own settings come out of the OpenCore config this Mac
     # started from (or the one selected), and the uninstaller removes its files.
-    note "no install record in $STATE; removing the driver from the OpenCore config this Mac started from"
     CONFIG_SHA_AFTER=""; ADDED_ARGS=""; REMOVED_ARGS=""; CONFIG_BACKUP_REL=""
-    if [ -z "$CFG" ] && [ "$EFI" = auto ]; then
+    if [ -z "$CFG" ] && [ "$EFI" = auto ] && native_macpro; then
+      note "no install record in $STATE; this Mac Pro has no OpenCore, so the driver's boot-args come out of its NVRAM"
+      NATIVE=1; ADDED_ARGS=$WANT_ARGS
+    elif [ -z "$CFG" ] && [ "$EFI" = auto ]; then
+      note "no install record in $STATE; removing the driver from the OpenCore config this Mac started from"
       d=$(booted_part) || d=$(boot_esp)
       [ -n "$d" ] || stop "no install record, and the OpenCore partition this Mac started from was not found; select its config.plist - nothing changed"
       mount_efi "$d" || stop "could not mount the OpenCore partition $d - nothing changed"
@@ -642,7 +668,7 @@ if [ $REMOVE = 1 ]; then
     r=$(ocrel_in "$MOUNT_POINT"); [ -n "$r" ] || stop "no OpenCore config on $d; select its config.plist - nothing changed"
     MP=$MOUNT_POINT; C="$MP/$r/config.plist"; OCREL=$r
   fi
-  [ -n "$C" ] || stop "the install record has no OpenCore partition; select the original config - nothing changed"
+  [ -n "$C" ] || [ "${NATIVE:-0}" = 1 ] || stop "the install record has no OpenCore partition; select the original config - nothing changed"
   if [ -n "$C" ]; then
     [ -f "$C" ] && plutil -lint "$C" >/dev/null || stop "the OpenCore config is missing or invalid - nothing changed"
     # The backup is used only when the config is unchanged since the install; otherwise the driver's settings are taken
@@ -733,6 +759,10 @@ if [ $REMOVE = 1 ]; then
     rm -f "$MP/${OCREL:-EFI/OC}/Tools/$TOOL_FILE" || stop "could not remove the picker tool; recovery remains available"
     ok "OpenCore removal settings published"
   fi
+  if [ "${NATIVE:-0}" = 1 ]; then
+    strip_native_args "$ADDED_ARGS" || stop "could not take the driver's boot-args out of NVRAM (the driver files are already removed)"
+    ok "the driver's boot-args are out of this Mac's NVRAM"
+  fi
   if [ -f "$STATE" ]; then mv "$STATE" "$STATE.removed-$(date +%Y%m%d-%H%M%S)" || stop "could not archive the install record"; fi
   rm -f "$AGENT" "$RECOVER" "$ST/nullmoth-recover.sh"
   for j in /Library/LaunchDaemons/com.nullmoth.wsreset.plist /Library/LaunchDaemons/com.nullmoth.displaytrace.plist; do
@@ -787,6 +817,45 @@ RUNTIME_PREFLIGHT="$T/pkgroot/nullmoth-runtime-check.sh"
 rm -rf "$T"; T=""
 fi
 
+# A Mac Pro (2019) started by Apple's firmware takes its own short path (NVRAM boot-args, no OpenCore) and rejoins at
+# "Installing the driver"; everything in the else branch edits an OpenCore config.
+[ -z "$CFG" ] && [ "$EFI" = auto ] && native_macpro && NATIVE=1
+if [ $NATIVE = 1 ]; then
+  step "Setting up a Mac Pro (2019) started by Apple's firmware"
+  note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}" ] || \
+    stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
+  # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
+  csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
+    stop "System Integrity Protection is on. Start this Mac Pro into Recovery (hold Command-R as it starts), open Utilities > Terminal, run: csrutil disable - restart, then install again. Nothing was changed"
+  OLD_BOOTARGS=$(nvram boot-args 2>/dev/null | cut -f2-)
+  merge_native_args "$OLD_BOOTARGS"
+  if [ $DRY = 0 ]; then
+    step "Test-building the driver (nothing is changed yet)"
+    T=$(mktemp -d /var/tmp/nullmoth.XXXX)
+    tar -xzf "$PKG" -C "$T" || stop "could not unpack the package"
+    [ -x "$T/pkgroot/install.sh" ] || stop "the package has no install.sh"
+    out=$(CHECK=1 /bin/bash "$T/pkgroot/install.sh" --payload "$T/pkgroot" 2>&1); rc=$?
+    echo "$out" | sed -E '/^$/d;s/^== /NOTE /;s/^   ok  /NOTE /;s/^   STOP: /STOP /;s/^   NOTE: /NOTE /'
+    [ "$rc" = 0 ] || stop "the driver test build failed (exit $rc) - NVRAM and macOS were not changed"
+    rm -rf "$T"; T=""
+    mkdir -p "$ST" || stop "could not create the install state directory"
+    OLD_STATE="$ST/state.before-install"; HAD_STATE=0
+    if [ -f "$STATE" ]; then cp -p "$STATE" "$OLD_STATE" || stop "could not preserve the existing recovery record"; HAD_STATE=1
+      # a reinstall finds its own arguments already set: the ones the first install added stay recorded as added
+      for a in $( . "$OLD_STATE" >/dev/null 2>&1; [ "${NATIVE:-0}" = 1 ] && echo "$ADDED_ARGS"); do
+        case " $ADDED " in *" $a "*) ;; *) ADDED="$ADDED $a";; esac; done
+    fi
+    { printf '# NullMoth install record %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      printf '%s=%q\n' NATIVE 1 OLD_BOOTARGS "$OLD_BOOTARGS" ADDED_ARGS "${ADDED# }" REMOVED_ARGS "${REMOVED# }"
+    } > "$STATE.tmp" && chmod 600 "$STATE.tmp" && mv "$STATE.tmp" "$STATE" || stop "could not save the install record - nothing was changed"
+    if [ "$NEW_ARGS" != "$OLD_BOOTARGS" ]; then
+      nvram boot-args="$NEW_ARGS" || { if [ "$HAD_STATE" = 1 ]; then cp -p "$OLD_STATE" "$STATE"; else rm -f "$STATE"; fi
+        stop "could not write NVRAM boot-args - nothing was changed"; }
+      ok "NVRAM boot-args: $NEW_ARGS"
+    else ok "NVRAM boot-args already hold the driver's settings"; fi
+  fi
+else   # the OpenCore path
 if [ -n "$CFG" ]; then C=$CFG; [ -f "$C" ] || stop "no config at $C"; MP=$(cd "$(dirname "$C")/../.." && pwd); OCREL="EFI/$(basename "$(dirname "$C")")"; ok "OpenCore config: $C (given)"
 else
   step "Finding the OpenCore partition"
@@ -1598,7 +1667,9 @@ fi
 # the test machine). Desktops take MacPro7,1, which runs macOS 15 and 26, with RestrictEvents (its memory and PCI slot pages),
 # as 1401 1.14 builds them; a laptop on a dropped model is told to rebuild its EFI with 1401 1.14 (its model needs the
 # laptop's own SMBIOS choice). The serial numbers stay: macOS does not check them against the model.
-if [ "$UPD" = prepare ]; then
+if [ "$UPD" = prepare ] && oclp_real_mac; then
+  ok "this is a real $(get NVRAM.Add.4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102.OCLP-Model) set up by OpenCore Legacy Patcher: its model stays as OCLP set it"
+elif [ "$UPD" = prepare ]; then
   MK=""; for k in PlatformInfo.Generic.SystemProductName PlatformInfo.SMBIOS.SystemProductName PlatformInfo.DataHub.SystemProductName; do
     has "$k" && { MK=$k; break; }; done
   MODEL=$( [ -n "$MK" ] && get "$MK" ); [ -n "$MODEL" ] || MODEL=$(sysctl -n hw.model)
@@ -1826,6 +1897,7 @@ if [ $SIPON = 1 ] && [ $DRY = 0 ]; then
   if [ "${HAD_STATE:-0}" = 1 ]; then cp -p "$OLD_STATE" "$STATE"; else rm -f "$STATE"; fi
   ok "SIP setting written - restart, then open 1401 again to install the driver"; cleanup; echo "RESULT ok"; exit 0
 fi
+fi   # end of the OpenCore path (NATIVE=0)
 
 step "Installing the driver"
 T=$(mktemp -d /var/tmp/nullmoth.XXXX)
@@ -1836,6 +1908,9 @@ else out=$(/bin/bash "$T/pkgroot/install.sh" --payload "$T/pkgroot" 2>&1); rc=$?
 echo "$out" | sed -E '/^$/d;s/^== /NOTE /;s/^   ok  /NOTE /;s/^   STOP: /STOP /;s/^   NOTE: /NOTE /'
 if [ "$rc" != 0 ]; then
   [ $DRY = 0 ] && [ -n "${BKC:-}" ] && [ -f "$BKC" ] && cp -p "$BKC" "$C" && note "OpenCore config put back as it was before"
+  if [ $DRY = 0 ] && [ $NATIVE = 1 ]; then
+    if [ -n "$OLD_BOOTARGS" ]; then nvram boot-args="$OLD_BOOTARGS"; else nvram -d boot-args; fi && note "NVRAM boot-args put back as they were before"
+  fi
   if [ $DRY = 0 ]; then
     if [ "${HAD_STATE:-0}" = 1 ]; then cp -p "$OLD_STATE" "$STATE" || stop "could not restore the previous recovery record"
     else rm -f "$STATE"; fi
@@ -1893,7 +1968,7 @@ cat > "$RECOVER" <<PL
 </dict></plist>
 PL
 chmod 644 "$RECOVER"; chown root:wheel "$RECOVER"
-ok "boot picker way back armed (NullMoth: Remove driver)"
+[ $NATIVE = 1 ] || ok "boot picker way back armed (NullMoth: Remove driver)"
 # Earlier versions ran three background jobs beside the driver: a crash-check login item, a WindowServer restart at
 # every boot (a flicker workaround) and a display tracker that streamed the driver's log all the time. The driver needs
 # none of them; logs are collected when the user asks. Remove what an earlier install left.
