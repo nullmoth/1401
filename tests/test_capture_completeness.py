@@ -37,8 +37,9 @@ class FakeEngine:
         self.ac = SimpleNamespace(acpi=acpi, dsdt=None, read_acpi_tables=lambda p: None, ensure_dsdt=lambda: True)
         def compat(report):
             hw = json.loads(json.dumps(report)); hw["GPU"].pop("NVIDIA GeForce RTX 3050 Laptop GPU")
-            return hw, {}, {}
-        self.c = SimpleNamespace(check_gpu_compatibility=lambda: None, hardware_report=REPORT, check_compatibility=compat)
+            return hw, {}, {}, "25.0.0"
+        self.c = SimpleNamespace(check_gpu_compatibility=lambda: None, hardware_report=REPORT, check_compatibility=compat,
+                                 get_suggested_macos_version=lambda: "25.0.0")
     def select_macos_version(self, *a):
         raise RuntimeError("version selection stopped after the compatibility pass")
 
