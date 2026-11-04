@@ -69,10 +69,15 @@ enum ArmApps {
         let digest = hex(data)
         guard digest == b.sha256 else {
             try? FileManager.default.removeItem(at: dst); return (nil, nil, "the ARM translator package does not match its SHA-256") }
-        guard let sig = syncGet(b.sig, timeout: 30), let text = String(data: sig, encoding: .utf8),
-              ReleaseSignature.verify(data: data, signatureBase64: text) else {
+        guard let sig = syncGet(ReleaseSignature.boundURL(sig: b.sig), timeout: 30), let text = String(data: sig, encoding: .utf8),
+              ReleaseSignature.verifyBound(data: data, product: "nullmoth-arm", version: b.version, signatureBase64: text) else {
             try? FileManager.default.removeItem(at: dst)
             return (nil, nil, "the ARM translator package is not signed by NullMoth, so it was not installed")
+        }
+        let installed = ((try? String(contentsOfFile: "/Library/NullMoth/arm/VERSION", encoding: .utf8)) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ReleaseSignature.isDowngrade(b.version, installed: installed) else {
+            return (nil, nil, "this ARM translator package is older than the installed one, so it was not installed")
         }
         do {
             try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)

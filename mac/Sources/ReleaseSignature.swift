@@ -30,6 +30,32 @@ enum ReleaseSignature {
         return key.isValidSignature(sig, for: data)
     }
 
+    // What the release key signs in a .bsig: the product, the version, and the hash of the bytes. A signature over the
+    // bytes alone let any signed package stand in for another product, or an old signed version for the current one.
+    static func boundMessage(product: String, version: String, sha256: String) -> Data {
+        Data("nullmoth-release-v1\n\(product)\n\(version)\n\(sha256)\n".utf8)
+    }
+
+    static func verifyBound(data: Data, product: String, version: String, signatureBase64: String,
+                            publicKeyBase64: String = ReleaseSignature.publicKeyBase64) -> Bool {
+        let trimmed = signatureBase64.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let sig = Data(base64Encoded: trimmed), sig.count == 64,
+              let keyData = Data(base64Encoded: publicKeyBase64),
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: keyData) else { return false }
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        return key.isValidSignature(sig, for: boundMessage(product: product, version: version, sha256: digest))
+    }
+
+    // A manifest names the .sig that older apps read; the .bsig sits beside it.
+    static func boundURL(sig: URL) -> URL {
+        sig.deletingLastPathComponent().appendingPathComponent(sig.deletingPathExtension().lastPathComponent + ".bsig")
+    }
+
+    // True when `candidate` is older than `installed`. A signed old version must not replace a newer one.
+    static func isDowngrade(_ candidate: String, installed: String) -> Bool {
+        !installed.isEmpty && candidate.compare(installed, options: .numeric) == .orderedAscending
+    }
+
     // Same, with the public key passed in. The app always uses the compiled-in key; the extra argument lets the
     // test suite exercise this exact code against a throwaway keypair without touching the real release key.
     static func verify(zip: URL, signatureBase64: String, publicKeyBase64: String) -> Bool {

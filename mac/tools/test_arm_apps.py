@@ -31,8 +31,8 @@ def arm(name, ok, detail=""):
 # source-level arms
 fetch = src.split("static func fetch(", 1)[1].split("static func installCommand(", 1)[0]
 arm("the SHA-256 and the signature are checked on ONE in-memory buffer, written to disk only afterwards",
-    "let digest = hex(data)" in fetch and "ReleaseSignature.verify(data: data, signatureBase64: text)" in fetch
-    and "verify(zip:" not in fetch and fetch.index("verify(data: data") < fetch.index("data.write(to: dst")
+    "let digest = hex(data)" in fetch and "ReleaseSignature.verifyBound(data: data, product: \"nullmoth-arm\", version: b.version, signatureBase64: text)" in fetch
+    and "verify(zip:" not in fetch and fetch.index("verifyBound(data: data") < fetch.index("data.write(to: dst")
     and fetch.count("removeItem(at: dst)") == 2)
 arm("root is handed the digest of the verified buffer", "installCommand(package: path, sha: digest)" in src)
 arm("the manifest takes only https links, a 64-hex SHA-256 and a nullmoth-arm-*.tar.gz name",
@@ -124,9 +124,11 @@ func redact(_ s: String) -> String { s }
 func sysctl(_ k: String) -> String { "" }
 // a stand-in key: the "signature" is the package's own SHA-256 prefixed with SIGNED:
 enum ReleaseSignature {
-    static func verify(data: Data, signatureBase64: String) -> Bool {
+    static func verifyBound(data: Data, product: String, version: String, signatureBase64: String) -> Bool {
         signatureBase64 == "SIGNED:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+    static func boundURL(sig: URL) -> URL { sig }
+    static func isDowngrade(_ candidate: String, installed: String) -> Bool { false }
 }
 enum Privileged {
     struct Result { let output: String; let error: String?; let cancelled: Bool }

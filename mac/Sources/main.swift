@@ -9,10 +9,10 @@ import WebKit
 import UniformTypeIdentifiers
 
 struct Package {
-    static let version = "2.7.1"
-    static let name = "nullmoth-nvidia-2.7.1.tar.gz"
-    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.7.1/nullmoth-nvidia-2.7.1.tar.gz")!
-    static let sha256 = "0b28f420dbc0f8a796a8a67c60490b1909886d302fd2008ad884cc12231e7851"
+    static let version = "2.7.2"
+    static let name = "nullmoth-nvidia-2.7.2.tar.gz"
+    static let url = URL(string: "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.7.2/nullmoth-nvidia-2.7.2.tar.gz")!
+    static let sha256 = "2396073270c572c21de13b231ccb7b83607f805136d45de3adf9880478e16a58"
 }
 // The AMD/Intel GPU and NPU driver (test): its own product and package, pinned like the NVIDIA driver's. An empty pin
 // means no build of it is published yet.
@@ -849,12 +849,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 // The release carries a detached Ed25519 signature named "<app zip>.sig" beside the app zip; its URL
                 // is remembered so updateApp() can verify it against the compiled-in release key before unpacking.
                 let appSig: URL? = appz.flatMap { a in assets.compactMap { x -> URL? in
-                    guard let n = x["name"] as? String, n == a.1 + ".sig",
+                    guard let n = x["name"] as? String, n == a.1 + ".bsig",
                           let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
                     return u }.first }
                 // the package's detached signature, read now (off the main thread) and checked before anything installs it
                 let pkgSig: String? = assets.compactMap { x -> URL? in
-                    guard let n = x["name"] as? String, n == pkg.1 + ".sig",
+                    guard let n = x["name"] as? String, n == pkg.1 + ".bsig",
                           let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
                     return u }.first.flatMap { syncGet($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
                 DispatchQueue.main.async {
@@ -1001,7 +1001,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             guard let sigURL = l.sig else { return fail("this release is not signed by NullMoth, so it was not installed") }
             guard let sigData = syncGet(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
                 return fail("could not download the update's signature, so it was not installed") }
-            guard ReleaseSignature.verify(zip: zip, signatureBase64: sigText) else {
+            guard let zipData = try? Data(contentsOf: zip),
+                  ReleaseSignature.verifyBound(data: zipData, product: "1401-mac", version: l.version, signatureBase64: sigText) else {
                 return fail("the update's signature is not from NullMoth, so it was not installed") }
             _ = sh("/usr/bin/ditto", ["-x", "-k", zip.path, out.path])
             guard let new = (try? FileManager.default.contentsOfDirectory(at: out, includingPropertiesForKeys: nil))?.first(where: { $0.pathExtension == "app" }),
@@ -1046,8 +1047,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let dst = support.appendingPathComponent(plan.name)
         guard sha256(loc) == plan.sha else { send("dl", ["state": "error", "why": "the download does not match its SHA-256, so it was thrown away"]); return }
         if plan.fromRelease {
-            guard let sig = plan.sig, ReleaseSignature.verify(zip: loc, signatureBase64: sig) else {
+            guard let sig = plan.sig, let version = App.releaseDriverVersion(plan.name), let bytes = try? Data(contentsOf: loc),
+                  ReleaseSignature.verifyBound(data: bytes, product: "nullmoth-nvidia", version: version, signatureBase64: sig) else {
                 send("dl", ["state": "error", "why": "the driver package is not signed by NullMoth, so it was not installed"]); return }
+            guard !ReleaseSignature.isDowngrade(version, installed: installedDriverVersion()) else {
+                send("dl", ["state": "error", "why": "this driver package is older than the installed driver, so it was not installed"]); return }
         }
         do {
             if FileManager.default.fileExists(atPath: dst.path) {

@@ -122,7 +122,51 @@ with tempfile.TemporaryDirectory() as t:
 mainsrc = (root / 'Sources/main.swift').read_text()
 unpack = mainsrc.index('ditto", ["-x", "-k", zip.path')
 check('the update is verified against the release key before it is unpacked',
-      'ReleaseSignature.verify(zip: zip' in mainsrc and mainsrc.index('ReleaseSignature.verify(zip: zip') < unpack)
+      'ReleaseSignature.verifyBound(data: zipData, product: "1401-mac"' in mainsrc
+      and mainsrc.index('ReleaseSignature.verifyBound(data: zipData') < unpack)
+
+# The signature binds product, version, and bytes. The probe signs with a throwaway key through the same message builder.
+with tempfile.TemporaryDirectory() as td:
+    main = pathlib.Path(td) / 'main.swift'
+    main.write_text('''
+import CryptoKit
+import Foundation
+let k = Curve25519.Signing.PrivateKey()
+let pub = k.publicKey.rawRepresentation.base64EncodedString()
+let bytes = Data("package".utf8)
+let hex = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+let sig = try! k.signature(for: ReleaseSignature.boundMessage(product: "p", version: "2.7.2", sha256: hex)).base64EncodedString()
+func v(_ d: Data, _ p: String, _ ver: String, _ s: String) -> Bool { ReleaseSignature.verifyBound(data: d, product: p, version: ver, signatureBase64: s, publicKeyBase64: pub) }
+print("right", v(bytes, "p", "2.7.2", sig))
+print("product", v(bytes, "q", "2.7.2", sig))
+print("version", v(bytes, "p", "2.7.1", sig))
+print("bytes", v(Data("other".utf8), "p", "2.7.2", sig))
+print("empty", v(bytes, "p", "2.7.2", ""))
+print("realkey", ReleaseSignature.verifyBound(data: bytes, product: "p", version: "2.7.2", signatureBase64: sig))
+print("older", ReleaseSignature.isDowngrade("2.7.1", installed: "2.7.2"))
+print("numeric", ReleaseSignature.isDowngrade("2.10.0", installed: "2.9.0"))
+print("same", ReleaseSignature.isDowngrade("2.7.2", installed: "2.7.2"))
+print("none", ReleaseSignature.isDowngrade("2.7.2", installed: ""))
+print("url", ReleaseSignature.boundURL(sig: URL(string: "https://x/y/a-1.tar.gz.sig")!).absoluteString)
+''')
+    exe = pathlib.Path(td) / 'p'
+    b = subprocess.run(['xcrun', 'swiftc', '-Onone', str(src), str(main), '-o', str(exe)], capture_output=True, text=True)
+    check('the bound-signature probe compiles', b.returncode == 0, b.stderr[-300:])
+    got = dict(l.split(' ', 1) for l in subprocess.run([str(exe)], capture_output=True, text=True).stdout.splitlines()) if b.returncode == 0 else {}
+check('a signature verifies for its own product, version, and bytes', got.get('right') == 'true', got.get('right'))
+check('another product cannot use it', got.get('product') == 'false', got.get('product'))
+check('another version cannot use it', got.get('version') == 'false', got.get('version'))
+check('changed bytes cannot use it', got.get('bytes') == 'false', got.get('bytes'))
+check('no signature is refused', got.get('empty') == 'false', got.get('empty'))
+check('a throwaway key is not the release key', got.get('realkey') == 'false', got.get('realkey'))
+check('an older version is a downgrade', got.get('older') == 'true', got.get('older'))
+check('versions compare as numbers: 2.10 is newer than 2.9', got.get('numeric') == 'false', got.get('numeric'))
+check('the same version may be reinstalled, and a first install is allowed',
+      got.get('same') == 'false' and got.get('none') == 'false')
+check('the .bsig sits beside the .sig', got.get('url') == 'https://x/y/a-1.tar.gz.bsig', got.get('url'))
+rel = pathlib.Path.home() / 'Work/apple/support-cycle/release.py'
+if rel.is_file():
+    check('the release signer builds the same message', 'f"nullmoth-release-v1\\n{product}\\n{version}\\n{digest}\\n"' in rel.read_text())
 
 print('FAILED' if fails else 'PASS')
 sys.exit(1 if fails else 0)

@@ -23,10 +23,10 @@ def arm(name, ok, detail=""):
 fetch = src.split("static func fetch(", 1)[1].split("static func set(", 1)[0]
 arm("a test build is checked against its SHA-256 before use", "hex(data) == b.sha256" in fetch)
 arm("a test build must carry the release signature over its exact bytes",
-    "ReleaseSignature.verify(data: data, signatureBase64: text)" in fetch and "removeItem(at: dst)" in fetch)
+    "ReleaseSignature.verifyBound(data: data, product: \"nullmoth-amd-intel\", version: b.version, signatureBase64: text)" in fetch and "removeItem(at: dst)" in fetch)
 # one buffer: hashed, signature-checked, and only then written; never read back from disk between the checks
 arm("the hash and the signature are checked on the same bytes before they are written (no re-read from disk)",
-    fetch.index("hex(data) == b.sha256") < fetch.index("ReleaseSignature.verify(data: data") < fetch.index("data.write(to: dst")
+    fetch.index("hex(data) == b.sha256") < fetch.index("ReleaseSignature.verifyBound(data: data") < fetch.index("data.write(to: dst")
     and "verify(zip:" not in fetch and "sha256(dst)" not in fetch)
 arm("the manifest only accepts https links and a bare file name",
     'u.scheme == "https"' in src and 's.scheme == "https"' in src and '!n.contains("/")' in src)

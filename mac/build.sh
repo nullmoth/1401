@@ -5,8 +5,6 @@ OUT=${1:-build}; APP=$OUT/1401.app
 [ -f Resources/NullMothSafe.efi ] || { echo "STOP: Resources/NullMothSafe.efi missing (build efi-safe first)"; exit 1; }
 SDK=$(xcrun --sdk macosx --show-sdk-path)
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework WebKit -framework Metal -framework IOKit \
-  Sources/main.swift Sources/TesterLane.swift Sources/ArmApps.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift -o "$APP/Contents/MacOS/1401"
 # The EFI checker reads the same rule file 1401 for Windows builds from; it ships only when it decides every case the
 # Python checker decided the same way (tests/efi_rules, cases from tools/efi_rules_vectors.py).
 T=$(mktemp -d)
@@ -66,8 +64,8 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>CFBundleName</key><string>1401</string>
 <key>CFBundleDisplayName</key><string>1401</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>2.7.1</string>
-<key>CFBundleVersion</key><string>137</string>
+<key>CFBundleShortVersionString</key><string>2.7.2</string>
+<key>CFBundleVersion</key><string>138</string>
 <key>LSMinimumSystemVersion</key><string>15.0</string>
 <key>NSHumanReadableCopyright</key><string>© 2026 NullMoth Systems</string>
 <key>NSHighResolutionCapable</key><true/>
@@ -75,6 +73,22 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>NSAppleEventsUsageDescription</key><string>1401 asks macOS for your password to install the driver, and to restart when you click Restart.</string>
 </dict></plist>
 PL
+# The hash of every resource is compiled into the app, so the root shell can check its private copy of the scripts
+# (Privileged.bundleScript). This is the last step that may change a resource: helpers are signed above, and the app's
+# own signature below does not touch them.
+HASHES=$(mktemp -d)/BundleHashes.swift
+{
+  echo 'enum BundleHashes {'; echo '    static let table: [String: String] = ['
+  for f in "$APP"/Contents/Resources/*; do
+    n=$(basename "$f")
+    [ -f "$f" ] || { echo "STOP: $n in Resources is not a plain file" >&2; exit 1; }
+    case $n in *[!A-Za-z0-9._-]*) echo "STOP: the name $n cannot go on a root command line" >&2; exit 1 ;; esac
+    printf '        "%s": "%s",\n' "$n" "$(shasum -a 256 "$f" | cut -d' ' -f1)"
+  done
+  echo '    ]'; echo '}'
+} > "$HASHES"
+xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework WebKit -framework Metal -framework IOKit \
+  Sources/main.swift Sources/TesterLane.swift Sources/ArmApps.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift "$HASHES" -o "$APP/Contents/MacOS/1401"
 # --options runtime,library: library validation, so only code signed by the
 # same identity loads into the bundle. Was a bare ad-hoc signature, which let
 # any dropped-in library load into the process that asks for the password.

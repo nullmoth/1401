@@ -60,8 +60,8 @@ enum Tester {
         }
         guard hex(data) == b.sha256 else {
             try? FileManager.default.removeItem(at: dst); return (nil, "the test build does not match its SHA-256") }
-        guard let sig = syncGet(b.sig, timeout: 30), let text = String(data: sig, encoding: .utf8),
-              ReleaseSignature.verify(data: data, signatureBase64: text) else {
+        guard let sig = syncGet(ReleaseSignature.boundURL(sig: b.sig), timeout: 30), let text = String(data: sig, encoding: .utf8),
+              ReleaseSignature.verifyBound(data: data, product: "nullmoth-amd-intel", version: b.version, signatureBase64: text) else {
             try? FileManager.default.removeItem(at: dst)
             return (nil, "the test build is not signed by NullMoth, so it was not used")
         }
