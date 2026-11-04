@@ -10,6 +10,7 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 - ARM apps: memory that is writable and executable at once is refused, as on Apple silicon, unless it was requested for just-in-time code.
 - ARM apps and the driver are built for macOS 15 and macOS 26, and do not run on a later macOS.
 - ARM apps: a command that was interrupted while translating is translated again the next time it runs.
+- ARM apps: Node.js, Electron apps, and Deno do not run translated yet. They are now refused right away with what to do instead, in place of a long translation that ends in a program that hangs. Install Node with Intel Homebrew: /usr/local/bin/brew install node.
 - ARM apps: a translated copy of a hardened app stays hardened, and a translated program ignores image and fixup lists from the environment.
 - Security: the Mac app's root scripts run from a private copy that root checks against hashes built into the app, so another program cannot swap one while the password prompt is up.
 - Security: updates are checked against a signature that names the product and version, and the app refuses a driver or ARM package older than the installed one.
