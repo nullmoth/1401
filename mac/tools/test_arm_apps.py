@@ -364,7 +364,8 @@ with tempfile.TemporaryDirectory() as d:
     out = subprocess.run(["/bin/bash", "-c", run("uninstall", "jane")], capture_output=True, text=True, timeout=30).stdout
     if not os.path.exists("/Library/NullMoth/arm/uninstall.sh"):
         arm("with nothing installed, turning off reports off", "NULLMOTH_ARM_REMOVED" in out, out.strip())
-    fake = d / "uninstall.sh"; fake.write_text(f"#!/bin/bash\necho \"removing $1\"\n")
+    # the real uninstall.sh accepts only --user NAME (a bare name exits 2), so the fake insists on that form too
+    fake = d / "uninstall.sh"; fake.write_text(f"#!/bin/bash\n[ \"$1\" = --user ] || exit 2\necho \"removing $2\"\n")
     cmd = run("uninstall", "jane").replace("/Library/NullMoth/arm/uninstall.sh", str(fake))
     fake.chmod(0o644)
     out = subprocess.run(["/bin/bash", "-c", cmd], capture_output=True, text=True, timeout=30).stdout
@@ -425,8 +426,9 @@ wait
         all(c.startswith("/usr/sbin/chown -h") for c in _re.findall(r"/usr/sbin/chown[^;]*", line))
         and line.index('/usr/sbin/chown -h "$u:$g" /opt/homebrew;') > line.index('for d in $todo'), line[:200])
     arm("folders under a parent the user already owns are made as the user, never by root",
-        'rootdir "$(/usr/bin/dirname "$d")" || continue' in line and '/usr/bin/sudo -u "$u" /bin/mkdir -p' in line)
-    bs = d / "brewroot"; bs.mkdir(); (bs / "opt").mkdir(); (bs / "usr").mkdir()   # /opt is made by root, /usr always exists
+        'rootchain "$(/usr/bin/dirname "$d")" || continue' in line and '/usr/bin/sudo -u "$u" /bin/mkdir -p' in line)
+    bs = pathlib.Path(os.path.realpath(d)) / "brewroot"   # /var is a link on macOS; the chain check refuses links
+    bs.mkdir(); (bs / "opt").mkdir(); (bs / "usr").mkdir()   # /opt is made by root, /usr always exists
     sb = (line.replace("/opt/homebrew", f"{bs}/opt/homebrew").replace("/usr/local", f"{bs}/usr/local")
           .replace("/usr/sbin/chown", ":").replace("/usr/bin/stat -f %Su", "echo root || :")
           .replace('/usr/bin/sudo -u "$u" ', ""))
