@@ -9,6 +9,11 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 - ARM apps: instructions for CPU features Apple silicon does not have (SM3, SM4, SVE, the random number register) now behave as on Apple silicon instead of stopping the translation. Programs that bundle OpenSSL, such as git's HTTPS helper, translate and work.
 - ARM apps: memory that is writable and executable at once is refused, as on Apple silicon, unless it was requested for just-in-time code.
 - ARM apps and the driver are built for macOS 15 and macOS 26, and do not run on a later macOS.
+- ARM apps: a command that was interrupted while translating is translated again the next time it runs.
+- ARM apps: a translated copy of a hardened app stays hardened, and a translated program ignores image and fixup lists from the environment.
+- Security: the Mac app's root scripts run from a private copy that root checks against hashes built into the app, so another program cannot swap one while the password prompt is up.
+- Security: updates are checked against a signature that names the product and version, and the app refuses a driver or ARM package older than the installed one.
+- Windows builds: updated OpCore Simplify (Intel, Wi-Fi, and kext updates). 1401 keeps choosing the NVIDIA settings itself, and stays on itlwm for Intel Wi-Fi.
 - Bundles the NVIDIA driver and Mac app 2.7.2.
 
 ## 2.7.1
