@@ -118,7 +118,7 @@ enum ArmApps {
             + "o=$(/usr/bin/stat -f %u \"$u\") m=$(/usr/bin/stat -f %Lp \"$u\") || exit 1; "
             + "[ \"$o\" = 0 ] || { echo 'STOP: the uninstaller is not owned by root'; exit 1; }; "
             + "case \"$m\" in *[2367]?|*[2367]) echo 'STOP: the uninstaller can be changed by other users'; exit 1;; esac; "
-            + "/bin/bash \"$u\" '\(user)' && echo \(removedMarker)"
+            + "/bin/bash \"$u\" --user '\(user)' && echo \(removedMarker)"   // uninstall.sh takes --user NAME
     }
 
     /// Runs nm-arm as this user with a time limit and returns its JSON output (or why there is none).
@@ -215,6 +215,8 @@ enum ArmApps {
         guard validUser(user), arm || intel else { return nil }
         var c = "set -eu; u='\(user)'; g=admin; /usr/bin/id -Gn \"$u\" | /usr/bin/grep -qw admin || g=$(/usr/bin/id -gn \"$u\"); "
             + "rootdir() { [ -d \"$1\" ] && [ ! -L \"$1\" ] && [ \"$(/usr/bin/stat -f %Su \"$1\")\" = root ]; }; "
+            // every folder on the path, not only the parent: chown -h protects the last component only
+            + "rootchain() { p=$1; while [ \"$p\" != / ] && [ \"$p\" != . ]; do rootdir \"$p\" || return 1; p=$(/usr/bin/dirname \"$p\"); done; }; "
         for (on, prefix) in [(arm, "/opt/homebrew"), (intel, "/usr/local")] where on {
             var dirs = brewPrefixDirs.map { prefix + "/" + $0 }
             if prefix == "/usr/local" { dirs.append("/usr/local/Homebrew") }
@@ -234,12 +236,13 @@ enum ArmApps {
                     + "{ echo \"STOP: /opt/homebrew belongs to $o\"; exit 1; }; "
             }
             c += "todo=''; for d in " + dirs.joined(separator: " ") + "; do "
-                + "rootdir \"$(/usr/bin/dirname \"$d\")\" || continue; "
+                + "rootchain \"$(/usr/bin/dirname \"$d\")\" || continue; "
                 + "if [ -L \"$d\" ]; then echo \"STOP: $d is a symbolic link\"; exit 1; fi; "
                 + "if [ -e \"$d\" ] && [ ! -d \"$d\" ]; then echo \"STOP: $d is not a folder\"; exit 1; fi; "
                 + "[ -d \"$d\" ] || /bin/mkdir \"$d\"; "
                 + "if rootdir \"$d\"; then todo=\"$d $todo\"; fi; done; "
-                + "for d in $todo; do /bin/chmod -h ug=rwx \"$d\"; /usr/sbin/chown -h \"$u:$g\" \"$d\"; done; "
+                + "for d in $todo; do rootchain \"$(/usr/bin/dirname \"$d\")\" || { echo \"STOP: a folder above $d changed\"; exit 1; }; "
+                + "/bin/chmod -h ug=rwx \"$d\"; /usr/sbin/chown -h \"$u:$g\" \"$d\"; done; "
             if prefix == "/opt/homebrew" {
                 c += "if rootdir /opt/homebrew; then /bin/chmod -h 755 /opt/homebrew; /usr/sbin/chown -h \"$u:$g\" /opt/homebrew; fi; "
             }
