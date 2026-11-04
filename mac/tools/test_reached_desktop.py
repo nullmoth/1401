@@ -179,6 +179,10 @@ print("e_failed_signs=" + ReachedDesktop.failureSigns(failed).joined(separator: 
 let stale = clean + "loaded NVRM: 2.3.2, installed 2.4.4 STALE (the kernel runs a different build than the one on disk)\n"
     + "loaded NVRMFB: 2.4.4, installed 2.4.4\n"
 print("e_stale_signs=" + ReachedDesktop.failureSigns(stale).joined(separator: ","))
+let parked = failed + "boot state: nv-starts 0, nv-ok 1, boot-args keepsyms=1 nvfb=1 -nvoff amfi=0x80\n"
+print("e_parked_signs=" + ReachedDesktop.failureSigns(parked).joined(separator: ","))
+let notParked = failed + "boot state: nv-starts 0, nv-ok 1, boot-args keepsyms=1 -nvoffx nvfb=1\n"
+print("e_notparked_signs=" + ReachedDesktop.failureSigns(notParked).joined(separator: ","))
 let d1 = try! SavedReports.session(in: support)
 let a1 = ReachedDesktop.attachments(for: clean, into: d1)
 print("e_clean_calls=\(collectCalls)")
@@ -290,6 +294,10 @@ try:
             vals.get("e_stale_signs") == "NVRM stale", vals.get("e_stale_signs", ""))
         arm("(e) a failed summary names what did not come up",
             vals.get("e_failed_signs") == "no Metal device,driver not loaded,NVRM missing", vals.get("e_failed_signs", ""))
+        arm("(e) a Mac started with -nvoff names the park beside what did not come up (2.7.1)",
+            vals.get("e_parked_signs") == "no Metal device,driver not loaded,NVRM missing,parked by -nvoff", vals.get("e_parked_signs", ""))
+        arm("(e) a boot argument that only starts with -nvoff is not read as parked",
+            "parked" not in vals.get("e_notparked_signs", "x parked"), vals.get("e_notparked_signs", ""))
         arm("(e) a clean summary does not run the collector and attaches nothing",
             vals.get("e_clean_calls") == "0" and vals.get("e_clean_files") == "0")
         arm("(e) a failed summary runs the collector once", vals.get("e_failed_calls") == "1", vals.get("e_failed_calls", ""))

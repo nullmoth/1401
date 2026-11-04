@@ -434,9 +434,11 @@ NM.on = (m) => {
   if (m.event === "scan" && m.data.itlwmNeedsHeliPort) {
     setTimeout(() => $("verdict").insertAdjacentHTML("beforeend", '<p class="warn">Wi-Fi: this Mac\'s Intel Wi-Fi runs on itlwm, which joins networks through its own app, HeliPort, not the Wi-Fi menu. Download HeliPort from github.com/OpenIntelWireless/HeliPort/releases, move it to Applications, open it, and pick your network there. To start it with the Mac, turn on Launch at Login in its menu.</p>'), 0);
   }
-  if (m.event === "scan" && m.data.safemode && m.data.record) {
+  // 2.7.1: shown for every Mac started with -nvoff, not only ones with an install record. 10 of 34 "driver did not come
+  // up" reports on 2.7 were parked this way with no way back on screen; setup finds the booted OpenCore partition itself.
+  if (m.event === "scan" && m.data.safemode) {
     setTimeout(() => {
-      $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. To turn the driver back on, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');
+      $("verdict").insertAdjacentHTML("afterbegin", '<p class="warn">This Mac started with the NVIDIA driver switched off: -nvoff is in the boot arguments. 1401 puts it there while macOS updates, and some people add it after a black screen. If you prepared for the macOS 26 update, update macOS now from System Settings and the driver comes back by itself after it. To turn the driver back on without updating, or if it stayed off after the update, click Turn the driver on, then restart. If the screen went black with the driver on, send the logs first (Send logs to NullMoth, below). To take the driver out for good, click Remove the driver below.</p><p class="row"><button type="button" class="b go" id="nvon">Turn the driver on</button></p>');
       $("nvon").onclick = () => { $("nvon").disabled = true; post({ act: "osupdate", cancel: true, efi: efi() }); };
     }, 0);
   }

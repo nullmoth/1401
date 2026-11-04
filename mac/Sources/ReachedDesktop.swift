@@ -336,6 +336,11 @@ enum ReachedDesktop {
     static func failureSigns(_ summary: String) -> [String] {
         var signs: [String] = []
         for line in summary.split(separator: "\n") {
+            // -nvoff parks the driver on purpose (the macOS update preparation, or typed in after a black screen). 10 of 34
+            // "no Metal device" reports on 2.7 were that, filed like a broken install; naming it first splits them out.
+            if line.contains("boot-args"), line.split(whereSeparator: { $0 == " " || $0 == "\t" }).contains("-nvoff") {
+                signs.append("parked by -nvoff")
+            }
             if line.hasPrefix("Metal device: no") { signs.append("no Metal device") }
             if line.hasPrefix("NVIDIA driver loaded (com.nullmoth): no") { signs.append("driver not loaded") }
             // the kernel still runs an older driver than the one on disk: a GTX 1650 SUPER reported the new app version
