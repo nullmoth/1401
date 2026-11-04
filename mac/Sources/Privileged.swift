@@ -20,7 +20,12 @@ enum Privileged {
     /// prompt and have it run as root. The check runs inside the root shell, immediately before the script, so nothing
     /// can change between the check and the run. /Applications is group-admin writable by Apple's convention, so only
     /// the world-write bit is refused, the same rule the crash-check login item uses (nullmoth-setup.sh).
-    static func bundleScript(_ script: String, _ args: [String], env: String = "") -> String {
+    ///
+    /// The app bundle belongs to this user, so a program running as this user could still replace a script while the
+    /// password prompt is up. The root shell therefore copies the bundle's resources into a folder only it can write,
+    /// checks every copy against the hashes compiled into the app, and runs only from that folder. Paths into the
+    /// bundle in `args` are rewritten to the copies, so a file a script installs is the one that was checked.
+    static func bundleScript(_ script: String, _ args: [String], env: String = "", table: [String: String] = BundleHashes.table) -> String {
         let q = { (s: String) in "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
         let guardShell = "p=\(q(script)); "
             + "d=$(cd \"$(/usr/bin/dirname \"$p\")\" 2>/dev/null && pwd -P) || { echo \"STOP: cannot find $p\"; exit 97; }; "
@@ -29,7 +34,21 @@ enum Privileged {
             + "while :; do m=$(/usr/bin/stat -f %Lp \"$d\") || exit 97; "
             + "case \"$m\" in *[2367]) echo \"STOP: $d can be changed by other users; move 1401 into Applications\"; exit 97;; esac; "
             + "[ \"$d\" = / ] && break; d=$(/usr/bin/dirname \"$d\"); done; "
-        return guardShell + env + "/bin/bash \(q(script)) " + args.map(q).joined(separator: " ")
+        let dir = (script as NSString).deletingLastPathComponent, name = (script as NSString).lastPathComponent
+        guard table[name] != nil else {
+            return "echo \"STOP: this build of 1401 has no check for \(name)\"; (exit 97)"
+        }
+        let names = table.keys.sorted()
+        let sums = names.map { "\(table[$0]!)  \($0)\\n" }.joined()
+        let copyArgs = args.map { a -> String in
+            a.hasPrefix(dir + "/") ? "\"$r\"/" + q(String(a.dropFirst(dir.count + 1))) : q(a)
+        }.joined(separator: " ")
+        let verified = "r=$(/usr/bin/mktemp -d /var/tmp/1401-run.XXXXXX) || { echo \"STOP: no private folder\"; exit 97; }; "
+            + "for f in \(names.map(q).joined(separator: " ")); do /bin/cp \(q(dir))/\"$f\" \"$r/\" || { /bin/rm -rf \"$r\"; echo \"STOP: cannot copy $f\"; exit 97; }; done; "
+            + "/bin/chmod 755 \"$r\"; "
+            + "(cd \"$r\" && /usr/bin/printf '\(sums)' | /usr/bin/env -u PERL5LIB -u PERL5OPT /usr/bin/shasum -a 256 --status -c -) "
+            + "|| { /bin/rm -rf \"$r\"; echo \"STOP: 1401's scripts were changed after it was built. Reinstall 1401.\"; exit 97; }; "
+        return guardShell + verified + env + "/bin/bash \"$r\"/\(q(name)) " + copyArgs + "; rc=$?; /bin/rm -rf \"$r\"; (exit $rc)"
     }
 
     static func run(_ command: String, timeout: TimeInterval, admin: Bool = true) -> Result {

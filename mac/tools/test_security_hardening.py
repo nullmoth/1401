@@ -55,7 +55,7 @@ check('RM administrator check reads the caller uid', 'return (kauth_getuid() == 
 check('first-time GPU bring-up refuses non-root callers', 'if (pass > fPassDone && kauth_getuid() != 0)' in nvrm)
 check('event waiters are capped', 'kNvEvtMaxSleepers = 256' in nvrm and 'OSDecrementAtomic(&gNvEvtSleepers)' in nvrm)
 check('bind-fd rejects out-of-range values and clears a stale context when bound to a real fd',
-      'if (v > 0x7FFFFFFFLL || v < -0x80000000LL) return kIOReturnBadArgument;' in nvrm and 'if (me->fBound >= 0 && me->fMmap.valid)' in nvrm)
+      'if (v > 0x7FFFFFFFLL || v < -0x80000000LL) return kIOReturnBadArgument;' in nvrm and 'if (me->fBound >= 0) {\n        IOLockLock(me->fMapLock);\n        if (me->fMmap.valid) {' in nvrm)
 
 # --- app signing: hardened app, unhardened Metal helper ---
 build = (root / 'build.sh').read_text()

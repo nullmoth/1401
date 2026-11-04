@@ -52,10 +52,11 @@ main = (MAC / "Sources/main.swift").read_text()
 pdf = main[main.find("private func processDriverFile"):]
 pdf = pdf[:pdf.find("\n    }\n")]
 arm("processDriverFile checks the release signature for a newest-release package",
-    "plan.fromRelease" in pdf and "ReleaseSignature.verify(zip: loc" in pdf)
+    "plan.fromRelease" in pdf and "ReleaseSignature.verifyBound(data: bytes, product: \"nullmoth-nvidia\"" in pdf
+    and "ReleaseSignature.isDowngrade(version" in pdf)
 arm("the download and the chosen-file paths both mark the package as from the release",
     main.count("fromRelease: true, sig:") >= 2 or (main.count("fromRelease: true") >= 2 and "sig: l.sig" in main))
-arm("the update check reads the package's .sig from the same release", 'n == pkg.1 + ".sig"' in main)
+arm("the update check reads the package's .bsig from the same release", 'n == pkg.1 + ".bsig"' in main)
 
 # 3. setup --efi-read writes nothing straight into the user's folder
 setup = (MAC / "Resources/nullmoth-setup.sh").read_text()
