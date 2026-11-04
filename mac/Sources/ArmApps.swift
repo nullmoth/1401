@@ -207,20 +207,43 @@ enum ArmApps {
     /// The root shell line that creates the Homebrew folders and gives them to `user` (group admin when the user is in
     /// it). Never recursive; /usr/local itself stays root's; a symlinked prefix, or an /opt/homebrew that belongs to
     /// another account, stops it. Success is the marker line and nothing else.
+    /// Safe against the user's own processes racing it (the same script as nm-arm's root_script): root creates and
+    /// chowns a folder only while its parent is still root-owned, so nothing in it can be swapped for a link; it hands
+    /// ownership over deepest first with chown -h, the prefix last; folders under a parent the user already owns are
+    /// made AS the user. The old line chowned the prefix first, then raced a link swap on every folder below it.
     static func brewRootCommand(user: String, arm: Bool, intel: Bool) -> String? {
         guard validUser(user), arm || intel else { return nil }
         var c = "set -eu; u='\(user)'; g=admin; /usr/bin/id -Gn \"$u\" | /usr/bin/grep -qw admin || g=$(/usr/bin/id -gn \"$u\"); "
+            + "rootdir() { [ -d \"$1\" ] && [ ! -L \"$1\" ] && [ \"$(/usr/bin/stat -f %Su \"$1\")\" = root ]; }; "
         for (on, prefix) in [(arm, "/opt/homebrew"), (intel, "/usr/local")] where on {
             var dirs = brewPrefixDirs.map { prefix + "/" + $0 }
             if prefix == "/usr/local" { dirs.append("/usr/local/Homebrew") }
-            c += "[ -L \(prefix) ] && { echo 'STOP: \(prefix) is a symbolic link'; exit 1; }; /bin/mkdir -p \(prefix); "
+            // parents before children (a stable sort on depth)
+            dirs = dirs.enumerated().sorted { a, b in
+                let da = a.element.filter { $0 == "/" }.count, db = b.element.filter { $0 == "/" }.count
+                return da != db ? da < db : a.offset < b.offset
+            }.map { $0.element }
+            let top = (prefix as NSString).deletingLastPathComponent
+            c += "[ -L \(prefix) ] && { echo 'STOP: \(prefix) is a symbolic link'; exit 1; }; "
+                + "[ -d \(top) ] || /bin/mkdir \(top); "
+                + "rootdir \(top) || { echo 'STOP: \(top) does not belong to root'; exit 1; }; "
+                + "[ -e \(prefix) ] || /bin/mkdir \(prefix); "
+                + "[ -d \(prefix) ] && [ ! -L \(prefix) ] || { echo 'STOP: \(prefix) is not a folder'; exit 1; }; "
             if prefix == "/opt/homebrew" {
                 c += "o=$(/usr/bin/stat -f %Su /opt/homebrew); [ \"$o\" = root ] || [ \"$o\" = \"$u\" ] || "
                     + "{ echo \"STOP: /opt/homebrew belongs to $o\"; exit 1; }; "
-                    + "/usr/sbin/chown \"$u:$g\" /opt/homebrew && /bin/chmod 755 /opt/homebrew; "
             }
-            c += "for d in " + dirs.joined(separator: " ") + "; do [ -L \"$d\" ] && { echo \"STOP: $d is a symbolic link\"; exit 1; }; "
-                + "/bin/mkdir -p \"$d\" && /usr/sbin/chown \"$u:$g\" \"$d\" && /bin/chmod ug=rwx \"$d\"; done; "
+            c += "todo=''; for d in " + dirs.joined(separator: " ") + "; do "
+                + "rootdir \"$(/usr/bin/dirname \"$d\")\" || continue; "
+                + "if [ -L \"$d\" ]; then echo \"STOP: $d is a symbolic link\"; exit 1; fi; "
+                + "if [ -e \"$d\" ] && [ ! -d \"$d\" ]; then echo \"STOP: $d is not a folder\"; exit 1; fi; "
+                + "[ -d \"$d\" ] || /bin/mkdir \"$d\"; "
+                + "if rootdir \"$d\"; then todo=\"$d $todo\"; fi; done; "
+                + "for d in $todo; do /bin/chmod -h ug=rwx \"$d\"; /usr/sbin/chown -h \"$u:$g\" \"$d\"; done; "
+            if prefix == "/opt/homebrew" {
+                c += "if rootdir /opt/homebrew; then /bin/chmod -h 755 /opt/homebrew; /usr/sbin/chown -h \"$u:$g\" /opt/homebrew; fi; "
+            }
+            c += "/usr/bin/sudo -u \"$u\" /bin/mkdir -p " + dirs.joined(separator: " ") + "; "
         }
         return c + "echo \(brewDirsMarker)"
     }

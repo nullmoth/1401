@@ -420,9 +420,16 @@ wait
     line = run("brewroot", os.environ.get("USER", "nobody"), "1", "1")
     arm("the root line never chowns recursively and never chowns /usr/local itself",
         "chown -R" not in line and 'chown "$u:$g" /usr/local;' not in line and line.endswith("echo NULLMOTH_BREW_DIRS_READY"))
-    bs = d / "brewroot"; bs.mkdir()
+    import re as _re
+    arm("every chown in the root line is chown -h (never follows a link), and the prefix is handed over last",
+        all(c.startswith("/usr/sbin/chown -h") for c in _re.findall(r"/usr/sbin/chown[^;]*", line))
+        and line.index('/usr/sbin/chown -h "$u:$g" /opt/homebrew;') > line.index('for d in $todo'), line[:200])
+    arm("folders under a parent the user already owns are made as the user, never by root",
+        'rootdir "$(/usr/bin/dirname "$d")" || continue' in line and '/usr/bin/sudo -u "$u" /bin/mkdir -p' in line)
+    bs = d / "brewroot"; bs.mkdir(); (bs / "opt").mkdir(); (bs / "usr").mkdir()   # /opt is made by root, /usr always exists
     sb = (line.replace("/opt/homebrew", f"{bs}/opt/homebrew").replace("/usr/local", f"{bs}/usr/local")
-          .replace("/usr/sbin/chown", ":").replace("/usr/bin/stat -f %Su", "echo root || :"))
+          .replace("/usr/sbin/chown", ":").replace("/usr/bin/stat -f %Su", "echo root || :")
+          .replace('/usr/bin/sudo -u "$u" ', ""))
     out = subprocess.run(["/bin/bash", "-c", sb], capture_output=True, text=True, timeout=60).stdout
     arm("the root line (sandboxed) creates both prefixes' folders and prints the marker",
         "NULLMOTH_BREW_DIRS_READY" in out and (bs / "opt/homebrew/Cellar").is_dir() and (bs / "usr/local/Homebrew").is_dir()
