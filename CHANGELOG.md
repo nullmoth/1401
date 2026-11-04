@@ -3,6 +3,12 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.7.1
+- ARM apps: turning ARM apps on keeps /Library/NullMoth readable and repairs it on Macs where 2.7 left it readable by root only, so translated apps start without `sudo chmod 711 /Library/NullMoth`.
+- A Mac parked by -nvoff (for example halfway through a driver update) now shows why in the Mac app, with a button to turn the driver back on.
+- Real Mac Pro (2019) support (experimental): a Mac Pro started by Apple's own firmware installs the driver without OpenCore. Its settings go in the Mac's NVRAM, and System Integrity Protection must be turned off first (Recovery > Terminal > csrutil disable). Removal takes out only what the install added.
+- Real Macs set up with OpenCore Legacy Patcher (such as a Mac Pro 5,1) keep the model OCLP gave them when preparing for macOS 26 Tahoe.
+
 ## 2.7
 - ARM apps (opt-in, experimental): the Mac app has an ARM apps card that installs NullMoth's translator for apps built only for Apple silicon, checks the Mac, and translates, opens, and removes apps. The package is checked against its SHA-256 and the NullMoth release signature before anything is installed.
 - 1401 for Windows: tick Also set up ARM apps (opt-in) on a fresh install, and the Mac app offers a one-click finish on first start.
