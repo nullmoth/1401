@@ -16,6 +16,18 @@ function armButtons() {
   $("armon").disabled = false;
   $("armtr").hidden = !A.on; $("armtr").disabled = !(A.on && A.ok) || A.running;
   $("armprog").hidden = !A.running;
+  $("armbrew").hidden = !A.on; $("armbrewgo").disabled = !A.on || A.running;
+}
+// nm-arm brew status: {"arm": {"installed", "ruby", "programs"}, "intel": {"installed"}} or {"why"}
+function armBrewText(b) {
+  if (!b) return "";
+  if (b.why) return `<span class="warn">${esc(b.why)}</span>`;
+  const side = (s, name, cmd) => s && s.installed ? `<span class="good">${name} ready</span> (${cmd})` : `${name} not set up`;
+  let t = side(b.arm, "ARM Homebrew", "abrew") + " &middot; " + side(b.intel, "Intel Homebrew", "ibrew");
+  const p = b.arm && b.arm.programs;
+  if (p) t += `<br>Translated programs: ${esc(p.translated || 0)}; waiting for their first run: ${esc(p.stub || 0)}.`;
+  if (b.arm && b.arm.installed && b.arm.ruby && !b.arm.ruby.launcher) t += `<br><span class="warn">The ARM Homebrew's Ruby is not prepared yet: run abrew once in Terminal.</span>`;
+  return t;
 }
 function armEvent(d) {
   if (d.kind === "status") {
@@ -32,6 +44,7 @@ function armEvent(d) {
     if (d.listWhy) t += `<br><span class="warn">${esc(d.listWhy)}</span>`;
     $("armr").innerHTML = t;
     $("armclt").hidden = !(A.on && c.prerequisites && c.prerequisites.clt === false);
+    $("armbrewr").innerHTML = A.on ? armBrewText(d.brew) : "";
     const apps = d.apps || [];
     $("armapps").innerHTML = !A.on ? "" : apps.length
       ? "<table>" + apps.map((a) => `<tr><th>${esc(a.name)}</th><td><button type="button" class="b" data-op="open" data-path="${esc(a.path)}">Open</button> <button type="button" class="b" data-op="remove" data-name="${esc(a.name)}">Remove</button></td></tr>`).join("") + "</table>"
@@ -61,8 +74,12 @@ function armEvent(d) {
   }
   if (d.kind === "done") {
     A.running = false; armButtons();
-    A.last = d.ok ? `<span class="good">${esc(d.app)} is translated: it is in Applications &gt; NullMoth ARM.</span>`
-                       : `<span class="warn">${esc(d.app)}: ${esc(d.why || "the translation did not finish")}</span>`;
+    if (d.what === "brew")
+      A.last = d.ok ? `<span class="good">${esc(d.msg || "Homebrew is set up. Open a new Terminal window.")}</span>`
+                    : `<span class="warn">Homebrew: ${esc(d.why || "the setup did not finish")}</span>`;
+    else
+      A.last = d.ok ? `<span class="good">${esc(d.app)} is translated: it is in Applications &gt; NullMoth ARM.</span>`
+                    : `<span class="warn">${esc(d.app)}: ${esc(d.why || "the translation did not finish")}</span>`;
     $("armr").innerHTML = A.last;
   }
 }
@@ -265,6 +282,7 @@ $("armreqno").onclick = (e) => { e.preventDefault(); $("armreq").hidden = true; 
 $("armchk").onclick = () => post({ act: "arm", op: "check" });
 $("armclt").onclick = () => post({ act: "arm", op: "clt" });
 $("armtr").onclick = () => { $("armtr").disabled = true; post({ act: "arm", op: "translate" }); };
+$("armbrewgo").onclick = () => { $("armbrewgo").disabled = true; post({ act: "arm", op: "brew", pick: $("armbrewpick").value, primary: $("armbrewprim").value }); };
 $("armcancel").onclick = () => { $("armcancel").disabled = true; $("armmsg").textContent = "Cancelling..."; post({ act: "arm", op: "cancel" }); };
 $("armapps").onclick = (e) => {
   const b = e.target.closest("button[data-op]");

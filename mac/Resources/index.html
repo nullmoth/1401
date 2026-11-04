@@ -109,7 +109,11 @@
 <p id="armr"></p>
 <div id="armprog" hidden><progress id="armbar" max="100" style="width:100%"></progress>
 <p class="row"><span id="armmsg" class="small"></span> <button type="button" class="b" id="armcancel">Cancel</button></p></div>
-<div id="armapps"></div></div>
+<div id="armapps"></div>
+<div id="armbrew" hidden><p><b>Homebrew</b></p>
+<p class="small">Two Homebrews side by side, as on a Mac with Apple silicon: the ARM one in /opt/homebrew installs Homebrew's Apple-silicon packages and translates them for this Mac; the Intel one in /usr/local runs natively but mostly builds from source, because Homebrew stopped publishing Intel packages. In Terminal, <code>abrew</code> is always ARM, <code>ibrew</code> always Intel, and <code>brew</code> is the one you pick here.</p>
+<p class="row"><select id="armbrewpick"><option value="both">ARM and Intel</option><option value="arm">ARM only (/opt/homebrew)</option><option value="intel">Intel only (/usr/local)</option></select> <select id="armbrewprim"><option value="arm">brew = ARM</option><option value="intel">brew = Intel</option></select> <button type="button" class="b" id="armbrewgo">Set up Homebrew</button></p>
+<p id="armbrewr" class="small"></p></div></div>
 </section>
 
 <section id="t-usb" hidden>

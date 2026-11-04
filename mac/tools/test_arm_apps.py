@@ -80,6 +80,26 @@ arm("a partly blank sysctl answer steps the pre-check aside (the package reads C
     "parts.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } ? \"\"" in src)
 arm("Translate is enabled only when on and the check passed", '$("armtr").disabled = !(A.on && A.ok) || A.running' in js)
 
+# Homebrew (nm-arm brew): one root step for the folders, the rest as the user through the same Job as a translation
+brew = (src.split("func armBrew(pick:", 1) + [""])[1]   # empty on the old code, so every arm below FAILs there
+arm("Set up Homebrew asks first, checks the Mac for the ARM side, and creates the folders with ONE password prompt",
+    "a.runModal() == .alertFirstButtonReturn" in brew and 'c["ok"] as? Bool == true' in brew
+    and brew.count("Privileged.run(") == 1 and "ArmApps.brewRootCommand(user: NSUserName()" in brew)
+arm("success of the folder step is its marker line, never the absence of an error",
+    "r.output.contains(ArmApps.brewDirsMarker)" in brew and "if r.cancelled {" in brew)
+arm("the setup itself runs as the user through the translation Job (no second password, Cancel works)",
+    "ArmApps.Job(arguments: args)" in brew and 'what: "brew"' in brew and "--no-sudo" in src)
+arm("Set up Homebrew is refused while a translation runs and before the translator is installed",
+    "guard ArmApps.job == nil" in brew and "guard ArmApps.isInstalled" in brew)
+arm("the folder list is Homebrew's installer list (kept equal to nm_arm_brew.PREFIX_DIRS)",
+    '"var/homebrew/linked", "Cellar", "Caskroom"]' in src and '"share/fish/vendor_completions.d"' in src)
+arm("the page has the Homebrew controls, and sends only the two choices",
+    all(f'id="{i}"' in html for i in ("armbrew", "armbrewpick", "armbrewprim", "armbrewgo", "armbrewr"))
+    and 'op: "brew", pick: $("armbrewpick").value, primary: $("armbrewprim").value' in js)
+arm("Homebrew status and outcomes reach the page escaped", "esc(b.why)" in js and 'esc(d.why || "the setup did not finish")' in js)
+arm("turning ARM apps off says what happens to each Homebrew", "An ARM Homebrew in /opt/homebrew stops working" in src
+    and "Intel Homebrew in /usr/local is not affected" in src)
+
 # compile ArmApps.swift against stand-ins for the rest of the app
 STUBS = r'''
 import Foundation
@@ -190,6 +210,10 @@ case "remove":
     print(ArmApps.remove(a[2]) ?? "OK")
 case "cpu":
     print(ArmApps.cpuGate(features: a[2]) ?? "OK")
+case "brewroot":
+    print(ArmApps.brewRootCommand(user: a[2], arm: a[3] == "1", intel: a[4] == "1") ?? "NIL")
+case "brewargs":
+    print((ArmApps.brewSetupArguments(pick: a[2], primary: a[3]) ?? ["NIL"]).joined(separator: " "))
 default: break
 }
 '''
@@ -384,6 +408,29 @@ wait
         f"{out}; child {pid} alive={alive}; {time.time() - t0:.1f} s")
     if alive: os.kill(pid, 9)
     shutil.rmtree(sandbox, ignore_errors=True)
+
+    # Homebrew's folder step, run against a sandbox (the two prefixes moved into it, chown left out)
+    arm("Set up Homebrew's arguments: both, ARM only, Intel only; anything else gives none",
+        run("brewargs", "both", "arm") == "brew setup --arm --intel --primary arm --no-sudo"
+        and run("brewargs", "arm", "intel") == "brew setup --arm --primary intel --no-sudo"
+        and run("brewargs", "intel", "intel") == "brew setup --intel --primary intel --no-sudo"
+        and run("brewargs", "all", "arm") == "NIL" and run("brewargs", "both", "x86") == "NIL")
+    arm("negative control: a user name with a quote, or no prefix chosen, gives no root line",
+        run("brewroot", "ja'ne", "1", "1") == "NIL" and run("brewroot", "jane", "0", "0") == "NIL")
+    line = run("brewroot", os.environ.get("USER", "nobody"), "1", "1")
+    arm("the root line never chowns recursively and never chowns /usr/local itself",
+        "chown -R" not in line and 'chown "$u:$g" /usr/local;' not in line and line.endswith("echo NULLMOTH_BREW_DIRS_READY"))
+    bs = d / "brewroot"; bs.mkdir()
+    sb = (line.replace("/opt/homebrew", f"{bs}/opt/homebrew").replace("/usr/local", f"{bs}/usr/local")
+          .replace("/usr/sbin/chown", ":").replace("/usr/bin/stat -f %Su", "echo root || :"))
+    out = subprocess.run(["/bin/bash", "-c", sb], capture_output=True, text=True, timeout=60).stdout
+    arm("the root line (sandboxed) creates both prefixes' folders and prints the marker",
+        "NULLMOTH_BREW_DIRS_READY" in out and (bs / "opt/homebrew/Cellar").is_dir() and (bs / "usr/local/Homebrew").is_dir()
+        and (bs / "usr/local/var/homebrew/linked").is_dir(), out.strip())
+    shutil.rmtree(bs / "opt/homebrew"); (bs / "elsewhere").mkdir(); os.symlink(bs / "elsewhere", bs / "opt/homebrew")
+    out = subprocess.run(["/bin/bash", "-c", sb], capture_output=True, text=True, timeout=60).stdout
+    arm("negative control: a symlinked /opt/homebrew stops the root line without the marker",
+        "STOP" in out and "NULLMOTH_BREW_DIRS_READY" not in out, out.strip())
 
 print(f"{fails} failed")
 sys.exit(1 if fails else 0)
