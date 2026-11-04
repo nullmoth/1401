@@ -31,6 +31,7 @@ def install():
     urllib.request.install_opener(urllib.request.build_opener(urllib.request.HTTPSHandler(context=context())))
     try:
         from Scripts import resource_fetcher as rf  # noqa: PLC0415 - upstream, importable once its path is set
-        rf.ResourceFetcher.create_ssl_context = lambda self: context()
+        rf.ResourceFetcher.ssl_context = property(lambda self: context())
+        rf.get_ssl_context = context
     except ImportError:
         pass

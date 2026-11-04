@@ -1,9 +1,11 @@
 from Scripts.datasets import cpu_data
+from Scripts.datasets import gpu_data
 from Scripts.datasets import kext_data
 from Scripts.datasets import os_data
 from Scripts.datasets import pci_data
 from Scripts.datasets import codec_layouts
 from Scripts import utils
+import copy
 import os
 import shutil
 
@@ -14,20 +16,22 @@ except NameError:
     long = int
     unicode = str
 
+
 class KextMaestro:
     def __init__(self):
         self.utils = utils.Utils()
         self.matching_keys = [
-            "IOPCIMatch", 
-            "IONameMatch", 
-            "IOPCIPrimaryMatch", 
-            "idProduct", 
-            "idVendor", 
+            "IOPCIMatch",
+            "IONameMatch",
+            "IOPCIPrimaryMatch",
+            "idProduct",
+            "idVendor",
             "HDAConfigDefault"
         ]
-        self.ock_files_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "OCK_Files")
-        self.kexts = kext_data.kexts
-        
+        self.ock_files_dir = os.path.join(os.path.dirname(
+            os.path.dirname(os.path.realpath(__file__))), "OCK_Files")
+        self.kexts = [copy.copy(kext) for kext in kext_data.kexts]
+
     def extract_pci_id(self, kext_path):
         if not os.path.exists(kext_path):
             return []
@@ -38,11 +42,12 @@ class KextMaestro:
         pci_ids = []
 
         for personality_name, properties in plist_data.get("IOKitPersonalities", {}).items():
-            matching_keys = [key for key in self.matching_keys if key in properties]
-            
+            matching_keys = [
+                key for key in self.matching_keys if key in properties]
+
             if not matching_keys:
                 continue
-            
+
             match_key = matching_keys[0]
 
             if match_key in ["IOPCIMatch", "IOPCIPrimaryMatch"]:
@@ -50,19 +55,24 @@ class KextMaestro:
                 for pci_id in pci_list:
                     vendor_id = pci_id[-4:]
                     device_id = pci_id[2:6]
-                    pci_ids.append("{}-{}".format(vendor_id, device_id).upper())
+                    pci_ids.append(
+                        "{}-{}".format(vendor_id, device_id).upper())
             elif match_key == "IONameMatch":
                 for pci_id in properties[match_key]:
                     vendor_id = pci_id[3:7]
                     device_id = pci_id.split(",")[1].zfill(4)
-                    pci_ids.append("{}-{}".format(vendor_id, device_id).upper())
+                    pci_ids.append(
+                        "{}-{}".format(vendor_id, device_id).upper())
             elif match_key == "idProduct":
-                vendor_id = self.utils.int_to_hex(properties["idVendor"]).zfill(4)
-                device_id = self.utils.int_to_hex(properties["idProduct"]).zfill(4)
+                vendor_id = self.utils.int_to_hex(
+                    properties["idVendor"]).zfill(4)
+                device_id = self.utils.int_to_hex(
+                    properties["idProduct"]).zfill(4)
                 pci_ids.append("{}-{}".format(vendor_id, device_id).upper())
             elif match_key == "HDAConfigDefault":
                 for codec_layout in properties[match_key]:
-                    codec_id = self.utils.int_to_hex(codec_layout.get("CodecID")).zfill(8)
+                    codec_id = self.utils.int_to_hex(
+                        codec_layout.get("CodecID")).zfill(8)
                     pci_ids.append("{}-{}".format(codec_id[:4], codec_id[-4:]))
                 pci_ids = sorted(list(set(pci_ids)))
 
@@ -71,10 +81,10 @@ class KextMaestro:
     def is_intel_hedt_cpu(self, processor_name, cpu_codename):
         if cpu_codename in cpu_data.IntelCPUGenerations[45:66]:
             return cpu_codename.endswith(("-X", "-P", "-W", "-E", "-EP", "-EX"))
-        
+
         if cpu_codename in cpu_data.IntelCPUGenerations[66:]:
             return "Xeon" in processor_name
-        
+
         return False
 
     def is_kext_compatible(self, kext, target_darwin_version):
@@ -116,7 +126,8 @@ class KextMaestro:
 
         checking.add(index)
         for requires_kext_name in kext.requires_kexts:
-            requires_kext_index = kext_data.kext_index_by_name.get(requires_kext_name)
+            requires_kext_index = kext_data.kext_index_by_name.get(
+                requires_kext_name)
             if not self.check_kext(requires_kext_index, target_darwin_version, force_load, checking):
                 checking.remove(index)
                 return False
@@ -150,114 +161,61 @@ class KextMaestro:
                 selected_kexts.append("SMCDellSensors")
             selected_kexts.append("SMCLightSensor")
 
-        if  not (" Core" in hardware_report.get("CPU").get("Processor Name") and \
-                 hardware_report.get("CPU").get("Codename") in cpu_data.IntelCPUGenerations[28:]) or \
-            self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0"):
+        if not (" Core" in hardware_report.get("CPU").get("Processor Name") and
+                hardware_report.get("CPU").get("Codename") in cpu_data.IntelCPUGenerations[28:]) or \
+                self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0"):
             selected_kexts.append("RestrictEvents")
 
         if any(codec_properties.get("Device ID") in codec_layouts.data for codec_properties in hardware_report.get("Sound", {}).values()):
             if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
-                print("\n\033[1;93mNote:\033[0m Since macOS Tahoe 26 DP2, Apple has removed AppleHDA kext and uses the Apple T2 chip for audio management.")
-                print("To use AppleALC, you must rollback AppleHDA. Alternatively, you can use VoodooHDA.")
+                print(
+                    "\n\033[1;93mNote:\033[0m macOS Tahoe no longer includes AppleHDA. AppleALC needs one of these restoration methods.")
                 print("")
-                print("1. \033[1mAppleALC\033[0m - Requires AppleHDA rollback with \033[1;93mOpenCore Legacy Patcher\033[0m")
-                print("2. \033[1mVoodooHDA\033[0m - Lower audio quality, manual injection to /Library/Extensions")
+                print(
+                    "1. \033[1mAppleALC + OCLP\033[0m - Restores AppleHDA with a system root patch")
+                print(
+                    "2. \033[1mAppleALC + SimpleHDA\033[0m - OpenCore injection without audio root patches")
                 print("")
                 while True:
-                    kext_option = self.utils.request_input("Select audio kext for your system: ").strip()
+                    kext_option = self.utils.request_input(
+                        "Select audio kext for your system: ").strip()
                     if kext_option == "1":
                         needs_oclp = True
                         selected_kexts.append("AppleALC")
                         break
                     elif kext_option == "2":
+                        selected_kexts.extend(("AppleALC", "SimpleHDA"))
                         break
                     else:
-                        print("\033[91mInvalid selection, please try again.\033[0m\n\n")
+                        print(
+                            "\033[91mInvalid selection, please try again.\033[0m\n\n")
             else:
                 selected_kexts.append("AppleALC")
-        
+
         if "AMD" in hardware_report.get("CPU").get("Manufacturer") and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("21.4.0") or \
-            int(hardware_report.get("CPU").get("CPU Count")) > 1 and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("19.0.0") or \
-            hardware_report.get("CPU").get("Codename") in cpu_data.IntelCPUGenerations[:4]:
+                int(hardware_report.get("CPU").get("CPU Count")) > 1 and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("19.0.0") or \
+                hardware_report.get("CPU").get("Codename") in cpu_data.IntelCPUGenerations[:4]:
             selected_kexts.append("AppleMCEReporterDisabler")
 
         if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("22.0.0") and not "AVX2" in hardware_report.get("CPU").get("SIMD Features"):
             selected_kexts.append("CryptexFixup")
 
-        if  "Lunar Lake" not in hardware_report.get("CPU").get("Codename") and \
+        if "Lunar Lake" not in hardware_report.get("CPU").get("Codename") and \
             "Meteor Lake" not in hardware_report.get("CPU").get("Codename") and \
             hardware_report.get("CPU").get("Codename") in cpu_data.IntelCPUGenerations[:20] and \
-            int(hardware_report.get("CPU").get("Core Count")) > 6:
+                int(hardware_report.get("CPU").get("Core Count")) > 6:
             selected_kexts.append("CpuTopologyRebuild")
-
-        for gpu_name, gpu_props in hardware_report.get("GPU", {}).items():
-            if "Integrated GPU" in gpu_props.get("Device Type"):
-                if "AMD" in gpu_props.get("Manufacturer"):
-                    selected_kexts.append("NootedRed")
-                else:
-                    selected_kexts.append("WhateverGreen")
-            else:
-                if "Navi 22" in gpu_props.get("Codename"):
-                    selected_kexts.append("NootRX")
-                    break
-
-                if gpu_props.get("Codename") in {"Navi 21", "Navi 23"}:
-                    print("\n*** Found {} is AMD {} GPU.".format(gpu_name, gpu_props.get("Codename")))
-                    print("")
-                    print("\033[91mImportant: Black Screen Fix\033[0m")
-                    print("If you experience a black screen after verbose mode:")
-                    print("    1. Use ProperTree to open config.plist")
-                    print("    2. Navigate to NVRAM -> Add -> 7C436110-AB2A-4BBB-A880-FE41995C9F82 -> boot-args")
-                    print("    3. Remove \"-v debug=0x100 keepsyms=1\" from boot-args")
-                    print("")
-                    recommended_option = 2
-                    recommended_name = "WhateverGreen"
-                    print("\033[1;93mNote:\033[0m")
-                    print("- AMD {} GPUs have two available kext options:".format(gpu_props.get("Codename")))
-                    print("- You can try different kexts after installation to find the best one for your system")
-                    print("")
-                    print("1. \033[1mNootRX\033[0m - Uses latest GPU firmware")
-                    print("2. \033[1mWhateverGreen\033[0m - Uses original Apple firmware")
-                    print("")
-
-                    if any(other_gpu_props.get("Manufacturer") == "Intel" for other_gpu_props in hardware_report.get("GPU", {}).values()):
-                        print("\033[91mImportant:\033[0m NootRX kext is not compatible with Intel GPUs")
-                        print("Automatically selecting WhateverGreen kext due to Intel GPU compatibility")
-                        print("")
-                        self.utils.request_input("Press Enter to continue...")
-                        continue
-
-                    kext_option = self.utils.request_input("Select kext for your AMD {} GPU (default: {}): ".format(gpu_props.get("Codename"), recommended_name)).strip() or str(recommended_option)
-                    
-                    if kext_option.isdigit() and 0 < int(kext_option) < 3:
-                        selected_option = int(kext_option)
-                    else:
-                        print("\033[93mInvalid selection, using recommended option: {}\033[0m".format(recommended_option))
-                        selected_option = recommended_option
-
-                    if selected_option == 1:
-                        selected_kexts.append("NootRX")
-                    elif selected_option == 2:
-                        selected_kexts.append("WhateverGreen")
-                    
-                    continue
-
-                selected_kexts.append("WhateverGreen")
-
-        if "Laptop" in hardware_report.get("Motherboard").get("Platform") and ("ASUS" in hardware_report.get("Motherboard").get("Name") or "NootedRed" in selected_kexts):
-            selected_kexts.append("ForgedInvariant")
 
         if self.is_intel_hedt_cpu(hardware_report.get("CPU").get("Processor Name"), hardware_report.get("CPU").get("Codename")):
             selected_kexts.append("CpuTscSync")
-
-        if needs_oclp:
-            selected_kexts.extend(("AMFIPass", "RestrictEvents"))
 
         for network_name, network_props in hardware_report.get("Network", {}).items():
             device_id = network_props.get("Device ID")
 
             if device_id in pci_data.BroadcomWiFiIDs and self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0"):
                 selected_kexts.append("IOSkywalkFamily")
+                if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
+                    selected_kexts.append("AirPortBrcmNIC-Tahoe")
 
             if device_id in pci_data.BroadcomWiFiIDs[:15]:
                 selected_kexts.append("AirportBrcmFixup")
@@ -268,52 +226,66 @@ class KextMaestro:
             elif device_id in pci_data.IntelWiFiIDs:
                 print("\n*** Found {} is Intel WiFi device.".format(network_name))
                 print("")
-                print("\033[1;93mNote:\033[0m Intel WiFi devices have two available kext options:")
+                darwin_major = self.utils.parse_darwin_version(macos_version)[
+                    0]
+                native_fork_available = self.is_kext_compatible(
+                    self.kexts[kext_data.kext_index_by_name["AirportItlwm-laobamac"]], macos_version)
+                wifi_options = ["AirportItlwm", "itlwm"]
+                if native_fork_available:
+                    wifi_options.insert(0, "AirportItlwm-laobamac")
+                print("\033[1;93mNote:\033[0m Intel WiFi devices have {} available kext options:".format(
+                    len(wifi_options)))
                 print("")
-                print("1. \033[1mAirportItlwm\033[0m - Uses native WiFi settings menu")
-                print("   • Provides Handoff, Universal Clipboard, Location Services, Instant Hotspot support")
+                if native_fork_available:
+                    print(
+                        "1. \033[1mlaobamac AirportItlwm\033[0m - Native WiFi on Sequoia 15.2+ and Tahoe without OCLP root patches")
+                    print("")
+                print("{}. \033[1mAirportItlwm\033[0m - Uses native WiFi settings menu".format(
+                    2 if native_fork_available else 1))
+                print(
+                    "   • Provides Handoff, Universal Clipboard, Location Services, Instant Hotspot support")
                 print("   • Supports enterprise-level security")
-
-                if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("24.0.0"):
-                    print("   • \033[91mSince macOS Sequoia 15\033[0m: Can work with OCLP root patch but may cause issues")
-                
+                if darwin_major >= 24:
+                    print(
+                        "   • Requires OCLP root patches on Sequoia and Tahoe but may cause issues")
                 print("")
-                print("2. \033[1mitlwm\033[0m - More stable overall")
-                print("   • Works with HeliPort app instead of native WiFi settings menu")
+                print(
+                    "{}. \033[1mitlwm\033[0m - More stable overall".format(len(wifi_options)))
+                print(
+                    "   • Works with HeliPort app instead of native WiFi settings menu")
                 print("   • No Apple Continuity features and enterprise-level security")
                 print("   • Can connect to Hidden Networks")
                 print("")
-
-                recommended_option = 2 if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0") else 1
-                recommended_name = "itlwm" if recommended_option == 2 else "AirportItlwm"
-
-                if "Beta" in os_data.get_macos_name_by_darwin(macos_version):
-                    print("\033[91mImportant:\033[0m For macOS Beta versions, only itlwm kext is supported")
-                    print("")
-                    self.utils.request_input("Press Enter to continue...")
-                    selected_option = recommended_option
+                recommended_option = 1 if native_fork_available or darwin_major < 23 else 2
+                if "Beta" in os_data.get_macos_name_by_darwin(macos_version) and not native_fork_available:
+                    print(
+                        "For unsupported macOS Beta versions, only itlwm is supported.")
+                    selected_name = "itlwm"
                 else:
-                    kext_option = self.utils.request_input("Select kext for your Intel WiFi device (default: {}): ".format(recommended_name)).strip() or str(recommended_option)
-                    
-                    if kext_option.isdigit() and 0 < int(kext_option) < 3:
-                        selected_option = int(kext_option)
-                    else:
-                        print("\033[91mInvalid selection, using recommended option: {}\033[0m".format(recommended_option))
-                        selected_option = recommended_option
-                
-                if selected_option == 2:
-                    selected_kexts.append("itlwm")
-                else:
-                    selected_kexts.append("AirportItlwm")
-                    
-                    if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("24.0.0"):
-                        selected_kexts.append("IOSkywalkFamily")
+                    choice = self.utils.request_input("Select Intel Wi-Fi kext (default: {}): ".format(
+                        wifi_options[recommended_option - 1])).strip() or str(recommended_option)
+                    if not choice.isdigit() or not 1 <= int(choice) <= len(wifi_options):
+                        print("Invalid selection, using recommended option: {}".format(
+                            recommended_option))
+                        choice = str(recommended_option)
+                    selected_name = wifi_options[int(choice) - 1]
+                selected_kexts.append(selected_name)
+                if selected_name == "AirportItlwm" and darwin_major >= 24:
+                    needs_oclp = True
+                    selected_kexts.append("IOSkywalkFamily")
             elif device_id in pci_data.AtherosWiFiIDs[:8]:
                 selected_kexts.append("corecaptureElCap")
+                if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("25.0.0"):
+                    selected_kexts.append("AirPortAtheros40-Tahoe")
                 if self.utils.parse_darwin_version(macos_version) > self.utils.parse_darwin_version("20.99.99"):
                     selected_kexts.append("AMFIPass")
             elif device_id in pci_data.rtw88WiFiIDs:
                 selected_kexts.append("Feixiao")
+            elif device_id in pci_data.rtw89WiFiIDs:
+                selected_kexts.append("AirportRTW89")
+                if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("23.0.0"):
+                    needs_oclp = True
+                    selected_kexts.append("IOSkywalkFamily")
             elif device_id in pci_data.IntelI22XIDs:
                 selected_kexts.append("AppleIGC")
             elif device_id in pci_data.AtherosE2200IDs:
@@ -341,12 +313,15 @@ class KextMaestro:
 
             if usb_id in pci_data.AtherosBluetoothIDs:
                 selected_kexts.extend(("Ath3kBT", "Ath3kBTInjector"))
-            elif usb_id in pci_data.BroadcomBluetoothIDs:               
-                selected_kexts.extend(("BrcmFirmwareData", "BrcmPatchRAM2", "BrcmPatchRAM3", "BrcmBluetoothInjector", "BlueToolFixup"))
+            elif usb_id in pci_data.BroadcomBluetoothIDs:
+                selected_kexts.extend(("BrcmFirmwareData", "BrcmPatchRAM2",
+                                      "BrcmPatchRAM3", "BrcmBluetoothInjector", "BlueToolFixup"))
             elif usb_id in pci_data.IntelBluetoothIDs:
-                selected_kexts.extend(("IntelBluetoothFirmware", "IntelBTPatcher", "IntelBluetoothInjector", "BlueToolFixup"))
+                selected_kexts.extend(
+                    ("IntelBluetoothFirmware", "IntelBTPatcher", "IntelBluetoothInjector", "BlueToolFixup"))
             elif usb_id in pci_data.RealtekBluetoothIDs:
-                selected_kexts.extend(("RealtekBluetoothFirmware", "BlueToolFixup"))
+                selected_kexts.extend(
+                    ("RealtekBluetoothFirmware", "BlueToolFixup"))
             elif usb_id in pci_data.BluetoothIDs[-1]:
                 selected_kexts.append("BlueToolFixup")
 
@@ -380,7 +355,7 @@ class KextMaestro:
                                 selected_kexts.append("AlpsHID")
                             elif 78 < idx:
                                 selected_kexts.append("VoodooRMI")
-        
+
         for device_name, device_info in hardware_report.get("System Devices", {}).items():
             if device_info.get("Bus Type") == "ACPI" and device_info.get("Device") in pci_data.YogaHIDs:
                 selected_kexts.append("YogaSMC")
@@ -394,7 +369,7 @@ class KextMaestro:
                     selected_kexts.append("Sinetek-rtsx")
                 else:
                     selected_kexts.append("RealtekCardReader")
-        
+
         for controller_name, controller_props in hardware_report.get("Storage Controllers", {}).items():
             if controller_props.get("Device ID") == "1C5C-174A":
                 selected_kexts.append("PC711Probe")
@@ -412,7 +387,8 @@ class KextMaestro:
         for controller_name, controller_props in hardware_report.get("USB Controllers").items():
             device_id = controller_props.get("Device ID")
             subsystem_id = controller_props.get("Subsystem ID", "0"*8)
-            unsupported_controller = next((controller for controller in pci_data.UnsupportedUSBControllerIDs if device_id == controller[0]), None)
+            unsupported_controller = next(
+                (controller for controller in pci_data.UnsupportedUSBControllerIDs if device_id == controller[0]), None)
 
             if unsupported_controller:
                 subsystem_ids = unsupported_controller[1]
@@ -430,76 +406,160 @@ class KextMaestro:
             selected_kexts.append("ASPP-Override")
 
         if "Sandy Bridge" in hardware_report.get("CPU").get("Codename") or "Ivy Bridge" in hardware_report.get("CPU").get("Codename"):
-            selected_kexts.extend(("AppleIntelCPUPowerManagement", "AppleIntelCPUPowerManagementClient"))
+            selected_kexts.extend(
+                ("AppleIntelCPUPowerManagement", "AppleIntelCPUPowerManagementClient"))
+
+        if needs_oclp:
+            selected_kexts.extend(("AMFIPass", "RestrictEvents"))
+
+        for gpu_name, gpu_props in hardware_report.get("GPU", {}).items():
+            if "Integrated GPU" in gpu_props.get("Device Type"):
+                if "AMD" in gpu_props.get("Manufacturer"):
+                    selected_kexts.append("NootedRed")
+                elif "Intel" in gpu_props.get("Manufacturer") and gpu_props.get("Device ID", "")[5:] in gpu_data.WhateverXeDeviceIDs:
+                    print("\n*** Found {} is Intel {} GPU.".format(gpu_name,
+                          gpu_props.get("Codename")))
+                    print("")
+                    print(
+                        "\033[91mImportant:\033[0m WhateverXe is experimental.")
+                    print(
+                        "Apply the Xe root patch from https://github.com/b00t0x/WhateverXe-Graphics")
+                    print(
+                        "AMFIPass Mod will be used. For all OCLP patches, use https://github.com/b00t0x/OpenCore-Legacy-Patcher")
+                    print("")
+                    self.utils.request_input("Press Enter to continue...")
+                    selected_kexts.append("WhateverXe")
+                    break
+                else:
+                    selected_kexts.append("WhateverGreen")
+            else:
+                if gpu_props.get("Codename") in ("Turing", "Ampere", "Ada Lovelace", "Blackwell"):
+                    print("\n*** Found {} is NVIDIA {} GPU.".format(gpu_name,
+                          gpu_props.get("Codename")))
+                    print("")
+                    print(
+                        "\033[91mImportant:\033[0m NullMoth NVIDIA driver is experimental.")
+                    print(
+                        "Driver installation guide: https://github.com/HighDelay/nvidia-macos-driver-nvk")
+                    print("")
+                    self.utils.request_input("Press Enter to continue...")
+                    selected_kexts.append("AMFIPass")
+                    continue
+
+                if "Navi 22" in gpu_props.get("Codename"):
+                    selected_kexts.append("NootRX")
+                    break
+
+                if gpu_props.get("Codename") in {"Navi 21", "Navi 23"}:
+                    print("\n*** Found {} is AMD {} GPU.".format(gpu_name,
+                          gpu_props.get("Codename")))
+                    print("")
+                    print("\033[91mImportant: Black Screen Fix\033[0m")
+                    print("If you experience a black screen after verbose mode:")
+                    print("    1. Use ProperTree to open config.plist")
+                    print(
+                        "    2. Navigate to NVRAM -> Add -> 7C436110-AB2A-4BBB-A880-FE41995C9F82 -> boot-args")
+                    print("    3. Remove \"-v debug=0x100 keepsyms=1\" from boot-args")
+                    print("")
+                    recommended_option = 2
+                    recommended_name = "WhateverGreen"
+                    print("\033[1;93mNote:\033[0m")
+                    print(
+                        "- AMD {} GPUs have two available kext options:".format(gpu_props.get("Codename")))
+                    print(
+                        "- You can try different kexts after installation to find the best one for your system")
+                    print("")
+                    print("1. \033[1mNootRX\033[0m - Uses latest GPU firmware")
+                    print(
+                        "2. \033[1mWhateverGreen\033[0m - Uses original Apple firmware")
+                    print("")
+
+                    if any(other_gpu_props.get("Manufacturer") == "Intel" for other_gpu_props in hardware_report.get("GPU", {}).values()):
+                        print(
+                            "\033[91mImportant:\033[0m NootRX kext is not compatible with Intel GPUs")
+                        print(
+                            "Automatically selecting WhateverGreen kext due to Intel GPU compatibility")
+                        print("")
+                        self.utils.request_input("Press Enter to continue...")
+                        continue
+
+                    kext_option = self.utils.request_input("Select kext for your AMD {} GPU (default: {}): ".format(
+                        gpu_props.get("Codename"), recommended_name)).strip() or str(recommended_option)
+
+                    if kext_option.isdigit() and 0 < int(kext_option) < 3:
+                        selected_option = int(kext_option)
+                    else:
+                        print("\033[93mInvalid selection, using recommended option: {}\033[0m".format(
+                            recommended_option))
+                        selected_option = recommended_option
+
+                    if selected_option == 1:
+                        selected_kexts.append("NootRX")
+                    elif selected_option == 2:
+                        selected_kexts.append("WhateverGreen")
+
+                    continue
+
+                selected_kexts.append("WhateverGreen")
+
+        if "Laptop" in hardware_report.get("Motherboard").get("Platform") and ("ASUS" in hardware_report.get("Motherboard").get("Name") or "NootedRed" in selected_kexts):
+            selected_kexts.append("ForgedInvariant")
 
         selected_kexts = list(dict.fromkeys(selected_kexts))
-        force_load_kexts = self.verify_kext_compatibility(selected_kexts, macos_version)
+        force_load_kexts = self.verify_kext_compatibility(
+            selected_kexts, macos_version)
 
         for name in selected_kexts:
-            self.check_kext(kext_data.kext_index_by_name.get(name), macos_version, name in force_load_kexts)
+            self.check_kext(kext_data.kext_index_by_name.get(
+                name), macos_version, name in force_load_kexts)
 
         return needs_oclp
 
     def install_kexts_to_efi(self, macos_version, kexts_directory):
         for kext in self.kexts:
-            if kext.checked:
-                try:
-                    source_kext_path = destination_kext_path = None
-                    kext_name = kext.name
+            if not kext.checked:
+                continue
 
-                    if kext_name == "Feixiao":
-                        kext_name = "rtw88"
-
-                    kext_paths = self.utils.find_matching_paths(self.ock_files_dir, extension_filter=".kext", name_filter=kext_name)
-                    for kext_path, type in kext_paths:
-                        if "AirportItlwm" == kext_name:
-                            version = macos_version[:2]
-                            if all((self.kexts[kext_data.kext_index_by_name.get("IOSkywalkFamily")].checked, self.kexts[kext_data.kext_index_by_name.get("IO80211FamilyLegacy")].checked)) or self.utils.parse_darwin_version("24.0.0") <= self.utils.parse_darwin_version(macos_version):
-                                version = "22"
-                            elif self.utils.parse_darwin_version("23.4.0") <= self.utils.parse_darwin_version(macos_version):
-                                version = "23.4"
-                            elif self.utils.parse_darwin_version("23.0.0") <= self.utils.parse_darwin_version(macos_version):
-                                version = "23.0"
-                            
-                            if version in kext_path:
-                                source_kext_path = os.path.join(self.ock_files_dir, kext_path)
-                                destination_kext_path = os.path.join(kexts_directory, os.path.basename(kext_path))
-                                break
-                        else:
-                            main_kext = kext_path.split("/")[0]
-                            main_kext_index = kext_data.kext_index_by_name.get(main_kext)
-                            if not main_kext_index or self.kexts[main_kext_index].checked:
-                                if os.path.splitext(os.path.basename(kext_path))[0] in kext_name:
-                                    source_kext_path = os.path.join(self.ock_files_dir, kext_path)
-                                    destination_kext_path = os.path.join(kexts_directory, os.path.basename(kext_path))
-                    
-                    if os.path.exists(source_kext_path):
-                        shutil.copytree(source_kext_path, destination_kext_path, dirs_exist_ok=True)
-                except:
-                    continue
+            source_kext_path = kext.source_path
+            if not source_kext_path or not os.path.isdir(source_kext_path):
+                raise FileNotFoundError(
+                    "Selected kext {} is missing from {} (source: {}).".format(kext.name, self.ock_files_dir, source_kext_path))
+            destination_kext_path = os.path.join(
+                kexts_directory, os.path.basename(source_kext_path))
+            try:
+                shutil.copytree(source_kext_path,
+                                destination_kext_path, dirs_exist_ok=True)
+            except (OSError, shutil.Error) as error:
+                raise OSError("Could not copy selected kext {} from {} to {}: {}".format(
+                    kext.name, source_kext_path, destination_kext_path, error)) from error
 
     def process_kext(self, kexts_directory, kext_path):
         try:
-            plist_path = self.utils.find_matching_paths(os.path.join(kexts_directory, kext_path), extension_filter=".plist", name_filter="Info")[0][0]
-            bundle_info = self.utils.read_file(os.path.join(kexts_directory, kext_path, plist_path))
+            plist_path = self.utils.find_matching_paths(os.path.join(
+                kexts_directory, kext_path), extension_filter=".plist", name_filter="Info")[0][0]
+            bundle_info = self.utils.read_file(
+                os.path.join(kexts_directory, kext_path, plist_path))
 
             if isinstance(bundle_info.get("CFBundleIdentifier", None), (str, unicode)):
                 pass
         except:
             return None
 
-        executable_path = os.path.join("Contents", "MacOS", bundle_info.get("CFBundleExecutable", "None"))
+        executable_path = os.path.join(
+            "Contents", "MacOS", bundle_info.get("CFBundleExecutable", "None"))
         if not os.path.exists(os.path.join(kexts_directory, kext_path, executable_path)):
             executable_path = ""
 
         bundle_libraries = {
             bundle_identifier: bundle_version
-            for bundle_identifier, bundle_version in bundle_info.get("OSBundleLibraries", {}).items() 
+            for bundle_identifier, bundle_version in bundle_info.get("OSBundleLibraries", {}).items()
         }
 
         if bundle_info.get("CFBundleExecutable", "None") == "AppleALC":
             bundle_libraries["org.ChefKiss.NootedRed"] = "0.8.10"
-        
+        elif bundle_info.get("CFBundleExecutable", "None") == "SimpleHDA":
+            bundle_libraries["as.vit9696.AppleALC"] = "1.9.9"
+
         return {
             "BundlePath": kext_path.replace("\\", "/").lstrip("/"),
             "Enabled": True,
@@ -516,7 +576,7 @@ class KextMaestro:
 
             if bundle_info.get("IOKitPersonalities").get("itlwm").get("WiFiConfig"):
                 from Scripts import wifi_profile_extractor
-                
+
                 wifi_profiles = wifi_profile_extractor.WifiProfileExtractor().get_profiles()
 
                 if wifi_profiles:
@@ -528,16 +588,18 @@ class KextMaestro:
                         for index, profile in enumerate(wifi_profiles, start=1)
                     }
             elif bundle_info.get("IOKitPersonalities").get("VoodooTSCSync"):
-                bundle_info["IOKitPersonalities"]["VoodooTSCSync"]["IOPropertyMatch"]["IOCPUNumber"] = 0 if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("21.0.0") else int(hardware_report["CPU"]["Core Count"]) - 1
+                bundle_info["IOKitPersonalities"]["VoodooTSCSync"]["IOPropertyMatch"]["IOCPUNumber"] = 0 if self.utils.parse_darwin_version(
+                    macos_version) >= self.utils.parse_darwin_version("21.0.0") else int(hardware_report["CPU"]["Core Count"]) - 1
             elif bundle_info.get("IOKitPersonalities").get("AmdTscSync"):
-                bundle_info["IOKitPersonalities"]["AmdTscSync"]["IOPropertyMatch"]["IOCPUNumber"] = 0 if self.utils.parse_darwin_version(macos_version) >= self.utils.parse_darwin_version("21.0.0") else int(hardware_report["CPU"]["Core Count"]) - 1
+                bundle_info["IOKitPersonalities"]["AmdTscSync"]["IOPropertyMatch"]["IOCPUNumber"] = 0 if self.utils.parse_darwin_version(
+                    macos_version) >= self.utils.parse_darwin_version("21.0.0") else int(hardware_report["CPU"]["Core Count"]) - 1
             else:
                 return
-            
+
             self.utils.write_file(plist_path, bundle_info)
         except:
-            return            
-        
+            return
+
     def load_kexts(self, hardware_report, macos_version, kexts_directory):
         kernel_add = []
         unload_kext = []
@@ -559,67 +621,89 @@ class KextMaestro:
                     "VoodooI2CHID"
                 ))
 
-        kext_paths = self.utils.find_matching_paths(kexts_directory, extension_filter=".kext")
+        kext_paths = self.utils.find_matching_paths(
+            kexts_directory, extension_filter=".kext")
         bundle_list = []
 
         for kext_path, type in kext_paths:
             bundle_info = self.process_kext(kexts_directory, kext_path)
 
             if bundle_info:
-                self.modify_kexts(os.path.join(kexts_directory, kext_path, bundle_info.get("PlistPath")), hardware_report, macos_version)
+                self.modify_kexts(os.path.join(kexts_directory, kext_path, bundle_info.get(
+                    "PlistPath")), hardware_report, macos_version)
 
                 bundle_list.append(bundle_info)
 
-        bundle_dict = {bundle["BundleIdentifier"]: bundle for bundle in bundle_list}
+        bundle_dict = {bundle["BundleIdentifier"]
+            : bundle for bundle in bundle_list}
 
         sorted_bundles = []
-        
+
         visited = set()
         seen_identifier = set()
 
         def visit(bundle):
-            kext_name = os.path.splitext(os.path.basename(bundle.get("BundlePath")))[0]
-            if kext_name == "rtw88":
-                kext_name = "Feixiao"
+            kext_name = os.path.splitext(
+                os.path.basename(bundle.get("BundlePath")))[0]
 
             if kext_name in unload_kext or (bundle.get("BundlePath"), bundle.get("BundleIdentifier")) in visited:
                 return
-                        
+
             bundle["MaxKernel"] = os_data.get_latest_darwin_version()
             bundle["MinKernel"] = os_data.get_lowest_darwin_version()
 
-            kext_index = kext_data.kext_index_by_name.get(kext_name)
+            registry_name = {"rtw88": "Feixiao", "AirportRTW": "AirportRTW89"}.get(
+                kext_name, kext_name)
+            selected_kext = next((kext for kext in self.kexts if kext.checked and
+                                  (kext.name == registry_name or kext.name.startswith(registry_name + "-"))), None)
+            if selected_kext is not None:
+                bundle["MaxKernel"] = selected_kext.max_darwin_version
+                bundle["MinKernel"] = selected_kext.min_darwin_version
 
-            if kext_index:
-                bundle["MaxKernel"] = self.kexts[kext_index].max_darwin_version
-                bundle["MinKernel"] = self.kexts[kext_index].min_darwin_version
-            
             for dep_identifier in bundle.get("BundleLibraries"):
                 if dep_identifier in bundle_dict:
                     visit(bundle_dict[dep_identifier])
-                    
-                    bundle["MaxKernel"] = bundle["MaxKernel"] if self.utils.parse_darwin_version(bundle["MaxKernel"]) < self.utils.parse_darwin_version(bundle_dict[dep_identifier].get("MaxKernel", "99.99.99")) else bundle_dict[dep_identifier]["MaxKernel"]
-                    bundle["MinKernel"] = bundle["MinKernel"] if self.utils.parse_darwin_version(bundle["MinKernel"]) > self.utils.parse_darwin_version(bundle_dict[dep_identifier].get("MinKernel", "0.0.0")) else bundle_dict[dep_identifier]["MinKernel"]
+
+                    bundle["MaxKernel"] = bundle["MaxKernel"] if self.utils.parse_darwin_version(bundle["MaxKernel"]) < self.utils.parse_darwin_version(
+                        bundle_dict[dep_identifier].get("MaxKernel", "99.99.99")) else bundle_dict[dep_identifier]["MaxKernel"]
+                    bundle["MinKernel"] = bundle["MinKernel"] if self.utils.parse_darwin_version(bundle["MinKernel"]) > self.utils.parse_darwin_version(
+                        bundle_dict[dep_identifier].get("MinKernel", "0.0.0")) else bundle_dict[dep_identifier]["MinKernel"]
+
+            wifi_identifier = bundle.get("BundleIdentifier")
+            if wifi_identifier in ("com.apple.driver.AirPort.BrcmNIC", "com.apple.driver.AirPort.Atheros40"):
+                if bundle["BundlePath"].endswith("-Tahoe.kext"):
+                    bundle["MinKernel"] = "25.0.0"
+                else:
+                    bundle["MaxKernel"] = "24.99.99"
+                    bundle["MinKernel"] = "23.0.0" if wifi_identifier == "com.apple.driver.AirPort.BrcmNIC" else "18.0.0"
 
             if kext_name == "AirPortBrcm4360_Injector":
                 bundle["MaxKernel"] = "19.99.99"
             elif kext_name == "AirportItlwm":
-                bundle["MaxKernel"] = macos_version[:2] + bundle["MaxKernel"][2:]
-                bundle["MinKernel"] = macos_version[:2] + bundle["MinKernel"][2:]
+                bundle["MaxKernel"] = macos_version[:2] + \
+                    bundle["MaxKernel"][2:]
+                if self.utils.parse_darwin_version(bundle["MinKernel"]) < self.utils.parse_darwin_version(macos_version[:2] + ".0.0"):
+                    bundle["MinKernel"] = macos_version[:2] + ".0.0"
 
-            visited.add((bundle.get("BundlePath"), bundle.get("BundleIdentifier")))
+            visited.add((bundle.get("BundlePath"),
+                        bundle.get("BundleIdentifier")))
 
-            if bundle.get("BundleIdentifier") in seen_identifier:
+            identifier = bundle.get("BundleIdentifier")
+            if identifier in ("com.apple.driver.AirPort.BrcmNIC", "com.apple.driver.AirPort.Atheros40"):
+                identifier = (
+                    identifier, bundle["MinKernel"], bundle["MaxKernel"])
+            if identifier in seen_identifier:
                 bundle["Enabled"] = False
             else:
-                seen_identifier.add(bundle.get("BundleIdentifier"))
+                seen_identifier.add(identifier)
 
             sorted_bundles.append(bundle)
 
         for bundle in bundle_list:
             visit(bundle)
 
-        latest_darwin_version = (os_data.get_latest_darwin_version(), os_data.get_latest_darwin_version(include_beta=False))
+        latest_darwin_version = (os_data.get_latest_darwin_version(
+        ), os_data.get_latest_darwin_version(include_beta=False))
         lowest_darwin_version = os_data.get_lowest_darwin_version()
 
         for bundle in sorted_bundles:
@@ -660,7 +744,8 @@ class KextMaestro:
             self.uncheck_kext(dependent_index)
 
         for dependency_name in kext.requires_kexts:
-            dependency_index = kext_data.kext_index_by_name.get(dependency_name)
+            dependency_index = kext_data.kext_index_by_name.get(
+                dependency_name)
             dependency = self.kexts[dependency_index]
             if not dependency.required and not any(other_kext.checked and dependency_name in other_kext.requires_kexts for other_kext in self.kexts):
                 self.uncheck_kext(dependency_index)
@@ -677,25 +762,31 @@ class KextMaestro:
 
             kext = self.kexts[kext_index]
             if not self.is_kext_compatible(kext, target_darwin_version) and kext.allow_force_load:
-                incompatible_kexts.append((kext.name, "Lilu" in kext.requires_kexts))
+                incompatible_kexts.append(
+                    (kext.name, "Lilu" in kext.requires_kexts))
 
         if not incompatible_kexts:
             return set()
-        
+
         while True:
             self.utils.head("Kext Compatibility Check")
-            print("\nIncompatible kexts for the current macOS version ({}):\n".format(target_darwin_version))
-            
+            print("\nIncompatible kexts for the current macOS version ({}):\n".format(
+                target_darwin_version))
+
             for index, (kext_name, is_lilu_dependent) in enumerate(incompatible_kexts, start=1):
-                print("{:2}. {:25}{}".format(index, kext_name, " - Lilu Plugin" if is_lilu_dependent else ""))
-            
+                print("{:2}. {:25}{}".format(index, kext_name,
+                      " - Lilu Plugin" if is_lilu_dependent else ""))
+
             print("\n\033[1;93mNote:\033[0m")
-            print("- With Lilu plugins, using the \"-lilubetaall\" boot argument will force them to load.")
-            print("- Forcing unsupported kexts can cause system instability. \033[0;31mProceed with caution.\033[0m")
+            print(
+                "- With Lilu plugins, using the \"-lilubetaall\" boot argument will force them to load.")
+            print(
+                "- Forcing unsupported kexts can cause system instability. \033[0;31mProceed with caution.\033[0m")
             print("")
-            
-            option = self.utils.request_input("Do you want to force load {} on the unsupported macOS version? (yes/No): ".format("these kexts" if len(incompatible_kexts) > 1 else "this kext"))
-            
+
+            option = self.utils.request_input("Do you want to force load {} on the unsupported macOS version? (yes/No): ".format(
+                "these kexts" if len(incompatible_kexts) > 1 else "this kext"))
+
             if option.lower() == "yes":
                 return {kext_name for kext_name, _ in incompatible_kexts}
             elif option.lower() == "no":
@@ -713,8 +804,10 @@ class KextMaestro:
             for index, kext in enumerate(self.kexts, start=1):
                 if kext.category != current_category:
                     current_category = kext.category
-                    category_header = "Category: {}".format(current_category if current_category else "Uncategorized")
-                    contents.append(f"\n{category_header}\n" + "=" * len(category_header))
+                    category_header = "Category: {}".format(
+                        current_category if current_category else "Uncategorized")
+                    contents.append(
+                        f"\n{category_header}\n" + "=" * len(category_header))
                 status = self.get_kext_status(kext, macos_version)
                 marker = {
                     "required": "[R]",
@@ -725,7 +818,8 @@ class KextMaestro:
                     "not_needed": "[-]",
                     "requires_newer": "[-]"
                 }[status]
-                line = "{} {:2}. {:35} - {:60}".format(marker, index, kext.name, kext.description)
+                line = "{} {:2}. {:35} - {:60}".format(
+                    marker, index, kext.name, kext.description)
                 if status in ("required", "selected"):
                     line = "\033[1;32m{}\033[0m".format(line)
                 elif status == "force_loaded":
@@ -736,15 +830,19 @@ class KextMaestro:
             contents.append("")
             contents.append("\033[1;93mStatus:\033[0m")
             contents.append("- [R] Required   [*] Selected   [!] Force loaded")
-            contents.append("- [ ] Available  [?] Force available   [-] Unavailable")
-            contents.append("- When a plugin of a kext is selected, the entire kext will be automatically selected.")
-            contents.append("- You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3').")
+            contents.append(
+                "- [ ] Available  [?] Force available   [-] Unavailable")
+            contents.append(
+                "- When a plugin of a kext is selected, the entire kext will be automatically selected.")
+            contents.append(
+                "- You can select multiple kexts by entering their indices separated by commas (e.g., '1, 2, 3').")
             contents.append("")
             contents.append("B. Back")
             contents.append("Q. Quit")
             if messages:
                 contents.append("")
-                contents.extend("\033[1;96m{}\033[0m".format(message) for message in messages)
+                contents.extend("\033[1;96m{}\033[0m".format(
+                    message) for message in messages)
                 messages = []
             contents.append("")
             content = "\n".join(contents)
@@ -757,31 +855,48 @@ class KextMaestro:
                 return
             if option.lower() == "q":
                 self.utils.exit_program()
-            indices = [int(i.strip()) - 1 for i in option.split(",") if i.strip().isdigit()]
-            indices = [index for index in indices if 0 <= index < len(self.kexts)]
-            kexts_to_enable = [self.kexts[index].name for index in indices if not self.kexts[index].checked]
+            indices = [int(i.strip()) - 1 for i in option.split(",")
+                       if i.strip().isdigit()]
+            indices = [index for index in indices if 0 <=
+                       index < len(self.kexts)]
+            kexts_to_enable = [
+                self.kexts[index].name for index in indices if not self.kexts[index].checked]
 
-            force_load_kexts = self.verify_kext_compatibility(kexts_to_enable, macos_version)
-    
+            force_load_kexts = self.verify_kext_compatibility(
+                kexts_to_enable, macos_version)
+
             for index in indices:
                 kext = self.kexts[index]
-                if kext.checked and not kext.required:
-                    checked_dependents = [other_kext.name for other_kext in self.kexts if other_kext.checked and kext.name in other_kext.requires_kexts]
-                    self.uncheck_kext(index)
-                    if checked_dependents:
-                        messages.append("{} and dependent kext{} {} disabled.".format(kext.name, "s" if len(checked_dependents) > 1 else "", ", ".join(checked_dependents)))
-                else:
+                disable = kext.checked and not kext.required
+                if not disable:
                     status = self.get_kext_status(kext, macos_version)
                     if status == "not_needed":
-                        messages.append("{} is not needed on {}.".format(kext.name, os_data.get_macos_name_by_darwin(macos_version)))
+                        messages.append("{} is not needed on {}.".format(
+                            kext.name, os_data.get_macos_name_by_darwin(macos_version)))
                         continue
                     if status == "requires_newer":
-                        messages.append("{} requires a newer macOS version.".format(kext.name))
+                        messages.append(
+                            "{} requires a newer macOS version.".format(kext.name))
+                        continue
+                    if not self.is_kext_compatible(kext, macos_version) and kext.name not in force_load_kexts:
+                        messages.append(
+                            "{} could not be selected because it is unavailable on this macOS version.".format(kext.name))
                         continue
 
-                    conflicts = [other_kext.name for other_kext in self.kexts if other_kext.checked and kext.conflict_group_id and other_kext.conflict_group_id == kext.conflict_group_id and other_kext.name != kext.name]
+                if disable:
+                    checked_dependents = [
+                        other_kext.name for other_kext in self.kexts if other_kext.checked and kext.name in other_kext.requires_kexts]
+                    self.uncheck_kext(index)
+                    if checked_dependents:
+                        messages.append("{} and dependent kext{} {} disabled.".format(
+                            kext.name, "s" if len(checked_dependents) > 1 else "", ", ".join(checked_dependents)))
+                else:
+                    conflicts = [other_kext.name for other_kext in self.kexts if other_kext.checked and kext.conflict_group_id and other_kext.conflict_group_id ==
+                                 kext.conflict_group_id and other_kext.name != kext.name]
                     if self.check_kext(index, macos_version, kext.name in force_load_kexts):
                         if conflicts:
-                            messages.append("{} selected; mutually exclusive kext{} disabled: {}.".format(kext.name, "s" if len(conflicts) > 1 else "", ", ".join(conflicts)))
+                            messages.append("{} selected, mutually exclusive kext{} disabled: {}.".format(
+                                kext.name, "s" if len(conflicts) > 1 else "", ", ".join(conflicts)))
                     else:
-                        messages.append("{} could not be selected because a required dependency is unavailable.".format(kext.name))
+                        messages.append(
+                            "{} could not be selected because a required dependency is unavailable.".format(kext.name))

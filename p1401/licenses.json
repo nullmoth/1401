@@ -16,6 +16,10 @@
    "grandfathered": true,
    "evidence": "the engine's name for averycblack/ECEnabler (renamed)"
   },
+  "achcyano/AirportRTW89": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
   "acidanthera/AirportBrcmFixup": {
    "license": "BSD-3-Clause",
    "class": "permissive"
@@ -120,6 +124,14 @@
    "class": "permissive",
    "evidence": "LICENSE in the repo; the Mac app fetches release 0.6.1 from its author, pinned by sha256 (nullmoth-setup.sh)"
   },
+  "Baio1977/RealtekCardReader": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
+  "Baio1977/RealtekCardReaderFriend": {
+   "license": "BSD-3-Clause",
+   "class": "permissive"
+  },
   "blankmac/AlpsHID": {
    "license": "none",
    "class": "none",
@@ -199,6 +211,16 @@
    "license": "none",
    "class": "none",
    "grandfathered": true
+  },
+  "laobamac/itlwm": {
+   "license": "GPL-2.0",
+   "class": "copyleft"
+  },
+  "laobamac/SimpleHDA": {
+   "license": "none",
+   "class": "none",
+   "refused": true,
+   "evidence": "the project states no licence; 1401 removes it from every build (engine._tahoe_audio_keep_choice)"
   },
   "laobamac/SimpleMtkBtFw": {
    "license": "GPL-3.0",

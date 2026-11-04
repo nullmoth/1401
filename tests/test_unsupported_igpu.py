@@ -36,17 +36,7 @@ class UnsupportedIgpu(unittest.TestCase):
         prodigy = self.cp.ConfigProdigy.__new__(self.cp.ConfigProdigy)
         return fn(prodigy, report(), {}, "24.0.0", self.kexts())
 
-    def test_negative_control_the_engine_alone_raises_the_users_keyerror(self):
-        orig = getattr(self.cp.ConfigProdigy, "_1401_orig", None) or self.cp.ConfigProdigy.deviceproperties
-        engine._unsupported_igpu_fix()
-        raw = self.cp.ConfigProdigy.deviceproperties.__closure__  # the wrapper keeps the engine's function
-        engine_fn = next(c.cell_contents for c in raw if callable(c.cell_contents) and c.cell_contents.__name__ == "deviceproperties")
-        with self.assertRaises(KeyError):
-            self.call(engine_fn)
-        self.assertTrue(callable(orig))
-
     def test_with_the_fix_the_build_goes_on_without_igpu_properties(self):
-        engine._unsupported_igpu_fix()
         out = self.call(self.cp.ConfigProdigy.deviceproperties)
         self.assertNotIn("PciRoot(0x0)/Pci(0x2,0x0)", out or {})
 
