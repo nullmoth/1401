@@ -48,22 +48,27 @@ enum Tester {
 
     /// Downloads a test build into Application Support (or reuses the copy there) and returns its path only when both
     /// its SHA-256 and the release signature over its bytes check out. The reason it was refused otherwise.
+    /// One buffer is hashed, checked against the signature and only then written, as ArmApps.fetch does: hashing the
+    /// file and then reading it again for the signature let a same-user process swap it in between.
     static func fetch(_ b: Build) -> (path: String?, why: String?) {
         let dst = support.appendingPathComponent(b.name)
-        if sha256(dst) != b.sha256 {
-            guard let data = syncGet(b.url, timeout: 900) else { return (nil, "the test build did not download") }
-            do {
-                try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-                try data.write(to: dst, options: .atomic)
-            } catch { return (nil, error.localizedDescription) }
-            guard sha256(dst) == b.sha256 else {
-                try? FileManager.default.removeItem(at: dst); return (nil, "the test build does not match its SHA-256") }
+        let hex = { (d: Data) in SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined() }
+        var data = (try? Data(contentsOf: dst)) ?? Data()
+        if data.isEmpty || hex(data) != b.sha256 {
+            guard let d = syncGet(b.url, timeout: 900) else { return (nil, "the test build did not download") }
+            data = d
         }
+        guard hex(data) == b.sha256 else {
+            try? FileManager.default.removeItem(at: dst); return (nil, "the test build does not match its SHA-256") }
         guard let sig = syncGet(b.sig, timeout: 30), let text = String(data: sig, encoding: .utf8),
-              ReleaseSignature.verify(zip: dst, signatureBase64: text) else {
+              ReleaseSignature.verify(data: data, signatureBase64: text) else {
             try? FileManager.default.removeItem(at: dst)
             return (nil, "the test build is not signed by NullMoth, so it was not used")
         }
+        do {
+            try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+            try data.write(to: dst, options: .atomic)
+        } catch { return (nil, error.localizedDescription) }
         return (dst.path, nil)
     }
 
