@@ -239,6 +239,10 @@ let hCodec = """
 print("h_line=\(ReachedDesktop.audioHardwareLine(pci: hPci, codecs: hCodec))")
 print("h_nocodec=\(ReachedDesktop.audioHardwareLine(pci: hPci, codecs: ""))")
 print("h_empty=\(ReachedDesktop.audioHardwareLine(pci: "", codecs: ""))")
+let nReg = "+-o NMXAudio  <class NMXAudio, id 0x1, registered>\n    | \"nullmoth-audio-state\" = \"parked: the last boot stopped while audio was starting\"\n  +-o NMXAudioEngine  <class NMXAudioEngine, id 0x2, registered>\n"
+let nLog = "Timestamp               Ty Process\n2026-11-05 01:00:00.0 Df kernel[0:1] (NMXAudio) NMXAudio: no driver took 8086:46a6\n2026-11-05 01:00:00.1 Df kernel[0:1] (IOGraphics) unrelated line\n"
+print("n_none=" + ReachedDesktop.audioDriverLines(ioreg: "", log: "").replacingOccurrences(of: "\n", with: "|"))
+print("n_park=" + ReachedDesktop.audioDriverLines(ioreg: nReg, log: nLog).replacingOccurrences(of: "\n", with: "|"))
 print("e_uploads=\(uploads.count)")
 print("e_upload_files=" + (uploads.last ?? []).joined(separator: "|"))
 '''
@@ -332,6 +336,12 @@ try:
         arm("(g) no codec attached is said plainly", vals.get("h_nocodec", "").endswith("; codecs none attached"), vals.get("h_nocodec", ""))
         arm("(g) no ioreg answer reads unknown", vals.get("h_empty") == "audio hardware: unknown", vals.get("h_empty", ""))
         arm("(g) the summary carries the audio hardware line", "audioHardwareLine()" in summ)
+        arm("(h) NMXAudio not on any controller is said plainly",
+            vals.get("n_none") == "audio driver (NMXAudio): not attached to any controller|", vals.get("n_none", ""))
+        arm("(h) a parked NMXAudio says why, counts its engines and keeps its own kernel lines only",
+            vals.get("n_park") == "audio driver (NMXAudio): attached, parked: the last boot stopped while audio was starting, "
+                                  "1 engine(s)|  NMXAudio) NMXAudio: no driver took 8086:46a6|", vals.get("n_park", ""))
+        arm("(h) the summary carries the audio driver lines", "audioDriverLines()" in summ)
 except subprocess.CalledProcessError as e:
     arm("the behaviour harness compiles", False, (e.stderr or b"").decode()[:600])
 except FileNotFoundError:
