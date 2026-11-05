@@ -102,6 +102,7 @@ enum ReachedDesktop {
         s += "boot guard: " + bootGuardLine() + "\n"
         for line in featureLines() { s += line + "\n" }
         s += audioHardwareLine() + "\n"
+        s += audioDriverLines()
         return s
     }
 
@@ -197,6 +198,31 @@ enum ReachedDesktop {
     /// The audio hardware behind the "audio:" line: each HD-audio controller's PCI ID with the layout-id the boot setup
     /// gave it, and the codecs macOS attached to it. 2.5.3's reports showed one desktop in five with no output device
     /// and nothing that told a missing codec driver from a wrong layout-id or a codec AppleALC does not know.
+    /// What NMXAudio, the macOS 26 HD Audio driver, did this boot. The codec line above reads AppleHDA's objects, which
+    /// macOS 26 does not have, so on 26 it says "none attached" even when NMXAudio found every codec; 56 machines on 2.7
+    /// reported NMXAudio loaded and no output device, and nothing in the report said why. These lines say: attached or
+    /// not, parked by its boot guard or not, how many output engines it published, and its own kernel messages (codecs
+    /// found, channels that did not initialise, "no driver took"). Facts from the driver only; no device names a user set.
+    static func audioDriverLines() -> String {
+        audioDriverLines(ioreg: sh("/usr/sbin/ioreg", ["-r", "-c", "NMXAudio", "-l", "-w0"]),
+                         log: sh("/usr/bin/log", ["show", "--last", "boot", "--style", "compact", "--predicate",
+                                                  "process == \"kernel\" AND (sender == \"NMXAudio\" OR eventMessage CONTAINS \"NMXAudio\")"]))
+    }
+
+    static func audioDriverLines(ioreg: String, log: String) -> String {
+        if !ioreg.contains("class NMXAudio,") { return "audio driver (NMXAudio): not attached to any controller\n" }
+        let state = ioreg.components(separatedBy: "\n").first { $0.contains("\"nullmoth-audio-state\"") }
+            .flatMap { $0.components(separatedBy: "= ").last }?.trimmingCharacters(in: CharacterSet(charactersIn: "\" ")) ?? "running"
+        let engines = ioreg.components(separatedBy: "class NMXAudioEngine,").count - 1
+        var out = "audio driver (NMXAudio): attached, \(state), \(engines) engine(s)\n"
+        let msgs = log.components(separatedBy: "\n").filter { $0.contains("NMXAudio") && !$0.hasPrefix("Timestamp") }
+            .map { l -> String in
+                let body = l.range(of: "NMXAudio").map { String(l[$0.lowerBound...]) } ?? l
+                return "  " + String(body.prefix(160)) }
+        for m in msgs.suffix(20) { out += m + "\n" }
+        return out
+    }
+
     static func audioHardwareLine() -> String {
         audioHardwareLine(pci: sh("/usr/sbin/ioreg", ["-r", "-c", "IOPCIDevice", "-d", "1", "-a"]),
                           codecs: sh("/usr/sbin/ioreg", ["-r", "-c", "IOHDACodecDevice", "-d", "1", "-a"]))
