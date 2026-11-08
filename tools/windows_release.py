@@ -11,6 +11,7 @@ import shutil
 import stat
 import subprocess
 import urllib.parse
+import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
@@ -49,6 +50,12 @@ def get(url):
     return urllib.request.urlopen(request, timeout=60)
 
 
+def mirror_of(url):
+    m = re.fullmatch(r'https://github\.com/nullmoth/nvidia-macos-driver/releases/download/(v[0-9]+(?:\.[0-9]+)*)/'
+                     r'([A-Za-z0-9][A-Za-z0-9._-]*)', url or '')
+    return 'https://nullmothsystems.com/download/nvidia/' + m.group(1) + '/' + m.group(2) if m else None
+
+
 def download(url, digest, destination):
     if not isinstance(digest, str) or not re.fullmatch(r'[0-9a-f]{64}', digest):
         raise RuntimeError('A verified SHA-256 is required for every release input.')
@@ -58,8 +65,19 @@ def download(url, digest, destination):
         return destination
     partial = destination.with_suffix(destination.suffix + '.part')
     try:
-        with get(url) as response, open(partial, 'wb') as output:
-            shutil.copyfileobj(response, output)
+        try:
+            with get(url) as response, open(partial, 'wb') as output:
+                shutil.copyfileobj(response, output)
+        except (urllib.error.URLError, OSError) as failure:
+            # GitHub's download servers can fail while its API still answers (11-08: 503 for hours). A NullMoth
+            # driver release file is then fetched from the site's copy; the digest above still decides.
+            mirror = mirror_of(url)
+            if not mirror or (isinstance(failure, urllib.error.HTTPError) and failure.code < 500 and failure.code != 429):
+                raise
+            print('GitHub download failed (' + str(failure) + '); using ' + mirror, flush=True)
+            partial.unlink(missing_ok=True)
+            with get(mirror) as response, open(partial, 'wb') as output:
+                shutil.copyfileobj(response, output)
         if sha(partial) != digest:
             raise RuntimeError('Release input checksum mismatch: ' + destination.name)
         os.replace(partial, destination)
