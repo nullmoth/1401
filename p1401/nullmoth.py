@@ -33,6 +33,20 @@ PACKAGE = {"name": "nullmoth-nvidia-2.8.tar.gz",
            "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.8/nullmoth-nvidia-2.8.tar.gz",
            "sha256": "79251e8b685d98c39d7db7858ba161bba406a90847bccd46057aced4bb59b3dc"}
 
+# When GitHub's download servers fail (11-08: every github.com release download returned 504 for hours while the API
+# answered), the same file is fetched from the site's static copy of the release. The SHA-256 above is pinned in this
+# build, so a mirror file that differs by one byte is refused exactly as a GitHub one would be.
+MIRROR_BASE = "https://nullmothsystems.com/download/nvidia/"
+
+
+def mirror_of(url):
+    """The site's copy of a NullMoth driver release file, or None for any other URL."""
+    import re  # noqa: PLC0415
+    m = re.fullmatch(r"https://github\.com/nullmoth/nvidia-macos-driver/releases/download/(v[0-9]+(?:\.[0-9]+)*)/"
+                     r"([A-Za-z0-9][A-Za-z0-9._-]*)", url or "")
+    return MIRROR_BASE + m.group(1) + "/" + m.group(2) if m else None
+
+
 with open(os.path.join(HERE, "nvidia_gsp_ids.json")) as _fh:
     TABLE = json.load(_fh)
 
@@ -212,7 +226,16 @@ def stage(usb_root, cache_dir, fetch=None):
     if not os.path.exists(src) or sha(src) != PACKAGE["sha256"]:
         if fetch is None:
             raise RuntimeError(f"driver package missing or wrong in {cache_dir}")
-        fetch(PACKAGE["url"], src + ".part")
+        try:
+            fetch(PACKAGE["url"], src + ".part")
+        except Exception as e:  # GitHub unreachable or failing: the same file from the site, checked the same way
+            mirror = mirror_of(PACKAGE["url"])
+            if not mirror:
+                raise
+            print(f"(GitHub download failed: {e}; trying the NullMoth mirror)", flush=True)
+            if os.path.exists(src + ".part"):
+                os.remove(src + ".part")
+            fetch(mirror, src + ".part")
         if sha(src + ".part") != PACKAGE["sha256"]:
             os.remove(src + ".part")
             raise RuntimeError("driver package download does not match its SHA-256 - not written to the stick")
