@@ -1,5 +1,5 @@
 {
- "source": "NVIDIA open-gpu-kernel-modules 615.78.08 supported-gpus.json (open kernel module; GeForce / RTX / Quadro / TITAN and T-series workstation rows); NVIDIA's Spark parts (RTX Spark N1X, GB10) kept",
+ "source": "NVIDIA open-gpu-kernel-modules 620.70.06 supported-gpus.json (open kernel module; GeForce / RTX / Quadro / TITAN and T-series workstation rows); NVIDIA's Spark parts (RTX Spark N1X, GB10) kept",
  "tested": [
   "2D05"
  ],
@@ -213,6 +213,7 @@
   "2BB4": "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
   "2BB5": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
   "2BB9": "NVIDIA RTX 6000D",
+  "2BBD": "NVIDIA RTX PRO 5500 Blackwell Workstation Edition",
   "2C02": "NVIDIA GeForce RTX 5080",
   "2C05": "NVIDIA GeForce RTX 5070 Ti",
   "2C09": "NVIDIA GeForce RTX 5070",
@@ -246,6 +247,7 @@
   "2E03": "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)",
   "2E06": "NVIDIA RTX Spark N1X (5120-core Blackwell RTX GPU)",
   "2E12": "NVIDIA GB10",
+  "2E13": "NVIDIA RTX Spark N1X (6144-core Blackwell RTX GPU)",
   "2F04": "NVIDIA GeForce RTX 5070",
   "2F06": "NVIDIA GeForce RTX 5060",
   "2F18": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
