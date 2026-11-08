@@ -457,7 +457,10 @@ if [ -n "$COLLECT" ]; then
     echo; echo "== accelerators (a GPU macOS accelerates has one, with its Metal plugin)"
     ioreg -r -c IOAccelerator -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_]+|"(MetalPluginName|MetalPluginClassName|IOGLBundleName|IOClass|GPUConfigurationVariable|model)" = [^,}]{0,120}'
     echo; echo "== framebuffers (which driver owns each screen)"
-    ioreg -r -c IOFramebuffer -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_@,]+|"(IOFBCurrentPixelClock|IOFBCurrentPixelCount|IOFBDependentID|IOFBDependentIndex|AAPL,boot-display|IOFBScalerInfo)" = [^,}]{0,80}'
+    # With the class and registry id: WindowServer aborts once at boot with CoreDisplay's "Driver Error: FB: x of y
+    # opened" when IOServiceOpen on one framebuffer returns 0xe00002c7, and its line names only CoreDisplay's index;
+    # IOGraphics' own failure line (crash window) carries the registry id, so the two can be joined.
+    ioreg -r -c IOFramebuffer -d 1 -w0 2>/dev/null | LC_ALL=C grep -aoE '\+-o [A-Za-z0-9_@,]+ +<class [A-Za-z0-9_]+, id 0x[0-9a-f]+|"(IOFBCurrentPixelClock|IOFBCurrentPixelCount|IOFBDependentID|IOFBDependentIndex|AAPL,boot-display|AAPL,ndrv-dev|IOFBScalerInfo|connected-displays)" = [^,}]{0,80}'
     echo; echo "== graphics kexts loaded"
     bounded 30 kmutil showloaded --list-only 2>/dev/null | grep -iE 'graphic|intel|amd|radeon|ati|nvidia|nullmoth|lilu|whatevergreen|noot|gfx|framebuffer|accel' | awk '{print $NF, $(NF-1)}'
     echo; echo "== Metal"; bounded 40 system_profiler SPDisplaysDataType 2>/dev/null
@@ -602,6 +605,13 @@ if [ -n "$COLLECT" ]; then
         | awk -v to="$to" '!/^20[0-9][0-9]-/ || substr($0, 1, 19) <= to' \
         | tail -n 700
       echo "log show exit: ${PIPESTATUS[0]}"
+      echo "-- framebuffer family lines"
+      # IOGraphics logs the framebuffer whose open failed ("newUserClient failed: ... <registry id> <class>"),
+      # IONDRV says "Not usable" when its firmware driver refuses; neither matches the driver filter below.
+      lshow 20 --start "$from" --end "$to" --style compact --predicate 'process == "kernel" AND (sender == "IOGraphicsFamily" OR sender == "IONDRVSupport" OR eventMessage CONTAINS "newUserClient" OR eventMessage CONTAINS "Not usable" OR eventMessage CONTAINS "waitQuietController")' 2>&1 \
+        | awk -v to="$to" '!/^20[0-9][0-9]-/ || substr($0, 1, 19) <= to' \
+        | tail -n 200
+      echo "log show exit: ${PIPESTATUS[0]}"
       echo "-- kernel driver lines"
       lshow 20 --start "$from" --end "$to" --style compact --predicate 'process == "kernel" AND (eventMessage CONTAINS[c] "nvrm" OR eventMessage CONTAINS[c] "nvaccel" OR eventMessage CONTAINS[c] "gsp")' 2>&1 \
         | awk -v to="$to" '!/^20[0-9][0-9]-/ || substr($0, 1, 19) <= to' \
@@ -610,7 +620,10 @@ if [ -n "$COLLECT" ]; then
     done
   } > "$COLLECT/driver-crash-window.txt" 2>&1
   { echo; echo "== NullMoth NVRAM flags (a remove flag that survives every boot removes the driver at login)"
-    nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-remove 2>&1; } >> "$COLLECT/driver-state.txt"
+    nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-remove 2>&1
+    # set by the driver's boot-guard job when WindowServer kept dying on the NVIDIA display and the driver was turned
+    # off for the next boot; the value is the number of WindowServer reports it counted
+    nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-ws-loop 2>&1; } >> "$COLLECT/driver-state.txt"
   # -h: act on a symbolic link itself, never on what it points at. Without it
   # root followed any link planted in the collection directory and made the
   # target world readable. The directory comes from --collect-logs, so it is
