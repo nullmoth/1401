@@ -441,7 +441,9 @@ def selftest():
     arm("a GTX 1080 (Pascal, no GSP) is NOT marked", "Compatibility" not in rep["GPU"]["GTX 1080"], rep["GPU"]["GTX 1080"])
     arm("an RTX 3090 (10de:2204) is in NVIDIA's table", supported(dict(rtx, **{"Device ID": "10DE-2204"})), TABLE["ids"].get("2204"))
     coverage = all(supported(dict(rtx, **{"Device ID": "10DE-" + pid})) for pid in TABLE["ids"])
-    arm("all 247 display-card IDs (NVIDIA 615.78.08) are accepted across GTX, RTX, Quadro, workstation and Spark families", len(TABLE["ids"]) == 247 and coverage, len(TABLE["ids"]))
+    arm("all 249 display-card IDs (NVIDIA 620.70.06) are accepted across GTX, RTX, Quadro, workstation and Spark families", len(TABLE["ids"]) == 249 and coverage, len(TABLE["ids"]))
+    arm("the two cards 620.70.06 adds (RTX PRO 5500 Blackwell 2BBD, RTX Spark N1X 2E13) are accepted",
+        all(supported(dict(rtx, **{"Device ID": "10DE-" + pid})) for pid in ("2BBD", "2E13")), [TABLE["ids"].get(p) for p in ("2BBD", "2E13")])
     arm("an AMD card with the same product id is NOT marked", not supported(dict(rtx, Manufacturer="AMD")), "AMD")
     lap = {"GPU": {"RTX": dict(rtx), "iGPU": {"Manufacturer": "Intel", "Device Type": "Integrated GPU"}},
            "Monitor": {"panel": {"Connector Type": "Internal", "Connected GPU": "iGPU"}}}
