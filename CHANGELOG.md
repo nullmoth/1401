@@ -3,6 +3,11 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.8
+- 1401 for Windows and the Mac app now bundle NullMoth 2.8: NVIDIA 620, DLSS 4 / 4.5 behind MetalFX (Super Resolution, Frame Generation and Ray Reconstruction), Metal 4, and fixes for crashes and freezes in games with ray tracing and frame generation. See the driver changelog for every change.
+- Mac app: the desktop report now says whether the audio driver started at this boot and, if it stood down, why, so a report from a Mac with no sound names the reason.
+- Mac app and driver run on macOS 15 and macOS 26.
+
 ## 2.7.2
 - Homebrew on Intel Macs: Homebrew's own installer now refuses Intel Macs. The ARM apps card has a Set up Homebrew button that installs ARM Homebrew in /opt/homebrew, with its packages translated for this Mac, beside Intel Homebrew in /usr/local. `brew` uses the one you pick as primary, and `abrew` and `ibrew` always reach ARM and Intel.
 - ARM apps: installing a Homebrew formula translates the commands it puts in bin/ right away; its helper programs are translated the first time something runs them. Parts shared between programs, such as a bundled library, are translated once and reused, so a second program that bundles the same library translates in about a minute instead of more than twelve.
