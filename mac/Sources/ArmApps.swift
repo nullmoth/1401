@@ -281,6 +281,21 @@ enum ArmApps {
         return out
     }
 
+    /// Everything a pipe holds right now: reads without blocking until it is empty (EAGAIN) or closed (EOF).
+    static func drainNonBlocking(_ fd: Int32) -> (data: Data, eof: Bool) {
+        let flags = fcntl(fd, F_GETFL)
+        if flags >= 0 && flags & O_NONBLOCK == 0 { _ = fcntl(fd, F_SETFL, flags | O_NONBLOCK) }
+        var out = Data()
+        var buf = [UInt8](repeating: 0, count: 1 << 16)
+        while true {
+            let n = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress, $0.count) }
+            if n > 0 { out.append(contentsOf: buf[0..<n]); continue }
+            if n < 0 && errno == EINTR { continue }
+            // 0: closed; -1 EAGAIN: empty while an orphan holds it open; any other error: nothing more to read
+            return (out, n == 0 || (n < 0 && errno != EAGAIN))
+        }
+    }
+
     /// Every descendant of `pid`, deepest last; read before any of them is signalled so an orphaned child is not missed.
     static func descendants(of pid: Int32) -> [Int32] {
         var out: [Int32] = [], queue = [pid]
@@ -297,6 +312,7 @@ enum ArmApps {
         private(set) var cancelled = false
         private let lock = NSLock()
         private var pending = Data()
+        private var outSource: DispatchSourceRead?
 
         init(arguments: [String], executable: String = ArmApps.cli) {
             process.executableURL = URL(fileURLWithPath: executable)
@@ -318,10 +334,16 @@ enum ArmApps {
                 let d = h.availableData
                 errLock.lock(); errTail.append(d); if errTail.count > 4096 { errTail = errTail.suffix(4096) }; errLock.unlock()
             }
-            out.fileHandleForReading.readabilityHandler = { [weak self] h in
-                guard let self else { return }
-                let d = h.availableData
-                if d.isEmpty { h.readabilityHandler = nil; return }
+            // stdout is read by a dispatch source on one serial queue, and the exit's final read runs on that same
+            // queue, so no chunk can arrive after the end has been reported and lines stay in order. The final read
+            // does not wait for end-of-file: a child the translator left behind can hold the pipe open, so it takes
+            // what the pipe holds (non-blocking, until EAGAIN or EOF). WAS: a readabilityHandler cleared at exit while
+            // its last call could still be running, then a blocking readDataToEndOfFile bounded by a 3 s wait whose
+            // result was thrown away on timeout - with the last progress lines in it (test_arm_apps "jobmany").
+            let q = DispatchQueue(label: "nullmoth.arm.job.stdout")
+            let fd = out.fileHandleForReading.fileDescriptor
+            let consume: (Data) -> Void = { [weak self] d in
+                guard let self, !d.isEmpty else { return }
                 self.lock.lock(); self.pending.append(d)
                 var lines: [String] = []
                 while let nl = self.pending.firstIndex(of: 0x0A) {
@@ -331,19 +353,27 @@ enum ArmApps {
                 self.lock.unlock()
                 for l in lines { if let p = ArmApps.parseProgress(l) { line(p) } }
             }
+            let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: q)
+            src.setEventHandler {
+                let r = ArmApps.drainNonBlocking(fd)
+                consume(r.data)
+                if r.eof { src.cancel() }
+            }
+            src.resume()
+            outSource = src
             process.terminationHandler = { [weak self] p in
-                // the last bytes may still sit in the pipe after exit. The read is bounded: a child the translator left
-                // behind can hold the pipe open, and the page must still hear that the translation ended.
-                out.fileHandleForReading.readabilityHandler = nil; err.fileHandleForReading.readabilityHandler = nil
-                var rest = Data(); let drained = DispatchGroup()
-                DispatchQueue.global().async(group: drained) { rest = out.fileHandleForReading.readDataToEndOfFile() }
-                if drained.wait(timeout: .now() + 3) == .timedOut { rest = Data() }
-                if let self {
-                    self.lock.lock(); self.pending.append(rest); let tail = String(decoding: self.pending, as: UTF8.self); self.pending.removeAll(); self.lock.unlock()
-                    for l in tail.split(whereSeparator: \.isNewline) { if let pr = ArmApps.parseProgress(String(l)) { line(pr) } }
+                q.async {
+                    consume(ArmApps.drainNonBlocking(fd).data)
+                    src.cancel()
+                    _ = out   // the pipe lives until its last read
+                    if let self {
+                        self.lock.lock(); let tail = String(decoding: self.pending, as: UTF8.self); self.pending.removeAll(); self.lock.unlock()
+                        for l in tail.split(whereSeparator: \.isNewline) { if let pr = ArmApps.parseProgress(String(l)) { line(pr) } }
+                    }
+                    err.fileHandleForReading.readabilityHandler = nil
+                    errLock.lock(); let e = String(decoding: errTail, as: UTF8.self); errLock.unlock()
+                    done(p.terminationStatus, self?.cancelled ?? false, e.trimmingCharacters(in: .whitespacesAndNewlines))
                 }
-                errLock.lock(); let e = String(decoding: errTail, as: UTF8.self); errLock.unlock()
-                done(p.terminationStatus, self?.cancelled ?? false, e.trimmingCharacters(in: .whitespacesAndNewlines))
             }
             do { try process.run() } catch { return "could not start the translator: \(error.localizedDescription)" }
             return nil
