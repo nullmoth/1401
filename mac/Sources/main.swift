@@ -56,6 +56,11 @@ func syncGet(_ url: URL, timeout: TimeInterval) -> Data? {
     session.finishTasksAndInvalidate()
     return out
 }
+/// syncGet, then the site's copy of the same release file when GitHub does not answer 200.
+func syncGetMirrored(_ url: URL, timeout: TimeInterval) -> Data? {
+    if let d = syncGet(url, timeout: timeout) { return d }
+    return mirrorURL(url).flatMap { syncGet($0, timeout: timeout) }
+}
 func sha256(_ url: URL) -> String? {
     guard let h = try? FileHandle(forReadingFrom: url) else { return nil }
     defer { try? h.close() }
@@ -777,6 +782,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // SHA-256 instead (fromRelease false).
         var fromRelease = false
         var sig: String? = nil
+        // the site's copy of the same file, tried once if GitHub refuses or drops the download
+        var mirror: URL? = nil
     }
     var pendingDownload: (id: Int, plan: DownloadPlan)? = nil
     var runningSetup = false
@@ -826,7 +833,35 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let data,
                   let payload = try? JSONSerialization.jsonObject(with: data),
                   let j = UpdateChannel.pick(payload, early: early),
-                  let assets = j["assets"] as? [[String: Any]] else { return fail("could not reach the release list (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
+                  j["assets"] is [[String: Any]] else {
+                if let m = self.mirrorRelease() { return self.processRelease(m, early: early) }
+                return fail("could not reach the release list (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
+            self.processRelease(j, early: early)
+        }.resume()
+    }
+    /// The release list when GitHub's API does not answer: the site's channels file names the stable version, and the
+    /// site's copy of that release's SHA256SUMS.txt names its files. Each file keeps its GitHub address (and falls back to
+    /// the mirror when downloaded); every file is still checked against SHA256SUMS.txt and the release signature, and a
+    /// package older than the installed driver is still refused.
+    func mirrorRelease() -> [String: Any]? {
+        guard let cd = syncGet(UpdateChannel.channelsURL, timeout: 15),
+              let doc = (try? JSONSerialization.jsonObject(with: cd)) as? [String: Any],
+              let stable = doc["stable"] as? [String: Any], let v = stable["version"] as? String,
+              v.range(of: #"^[0-9]+(\.[0-9]+)*$"#, options: .regularExpression) != nil,
+              let sums = URL(string: mirrorBase + "v" + v + "/SHA256SUMS.txt"),
+              let sd = syncGet(sums, timeout: 30), let txt = String(data: sd, encoding: .utf8) else { return nil }
+        let base = "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v\(v)/"
+        var assets: [[String: Any]] = [["name": "SHA256SUMS.txt", "browser_download_url": base + "SHA256SUMS.txt"]]
+        for l in txt.split(separator: "\n") {
+            guard let n = l.split(whereSeparator: { $0 == " " || $0 == "\t" }).last.map(String.init), n != "SHA256SUMS.txt",
+                  n.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]*$"#, options: .regularExpression) != nil else { continue }
+            assets.append(["name": n, "browser_download_url": base + n])
+        }
+        return ["tag_name": "v\(v)", "prerelease": false, "assets": assets]
+    }
+    func processRelease(_ j: [String: Any], early: Bool) {
+            let fail: (String) -> Void = { self.send("upd", ["state": "error", "why": $0]) }
+            let assets = j["assets"] as? [[String: Any]] ?? []
             let prerelease = j["prerelease"] as? Bool ?? false
             var pkg: (String, String, URL)? = nil; var sums: URL? = nil; var appz: (String, String, URL)? = nil
             for a in assets {
@@ -838,8 +873,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 }
             }
             guard let pkg, let sums else { return fail("the latest release has no driver package or no SHA256SUMS.txt") }
-            URLSession.shared.dataTask(with: sums) { sd, sr, se in
-                guard se == nil, (sr as? HTTPURLResponse)?.statusCode == 200, let sd, let txt = String(data: sd, encoding: .utf8) else { return fail("could not read SHA256SUMS.txt") }
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let sd = syncGetMirrored(sums, timeout: 30), let txt = String(data: sd, encoding: .utf8) else { return fail("could not read SHA256SUMS.txt") }
                 let sha = txt.split(separator: "\n").compactMap { l -> String? in
                     let f = l.split(whereSeparator: { $0 == " " || $0 == "\t" }); return f.count >= 2 && f.last.map(String.init) == pkg.1 ? String(f[0]).lowercased() : nil }.first ?? ""
                 guard sha.count == 64 else { return fail("SHA256SUMS.txt does not list \(pkg.1)") }
@@ -856,7 +891,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 let pkgSig: String? = assets.compactMap { x -> URL? in
                     guard let n = x["name"] as? String, n == pkg.1 + ".bsig",
                           let u = (x["browser_download_url"] as? String).flatMap(URL.init(string:)), u.scheme == "https" else { return nil }
-                    return u }.first.flatMap { syncGet($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
+                    return u }.first.flatMap { syncGetMirrored($0, timeout: 30) }.flatMap { String(data: $0, encoding: .utf8) }
                 DispatchQueue.main.async {
                     self.latest = (pkg.0, pkg.1, pkg.2, sha, pkgSig)
                     if let a = appz, appSha.count == 64 { self.latestApp = (a.0, a.1, a.2, appSha, appSig) }
@@ -867,8 +902,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                                   "newer": have.isEmpty || App.newer(pkg.0, than: have),
                                   "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer,
                                   "channel": early ? "early" : "stable", "prerelease": prerelease])
-            }.resume()
-        }.resume()
+            }
     }
     func startDownload(name: String, sha: String, url: URL, efi: String?, fromRelease: Bool = false, sig: String? = nil) {
         // A click while busy used to return silently, leaving "Downloading the newest driver..." on screen for good.
@@ -877,7 +911,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         do { try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true) }
         catch { send("dl", ["state": "error", "why": error.localizedDescription]); return }
         let task = downloadSession.downloadTask(with: url)
-        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease, sig: sig))
+        pendingDownload = (task.taskIdentifier, DownloadPlan(name: name, sha: sha, efi: efi, fromRelease: fromRelease, sig: sig, mirror: mirrorURL(url)))
         send("dl", ["state": "start"])
         task.resume()
     }
@@ -989,8 +1023,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         try? FileManager.default.removeItem(at: work)
         do { try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true) } catch { return fail(error.localizedDescription) }
         send("appupd", ["state": "start", "version": l.version])
-        URLSession.shared.downloadTask(with: l.url) { loc, resp, err in
+        func fetch(_ u: URL, mirror: URL?) {
+        URLSession.shared.downloadTask(with: u) { loc, resp, err in
             guard err == nil, (resp as? HTTPURLResponse)?.statusCode == 200, let loc else {
+                if let m = mirror { return fetch(m, mirror: nil) }
                 return fail("the download failed (\(err?.localizedDescription ?? "HTTP \((resp as? HTTPURLResponse)?.statusCode ?? 0)"))") }
             guard sha256(loc) == l.sha else { return fail("the download does not match its SHA-256, so it was thrown away") }
             let zip = work.appendingPathComponent(l.name), out = work.appendingPathComponent("unpacked")
@@ -999,7 +1035,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             // that page controls both. Refuse to unpack unless a detached Ed25519 signature over the exact zip bytes
             // verifies against the compiled-in NullMoth release key (R2).
             guard let sigURL = l.sig else { return fail("this release is not signed by NullMoth, so it was not installed") }
-            guard let sigData = syncGet(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
+            guard let sigData = syncGetMirrored(sigURL, timeout: 30), let sigText = String(data: sigData, encoding: .utf8) else {
                 return fail("could not download the update's signature, so it was not installed") }
             guard let zipData = try? Data(contentsOf: zip),
                   ReleaseSignature.verifyBound(data: zipData, product: "1401-mac", version: l.version, signatureBase64: sigText) else {
@@ -1031,6 +1067,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             self.send("appupd", ["state": "restarting", "version": l.version])
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApp.terminate(nil) }
         }.resume()
+        }
+        fetch(l.url, mirror: mirrorURL(l.url))
     }
     func urlSession(_ s: URLSession, downloadTask t: URLSessionDownloadTask, didWriteData b: Int64, totalBytesWritten w: Int64, totalBytesExpectedToWrite e: Int64) {
         guard pendingDownload?.id == t.taskIdentifier else { return }
@@ -1040,8 +1078,21 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         guard let pending = pendingDownload, pending.id == t.taskIdentifier else { return }
         let plan = pending.plan
         let code = (t.response as? HTTPURLResponse)?.statusCode ?? 0
-        guard code == 200 else { send("dl", ["state": "error", "why": "the server answered HTTP \(code)"]); return }
+        guard code == 200 else {
+            if retryFromMirror(plan) { return }
+            send("dl", ["state": "error", "why": "the server answered HTTP \(code)"]); return }
         processDriverFile(at: loc, plan: plan)
+    }
+    /// A driver download that GitHub refused or dropped starts again once from the site's copy. The plan (SHA-256,
+    /// signature, version checks) is unchanged, so the mirror cannot change what gets installed.
+    private func retryFromMirror(_ plan: DownloadPlan) -> Bool {
+        guard let m = plan.mirror else { return false }
+        var next = plan; next.mirror = nil
+        let task = downloadSession.downloadTask(with: m)
+        pendingDownload = (task.taskIdentifier, next)
+        send("dl", ["state": "start"])
+        task.resume()
+        return true
     }
     private func processDriverFile(at loc: URL, plan: DownloadPlan) {
         let dst = support.appendingPathComponent(plan.name)
@@ -1065,9 +1116,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
     }
     func urlSession(_ s: URLSession, task: URLSessionTask, didCompleteWithError e: Error?) {
-        guard pendingDownload?.id == task.taskIdentifier else { return }
+        guard let pending = pendingDownload, pending.id == task.taskIdentifier else { return }
         pendingDownload = nil
-        if let e { send("dl", ["state": "error", "why": e.localizedDescription]) }
+        if let e {
+            if retryFromMirror(pending.plan) { return }
+            send("dl", ["state": "error", "why": e.localizedDescription]) }
     }
 
     func usbWatch(_ on: Bool) {

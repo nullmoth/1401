@@ -3,6 +3,9 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.8.1
+- Updates no longer fail when GitHub's downloads are down. If a GitHub download fails, the Mac app (driver updates and its own updates) and 1401 for Windows (the driver package on the stick) fetch the same file from nullmothsystems.com instead. Every file from either place is checked against the release's SHA-256 list and the NullMoth release signature, so a file that differs by one byte is refused. If GitHub's release list itself does not answer, the Mac app reads the release from the site the same way.
+
 ## 2.8
 - 1401 for Windows and the Mac app now bundle NullMoth 2.8: NVIDIA 620, DLSS 4 / 4.5 behind MetalFX (Super Resolution, Frame Generation and Ray Reconstruction), Metal 4, and fixes for crashes and freezes in games with ray tracing and frame generation. See the driver changelog for every change.
 - Mac app: the desktop report now says whether the audio driver started at this boot and, if it stood down, why, so a report from a Mac with no sound names the reason.
