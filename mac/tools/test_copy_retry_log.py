@@ -20,7 +20,11 @@ import os as _os, pathlib as _pl
 DRV = _pl.Path(_os.environ.get("NULLMOTH_DRIVER") or _pl.Path(__file__).resolve().parents[3] / "driver")
 
 root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parents[1])
-patch = (DRV / 'nvk/nvk-macos.patch').read_text()
+# The NVK source is Mesa + nvk-macos.patch (regenerated from the shipped tree) + nvk-fixes-after-def16.patch on top.
+# The retry is read from the overlay when the overlay carries it, else from the base patch.
+ANCHOR = 'nvRmApiControl(&rm, pdev->hSubdevice, NV2080_CTRL_CMD_GPU_GET_ENGINE_PARTNERLIST'
+overlay = DRV / 'nvk/nvk-fixes-after-def16.patch'
+patch = overlay.read_text() if overlay.exists() and ANCHOR in overlay.read_text() else (DRV / 'nvk/nvk-macos.patch').read_text()
 fails = 0
 
 
@@ -32,12 +36,12 @@ def check(name, ok, detail=''):
 
 # Isolate the graphics-channel copy retry: from the partner-list lookup call to the following NV_CHECK(cs).
 # Anchor on the control CALL (nvRmApiControl ... PARTNERLIST), not the header mention of the same token in a comment.
-lo = patch.find('nvRmApiControl(&rm, pdev->hSubdevice, NV2080_CTRL_CMD_GPU_GET_ENGINE_PARTNERLIST')
+lo = patch.find(ANCHOR)
 hi = patch.find('NV_CHECK(cs);', lo) if lo >= 0 else -1
 check('the partner-copy-engine retry block is present', lo >= 0 and hi > lo)
 block = patch[lo:hi] if hi > lo else ''
-# Strip the unified-diff '+' column so this reads the C, not the diff.
-code = '\n'.join(l[1:] if l[:1] == '+' else l for l in block.split('\n'))
+# Drop the lines the diff removes and strip the '+'/' ' column, so this reads the resulting C, not the diff.
+code = '\n'.join(l[1:] if l[:1] in '+ ' else l for l in block.split('\n') if l[:1] != '-')
 
 # 1. the outcome is emitted through the Vulkan debug messenger (vk_logw/vk_loge), which the plugin forwards to
 #    nvmtl.log; the messenger subscribes to WARNING and ERROR only, so vk_logi/vk_logd would be dropped.

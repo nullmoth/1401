@@ -54,8 +54,17 @@ check('RM administrator check reads the caller uid', 'return (kauth_getuid() == 
       and 'os_is_administrator(void) { NV_XNU_TRC; return NV_TRUE; }' not in osx)
 check('first-time GPU bring-up refuses non-root callers', 'if (pass > fPassDone && kauth_getuid() != 0)' in nvrm)
 check('event waiters are capped', 'kNvEvtMaxSleepers = 256' in nvrm and 'OSDecrementAtomic(&gNvEvtSleepers)' in nvrm)
-check('bind-fd rejects out-of-range values and clears a stale context when bound to a real fd',
-      'if (v > 0x7FFFFFFFLL || v < -0x80000000LL) return kIOReturnBadArgument;' in nvrm and 'if (me->fBound >= 0) {\n        IOLockLock(me->fMapLock);\n        if (me->fMmap.valid) {' in nvrm)
+# NVIDIA 620 replaced the one per-client context (fMmap) with RM's list of mapping nodes (fMapList). A re-bind drops
+# every pending node, valid or not, so nothing an earlier fd parked can be mapped through the new one.
+def bind_clears(src):
+    return ('if (v > 0x7FFFFFFFLL || v < -0x80000000LL) return kIOReturnBadArgument;' in src
+            and 'if (me->fBound >= 0) {\n        IOLockLock(me->fMapLock);\n        if (me->fMapList) {' in src
+            and 'nvMapListFree(&me->fMapList);' in src)
+check('bind-fd rejects out-of-range values and clears a stale context when bound to a real fd', bind_clears(nvrm))
+check('negative control: bind-fd without the range check is caught',
+      not bind_clears(nvrm.replace('if (v > 0x7FFFFFFFLL || v < -0x80000000LL) return kIOReturnBadArgument;', '')))
+check('negative control: a bind that keeps the stale list is caught',
+      not bind_clears(nvrm.replace('nvMapListFree(&me->fMapList);', '')))
 
 # --- app signing: hardened app, unhardened Metal helper ---
 build = (root / 'build.sh').read_text()
