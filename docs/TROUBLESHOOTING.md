@@ -35,6 +35,7 @@ stick made by an old 1401 keeps the old problem until you make it again.
 | "OS.dmg.root_hash … Err(0xE)" | A stick made by an old 1401, or a recovery image for a different macOS. | Make the stick again with the newest 1401. |
 | Stops at "PCI configuration" | Usually Resizable BAR or Above 4G Decoding settings. | In the BIOS: Above 4G Decoding on, CSM off. If it still stops, send the stick logs. |
 | Loops at `AppleKeyStore` after installing the driver, GTX 16 / RTX 20 (Turing) | The card's firmware needed more time before the driver turned the display on. | Fixed in 1.13 (Setup adds `nvrmsettle=10000` on Turing). |
+| macOS 26 installed, then a black screen with only the cursor where setup should start | Without a graphics driver macOS 26 cannot draw its first setup screens, and the driver is installed from macOS itself. | Start Recovery from the stick, open Utilities > Terminal and run `sh /Volumes/1401/NullMoth/finish-setup.sh`. It asks for an account name and password, makes the account and skips the setup screens; macOS then starts straight to the desktop, where the 1401 Mac app installs the driver. If `/Volumes/1401` is missing, run `diskutil list`, find the stick's small FAT32 partition (e.g. `disk5s1`) and `diskutil mount disk5s1`. |
 
 ## 3. After installing the NVIDIA driver
 
