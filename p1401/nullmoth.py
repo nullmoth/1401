@@ -29,9 +29,9 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80",
              "ipc_control_port_options=0")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-2.8.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.8/nullmoth-nvidia-2.8.tar.gz",
-           "sha256": "79251e8b685d98c39d7db7858ba161bba406a90847bccd46057aced4bb59b3dc"}
+PACKAGE = {"name": "nullmoth-nvidia-2.8.1.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.8.1/nullmoth-nvidia-2.8.1.tar.gz",
+           "sha256": "1aa25a7f0ae28a27e77e1a761420cef9655af8b2b8effc1433142d1071795df8"}
 
 # When GitHub's download servers fail (11-08: every github.com release download returned 504 for hours while the API
 # answered), the same file is fetched from the site's static copy of the release. The SHA-256 above is pinned in this
