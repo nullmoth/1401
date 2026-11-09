@@ -559,7 +559,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // GPU boost (setup --gpu-boost on|off|remove): on takes the daemon from the checked package; status is read here, no password
         case "gpuboost":
             let op = b["op"] as? String ?? "status"
-            if op == "status" { send("boostStatus", ["text": GPUBoost.describe(installed: GPUBoost.installed(), setting: GPUBoost.setting())]); break }
+            if op == "status" { send("boostStatus", ["text": GPUBoost.describe(installed: GPUBoost.installed(), setting: GPUBoost.setting(), trusted: GPUBoost.installedProgram().map { GPUBoost.trusted($0) } ?? true)]); break }
             guard ["on", "off", "remove"].contains(op) else { break }
             if op != "on" { run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", op]); break }
             guard let pkg = rootPackage() else {
