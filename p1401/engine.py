@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from . import amd_gpu
 from . import amd_rdna4
 from . import intel_gpu
+from . import ryzen_power
 from . import community
 from . import community_gpu
 from . import continuity
@@ -863,6 +864,8 @@ def _nullmoth_gpu_pass(checker, h):
         # Per-Intel-Xe-GPU notice: no Apple driver from Tiger Lake on, so the user sees before building that it runs on
         # basic display and, for the IDs WhateverXe covers, that the Mac app offers it as an opt-in test afterwards.
         h.notices.extend(intel_gpu.notes(checker.hardware_report, nvidia=bool(hit)))
+        # Ryzen laptops: the opt-in power-limit profile (the Mac app installs it after macOS; nothing is added to the EFI).
+        h.notices.extend(ryzen_power.notes(checker.hardware_report))
         # Community graphics projects that target a GPU in this scan (named, never installed: community_gpu.py).
         h.notices.extend(community_gpu.notes(checker.hardware_report))
         if not hit:
