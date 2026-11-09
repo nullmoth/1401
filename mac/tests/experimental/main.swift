@@ -11,5 +11,6 @@ arm("a non-list and a list of non-strings are refused", Experimental.argument("k
 arm("repeats are folded", Experimental.argument(["xvt", "xvt"]) == "xvt")
 arm("a shell-looking id is refused", Experimental.argument(["kbl; rm -rf /"]) == nil)
 arm("the record's ON= lines are read and unknown lines ignored", Experimental.on(record: "ON=kbl\nARG=kbl:nmkbl=1\nON=bogus\nON=icb\n") == ["kbl", "icb"])
+arm("the newest Intel graphics item is in the catalog", Experimental.argument(["hybrid20"]) == "hybrid20")
 arm("the list has no fetch-copy entry", !Experimental.ids.contains { $0.lowercased().contains("fetch") })
 if failures > 0 { exit(1) }
