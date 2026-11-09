@@ -174,7 +174,10 @@ picker_edits() {  # $1 = config.plist. Prints one "key|type|value" edit per sett
   # false by hand (chat: "Make HideAuxiliary false", "god knows why hideauxilary is set to true"). The Remove and
   # start-once entries are forced non-auxiliary below so they show regardless, but turning the hiding off is the setting
   # people actually reach for, and it also unhides Reset NVRAM and Recovery for the same user who is already stuck.
-  [ "$(plutil -extract Misc.Boot.HideAuxiliary raw -o - "$c" 2>/dev/null)" = true ] && echo "Misc.Boot.HideAuxiliary|-bool|false"
+  # An update does not undo it again (#371): once this Mac's record says an earlier run already stopped the hiding
+  # (KEEP_USER_HIDEAUX=1), HideAuxiliary=true means the user hid the entries on purpose since. The Remove entry is
+  # non-auxiliary below, so it stays reachable.
+  [ "${KEEP_USER_HIDEAUX:-0}" = 1 ] || { [ "$(plutil -extract Misc.Boot.HideAuxiliary raw -o - "$c" 2>/dev/null)" = true ] && echo "Misc.Boot.HideAuxiliary|-bool|false"; }
   # Both NullMoth tool entries must be shown (Auxiliary false) and readable (TextMode true) whatever an earlier install or
   # a 1401 base config set. An entry left Auxiliary true is hidden under HideAuxiliary even when its file is present.
   while p=$(plutil -extract Misc.Tools.$i.Path raw -o - "$c" 2>/dev/null); do
@@ -1802,6 +1805,7 @@ NEEDTOOL=0; [ -z "$(tool_index)" ] && { NEEDTOOL=1; echo "CHANGE boot picker: ad
 # The prior ShowPicker/HideAuxiliary/PickerMode values are recorded so removal can put the user's boot picker back.
 OLD_SHOWPICKER=$(get Misc.Boot.ShowPicker); OLD_HIDEAUX=$(get Misc.Boot.HideAuxiliary); OLD_PICKERMODE=$(get Misc.Boot.PickerMode)
 SET_SHOWPICKER=0; SET_HIDEAUX=0; SET_PICKERMODE=0
+KEEP_USER_HIDEAUX=0; [ -f "$STATE" ] && [ "$( . "$STATE" 2>/dev/null; echo "${SET_HIDEAUX:-0}" )" = 1 ] && KEEP_USER_HIDEAUX=1
 while IFS= read -r e; do
   [ -n "$e" ] || continue
   EDITS+=("$e")
