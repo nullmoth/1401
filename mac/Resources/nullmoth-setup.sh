@@ -292,6 +292,13 @@ bounded() {  # <seconds> <command...>
 headtail() { awk -v h="$1" -v t="$2" 'NR <= h { print; next } { r[NR % t] = $0 }
   END { if (NR > h) { s = (NR - t > h) ? NR - t + 1 : h + 1; if (s > h + 1) printf "... %d lines left out ...\n", s - h - 1
         for (i = s; i <= NR; i++) print r[i % t] } }'; }
+# A line that repeats thousands of times (one per frame: "nvScanoutInfo 85%", 1401 #16) filled the whole upload and the
+# lines around it were gone. Lines are compared with their numbers removed; a pattern seen more than 300 times keeps its
+# first 30 and last 30 lines, and one marker says how many were left out. Every other line passes in order.
+squash_repeats() { awk '{ l[NR] = $0; k = $0; gsub(/[0-9]+(\.[0-9]+)?|0x[0-9a-fA-F]+/, "#", k); key[NR] = k; n[k]++ }
+  END { for (i = 1; i <= NR; i++) { k = key[i]; seen[k]++
+          if (n[k] <= 300 || seen[k] <= 30 || seen[k] > n[k] - 30) print l[i]
+          else if (seen[k] == 31) printf "... %d similar lines left out: %s\n", n[k] - 60, substr(l[i], 1, 100) } }'; }
 # Copy newest files without splitting volume or file names at whitespace.
 collect_recent_logs() {
   local prefix=$1 limit=$2 f i; shift 2
@@ -578,7 +585,7 @@ if [ -n "$COLLECT" ]; then
   kernel_log_since_boot 45 30 2>&1 \
     | grep -v -e 'NVRM-fb: kapi event type 5$' -e 'NVRM-xnu: >os_map_kernel_space' -e 'NVRM-fb: flipToMemory #' \
              -e 'NVAccel: newVidMemory -> ' -e 'NVVidMemory::allocPhysical(.*bytes of REAL VRAM' \
-    | headtail 1500 1500 > "$COLLECT/driver-kernel-log.txt"
+    | squash_repeats | headtail 1500 1500 > "$COLLECT/driver-kernel-log.txt"
   log_status=${PIPESTATUS[0]}; echo "log show exit: $log_status" >> "$COLLECT/driver-kernel-log.txt"
   # 1.9.0 report (10-10, 2K 165 Hz monitor stuck at 1080p 60 Hz): the 6000-line tail above was all os_map_kernel_space
   # and flipToMemory lines, so the boot-time mode list, the EDID and why each mode was or was not offered were gone.
