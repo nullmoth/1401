@@ -111,3 +111,19 @@ const unknown = machine(26); unknown.files = true; unknown.kexts = 0; unknown.me
 event('scan', unknown);
 assert(element('verdict').innerHTML.includes('installed but not running'));
 console.log('A macOS update after the driver was set up is named; a Mac with no record or the same macOS keeps the old advice.');
+
+// The facts the kext publishes on the card are shown: the BAR window it got, Resizable BAR, Above 4G, link power.
+const facts = machine(26); facts.gpus[0].nvrm = {'nvrm-bar1-mb': 8192, 'nvrm-bar1-firmware-mb': 16384, 'nvrm-rebar': 'on', 'nvrm-rebar-max-mb': 32768, 'nvrm-above-4g': 'yes', 'nvrm-aspm': 'L1'};
+event('scan', facts);
+const mac = element('mac').innerHTML;
+assert(mac.includes('8 GB now, 16 GB from the firmware'), mac);
+assert(mac.includes('on, up to 32 GB') && mac.includes('Above 4G Decoding: yes') && mac.includes('L1'), mac);
+event('scan', machine(26));
+assert(!element('mac').innerHTML.includes('Memory window'));
+// hybrid laptop mode buttons post the level and the checked package
+event('scan', machine(15));
+element('hybcopy').onclick();
+assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level, pkg: sent.at(-1).pkg}, {act: 'hybrid', level: 'copy', pkg: '/tmp/driver.tar.gz'});
+element('hyboff').onclick();
+assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level}, {act: 'hybrid', level: 'off'});
+console.log('Card facts and hybrid laptop mode controls passed.');
