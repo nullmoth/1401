@@ -51,7 +51,10 @@ enum Privileged {
         return guardShell + verified + env + "/bin/bash \"$r\"/\(q(name)) " + copyArgs + "; rc=$?; /bin/rm -rf \"$r\"; (exit $rc)"
     }
 
-    static func run(_ command: String, timeout: TimeInterval, admin: Bool = true) -> Result {
+    /// `started` is called once, from a background thread, when the command has begun: root creates the output file only
+    /// after the password was accepted, so its appearance is the end of "Waiting for your Mac password". Send logs used
+    /// to show that sentence for the whole collection (minutes), which read as a hang (1401 #369, #373, #525).
+    static func run(_ command: String, timeout: TimeInterval, admin: Bool = true, started: (() -> Void)? = nil) -> Result {
         let fm = FileManager.default
         let dir = fm.temporaryDirectory.appendingPathComponent("1401-run-" + UUID().uuidString)
         do { try fm.createDirectory(at: dir, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700]) }
@@ -73,9 +76,22 @@ enum Privileged {
         p.standardError = err
         p.standardOutput = FileHandle.nullDevice
         let finished = DispatchSemaphore(value: 0)
-        p.terminationHandler = { _ in finished.signal() }
+        let over = NSLock()
+        var done = false
+        p.terminationHandler = { _ in over.lock(); done = true; over.unlock(); finished.signal() }
         do { try p.run() } catch {
             return Result(output: "", error: "Could not start the password prompt: \(error.localizedDescription)", cancelled: false)
+        }
+        if let started = started {
+            DispatchQueue.global().async {
+                let limit = Date().addingTimeInterval(timeout)
+                while Date() < limit {
+                    over.lock(); let ended = done; over.unlock()
+                    if ended { return }
+                    if fm.fileExists(atPath: out.path) { started(); return }
+                    Thread.sleep(forTimeInterval: 0.25)
+                }
+            }
         }
         let timedOut = finished.wait(timeout: .now() + timeout) == .timedOut
         if timedOut { p.terminate(); _ = finished.wait(timeout: .now() + 5) }

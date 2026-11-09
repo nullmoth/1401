@@ -1224,7 +1224,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 NSApp.activate(ignoringOtherApps: true)
             }
             // off the main thread: the app stays responsive while the logs are collected (Privileged.swift)
-            let run = Privileged.run(cmd, timeout: 15 * 60)
+            // the password prompt is over once root has started the collector: say so, or the page keeps saying "Waiting
+            // for your Mac password" through the whole collection and it looks stuck
+            let run = Privileged.run(cmd, timeout: 15 * 60, started: {
+                DispatchQueue.main.async { self.send("logsStatus", ["text": "Collecting logs. This takes a few minutes; 1401 keeps working."]) }
+            })
             if run.cancelled {
                 DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Not sent: the password prompt was cancelled."]) }
                 return
