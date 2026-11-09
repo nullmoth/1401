@@ -800,6 +800,11 @@ if [ -n "$COLLECT" ]; then
   # travels only here, with Send logs, and is bounded: at most 24 files and 4 MB in all, plain names, no links.
   # failed-air begin
   FA_FILES=0; FA_BYTES=0
+  FA_READ='import os,stat,sys
+fd=os.open(sys.argv[1],os.O_RDONLY|os.O_NOFOLLOW|getattr(os,"O_CLOEXEC",0))
+st=os.fstat(fd)
+if not stat.S_ISREG(st.st_mode) or st.st_size<=0 or st.st_size>524288: sys.exit(1)
+sys.stdout.buffer.write(os.read(fd,524288))'
   collect_failed_air() {  # <destination> <reader or empty> <folder>...
     local dest=$1 reader=$2 dir f base size
     shift 2
@@ -811,8 +816,11 @@ if [ -n "$COLLECT" ]; then
         base=$(basename "$f" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' '_')
         size=$(stat -f %z "$f" 2>/dev/null || echo 0)
         [ "$size" -gt 0 ] && [ "$size" -le 524288 ] && [ $((FA_BYTES + size)) -le 4194304 ] || continue
-        if [ -n "$reader" ]; then sudo -u "$reader" cat "$f" > "$dest/failed-air-$base" 2>/dev/null || { rm -f "$dest/failed-air-$base"; continue; }
-        else cat "$f" > "$dest/failed-air-$base" 2>/dev/null || { rm -f "$dest/failed-air-$base"; continue; }; fi
+        # Opened without following a link and checked on the open descriptor (regular file, size cap), then at most
+        # 512 KiB copied from that same descriptor: a file swapped for a link after the tests above is never read.
+        if [ -n "$reader" ]; then sudo -u "$reader" /usr/bin/python3 -I -c "$FA_READ" "$f" > "$dest/failed-air-$base" 2>/dev/null || { rm -f "$dest/failed-air-$base"; continue; }
+        else /usr/bin/python3 -I -c "$FA_READ" "$f" > "$dest/failed-air-$base" 2>/dev/null || { rm -f "$dest/failed-air-$base"; continue; }; fi
+        size=$(stat -f %z "$dest/failed-air-$base" 2>/dev/null || echo 0)
         FA_FILES=$((FA_FILES + 1)); FA_BYTES=$((FA_BYTES + size))
       done
     done

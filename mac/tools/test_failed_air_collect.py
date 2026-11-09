@@ -57,5 +57,16 @@ check("a link planted in the folder is not followed", names == ["failed-air-real
 
 names, _ = run({"we ird$name.ll": b"a"})
 check("a file name is cut to plain characters", names == ["failed-air-we_ird_name.ll"], names)
+# The copy itself must not follow a link or trust an earlier stat: a file swapped for a link between the shell tests and
+# the read would otherwise be copied. The reader opens with O_NOFOLLOW and checks the open descriptor.
+check("the copy opens without following links and checks the open descriptor",
+      "O_NOFOLLOW" in func and "os.fstat(fd)" in func and 'cat "$f"' not in func)
+with tempfile.TemporaryDirectory() as t:
+    t = pathlib.Path(t); (t / "secret").write_text("secret"); os.symlink(t / "secret", t / "swapped.ll")
+    reader = func[func.index("FA_READ='") + 9:]
+    reader = reader[:reader.index("'\n")]
+    r = subprocess.run(["/usr/bin/python3", "-I", "-c", reader, str(t / "swapped.ll")], capture_output=True)
+    check("the reader refuses a link handed to it directly (the swapped-file case)", r.returncode != 0 and not r.stdout, r.returncode)
+
 print("FAILED" if fails else "all arms pass")
 sys.exit(1 if fails else 0)
