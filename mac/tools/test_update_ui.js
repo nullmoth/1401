@@ -152,3 +152,14 @@ assert.equal(element('vmdpane').hidden, false);
 event('scan', machine(26));
 assert.equal(element('vmdpane').hidden, true);
 console.log('VMD / RAID explanation passed.');
+
+// GPU boost: on carries the checked package, off and remove do not, status asks without a password and shows the answer.
+event('scan', machine(26));
+element('boston').onclick();
+assert.deepEqual({act: sent.at(-1).act, op: sent.at(-1).op, pkg: sent.at(-1).pkg}, {act: 'gpuboost', op: 'on', pkg: '/tmp/driver.tar.gz'});
+element('bostoff').onclick(); assert.deepEqual({op: sent.at(-1).op, pkg: sent.at(-1).pkg}, {op: 'off', pkg: undefined});
+element('bostrm').onclick(); assert.equal(sent.at(-1).op, 'remove');
+element('bostat').onclick(); assert.equal(sent.at(-1).op, 'status');
+event('boostStatus', {text: 'On: the daemon holds the GPU at its maximum boost.'});
+assert(element('bostr').textContent.startsWith('On:'));
+console.log('GPU boost controls passed.');
