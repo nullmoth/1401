@@ -1528,6 +1528,16 @@ PL
         stop "the OpenCore partition the Tahoe preparation changed (partition $CFGPART) is not connected - plug in the disk or stick it is on, then try again"
       fi
     fi
+    # A Mac that was prepared for Tahoe and never updated would wait here on every start, with the driver parked, for
+    # as long as it stays on macOS 15. After two weeks with no macOS installer on the disk the update is treated as
+    # abandoned: the settings come back exactly as "cancel" puts them back, and the driver starts on the next restart.
+    if [ "$UPD" = finish ] && [ "${FROM:-}" = "$MAJ" ] && [ "$MAJ" = 15 ]; then
+      pend_now=$(date +%s); pend_mod=$(stat -f %m "$PEND" 2>/dev/null || echo "$pend_now")
+      if [ $((pend_now - pend_mod)) -gt 1209600 ] && [ ! -d "/macOS Install Data" ] && ! ls -d /Applications/Install\ macOS*.app >/dev/null 2>&1; then
+        note "prepared for the macOS 26 update more than two weeks ago and still on macOS $MAJ with no installer on this Mac - turning the driver back on"
+        UPD=cancel
+      fi
+    fi
     if [ "$UPD" = finish ] && [ "${FROM:-}" = "$MAJ" ] && [ "$MAJ" = 15 ]; then echo "$(date) still on macOS $MAJ - waiting for the update"; cleanup; echo "RESULT ok"; exit 0; fi
     step "Setting the driver up for macOS $MAJ"; backup   # only once the update has happened: no backup per waiting boot
     if [ -d "/Library/NullMoth/kexts/$MAJ/NVAccel.kext" ]; then
