@@ -7,7 +7,7 @@ import Foundation
 /// anything else is dropped here, before setup (which checks again). The fetch-copy switch that affects WindowServer is not,
 /// and must never be, in this list.
 enum Experimental {
-    static let ids: [String] = ["kbl", "kblhid", "tgp", "igpuproxy", "xvt", "gameprio", "hwrt", "curves", "tile", "icb"]
+    static let ids: [String] = ["kbl", "kblhid", "tgp", "igpuproxy", "xvt", "hybrid20", "gameprio", "hwrt", "curves", "tile", "icb"]
 
     /// setup's --experimental value for what the page sent, or nil when it sent something that is not a list of known ids.
     static func argument(_ sent: Any?) -> String? {
