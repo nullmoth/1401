@@ -1055,23 +1055,31 @@ namespace A1401
 
         void OfferLog(string file, string kind)
         {
-            var ask = MessageBox.Show(this,
+            // the DSDT and SSDTs the build wrote next to the scan (p1401/acpi_bundle.py: size-capped, no licence or logo tables)
+            var evidence = ScanEvidence.Find(Engine.Work, scanRunId, false);
+            string acpiZip = evidence == null ? null : Path.Combine(Path.GetDirectoryName(evidence.Path), "acpi-bundle.zip");
+            if (acpiZip != null && !(File.Exists(acpiZip) && new FileInfo(acpiZip).Length <= 7 * 1024 * 1024)) acpiZip = null;
+            var text =
                 Loc.F("The {0} failed.\r\n\r\n1401 is sending this log to nullmothsystems.com so the bug can be found and fixed. " +
                 "It holds this scan's hardware list, bounded device/CPU observations and what the check or build printed. Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
-                "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.", Loc.Op(kind)),
+                "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.", Loc.Op(kind));
+            if (acpiZip != null)
+                // the firmware tables are named in the consent text whenever they will go with the log
+                text = Loc.F("The {0} failed.\r\n\r\n1401 is sending this log to nullmothsystems.com so the bug can be found and fixed. " +
+                "It holds this scan's hardware list, bounded device/CPU observations and what the check or build printed, and this PC's ACPI firmware tables " +
+                "(the DSDT and SSDTs, which describe how the board connects its devices; licence-key and logo tables are left out). Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
+                "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.", Loc.Op(kind));
+            var ask = MessageBox.Show(this, text,
                 Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
             if (ask != DialogResult.OK) { Say(Loc.T("The log was not sent. It stays in ") + file + Loc.T(".")); return; }
             var ids = new List<string>();
             var batch = NewBatch();
             var id = Send(file, "1401-" + kind + "-log.txt", kind + " failed", batch);
             if (id != null) ids.Add(id);
-            var evidence = ScanEvidence.Find(Engine.Work, scanRunId, false);
             if (evidence != null) {
                 var receipt = Send(evidence.Path, "1401-scan-evidence.json.txt", kind + " failed; saved evidence from this scan run; macOS support not assessed", batch);
                 if (receipt != null) ids.Add(receipt);
-                // the DSDT and SSDTs the build wrote next to the scan (p1401/acpi_bundle.py: size-capped, no licence or logo tables)
-                var acpiZip = Path.Combine(Path.GetDirectoryName(evidence.Path), "acpi-bundle.zip");
-                if (File.Exists(acpiZip) && new FileInfo(acpiZip).Length <= 7 * 1024 * 1024)
+                if (acpiZip != null)   // only when the consent text above named the tables
                 {
                     var acpiReceipt = Send(acpiZip, "1401-acpi-tables.zip", kind + " failed; firmware tables from this scan run", batch);
                     if (acpiReceipt != null) ids.Add(acpiReceipt);
