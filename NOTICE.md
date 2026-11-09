@@ -68,6 +68,17 @@ keeps the author's notice and licence. The full list (32 projects, licence and v
 | WTLIntelGfx (XeGfx), by watchthelight | BSD-2-Clause for the shim, tools and docs; the parts forked from NullMoth stay PolyForm Noncommercial | Reviewed patches for the AMD / Intel test driver (Meteor Lake and Arrow Lake bring-up). |
 | nullarc by luuumi-dev, ArrowWhatever by Mountainatic, IrisXe-macos-driver by zep245, vibe-nullmoth-xe3-qemu by ericek111, Meteor-Lake-Xe-LPG-Metal-Graphics by VedCloud, RedNavi by Helemen7 | Per project (`docs/COMMUNITY-DRIVERS.md`) | Read for findings on Radeon 780M, Arrow Lake, Tiger Lake, Panther Lake and Navi 32 bring-up. A patch is merged only where its licence allows it and the author is credited in the commit. |
 
+### Written again in NullMoth's own code
+
+Where a community project showed what a machine needs, 1401 carries its own implementation, with its own tests. Nothing
+below was copied; the project is named as the source of the finding.
+
+| Project | What it showed | Where it is in 1401 |
+|---|---|---|
+| Hackintosh-XPS13Plus-IrisXe-Tahoe, by JulioNectar | A 4 performance + 8 efficiency core Raptor Lake-P laptop freezes right after EXITBS with the efficiency cores on, because the kernel divides the logical-processor count by a core count that is 128 under ProvideCurrentCpuInfo; CPUID leaf 1 reporting 128 fixes it | `p1401/machine_recipes.json` and `policy.py` (`set_cpuid1_logical_per_package`), `tests/test_machine_recipes.py` |
+| AMDHelper, by LuneFlu | A Ryzen laptop is helped by a power-limit profile applied at start and refreshed | `mac/Resources/nullmoth-ryzen-power.sh`, `tests/test_ryzen_power.py` |
+| AMD_Vanilla, by AMD-OSX | The kernel patches AMD processors need | The build already uses the maintained fork's list, which covers it; `tools/compare_amd_kernel_patches.py` shows that (two of its patches are stale for macOS 26) |
+
 ### The download mirror
 
 `nullmothsystems.com/mirror` keeps byte-identical copies for networks that cannot reach GitHub (`p1401/mirror.py`). It
