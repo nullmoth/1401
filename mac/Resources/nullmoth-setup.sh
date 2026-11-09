@@ -109,8 +109,10 @@ ocrel_in() {    # $1 = mount point; prints where OpenCore lives on it (EFI/OC, o
   # A config made for another Mac model (a rescue stick, another machine's EFI) is never this Mac's: OpenCore sets the
   # model macOS reports from PlatformInfo, so the config that started this Mac names hw.model. (Measured 10-07: the boot-path
   # variable was absent and a Mac Pro rescue config on a second stick was edited instead of the 1401 stick's.)
-  local d m; m=$(sysctl -n hw.model 2>/dev/null)
-  for d in EFI/OC EFI/BOOT; do
+  # OpenCore can live in another folder (a MacPro7,1 setup log, 2.5.3: boot-path \EFI\macos\OC\OpenCore.efi stopped as
+  # "no OpenCore config"); the folder OpenCore says it started from is looked at first.
+  local d m bo; m=$(sysctl -n hw.model 2>/dev/null); bo=$(boot_ocrel)
+  for d in ${bo:+"$bo"} EFI/OC EFI/BOOT; do
     [ -f "$1/$d/config.plist" ] || continue
     [ "$d" = EFI/BOOT ] && [ ! -d "$1/$d/Kexts" ] && continue
     local c="$1/$d/config.plist" cm="" k
@@ -142,6 +144,22 @@ fetch_kext() {
   [ "$(shasum -a 256 "$KT/$k.zip" | awk '{print $1}')" = "$s" ] || stop "$k download did not match its SHA-256; nothing was changed. Try again"
   ditto -x -k "$KT/$k.zip" "$KT/$k.x" && [ -f "$KT/$k.x/$k/Contents/Info.plist" ] || stop "$k download could not be unpacked; nothing was changed"
 }
+boot_ocrel() {  # the folder OpenCore started from, read from its boot-path (EFI/macos/OC); nothing when absent or not under EFI/
+  local bp p
+  bp=$(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2-)
+  case "$bp" in *\)*) ;; *) return 0;; esac
+  p=${bp##*\)}; p=${p%%\%*}; p=$(printf '%s' "$p" | tr '\\' '/')
+  while [ "${p#/}" != "$p" ]; do p=${p#/}; done
+  case "$p" in */*) p=${p%/*};; *) return 0;; esac
+  case "/$p/" in /EFI/*/) ;; *) return 0;; esac
+  case "/$p/" in */../*|*/./*|*//*) return 0;; esac
+  printf '%s\n' "$p"; }
+not_oc_model() { # true when this start's model is not a Mac model: OpenCore sets one from the config whenever it starts macOS
+  # Measured 11-06 (2.7.2, model 82JQ): both configs set MacBookPro16,2 with UpdateSMBIOS on and the boot path exposed,
+  # yet macOS reported the PC's own model and OpenCore left no boot path, so this start did not go through OpenCore.
+  local m bp; m=$(sysctl -n hw.model 2>/dev/null)
+  bp=$(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2-)
+  [ -n "$m" ] && [ -z "$bp" ] && ! printf '%s' "$m" | grep -qE '^[A-Za-z]+[0-9]+,[0-9]+$'; }
 booted_part() { # the partition OpenCore started this Mac from, read from OpenCore's boot-path variable
   local bp u d
   bp=$(nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | cut -f2-)
@@ -542,6 +560,14 @@ if [ -n "$COLLECT" ]; then
   { echo "macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))   model $(sysctl -n hw.model)"
     echo "boot-args: $(nvram boot-args 2>/dev/null | cut -f2-)"; echo "SIP: $(csrutil status 2>/dev/null)"
     echo; echo "== install record"; cat "$ST/state" 2>/dev/null || echo "(none recorded)"
+    # Driver issue #484: after the update to macOS 26 the driver did not start until boot-args were edited by hand, and the
+    # upload could not say whether "Prepare for Tahoe" ran, whether its finish step ran, or what it left behind.
+    echo; echo "== macOS update record (Prepare for Tahoe)"
+    echo "running macOS major: $(sw_vers -productVersion 2>/dev/null | cut -d. -f1); set up for: $(cat "$ST/os-major" 2>/dev/null || echo '(not recorded)')"
+    if [ -f "$ST/update-pending" ]; then echo "update-pending:"; sed 's/^/  /' "$ST/update-pending"; else echo "update-pending: (none)"; fi
+    echo "update-tries: $(cat "$ST/update-tries" 2>/dev/null || echo '(none)')"; echo "update-blocked: $(cat "$ST/update-blocked" 2>/dev/null || echo '(none)')"
+    echo "finish helper: $([ -f /Library/LaunchDaemons/com.nullmoth.osupdate.plist ] && echo installed || echo absent); osupdate.log: $([ -f "$ST/osupdate.log" ] && echo "$(wc -l < "$ST/osupdate.log" | tr -d ' ') lines" || echo absent)"
+    echo "-nvoff in NVRAM boot-args: $(nvram boot-args 2>/dev/null | cut -f2- | tr ' ' '\n' | grep -qx -- -nvoff && echo yes || echo no)"
     echo; echo "== NullMoth kexts loaded"; kmutil showloaded --list-only 2>/dev/null | grep -i nullmoth
     echo; echo "== auxiliary collection"; kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -i nullmoth
     echo; echo "== driver files"; ls -la /Library/Extensions/NV*.kext /Library/GPUBundles 2>/dev/null
@@ -1145,6 +1171,8 @@ else
       # six of the 10-12 reports: OpenCore's boot path was a USB device (the 1401 stick) that was no longer connected
       nvram 4D1FDA02-38C7-4A6A-9CC6-4BCCA8B30102:boot-path 2>/dev/null | grep -q 'USB(' && [ -z "$denied" ] && \
         stop "this Mac started OpenCore from a USB stick that is not connected now - plug that stick back in (the one you start the Mac from), then try again"
+      not_oc_model && [ -z "$denied" ] && \
+        stop "this start did not go through OpenCore: macOS reports the PC's own model ($(sysctl -n hw.model)), not the Mac model an OpenCore config sets, and OpenCore left no boot path. Restart, choose the OpenCore entry (the disk or stick OpenCore is on) in the PC's boot menu, start macOS from the OpenCore menu, then run this again"
       [ -n "$denied" ] && stop "macOS is not letting 1401 read the OpenCore config on$denied. Open System Settings > Privacy & Security > Files & Folders, turn on Removable Volumes for 1401 (or add 1401 under Full Disk Access), then try again"
       stop "no OpenCore config for this Mac ($(sysctl -n hw.model)) on any connected disk - plug in the disk or USB stick OpenCore started from, then try again (the NOTE lines above show what each partition holds)"
     fi
