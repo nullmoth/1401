@@ -191,6 +191,35 @@ def _enable_emulated_nvram(cfg, config_path, change):
     return True, None
 
 
+def _ethernet_ids():
+    from . import engine  # noqa: PLC0415 - the engine's device tables are importable once it is loaded
+    engine._load_engine()
+    from Scripts.datasets import pci_data  # noqa: PLC0415
+    return set(pci_data.EthernetIDs)
+
+
+def _mark_ethernet_built_in(cfg, network):
+    """Sets built-in = 01 on the PCI path of every Ethernet controller in the scan that lacks it. Returns the paths changed."""
+    cands = [p for p in network.values() if isinstance(p, dict) and p.get("PCI Path") and str(p.get("Bus Type", "PCI")).startswith("PCI")]
+    if not cands:
+        return []
+    try:
+        eth = _ethernet_ids()
+    except Exception as e:  # noqa: BLE001 - a missing device table must never stop the build; the rule just does not run
+        print(f"(Ethernet built-in rule skipped: {type(e).__name__})")
+        return []
+    props = cfg.setdefault("DeviceProperties", {}).setdefault("Add", {})
+    done = []
+    for p in cands:
+        if p.get("Device ID") not in eth:
+            continue
+        entry = props.setdefault(p["PCI Path"], {})
+        if entry.get("built-in") != b"\x01":
+            entry["built-in"] = b"\x01"
+            done.append(p["PCI Path"])
+    return done
+
+
 def apply(config_path, result, policy):
     """Mutates config.plist in place (atomic write). Returns the list of changes."""
     with open(config_path, "rb") as fh:
@@ -491,6 +520,16 @@ def apply(config_path, result, policy):
             mine["Enabled"] = True
             change("amd-laptop-mmio-ff000000", "0xFF000000 entry off", "0xFF000000 entry on",
                    "an AMD laptop took a type-14 fault at 0xFF00004C with that region devirtualised; whitelisting it removed the fault")
+
+    # Apple ID / iMessage: Apple counts the Mac's accounts by the en0 interface and its MAC. macOS makes a PCI Ethernet
+    # controller en0 only when it is marked built-in (an external or unmarked one becomes en1 or later, and a PC with only
+    # a USB Wi-Fi card gets a different en0 every boot). The engine marks controllers that have no ACPI path; the ones the
+    # firmware describes in ACPI are left unmarked. Every PCI Ethernet controller the scan lists is marked here
+    # (Dortania, "Fixing iServices": en0 must be built-in). Whether Apple then accepts the sign-in is theirs to decide.
+    eth_marked = _mark_ethernet_built_in(cfg, (result.hardware or {}).get("Network") or {})
+    if eth_marked:
+        change("ethernet-built-in", ", ".join(eth_marked) + " not marked built-in", "built-in = 01",
+               "macOS makes only a built-in Ethernet controller en0, which Apple ID sign-in counts accounts by")
 
     # SSDT-PLUG-ALT declares 64 Haswell-era Intel processors for XCPM. On a Ryzen it makes macOS count ghost CPUs and the
     # AM5 boards that load it hang right after "CoreAnalyticsHub start completed" (1401 #21: the owner's fix was to turn
