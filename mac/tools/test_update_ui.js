@@ -97,3 +97,33 @@ event('scan', fresh());
 assert.equal(element('go').disabled, false);
 assert.equal(element('go').textContent, 'Install the driver');
 console.log('Install button names the step that comes first, and reads plainly once it is ready.');
+
+// A macOS update that skipped "Prepare this Mac for Tahoe" leaves the driver parked (1401 #484): the page says the macOS
+// changed, instead of "installed but not running, restart".
+const updated = machine(26); updated.files = true; updated.kexts = 0; updated.metal = []; updated.driverOsMajor = 15;
+event('scan', updated);
+assert(element('verdict').innerHTML.includes('updated from 15 to 26'), element('verdict').innerHTML);
+assert(!element('verdict').innerHTML.includes('installed but not running'));
+const same = machine(26); same.files = true; same.kexts = 0; same.metal = []; same.driverOsMajor = 26;
+event('scan', same);
+assert(element('verdict').innerHTML.includes('installed but not running'));
+const unknown = machine(26); unknown.files = true; unknown.kexts = 0; unknown.metal = [];
+event('scan', unknown);
+assert(element('verdict').innerHTML.includes('installed but not running'));
+console.log('A macOS update after the driver was set up is named; a Mac with no record or the same macOS keeps the old advice.');
+
+// The facts the kext publishes on the card are shown: the BAR window it got, Resizable BAR, Above 4G, link power.
+const facts = machine(26); facts.gpus[0].nvrm = {'nvrm-bar1-mb': 8192, 'nvrm-bar1-firmware-mb': 16384, 'nvrm-rebar': 'on', 'nvrm-rebar-max-mb': 32768, 'nvrm-above-4g': 'yes', 'nvrm-aspm': 'L1'};
+event('scan', facts);
+const mac = element('mac').innerHTML;
+assert(mac.includes('8 GB now, 16 GB from the firmware'), mac);
+assert(mac.includes('on, up to 32 GB') && mac.includes('Above 4G Decoding: yes') && mac.includes('L1'), mac);
+event('scan', machine(26));
+assert(!element('mac').innerHTML.includes('Memory window'));
+// hybrid laptop mode buttons post the level and the checked package
+event('scan', machine(15));
+element('hybcopy').onclick();
+assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level, pkg: sent.at(-1).pkg}, {act: 'hybrid', level: 'copy', pkg: '/tmp/driver.tar.gz'});
+element('hyboff').onclick();
+assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level}, {act: 'hybrid', level: 'off'});
+console.log('Card facts and hybrid laptop mode controls passed.');

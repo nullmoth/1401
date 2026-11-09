@@ -174,6 +174,17 @@ case "job":
     if a[3] == "cancel" { Thread.sleep(forTimeInterval: 1.0); job.stop() }
     if done.wait(timeout: .now() + 20) == .timedOut { print("TIMEOUT"); exit(1) }
     lk.lock(); print(result, lines.joined(separator: ",")); lk.unlock()
+case "jobmany":
+    // a[2]: a translator that prints many lines and exits at once, leaving a child that holds stdout open
+    let job = ArmApps.Job(app: URL(fileURLWithPath: "/tmp/X.app"), executable: a[2])
+    let done = DispatchSemaphore(value: 0)
+    var n = 0, last = ""; let lk = NSLock()
+    let t0 = Date()
+    let why = job.start(line: { p in lk.lock(); n += 1; last = "\(p["stage"] ?? "")"; lk.unlock() },
+                        done: { _, _, _ in done.signal() })
+    if let why { print("START", why); exit(1) }
+    if done.wait(timeout: .now() + 20) == .timedOut { print("TIMEOUT"); exit(1) }
+    lk.lock(); print(n, last, String(format: "%.1f", Date().timeIntervalSince(t0))); lk.unlock()
 case "decide":
     // a[2]: JSON array of profile records; a[3]: decision JSON or "none"; a[4]: driver installed
     let recs = try! JSONSerialization.jsonObject(with: Data(a[2].utf8)) as! [[String: Any]]
@@ -214,6 +225,10 @@ case "cpu":
     print(ArmApps.cpuGate(features: a[2]) ?? "OK")
 case "brewroot":
     print(ArmApps.brewRootCommand(user: a[2], arm: a[3] == "1", intel: a[4] == "1") ?? "NIL")
+case "brewstatus":
+    // a[2]: the JSON nm-arm printed ("" = none); a[3]: runCLI's reason ("" = none)
+    let s = ArmApps.brewStatusResult(json: a[2].isEmpty ? nil : try? JSONSerialization.jsonObject(with: Data(a[2].utf8)), why: a[3].isEmpty ? nil : a[3])
+    print((s["why"] as? String) ?? "OK", s["outdated"] as? Bool ?? false, s["arm"] != nil)
 case "brewargs":
     print((ArmApps.brewSetupArguments(pick: a[2], primary: a[3]) ?? ["NIL"]).joined(separator: " "))
 default: break
@@ -297,6 +312,15 @@ with tempfile.TemporaryDirectory() as d:
     arm("negative control: a list that is neither the object nor an array is refused", run("list", '{"x":1}') == "NIL")
     out = cli(json.dumps({"ok": False, "why": "L7 is not in the manifest"}), "2", "remove", "L7")
     arm("a refused remove shows nm-arm's own reason", out == "could not remove L7: L7 is not in the manifest", out)
+    out = run("brewstatus", "", "nm-arm brew exited 2")
+    arm("an engine without 'brew' (usage error, no JSON) is called older than the app, not shown as an exit code",
+        out.startswith("The installed ARM translator is older than this app") and out.endswith("true false"), out)
+    out = run("brewstatus", json.dumps({"arm": {"installed": False}, "intel": {"installed": False}}), "")
+    arm("a current engine's brew status passes through untouched", out == "OK false true", out)
+    out = run("brewstatus", "", "nm-arm brew exited 1: Traceback")
+    arm("negative control: any other failure keeps its own text and is not called outdated", out == "nm-arm brew exited 1: Traceback false false", out)
+    out = run("brewstatus", "", "")
+    arm("negative control: no answer at all says so", out == "nm-arm brew status returned nothing false false", out)
     out = cli(json.dumps({"ok": True, "removed": ["L6"]}), "0", "remove", "L6")
     arm("a successful remove reports nothing wrong", out == "OK", out)
 
@@ -410,6 +434,21 @@ wait
     arm("Cancel ends the translator and the process it started", "cancelled=true" in out and pid and not alive,
         f"{out}; child {pid} alive={alive}; {time.time() - t0:.1f} s")
     if alive: os.kill(pid, 9)
+    # the last lines of a translator that exits while a child it started still holds stdout open: every line reaches
+    # the page, and the end is reported at once (WAS: a bounded blocking read whose result was dropped on timeout)
+    many = d / "nm-arm-many"
+    many_pids = d / "many.pids"
+    many.write_text(f"#!/bin/bash\n/bin/sleep 30 &\necho $! >> '{many_pids}'\n" +
+                    "for i in $(seq 1 400); do echo \"{\\\"stage\\\":\\\"s$i\\\",\\\"pct\\\":1}\"; done\n"
+                    "echo '{\"stage\":\"final\",\"pct\":100}'\nexit 0\n")
+    many.chmod(0o755)
+    runs = [run("jobmany", str(many)) for _ in range(8)]
+    for line in (many_pids.read_text().split() if many_pids.exists() else []):   # only the children this test started
+        try: os.kill(int(line), 9)
+        except (ProcessLookupError, ValueError): pass
+    ok = all(r.split()[:2] == ["401", "final"] for r in runs)
+    arm("a translator's last line reaches the page even when a child holds its output open (8 runs)", ok, runs)
+    arm("  and the end is reported without waiting for that child", all(float(r.split()[2]) < 2.5 for r in runs if len(r.split()) == 3), runs)
     shutil.rmtree(sandbox, ignore_errors=True)
 
     # Homebrew's folder step, run against a sandbox (the two prefixes moved into it, chown left out)

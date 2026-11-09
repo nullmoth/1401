@@ -224,7 +224,7 @@ def bios_settings(report, config, disabled_devices=None):
                          or g.get("Manufacturer") == "AMD")})
     if nv:
         s.append(Setting(loc.t("Resizable BAR / Re-Size BAR"), loc.t("On"), True,
-                         loc.t("Required by the NVIDIA driver: without it the screen stays on the startup text once the driver is in."),
+                         loc.t("Required by the NVIDIA driver: without it the screen stays on the startup text once the driver is in.") + loc.t(" A card with a 16 GB window is fine: the EFI limits what macOS gets to 8 GB, so leave this On."),
                          now=loc.f("currently {}", '/ '.join(rebar)) + (loc.t(" - turn it On") if "Disabled" in rebar else "") if rebar else "",
                          if_missing=loc.t("On some boards it appears only after Above 4G Decoding is On, or after CSM is Off.")))
     elif dgpu and rebar:

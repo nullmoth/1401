@@ -211,6 +211,8 @@ ZH = {
     "Resizable BAR / Re-Size BAR": "Resizable BAR / Re-Size BAR",
     "Required by the NVIDIA driver: without it the screen stays on the startup text once the driver is in.":
         "NVIDIA 驱动需要此项：没有它，驱动加载后画面会一直停在启动文字上。",
+    " A card with a 16 GB window is fine: the EFI limits what macOS gets to 8 GB, so leave this On.":
+        " 窗口为 16 GB 的显卡也没有问题：EFI 会把 macOS 能用的部分限制在 8 GB，所以请保持开启。",
     "On some boards it appears only after Above 4G Decoding is On, or after CSM is Off.":
         "有些主板只有在开启 Above 4G Decoding 或关闭 CSM 之后才会显示此项。",
     "Leave it {}": "保持为 {}",

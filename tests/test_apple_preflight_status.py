@@ -421,6 +421,7 @@ class ReadbackNamesTheStick(unittest.TestCase):
                 patch.object(usbwriter, "_copy_settled", lambda *a: None), \
                 patch.object(usbwriter, "verify_efi_copy", lambda *a, **k: None), \
                 patch.object(usbwriter, "needs_nullmoth", lambda d: False), \
+                patch.object(usbwriter, "copy_finish_setup", lambda root: None), \
                 patch("builtins.print", lambda *a, **k: None):
             out = usbwriter._write_payload("Z:\\", "C:\\efi", info(), None, None, "General UDisk 8 GiB")
         self.assertEqual(out["root"], "Z:\\")

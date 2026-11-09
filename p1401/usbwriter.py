@@ -773,7 +773,31 @@ def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile
         driver = nullmoth.stage(root, cache, fetch=_fetch)
     if machine_profile is not None:
         machine_handoff.copy_to_installer(machine_profile, root, opt_in)
+    copy_finish_setup(root)
     return {"root": root, "nullmoth": driver, **got}
+
+
+FINISH_SETUP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "finish-setup.sh")
+
+
+def copy_finish_setup(root):
+    """Put the Recovery script that finishes a new install without the setup screens on the stick (NullMoth/).
+
+    macOS 26 cannot draw its first setup screens without a graphics driver (issue #86: black screen, cursor only), and
+    the driver can only be installed once macOS is running; the script makes the first account from Recovery instead.
+    The copy is read back: a stick that keeps a different script would run something nobody wrote."""
+    folder = os.path.join(root, "NullMoth")
+    os.makedirs(folder, exist_ok=True)
+    dst = os.path.join(folder, "finish-setup.sh")
+    with open(FINISH_SETUP, "rb") as fh:
+        data = fh.read()
+    with open(dst + ".part", "wb") as fh:
+        fh.write(data)
+    os.replace(dst + ".part", dst)
+    with open(dst, "rb") as fh:
+        if fh.read() != data:
+            raise UsbError("the setup script on the stick read back different. The stick is failing; use another one.")
+    return dst
 
 
 def verify_efi_copy(source, destination, copy=None):

@@ -37,6 +37,15 @@ class ExcludedKexts(unittest.TestCase):
             self.assertNotIn(name, files)
         self.assertIn("excluded-kexts", [c["rule"] for c in changes])
 
+    def test_simplebcm_is_refused_for_its_licence_and_the_register_says_why(self):
+        from p1401 import licenses
+        kept, files, changes = build(["Lilu.kext", "SimpleBCM.kext", "AirportBrcmFixup.kext"])
+        self.assertEqual(kept, ["Lilu.kext", "AirportBrcmFixup.kext"])
+        self.assertNotIn("SimpleBCM.kext", files)
+        entry = licenses.table()["projects"]["laobamac/SimpleBCM"]
+        self.assertTrue(entry["refused"] and entry["class"] not in licenses.ADMITTED)
+        self.assertFalse(licenses.hostable("https://github.com/laobamac/SimpleBCM/releases/download/v1.2.0/SimpleBCM-v1.2.0-RELEASE.zip")[0])
+
     def test_other_kexts_are_untouched(self):
         kept, files, changes = build(["Lilu.kext", "WhateverGreen.kext", "AppleALC.kext"])
         self.assertEqual(kept[:3], ["Lilu.kext", "WhateverGreen.kext", "AppleALC.kext"])

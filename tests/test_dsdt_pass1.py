@@ -39,8 +39,49 @@ class Pass1(unittest.TestCase):
         self.assertEqual(n, 2)
         self.assertEqual(int.from_bytes(fixed[4:8], "little"), len(fixed))
         self.assertEqual(sum(fixed) & 0xFF, 0)
-        self.assertEqual(m.failing_scopes(fixed), [])  # both now sit in If (One), which pass 1 skips
+        self.assertEqual(m.failing_scopes(fixed), [])  # both now sit in an If, which pass 1 skips
         self.assertIn(b"\xa0", fixed[36 + len(FOO_IN_IF):36 + len(FOO_IN_IF) + 2])
+
+    def test_each_deferred_scope_is_guarded_by_condrefof_of_its_own_target(self):
+        """A target the firmware creates only for another OS never exists on macOS: a bare Scope would fail there."""
+        fixed, n = m.repair(table(FOO_IN_IF + FWD_SCOPE))
+        self.assertEqual(n, 1)
+        at = fixed.index(b"\x5b\x12")
+        # the byte before the predicate is the If's PkgLength, and the opcode before that is If
+        self.assertEqual(fixed[at - 2], 0xA0)
+        self.assertEqual(fixed[at:at + 13], b"\x5b\x12\\\x2e_SB_FOO_\x00")
+        # the Scope follows the predicate unchanged, and the If ends where the Scope ends
+        scope = pkg(b"\x10", b"\\\x2e_SB_FOO_" + b"\x08XXXX\x01")
+        self.assertEqual(fixed[at + 13:at + 13 + len(scope)], scope)
+        self.assertEqual(fixed[-len(scope):], scope)
+
+    def test_a_nested_scope_is_guarded_by_its_name_as_written(self):
+        fixed, n = m.repair(table(FOO_IN_IF + NESTED))
+        self.assertEqual(n, 1)
+        self.assertIn(b"\x5b\x12\\\x2e_SB_FOO_\x00\x10", fixed)
+        self.assertEqual(sum(fixed) & 0xFF, 0)
+        self.assertEqual(int.from_bytes(fixed[4:8], "little"), len(fixed))
+        self.assertEqual(m.failing_scopes(fixed), [])
+
+    def test_zero_padding_between_objects_is_stepped_over(self):
+        """A user's DSDT carries 120 zero bytes inside a Device, between two objects (ZeroOp); it used to stop the repair."""
+        padded = pkg(b"\x10", SB + pkg(b"\x5b\x82", b"BAZ_" + b"\x08_ADR\x00" + b"\x00" * 120 + b"\x08_UID\x01"))
+        t = table(FOO_IN_IF + padded + FWD_SCOPE)
+        fixed, n = m.repair(t)
+        self.assertEqual(n, 1)
+        self.assertEqual(m.failing_scopes(fixed), [])
+
+    def test_users_dsdts_in_the_corpus_all_repair_when_the_corpus_is_present(self):
+        d = os.environ.get("NM_DSDT_CORPUS")
+        if not d or not os.path.isdir(d):
+            self.skipTest("set NM_DSDT_CORPUS to a folder of uploaded DSDT .aml files")
+        bad = []
+        for f in sorted(os.listdir(d)):
+            if f.lower().endswith(".aml"):
+                fixed, n = m.repair(open(os.path.join(d, f), "rb").read())
+                if m.failing_scopes(fixed) or (n and sum(fixed) & 0xFF):
+                    bad.append(f)
+        self.assertEqual(bad, [])
 
     def test_apply_ships_the_repaired_table_only_when_needed(self):
         for body, want in ((FOO_IN_IF + FWD_SCOPE, True), (GOOD, False)):
