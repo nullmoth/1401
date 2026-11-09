@@ -97,7 +97,7 @@ class ArmAppsOptIn(unittest.TestCase):
         self.assertEqual(FORM.count("--arm-apps"), 1)
         self.assertIn('if (armApps.Checked && armApps.Visible) args += " --arm-apps";', FORM)
         # shown on the write page only, only for a stick that carries the NVIDIA driver, frozen once written
-        self.assertIn('if (summary.Contains("NVIDIA")) Show(disks, refresh, armApps, fullInstaller, bar, log); else Show(disks, refresh, fullInstaller, bar, log);', FORM)
+        self.assertIn('if (summary.Contains("NVIDIA")) Show(disks, refresh, armApps, fullInstaller, recoveryPick, bar, log); else Show(disks, refresh, fullInstaller, recoveryPick, bar, log);', FORM)
         self.assertIn("armApps.Enabled = !written;", FORM)
         self.assertIn("armApps.SetBounds(", FORM)
 

@@ -260,6 +260,7 @@ const NM = {
 };
 window.NM = NM;
 
+$("cfgpick").onclick = () => post({ act: "pickconfig" });
 const efi = () => ($("efirow").hidden ? "auto" : $("efi").value);
 $("efi").onchange = () => {
   S.previewed = false;
@@ -455,6 +456,10 @@ NM.on = (m) => {
     $("efimountr").innerHTML = m.data.cancelled ? "" : m.data.ok ? `<span class="good">Mounted ${esc(m.data.partition)} at ${esc(m.data.where)}</span>`
                                                               : `<span class="warn">${esc(m.data.why || "The EFI could not be mounted.")}</span>`;
     return;
+  }
+  if (m.event === "configPicked") {
+    const o = document.createElement("option"); o.value = "config:" + m.data.path; o.textContent = "config file: " + m.data.path;
+    $("efi").appendChild(o); $("efi").value = o.value; return;
   }
   if (m.event === "tccStatus") { $("tccr").innerHTML = m.data.text ? `<span class="${m.data.ok ? "good" : "warn"}">${esc(m.data.text)}</span>` : ""; return; }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
