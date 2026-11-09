@@ -168,6 +168,28 @@ enum ArmApps {
         return out
     }
 
+    /// An iPhone or iPad app (.ipa) turned into a Mac Catalyst app bundle in a fresh temporary folder, by the bundled
+    /// nullmoth-ipa2mac.py (exit 0 done, 2 refused with a sentence on stderr). The sentence is shown to the user as is.
+    static func wrapIpa(_ ipa: URL) -> (app: URL?, why: String?) {
+        let script = Bundle.main.resourcePath.map { $0 + "/nullmoth-ipa2mac.py" } ?? ""
+        guard FileManager.default.isExecutableFile(atPath: script) else { return (nil, "the converter is missing from the app") }
+        let out = NSTemporaryDirectory() + "nullmoth-ipa-" + UUID().uuidString
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        p.arguments = ["-I", script, ipa.path, out]
+        let o = Pipe(), e = Pipe()
+        p.standardOutput = o; p.standardError = e
+        do { try p.run() } catch { return (nil, "python3 could not start: \(error.localizedDescription)") }
+        let text = String(data: o.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let err = String(data: e.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        p.waitUntilExit()
+        guard p.terminationStatus == 0, let line = text.split(separator: "\n").last else {
+            let msg = err.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (nil, msg.isEmpty ? "the converter stopped (\(p.terminationStatus))" : redact(String(msg.suffix(400))))
+        }
+        return (URL(fileURLWithPath: String(line)), nil)
+    }
+
     static func validAppName(_ n: String) -> Bool {
         !n.isEmpty && n.count < 256 && !n.contains("/") && n != "." && n != ".." && !n.hasPrefix("-")
     }
@@ -619,20 +641,28 @@ extension App {
         guard ArmApps.job == nil else { return armFail("A translation is already running.") }
         guard ArmApps.isInstalled else { return armFail("Turn ARM apps on first.") }
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.applicationBundle]
+        panel.allowedContentTypes = [.applicationBundle] + (UTType("com.apple.itunes.ipa").map { [$0] } ?? [])
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.prompt = "Translate"
-        panel.message = "Pick an app built for Apple silicon. Your original stays as it is; the copy goes to Applications > NullMoth ARM."
-        guard panel.runModal() == .OK, let app = panel.url else { return armStatus() }
-        armBusy("Checking this Mac before translating \(app.deletingPathExtension().lastPathComponent)...")
+        panel.message = "Pick an app built for Apple silicon, or an iPhone or iPad app (.ipa) you built yourself. Your original stays as it is; the copy goes to Applications > NullMoth ARM."
+        guard panel.runModal() == .OK, let picked = panel.url else { return armStatus() }
+        let name = picked.deletingPathExtension().lastPathComponent
+        armBusy("Checking this Mac before translating \(name)...")
         DispatchQueue.global(qos: .userInitiated).async {
             let c = ArmApps.check()
             guard c["ok"] as? Bool == true else {
                 return self.armFail("Not translated: \(c["why"] as? String ?? "this Mac did not pass the check").")
             }
+            var app = picked
+            if picked.pathExtension.lowercased() == "ipa" {
+                self.armBusy("Preparing \(name) as a Mac app...")
+                let made = ArmApps.wrapIpa(picked)
+                guard let wrapped = made.app else { return self.armFail("Not translated: \(made.why ?? "the iPhone app could not be prepared").") }
+                app = wrapped
+            }
             DispatchQueue.main.async {
                 guard ArmApps.job == nil else { return self.armFail("A translation is already running.") }
-                self.armRunJob(ArmApps.Job(app: app), name: app.deletingPathExtension().lastPathComponent, what: "app")
+                self.armRunJob(ArmApps.Job(app: app), name: name, what: "app")
             }
         }
     }
