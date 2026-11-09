@@ -36,6 +36,10 @@ namespace A1401
         // the Mac app honours once, after the NVIDIA driver is set up, through its own signed install and CPU check.
         // Unticked, the stick is written exactly as before.
         readonly CheckBox armApps = new CheckBox();
+        // the full macOS installer on a second partition (p1401/fullinstaller.py), and the user's own USB port map (p1401/utbmap.py)
+        readonly CheckBox fullInstaller = new CheckBox();
+        readonly Button utbPick = new Button();
+        string utbMapDir = "";
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
         readonly LinkLabel ocLink = new LinkLabel();
@@ -146,6 +150,22 @@ namespace A1401
             armApps.Text = Loc.T("Also set up ARM apps (opt-in): after macOS starts, 1401 offers to finish setting up ARM app support with one click, if this Mac's processor can run it.");
             armApps.AutoSize = true; armApps.Checked = false;
             armApps.BackColor = Color.Transparent; armApps.ForeColor = Theme.Text; armApps.Font = Theme.Picker;
+            fullInstaller.Text = Loc.T("Also put Apple's full macOS installer on the stick (about 18 GB; needs a stick of 32 GB or more). Use it when the installer cannot download macOS inside Recovery: Recovery's memory disk is only about 5 GB.");
+            fullInstaller.AutoSize = true; fullInstaller.Checked = false;
+            fullInstaller.BackColor = Color.Transparent; fullInstaller.ForeColor = Theme.Text; fullInstaller.Font = Theme.Picker;
+            utbPick.Text = Loc.T("Use my own USB port map (UTBMap.kext)...");
+            utbPick.AutoSize = true; utbPick.BackColor = Theme.Panel; utbPick.ForeColor = Theme.Text; utbPick.Font = Theme.Picker; utbPick.FlatStyle = FlatStyle.Flat;
+            utbPick.Click += (s, e) =>
+            {
+                if (utbMapDir.Length > 0) { utbMapDir = ""; utbPick.Text = Loc.T("Use my own USB port map (UTBMap.kext)..."); if (built && !busy) { built = false; summary = ""; Go(2); } return; }
+                using (var pick = new FolderBrowserDialog { Description = Loc.T("Select the UTBMap.kext folder made for this board. It replaces the default USB map; a folder that holds a program is refused.") })
+                {
+                    if (pick.ShowDialog(this) != DialogResult.OK) return;
+                    utbMapDir = pick.SelectedPath;
+                    utbPick.Text = Loc.F("USB port map: {0} (click to go back to the default)", Path.GetFileName(utbMapDir));
+                    if (built && !busy) { built = false; summary = ""; Go(2); }
+                }
+            };
             guide.ScriptErrorsSuppressed = true;
             ocLink.Text = Loc.T("OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"); ocLink.AutoSize = true;
             ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
@@ -180,7 +200,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, utbPick, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps, fullInstaller });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             // The stars drift: ten frames a second repaint the glass panels and the see-through text on them, never the
@@ -331,6 +351,14 @@ namespace A1401
                 cursor = armApps.Bottom + 12;
             }
 
+            if (fullInstaller.Visible)
+            {
+                fullInstaller.AutoSize = false;
+                int fiHeight = Math.Max(24, fullInstaller.GetPreferredSize(new Size(width, 0)).Height);
+                fullInstaller.SetBounds(left, cursor, width, fiHeight);
+                cursor = fullInstaller.Bottom + 12;
+            }
+
             if (bar.Visible)
             {
                 bar.SetBounds(left, cursor, width, Math.Max(18, bar.Height));
@@ -349,6 +377,12 @@ namespace A1401
                 int boxHeight = Math.Max(24, expDrivers.GetPreferredSize(new Size(width, 0)).Height);
                 expDrivers.SetBounds(left, cursor, width, boxHeight);
                 cursor = expDrivers.Bottom + 12;
+            }
+
+            if (utbPick.Visible)
+            {
+                utbPick.SetBounds(left, cursor, Math.Min(width, Math.Max(300, utbPick.PreferredSize.Width)), Math.Max(30, utbPick.PreferredSize.Height));
+                cursor = utbPick.Bottom + 12;
             }
 
             int linksReserve = LinkHeight(ocLink, width) + LinkRowHeight(width, logLink, coffeeLink, creditsLink) +
@@ -460,7 +494,7 @@ namespace A1401
 
         void Show(params Control[] on)
         {
-            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, guide, ocLink, logLink, armApps }) c.Visible = on.Contains(c);
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, utbPick, guide, ocLink, logLink, armApps, fullInstaller }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
             appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
@@ -513,7 +547,7 @@ namespace A1401
                     next.Text = Loc.T(scanned ? "Continue >" : "Check this PC"); Show(facts, log); next.Enabled = true; break;
                 case 2:
                     note.Text = Loc.T(built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "Pick macOS 15 Sequoia or macOS 26 Tahoe below. 1401 builds the startup files (OpenCore EFI) for that version and checks them with OpenCore's own validator. Downloads OpenCore and drivers.");
-                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick, expDrivers); next.Enabled = scanned;
+                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick, expDrivers, utbPick); next.Enabled = scanned;
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
@@ -536,8 +570,8 @@ namespace A1401
                         "1401 downloads macOS from Apple onto it and adds the startup files") + Loc.T(summary.Contains("NVIDIA") ? " and the NullMoth NVIDIA driver." : ".");
                     next.Text = Loc.T(written ? "Continue >" : "Erase and create");
                     // the ARM apps request is acted on after the NVIDIA driver is set up, so only a stick that carries it offers it
-                    if (summary.Contains("NVIDIA")) Show(disks, refresh, armApps, bar, log); else Show(disks, refresh, bar, log);
-                    armApps.Enabled = !written; next.Enabled = true; FillDisks(); break;
+                    if (summary.Contains("NVIDIA")) Show(disks, refresh, armApps, fullInstaller, bar, log); else Show(disks, refresh, fullInstaller, bar, log);
+                    armApps.Enabled = !written; fullInstaller.Enabled = !written; next.Enabled = true; FillDisks(); break;
                 case 5:
                     note.Text = Loc.T("The macOS stick is ready.\r\n\r\n1. Restart and open your board's boot menu (the key is in your BIOS steps), then choose the stick.\r\n" +
                         "2. In the 1401 boot menu choose \"Install macOS\" and follow Apple's installer. The screen can stay still for up to two minutes while macOS is read from the stick: do not restart.\r\n" +
@@ -685,7 +719,7 @@ namespace A1401
                 var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
                 try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say(Loc.T("Using the last startup log on the stick to adjust this build."));
-                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + (expDrivers.Checked ? " --experimental-drivers" : "") + bootLogs, l => { lines.Add(l); });
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + (expDrivers.Checked ? " --experimental-drivers" : "") + (utbMapDir.Length > 0 ? " --utbmap " + Engine.Q(utbMapDir) : "") + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
@@ -708,6 +742,19 @@ namespace A1401
 // scan found. Only the sentence this app writes is localized.
                     summary = "macOS " + MacName(darwin) + Loc.T(" for this PC, as a ") + r["smbios"] + Loc.T(". The startup files passed OpenCore's own check.");
                     if (notices != null) foreach (var n in notices) if (IsSupportNotice("" + n)) summary += "\r\n" + n;
+                    // settings taken from boots of the same processor that got past the hand-off (known_machines.json), and the USB map
+                    var changes = r.ContainsKey("policy_changes") ? r["policy_changes"] as System.Collections.ArrayList : null;
+                    if (changes != null)
+                        foreach (var c in changes)
+                        {
+                            var rec = c as Dictionary<string, object>;
+                            object rule, after, why;
+                            if (rec == null || !rec.TryGetValue("rule", out rule)) continue;
+                            if ("" + rule == "known-machine" && rec.TryGetValue("after", out after) && rec.TryGetValue("why", out why))
+                                summary += "\r\n" + Loc.T("Setting known to work on this processor: ") + after + " (" + why + ")";
+                            else if ("" + rule == "usb-map-import" && rec.TryGetValue("why", out why) && rec.TryGetValue("after", out after))
+                                summary += "\r\n" + Loc.T("USB port map: ") + after + (("" + after) == "not used" ? " - " + why : "");
+                        }
                     built = true; showingPrerequisites = false;
                 }
                 catch (Exception e) { Say(Loc.F("Could not read the build result ({0}). The saved operation report includes the engine output.", e.GetType().Name)); foreach (var l in lines.Take(40)) Say(l); OfferOperationReport("build"); return; }
@@ -735,7 +782,29 @@ namespace A1401
                     Loc.T("1401 - erase this stick?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (ok != DialogResult.Yes) return;
                 busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
+                // the full macOS installer: fetched and verified BEFORE the stick is erased, so a failed download costs nothing
+                string fullPkg = null;
+                if (fullInstaller.Checked && fullInstaller.Visible)
+                {
+                    if (d.Size < 32UL * 1024 * 1024 * 1024)
+                    {
+                        busy = false; next.Enabled = true; refresh.Enabled = true;
+                        MessageBox.Show(this, Loc.T("The full macOS installer needs a stick of 32 GB or more. Pick a larger stick or turn the option off."), "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    var dir = Path.Combine(Engine.Work, "full-installer");
+                    Say(Loc.T("Downloading and checking Apple's full macOS installer first. The stick is not touched yet."));
+                    int frc = await Engine.Run("p1401.fullinstaller fetch " + darwin + " " + Engine.Q(dir), Say);
+                    fullPkg = Path.Combine(dir, "InstallAssistant.pkg");
+                    if (frc != 0 || !File.Exists(fullPkg))
+                    {
+                        busy = false; next.Enabled = true; refresh.Enabled = true;
+                        Say(Loc.T("The full macOS installer could not be downloaded and checked, so nothing was erased. Turn the option off to write the usual online installer."));
+                        return;
+                    }
+                }
                 var args = "p1401.usbwriter write " + d.Number + " " + Engine.Q(efiDir) + " " + darwin;
+                if (fullPkg != null) args += " --full-installer " + Engine.Q(fullPkg);
                 // the stick itself, not only its number: Windows can renumber it before or during the write
                 args += " --stick-id " + Engine.Q(d.UniqueId) + " --stick-size " + d.Size + " --stick-name " + Engine.Q(d.Name);
                 var pkg = Companion("nullmoth-nvidia-", ".tar.gz");
