@@ -36,7 +36,8 @@ class KnownMachines(unittest.TestCase):
 
     def test_every_table_row_names_its_source_and_status(self):
         for m in policy._known_machines():
-            self.assertTrue(m["board"] and m["cpu"] and m["source"])
+            # a row mined from stick logs (tools/mine_known_machines.py) is by CPU and has no board
+            self.assertTrue((m["board"] or m["source"].startswith("stick logs")) and m["cpu"] and m["source"])
             self.assertIn(m["status"], ("works", "fix-sent"))
 
 
