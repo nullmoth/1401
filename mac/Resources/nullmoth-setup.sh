@@ -800,20 +800,32 @@ if [ -n "$COLLECT" ]; then
   # travels only here, with Send logs, and is bounded: at most 24 files and 4 MB in all, plain names, no links.
   # failed-air begin
   FA_FILES=0; FA_BYTES=0
-  collect_failed_air() {  # <destination> <reader or empty> <folder>...
-    local dest=$1 reader=$2 dir f base size
-    shift 2
+  # Opens without following a link, checks the OPENED descriptor (a regular file owned by root, the account that reads it
+  # or the console user) and copies at most 512 KiB from it: nothing is trusted from an earlier stat of the path.
+  fa_read() {  # <file> <owner uid>...
+    /usr/bin/perl -e '
+      use Fcntl; my ($f, @ok) = @ARGV;
+      sysopen(my $h, $f, O_RDONLY | O_NOFOLLOW) or exit 1;
+      my @s = stat($h) or exit 1;
+      exit 1 unless -f $h && $s[7] > 0 && $s[7] <= 524288 && grep { $_ == $s[4] } (0, $<, @ok);
+      my ($buf, $n, $left) = ("", 0, 524288);
+      binmode STDOUT;
+      while ($left > 0 && ($n = sysread($h, $buf, $left < 65536 ? $left : 65536))) { print $buf; $left -= $n; }
+      exit 0;' "$@"
+  }
+  collect_failed_air() {  # <destination> <reader or empty> <console uid or empty> <folder>...
+    local dest=$1 reader=$2 cuid=$3 dir f base got
+    shift 3
     for dir in "$@"; do
       [ -d "$dir" ] && [ ! -L "$dir" ] || continue
       for f in "$dir"/*.ll; do
-        [ -f "$f" ] && [ ! -L "$f" ] || continue
         [ "$FA_FILES" -lt 24 ] || break 2
         base=$(basename "$f" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' '_')
-        size=$(stat -f %z "$f" 2>/dev/null || echo 0)
-        [ "$size" -gt 0 ] && [ "$size" -le 524288 ] && [ $((FA_BYTES + size)) -le 4194304 ] || continue
-        if [ -n "$reader" ]; then sudo -u "$reader" cat "$f" > "$dest/failed-air-$base" 2>/dev/null || { rm -f "$dest/failed-air-$base"; continue; }
-        else cat "$f" > "$dest/failed-air-$base" 2>/dev/null || { rm -f "$dest/failed-air-$base"; continue; }; fi
-        FA_FILES=$((FA_FILES + 1)); FA_BYTES=$((FA_BYTES + size))
+        if [ -n "$reader" ]; then sudo -u "$reader" /bin/bash -c "$(declare -f fa_read); fa_read \"\$@\"" _ "$f" $cuid > "$dest/failed-air-$base" 2>/dev/null
+        else fa_read "$f" $cuid > "$dest/failed-air-$base" 2>/dev/null; fi
+        got=$(stat -f %z "$dest/failed-air-$base" 2>/dev/null || echo 0)
+        if [ "$got" -le 0 ] || [ $((FA_BYTES + got)) -gt 4194304 ]; then rm -f "$dest/failed-air-$base"; continue; fi
+        FA_FILES=$((FA_FILES + 1)); FA_BYTES=$((FA_BYTES + got))
       done
     done
     echo "failed-air: $FA_FILES file(s), $FA_BYTES bytes" >> "$dest/driver-state.txt"
@@ -822,11 +834,11 @@ if [ -n "$COLLECT" ]; then
   fa_user_cache=""
   if [ "$(id -u)" = 0 ]; then
     [ -n "$console_user" ] && [ "$console_user" != root ] && [ "$console_user" != loginwindow ] && fa_user_cache=$(sudo -u "$console_user" getconf DARWIN_USER_CACHE_DIR 2>/dev/null)
-    collect_failed_air "$COLLECT" nobody /Library/GPUBundles/nvmtl/failed-air
-    [ -n "$fa_user_cache" ] && collect_failed_air "$COLLECT" "$console_user" "${fa_user_cache%/}/nvmtl/failed-air"
+    collect_failed_air "$COLLECT" nobody "" /Library/GPUBundles/nvmtl/failed-air
+    [ -n "$fa_user_cache" ] && collect_failed_air "$COLLECT" "$console_user" "$(id -u "$console_user" 2>/dev/null)" "${fa_user_cache%/}/nvmtl/failed-air"
   else
     fa_user_cache=$(getconf DARWIN_USER_CACHE_DIR 2>/dev/null)
-    collect_failed_air "$COLLECT" "" /Library/GPUBundles/nvmtl/failed-air "${fa_user_cache%/}/nvmtl/failed-air"
+    collect_failed_air "$COLLECT" "" "" /Library/GPUBundles/nvmtl/failed-air "${fa_user_cache%/}/nvmtl/failed-air"
   fi
   # -h: act on a symbolic link itself, never on what it points at. Without it
   # root followed any link planted in the collection directory and made the
