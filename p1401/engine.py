@@ -195,6 +195,8 @@ class Policy:
     # through testers before it becomes the default. On, the guard boards keep iMessage, Apple ID and the startup-disk
     # choice across reboots instead of losing every NVRAM write.
     persistent_nvram_amd: bool = False
+    # A USB port map the user made (a UTBMap.kext folder): used instead of UTBDefault.kext (p1401/utbmap.py).
+    utbmap: str = ""
 
 
 @dataclass
@@ -963,6 +965,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # firmware that lists its processors only as x2APIC (Arrow Lake): macOS counts none and stops silently
                 from . import madt  # noqa: PLC0415
                 res.policy_changes += madt.apply(os.path.abspath(acpi_dir), out_dir)
+                if policy.utbmap:
+                    from . import utbmap  # noqa: PLC0415
+                    res.policy_changes += utbmap.apply(out_dir, policy.utbmap)
                 res.policy_changes += policy_mod.legal_comments(os.path.join(out_dir, "EFI", "OC", "config.plist"))
                 # A fresh build left an OpenCore.efi that was not the verified release's (NM-YZZJY5WJ): the boot files
                 # are written back from the verified zip before the check, and a file that STILL differs is being
