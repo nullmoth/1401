@@ -69,31 +69,75 @@ def _text(section, name, props, wifi_ok):
     return None
 
 
-def notes(report, disabled, explained=(), existing=()):
+def _darwin(v):
+    try:
+        return tuple(int(x) for x in str(v).split("."))
+    except ValueError:
+        return None
+
+
+def has_driver(props, macos):
+    """True when the engine's own compatibility range for this device contains the chosen macOS (the device is then switched
+    off only because another device of its kind was picked), False when macOS has no driver for it on this version."""
+    comp = props.get("Compatibility")
+    want = _darwin(macos)
+    if not isinstance(comp, (list, tuple)) or len(comp) < 2 or want is None:
+        return False
+    hi, lo = _darwin(comp[0]), _darwin(comp[-1])
+    return bool(hi and lo and hi >= want >= lo)
+
+
+def _names(section_devices):
+    return ", ".join(sorted(section_devices)) if section_devices else ""
+
+
+def _graphics(label, props, macos, kept):
+    if has_driver(props, macos):
+        return (f"Graphics: {label} is switched off in macOS because " + (f"{kept} drives the display instead" if kept else
+                "another graphics adapter was chosen") + ". That is the usual setup for a PC with a graphics card.")
+    drives = (f"{kept} drives the display" if kept else
+              "macOS shows the picture through the firmware's basic display (the desktop and apps work, with no graphics acceleration)")
+    return (f"Graphics: {label} has no macOS driver on this macOS version, so it is switched off; {drives}. "
+            "The NullMoth driver covers GeForce GTX 16 series and newer.")
+
+
+def _deselected(section, label, kept):
+    kind = {"Network": "Wi-Fi card", "Bluetooth": "Bluetooth adapter"}.get(section, "device")
+    return (f"{label} is left off: macOS uses one {kind}" + (f", {kept}" if kept else "") + ", and the other one is switched off.")
+
+
+def notes(report, disabled, customization=None, macos=None, explained=(), existing=()):
     """-> notes for every device still switched off after the driver passes.
 
     report: the full scan as the engine saw it (names and sections); disabled: the engine's disabled devices;
-    explained: device IDs another notice already covers (community.reclaim); existing: notices so far (a device whose
-    ID one of them already contains is skipped). Graphics are described by amd_gpu / intel_gpu / nullmoth, not here;
-    fingerprint and face sensors are one note for all of them."""
+    customization: the devices kept; macos: the Darwin version chosen; explained: device IDs another notice already
+    covers (community.reclaim); existing: notices so far (a device whose ID one of them contains is skipped).
+    A device with a driver that is off because another of its kind was picked is said so, not reported as lost."""
     out, bio = [], []
     explained = {str(e).upper() for e in explained}
+    existing = [n for n in existing if "\n" not in n]     # the engine's multi-line transcripts print every ID; they explain nothing
+    customization = customization or {}
     wifi_ok = any(isinstance(p, dict) and _is_wifi(n, p) and n not in disabled for n, p in (report.get("Network") or {}).items())
-    for name, props in (disabled or {}).items():
+    for key, props in (disabled or {}).items():
         props = props if isinstance(props, dict) else {}
-        section, device = locate(report, name, props)
-        if section is None or section == "GPU":
+        section, name = locate(report, key, props)
+        if section is None:
             continue
-        name = device
         did = str(props.get("Device ID", "")).upper()
         if did and (did in explained or any(did in n.upper() for n in existing)):
             continue
-        if section == "Biometric":
-            bio.append(_label(name, props))
-            continue
-        text = _text(section, name, props, wifi_ok)
-        if text:
-            out.append(text)
+        label = _label(name, props)
+        kept = _names(customization.get(section))
+        if section == "GPU":
+            out.append(_graphics(label, props, macos, kept))
+        elif section == "Biometric":
+            bio.append(label)
+        elif has_driver(props, macos) and section in ("Network", "Bluetooth"):
+            out.append(_deselected(section, label, kept))
+        else:
+            text = _text(section, name, props, wifi_ok)
+            if text:
+                out.append(text)
     if bio:
         out.append("Fingerprint or face sign-in: " + "; ".join(bio) + ". macOS does not support PC fingerprint or face "
                    "sensors (Touch ID needs Apple's own security chip), so sign in with the password.")

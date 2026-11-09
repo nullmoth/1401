@@ -258,7 +258,7 @@ def reclaim(customization, disabled, report, macos_version, experimental):
                 cust.setdefault(sec, {})[name] = left.pop(keys[(sec, name)])
         else:
             if note:
-                notices.append(note)
+                notices.append(note + " Applies to: " + ", ".join(f"{n} ({view[s][n].get('Device ID')})" for s, n in sorted(hit)) + ".")
             explained |= {str(view[sec][n].get("Device ID", "")).upper() for sec, n in hit}
     return cust, left, notices, explained
 

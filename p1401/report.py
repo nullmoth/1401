@@ -7,6 +7,7 @@ USB audio is class-compliant (macOS drives it without a kext), so it never ends 
 """
 import json
 import os
+import re
 import hashlib
 import copy
 
@@ -175,6 +176,27 @@ _LAPTOP_WORDS = ("laptop", "notebook", "thinkpad", "ideapad", "legion", "zenbook
                  "thin gf", "katana", "stealth", "vector", "raider", "titan gt", "blade")
 
 
+_INTEL_CPU = re.compile(r"\bi[3579]-\d{4,5}([A-Z]{0,3}\d?)\b")
+_AMD_CPU = re.compile(r"Ryzen \d (?:PRO )?\d{4}([A-Z]{0,4}\d{0,2}[A-Z]?)\b")
+
+
+def cpu_class(name):
+    """'Laptop' or 'Desktop' from a processor's model suffix, None when the name does not say."""
+    m = _INTEL_CPU.search(name or "")
+    if m:
+        s = m.group(1)
+        if s in ("", "K", "KF", "KS", "F", "T", "S", "TE") :
+            return "Desktop"
+        return "Laptop" if s.startswith(("H", "P", "U", "G", "Y")) else None
+    m = _AMD_CPU.search(name or "")
+    if m:
+        s = m.group(1)
+        if s in ("X", "XT", "X3D", "", "G", "GE", "F") and not s.startswith("H"):
+            return "Desktop"
+        return "Laptop" if s.startswith(("H", "U")) else None
+    return None
+
+
 def _field_gaps(report, notes):
     """Scans from the field that the engine's validator refuses although the EFI does not depend on the missing part
     (1.x to 2.8 build logs: Network 8 PCs, SD Controller 12, USB Controllers 2, Motherboard Platform 5, CPU maker 6)."""
@@ -196,6 +218,13 @@ def _field_gaps(report, notes):
         if isinstance(props, dict) and not props.get("Bus Type"):
             props["Bus Type"] = "PCI"
     board = report.get("Motherboard")
+    kind = cpu_class((report.get("CPU") or {}).get("Processor Name", "")) if isinstance(report.get("CPU"), dict) else None
+    if isinstance(board, dict) and kind and board.get("Platform") in ("Desktop", "Laptop") and board["Platform"] != kind:
+        # Machines with this processor reached the macOS desktop as the other kind (Mac model from the reached-desktop reports):
+        # a desktop part (F, K, X) is not in a laptop and a mobile part (H, HX, U, P) is set up as a laptop, mini PCs included.
+        notes.append(f"Motherboard: the scan says {board['Platform']} but the processor ({report['CPU'].get('Processor Name')}) is a "
+                     f"{kind.lower()} part; set up as a {kind.lower()}.")
+        board["Platform"] = kind
     if isinstance(board, dict) and board.get("Platform") not in ("Desktop", "Laptop"):
         low = str(board.get("Name", "")).lower()
         guess = "Laptop" if any(w in low for w in _LAPTOP_WORDS) else "Desktop"
