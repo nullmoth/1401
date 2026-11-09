@@ -557,6 +557,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // Ryzen laptops: the power-limit profile (setup --ryzen-power on|off); the checked driver package rides along so setup can
         // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
         // GPU boost (setup --gpu-boost on|off|remove): on takes the daemon from the checked package; status is read here, no password
+        // Experimental features (setup --experimental <ids>): the page sends the whole list that should be on; unknown ids refuse it
+        case "experimental":
+            guard let list = Experimental.argument(b["items"]) else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "That list of experimental features was not accepted; nothing was changed."]); break }
+            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--experimental", list])
         case "gpuboost":
             let op = b["op"] as? String ?? "status"
             if op == "status" { send("boostStatus", ["text": GPUBoost.describe(installed: GPUBoost.installed(), setting: GPUBoost.setting(), trusted: GPUBoost.installedProgram().map { GPUBoost.trusted($0) } ?? true)]); break }
@@ -656,7 +661,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "vmdOrRaid": App.hasVmdOrRaid(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "vmdOrRaid": App.hasVmdOrRaid(), "experimentalOn": Experimental.on(record: (try? String(contentsOfFile: "/Library/NullMoth/experimental", encoding: .utf8)) ?? ""), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
