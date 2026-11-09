@@ -72,11 +72,11 @@ class ReplayGate(unittest.TestCase):
             self.assertTrue(per["24"]["ok"], (key, per["24"]["refused"][:120]))
             self.assertEqual(per["24"]["storage_plan"]["kind"], "external-drive")
 
-    def test_the_only_stops_left_are_a_card_windows_cannot_name_a_virtual_machine_and_a_non_intel_amd_cpu(self):
+    def test_the_only_stops_left_are_virtual_machines_a_graphics_chip_macos_has_no_driver_for_and_a_zhaoxin_cpu(self):
         c = corpus()
         codes = {gate.refusal_code(c["results"][m["key"]]["24"]["refused"] or c["results"][m["key"]]["24"]["crash"])
                  for m in c["machines"] if not c["results"][m["key"]]["24"]["ok"]}
-        self.assertEqual(codes, {"gpu-no-windows-driver", "virtual-machine", "cpu-maker"})
+        self.assertEqual(codes, {"virtual-machine", "gpu-not-usable", "cpu-maker"})
 
 
 class GateCanFire(unittest.TestCase):
@@ -153,6 +153,35 @@ class FixesFromTheReplay(unittest.TestCase):
         h.tee = engine._Tee(False)
         for _ in range(5):
             self.assertEqual(h.request_input(None, "Press Enter to continue..."), "")
+
+    def test_a_hygon_dhyana_is_planned_as_a_zen_1_with_a_notice_that_it_is_untested(self):
+        from p1401.report import normalize
+        rep, notes = normalize({"CPU": {"Manufacturer": "HygonGenuine", "Processor Name": "Hygon C86-3G", "Codename": "Unknown"},
+                                "Motherboard": {"Name": "x", "Platform": "Desktop"}, "GPU": {}})
+        self.assertEqual((rep["CPU"]["Manufacturer"], rep["CPU"]["Codename"]), ("AMD", "Summit Ridge"))
+        self.assertTrue(any("not been run on a Hygon PC" in n for n in notes))
+
+    def test_a_zhaoxin_cpu_stops_with_the_exact_reason(self):
+        from p1401.report import normalize
+        with self.assertRaises(RuntimeError) as c:
+            normalize({"CPU": {"Manufacturer": "CentaurHauls", "Processor Name": "ZHAOXIN KaiXian KX-U6780A"}, "Motherboard": {}, "GPU": {}})
+        self.assertIn("CentaurHauls", str(c.exception))
+        self.assertIn("CPUID vendor", str(c.exception))
+
+    def test_an_adapter_windows_shows_as_basic_display_is_named_from_its_pci_id(self):
+        from p1401.report import normalize
+        with self.assertRaises(RuntimeError) as c:
+            normalize({"CPU": {"Manufacturer": "Intel"}, "Motherboard": {}, "GPU": {"Microsoft Basic Display Adapter": {
+                "Manufacturer": "Unknown", "Device ID": "15AD-0405"}}})
+        self.assertIn("VMware", str(c.exception))
+        self.assertIn("virtual machine", str(c.exception))
+
+    def test_an_ssdt_oem_table_id_padded_with_nul_bytes_gives_a_comment_the_plist_accepts(self):
+        import plistlib
+        from p1401 import acpi_shims
+        name = acpi_shims.table_name(b"Artic\x00\x00\x00")
+        self.assertEqual(name, "Artic")
+        plistlib.dumps({"Comment": f"ALIB to XLIB in {name}"})      # a NUL in the string raises ValueError
 
     def test_a_scan_with_no_network_section_is_planned_not_rejected(self):
         c = copy.deepcopy(census.BASELINE)

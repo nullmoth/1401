@@ -23,27 +23,55 @@ import sys
 SERVICES = ("storahci", "stornvme")
 REG = r"HKLM\SYSTEM\CurrentControlSet\Services"
 
-# Where the VMD / storage-mode switch usually is, by the maker named in the scan's board string. Menu names move between
-# BIOS versions, so every line says "usually" and the plan also carries the generic wording.
+# Where the VMD / storage-mode switch is, by the maker named in the scan's board string. Each row cites the maker's own page
+# where one was found (checked 2026-11-09); "reported" rows rest on user reports and say so in the text. Menu names move between
+# BIOS versions, and the setting can be absent on a model (the text then points at the external-drive alternative).
 BIOS_PATHS = (
-    ("ASUS", "Press F7 for Advanced Mode, then Advanced > VMD setup menu > Enable VMD controller = Disabled (some boards: "
-             "Advanced > PCH Storage Configuration, or Boot > Intel Rapid Storage Technology)."),
-    ("MICRO-STAR", "Press Delete, then Settings > Advanced > VMD setup menu > Enable VMD controller = Disabled (some boards: "
-                   "Settings > Advanced > Integrated Peripherals > SATA Mode = AHCI)."),
-    ("MSI", "Press Delete, then Settings > Advanced > VMD setup menu > Enable VMD controller = Disabled."),
-    ("GIGABYTE", "Press Delete, then Settings > IO Ports > Intel(R) VMD technology (or Advanced > VMD setup menu) = Disabled; "
-                 "on some boards Settings > IO Ports > SATA Configuration > SATA Mode Selection = AHCI."),
-    ("ASROCK", "Press F2, then Advanced > Storage Configuration > VMD / RAID mode = Disabled, SATA Mode = AHCI."),
-    ("DELL", "Press F2, then Storage > SATA/NVMe Operation (or Storage Controller) = AHCI/NVMe, not RAID On."),
-    ("HP", "Press F10, then Advanced > System Options (or Advanced > Configure Storage Controller) > Storage Controller = AHCI."),
-    ("LENOVO", "Press F1 (ThinkPad) or F2 (IdeaPad/Legion), then Config > Storage > Controller Mode = AHCI "
-               "(older models: Devices > ATA Drive Setup > SATA Controller Mode Option = AHCI)."),
-    ("ACER", "Press F2, then Main > SATA Mode = AHCI. If the option is not shown, press Ctrl+S on the Main page to reveal it."),
-    ("HUAWEI", "Press F2, then look for Storage > SATA / NVMe mode = AHCI. Huawei and Honor models often hide it: see the "
-               "drive alternative."),
-    ("HONOR", "Press F2, then look for Storage > SATA / NVMe mode = AHCI. Honor models often hide it: see the drive alternative."),
-    ("MECHREVO", "Press Delete or F2, then Advanced > VMD setup menu or SATA Mode = AHCI. Many Mechrevo models hide it: see the "
-                 "drive alternative."),
+    # ASUS: https://www.asus.com/support/faq/1048546/ and https://www.asus.com/me-en/support/faq/1044458/
+    ("ASUS", "Press F7 for Advanced Mode, then Advanced > VMD setup menu > Enable VMD controller = Disabled. If the BIOS has no VMD "
+             "option, ASUS says the model does not support the feature."),
+    # MSI desktop: https://www.msi.com/support/technical_details/MB_OS_Inst_HDDSSD_Unrecog
+    # MSI notebook: https://www.msi.com/support/technical_details/NB_Installation_Unrecognizable
+    ("MICRO-STAR", "Desktop board: press Delete, F7 for Advanced mode, then Advanced > Integrated Peripherals > RAID Configuration "
+                   "(Intel VMD) > Enable VMD controller = Disabled. Notebook: Advanced > Enable VMD controller = Disabled (MSI says the "
+                   "option is hidden on some notebooks)."),
+    ("MSI", "Desktop board: press Delete, F7 for Advanced mode, then Advanced > Integrated Peripherals > RAID Configuration "
+            "(Intel VMD) > Enable VMD controller = Disabled. Notebook: Advanced > Enable VMD controller = Disabled."),
+    # Gigabyte: https://download.gigabyte.com/FileList/Manual/mb_manual_intel700series-raid_e.pdf and
+    # https://www.gigabyte.com/Support/FAQ/4054 (a BIOS update can change this setting)
+    ("GIGABYTE", "Press Delete, then Settings > IO Ports > VMD setup menu > Enable VMD controller = Disabled (Intel 600/700-series "
+                 "boards). A BIOS update can switch it back."),
+    ("AORUS", "Press Delete, then Settings > IO Ports > VMD setup menu > Enable VMD controller = Disabled."),
+    # ASRock: no manufacturer page found; generic Advanced > Storage Configuration is from the board manuals' layout, not checked
+    ("ASROCK", "Press F2, then look under Advanced > Storage Configuration for VMD / SATA mode (AHCI). ASRock publishes the exact "
+               "menu in each board's manual."),
+    # Dell: Latitude 5320 service manual https://www.dell.com/support/manuals/en-lt/latitude-13-5320-2-in-1-laptop/latitude_5320_sm/storage
+    # (options Disabled / AHCI/NVMe / RAID On, RAID On the default) and https://www.dell.com/support/kbdoc/en-us/000183948/
+    ("DELL", "Press F2, then Storage > SATA/NVMe Operation = AHCI/NVMe, not RAID On (older models: System Configuration > SATA "
+             "Operation). Dell ships many Latitudes with RAID On. A BIOS update can set it back to RAID On."),
+    # HP: https://support.hp.com/vn-en/document/ish_9631042-9631101-16 (desktops: Storage > Storage Options > SATA Emulation = AHCI)
+    ("HP", "Press F10 (desktops: Storage > Storage Options > SATA Emulation = AHCI). Notebooks: Advanced > System Options or "
+           "Advanced > Configure Storage Controller, set to AHCI; reported by users, not in an HP page we could check. "
+           "Some HP notebooks have no such option."),
+    # Lenovo: no Lenovo page found for notebook storage mode; third-party UEFI guide and user reports: Config > Storage > Controller Mode
+    # (Intel VMD on = RAID, off = AHCI on Legion). Per-model manuals: https://support.lenovo.com/us/en/manuals/um002089-hardware-maintenance-manual
+    ("LENOVO", "Press F1 (ThinkPad) or F2 (IdeaPad, Legion), then Config > Storage > Controller Mode = AHCI (Legion: Intel VMD "
+               "Controller = Disabled). This path is from user reports, not a Lenovo page; Lenovo lists each model's menu in its "
+               "Hardware Maintenance Manual. Some IdeaCentre/IdeaPad models have no such option."),
+    # Acer desktop: https://community.acer.com/tw/kb/articles/15968 (Del, Advanced > Integrated Peripherals, Ctrl+D shows VMD Controller;
+    # off gives Onboard SATA Mode = AHCI Only). Notebooks: user reports (Main tab, Ctrl+S): https://community.acer.com/en/discussion/690325
+    ("ACER", "Desktop: press Delete, then Advanced > Integrated Peripherals, press Ctrl+D to show VMD Controller, set it to Disabled "
+             "(SATA mode becomes AHCI Only). Notebook: press F2, then on the Main tab press Ctrl+S to show VMD Controller (user reports; "
+             "some models hide it or ask for a BIOS password)."),
+    # Huawei: https://consumer.huawei.com/en/support/content/en-us15777885/ documents entering the BIOS with F2 and an Advanced page;
+    # Huawei publishes no storage-mode setting for MateBooks (no page found).
+    ("HUAWEI", "Press F2 to enter the BIOS (Huawei's own page). Huawei documents no storage or VMD setting for MateBooks; if the "
+               "Advanced page has none, use the drive alternative (macOS on a USB SSD)."),
+    ("HONOR", "Press F2 to enter the BIOS. Honor documents no storage or VMD setting; if the Advanced page has none, use the drive "
+              "alternative (macOS on a USB SSD)."),
+    # Mechrevo: no maker page found
+    ("MECHREVO", "Mechrevo publishes no BIOS guide we could find. Press Delete or F2, look under Advanced for VMD or SATA mode; if "
+                 "there is none, use the drive alternative (macOS on a USB SSD)."),
 )
 GENERIC_PATH = ("Open the BIOS (Delete, F2 or F10 while the PC starts), find the storage settings (often Advanced > Storage, "
                 "SATA Configuration or VMD setup), and set Intel VMD / Volume Management Device to Disabled, or the storage "

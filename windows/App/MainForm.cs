@@ -1069,6 +1069,13 @@ namespace A1401
             if (evidence != null) {
                 var receipt = Send(evidence.Path, "1401-scan-evidence.json.txt", kind + " failed; saved evidence from this scan run; macOS support not assessed", batch);
                 if (receipt != null) ids.Add(receipt);
+                // the DSDT and SSDTs the build wrote next to the scan (p1401/acpi_bundle.py: size-capped, no licence or logo tables)
+                var acpiZip = Path.Combine(Path.GetDirectoryName(evidence.Path), "acpi-bundle.zip");
+                if (File.Exists(acpiZip) && new FileInfo(acpiZip).Length <= 7 * 1024 * 1024)
+                {
+                    var acpiReceipt = Send(acpiZip, "1401-acpi-tables.zip", kind + " failed; firmware tables from this scan run", batch);
+                    if (acpiReceipt != null) ids.Add(acpiReceipt);
+                }
             }
             Say(ids.Count > 0 ? Loc.T("Logs sent. Report IDs ") + string.Join(", ", ids) + Loc.T(" - mention them in the NullMoth Discord if you ask for help.")
                              : Loc.F("Could not send the logs ({0}). They stay on this PC.", lastSendError));
