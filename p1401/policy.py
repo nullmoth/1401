@@ -79,6 +79,12 @@ def is_intel_hybrid(cpu):
     return bool(_INTEL_HYBRID_NAME.search(str((cpu or {}).get("Processor Name") or "")))
 
 
+def _word_in(needle, hay):
+    """needle inside hay, not as part of a longer model name: "12700" is not "12700H", "Ryzen 5 7600" is not "7600X".
+    An empty needle matches anything (an entry for a CPU on any board)."""
+    return re.search(r"(?<![0-9a-z])" + re.escape(needle.lower()) + r"(?![0-9a-z])", hay.lower()) is not None if needle else True
+
+
 def _known_machines():
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "known_machines.json")
     try:
@@ -629,7 +635,7 @@ def apply(config_path, result, policy):
     mb = ((result.hardware or {}).get("Motherboard") or {}).get("Name", "").lower()
     cpu_name = ((result.hardware or {}).get("CPU") or {}).get("Processor Name", "").lower()
     for known in _known_machines():
-        if known["board"].lower() in mb and known["cpu"].lower() in cpu_name:
+        if _word_in(known["board"], mb) and _word_in(known["cpu"], cpu_name):
             q = cfg.setdefault("Booter", {}).setdefault("Quirks", {})
             for k, v in known.get("booter_quirks", {}).items():
                 if q.get(k) != v:
