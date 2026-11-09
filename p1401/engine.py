@@ -38,6 +38,7 @@ from . import identity_ready
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
+from . import storage_prep
 from . import unsupported
 from . import report as report_mod
 from . import validate as validate_mod
@@ -252,6 +253,8 @@ class BuildResult:
     acpi_fingerprints: list = field(default_factory=list)
     policy_changes: list = field(default_factory=list)
     validation: dict = field(default_factory=dict)
+    # Storage macOS cannot see (Intel VMD, unusable drives) and the plan past it (p1401/storage_prep.py); {} when none
+    storage_plan: dict = field(default_factory=dict)
 
 
 def _choose_last(prompt, ctx, policy):
@@ -899,18 +902,34 @@ def _prepare_for_build(out_dir, res, policy, h):
     return machine_key, prior_identity
 
 
-def _set_aside_storage(report, h):
-    """external_target: storage controllers macOS cannot use (Intel VMD, drives on its unsupported list) stop counting as
-    places to install, so the engine's "no compatible storage" and VMD stops do not apply. They are named in a note."""
+def _set_aside_storage(report, h, external=False):
+    """Storage controllers macOS cannot use (Intel VMD, drives on its unsupported list) stop counting as places to install, so
+    the engine's VMD and "no compatible storage" stops do not end the build: the EFI carries no storage setting, and the
+    plan past the storage problem (storage_prep.plan) is returned for the result and shown as BIOS requirements. -> plan or None."""
     from Scripts.datasets import pci_data  # noqa: PLC0415 - importable once the engine is loaded
+    aside = []
+    vmd_ids, unsupported_ids = getattr(pci_data, "IntelVMDIDs", ()), getattr(pci_data, "UnsupportedNVMeSSDIDs", {})
     for name, props in (report.get("Storage Controllers") or {}).items():
         did, sub = props.get("Device ID"), props.get("Subsystem ID", "0" * 8)
-        bad = did in pci_data.IntelVMDIDs or sub in (pci_data.UnsupportedNVMeSSDIDs.get(did) or ())
+        bad = did in vmd_ids or sub in (unsupported_ids.get(did) or ())
         if bad and props.get("Disk Drives"):
             props["Disk Drives"] = []
-            h.notices.append(f"Storage: {name} ({did}) is " + ("behind Intel VMD" if did in pci_data.IntelVMDIDs else
-                             "a drive macOS cannot use") + ", so macOS cannot be installed on it. Install macOS on a drive that is not "
-                             "behind VMD, such as a USB SSD; the internal drive and Windows are left as they are.")
+            aside.append((name, did, did in vmd_ids))
+    vmd = [f"{n} ({d})" for n, d, v in aside if v]
+    plan = None
+    if external:
+        plan = storage_prep.plan(report, "external-drive", vmd)
+    elif vmd:
+        plan = storage_prep.plan(report, "vmd-off", vmd)
+    elif aside:
+        plan = storage_prep.plan(report, "external-drive")
+    for name, did, vmd in aside:
+        h.notices.append(f"Storage: {name} ({did}) is " + ("behind Intel VMD" if vmd else "a drive macOS cannot use") + ", so macOS "
+                         "cannot be installed on it. " + ("Switch VMD off in the BIOS (the steps are in the build result) or install "
+                         "macOS on a drive that is not behind VMD, such as a USB SSD." if vmd and plan and plan["kind"] == "vmd-off" else
+                         "Install macOS on a drive that is not behind VMD, such as a USB SSD; the internal drive and Windows are left "
+                         "as they are."))
+    return plan
 
 
 def _select(o, h, policy, res, report, load_capture, prepare):
@@ -919,8 +938,7 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     the field has sent, so a rule changed here is changed for both. load_capture() returns the scan receipt;
     prepare() runs the output-folder checks at the point the build did them and returns (machine key, prior identity)."""
     _nullmoth_gpu_pass(o.c, h)
-    if policy.external_target:
-        _set_aside_storage(report, h)
+    res.storage_plan = _set_aside_storage(report, h, policy.external_target) or {}
     hw, native, oclp_versions, _ = o.c.check_compatibility(report)
     res.hardware = hw
     # The suggestion is read after the Wi-Fi pre-pass: a card it disables must not hold the version down.
@@ -984,6 +1002,10 @@ def _select(o, h, policy, res, report, load_capture, prepare):
         h.notices.append("Wi-Fi: this Intel card uses itlwm. In macOS, Wi-Fi is joined with the HeliPort app "
                          "(github.com/OpenIntelWireless/HeliPort/releases), not the menu bar; install it after setup.")
     res.bios_requirements = o.check_bios_requirements(report, cust)
+    if res.storage_plan:
+        res.bios_requirements = res.bios_requirements + (
+            ["Turn off Intel VMD: " + res.storage_plan["bios_path"]] if res.storage_plan["kind"] == "vmd-off" else
+            ["Install macOS on a drive macOS can see (a USB SSD)"])
     return types.SimpleNamespace(cust=cust, disabled=disabled, smbios=smbios, mv=mv, needs_oclp=needs_oclp,
                                  net_status=net_status, machine_key=machine_key, prior_identity=prior_identity, hw=hw)
 
