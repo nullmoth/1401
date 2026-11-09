@@ -10,6 +10,7 @@ import unittest
 import zipfile
 
 from p1401 import community, policy, validate
+from tests.ocvalidate_run import run_validator
 
 
 def _config(comments):
@@ -79,10 +80,7 @@ class LegalCommentsValidator(unittest.TestCase):
                 plistlib.dump(cfg, fh)
             if clean:
                 policy.legal_comments(path)
-            exe = pathlib.Path(d) / ("ocvalidate.exe" if platform.system() == "Windows" else "ocvalidate")
-            exe.write_bytes(self.validator)
-            exe.chmod(0o755)
-            out = subprocess.run([str(exe), path], capture_output=True, text=True, timeout=60)
+            out = run_validator(self.validator, path)
             return out.stdout + out.stderr
 
     def test_validator_refuses_the_tilde(self):

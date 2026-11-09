@@ -10,6 +10,7 @@ import unittest
 import zipfile
 
 from p1401 import engine, nullmoth, policy, validate
+from tests.ocvalidate_run import run_validator
 
 
 class DisabledGpuPolicy(unittest.TestCase):
@@ -55,10 +56,7 @@ class DisabledGpuPolicy(unittest.TestCase):
                                         hardware=report, disabled_devices=disabled)
             changes = policy.apply(str(config), result, engine.Policy())
             fixed = plistlib.loads(config.read_bytes())
-            validator = root / ('ocvalidate.exe' if platform.system() == 'Windows' else 'ocvalidate')
-            validator.write_bytes(self.validator)
-            validator.chmod(0o755)
-            checked = subprocess.run([str(validator), str(config)], capture_output=True, text=True)
+            checked = run_validator(self.validator, str(config))
             self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
             return fixed, changes
 
