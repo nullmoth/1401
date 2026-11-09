@@ -141,6 +141,9 @@ function render(m) {
   // whose kexts were loaded was told to restart and allow an extension that was never blocked).
   if (m.files && !S.installed && m.kexts >= 4) {
     $("verdict").innerHTML = '<p class="warn">The driver is loaded, but macOS shows no NVIDIA Metal device yet.</p><p>On a laptop whose built-in screen is wired to the Intel or AMD graphics (no MUX switch), the NVIDIA card draws only the displays plugged into its own HDMI or DisplayPort: connect one there and restart. Otherwise restart once; if it stays this way, use Send logs.</p>';
+  } else if (m.files && !S.installed && m.driverOsMajor && m.driverOsMajor !== m.major) {
+    // macOS was updated after the driver was set up (1401 #484): the new system parked the old kernel collection
+    $("verdict").innerHTML = `<p class="warn">macOS was updated from ${esc(String(m.driverOsMajor))} to ${esc(String(m.major))} after the driver was set up, so the driver is not running.</p><p>It has to be set up again for this macOS: use the four steps below with a driver package that supports macOS ${esc(String(m.major))}. Your OpenCore settings stay as they are.</p>`;
   } else if (m.files && !S.installed) {
     $("verdict").innerHTML = '<p class="warn">The driver is installed but not running.</p><p>Restart. If macOS blocked a system extension, allow it in Privacy &amp; Security, then restart once more.</p>';
   } else {
