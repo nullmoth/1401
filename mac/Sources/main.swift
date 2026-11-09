@@ -537,6 +537,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
         // hybrid laptops: the Intel panel driver (NMIntelFB) and the nmhybrid boot argument (setup --hybrid off|copy|import).
         // The checked driver package rides along so setup can take the kext from it (it verifies the SHA-256 again).
+        // the user's own OpenCore config.plist, for a Mac whose startup partition cannot be confirmed (setup --config)
+        case "pickconfig":
+            let panel = NSOpenPanel()
+            panel.title = "Choose the OpenCore config.plist this Mac starts from"
+            panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+            if panel.runModal() == .OK, let u = panel.url, ConfigChoice.path(u.path) != nil { send("configPicked", ["path": u.path]) }
         case "autologinoff": run(mode: "verbose", pkg: "", efi: "auto", extra: ["--autologin-off"])
         case "hybrid":
             let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
@@ -549,10 +555,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
         case "ryzenpower":
             let efi = b["efi"] as? String ?? "auto"
+            if b["status"] as? Bool ?? false { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "status"]); break }
             guard b["on"] as? Bool ?? false else { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "off"]); break }
+            // the four limits from the page, checked here as well as in setup; setup only ever installs the pinned RyzenAdj build the package carries
+            let n = { (k: String) in (b[k] as? NSNumber)?.intValue ?? -1 }
+            let lim = RyzenPower.limits(stapm: n("stapm"), slow: n("slow"), fast: n("fast"), temp: n("temp"))
+            guard let limits = lim.limits else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": lim.why ?? "The limits were not accepted."]); break }
             guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The Ryzen power profile needs the checked driver package: download it first."]); break }
-            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--pkg", pk, "--sha", sha])
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--ryzen-limits", limits, "--pkg", pk, "--sha", sha])
         case "settings": if !SettingsPanel.show() { send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The settings list is missing from this copy of the app."]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
@@ -630,7 +642,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "vmdOrRaid": App.hasVmdOrRaid(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
@@ -974,6 +986,15 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 default: break
                 }
             }
+        }
+    }
+    /// An Intel storage controller in RAID / VMD mode (PCI class 01:04 or the Volume Management Device class 01:08 at 8086) is on
+    /// this machine: the drives behind it are hidden from macOS, so the page explains the external-drive route.
+    static func hasVmdOrRaid() -> Bool {
+        services("IOPCIDevice").contains { s in
+            defer { IOObjectRelease(s) }
+            guard u32(s, "vendor-id").map({ $0 & 0xffff }) == 0x8086, let cls = u32(s, "class-code") else { return false }
+            return cls >> 8 == 0x0104 || cls >> 8 == 0x0108 && (u32(s, "device-id").map { [0x467F, 0x9A0B, 0xA77F, 0x7D0B, 0xB60B, 0x09AB].contains($0 & 0xffff) } ?? false)
         }
     }
     func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {
@@ -1460,7 +1481,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             }
             args += extra
         }
-        if efi != "auto", !efi.isEmpty { args += ["--efi", efi] }
+        if let cfg = ConfigChoice.path(efi) { args += ["--config", cfg] }
+        else if efi != "auto", !efi.isEmpty, !efi.hasPrefix("config:") { args += ["--efi", efi] }
         let cmd = Privileged.bundleScript(res.appendingPathComponent("nullmoth-operation-capture.sh").path, args)
         send("run", ["state": "start", "mode": mode, "log": log.path])
         NSApp.activate(ignoringOtherApps: true)

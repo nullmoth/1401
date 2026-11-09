@@ -52,6 +52,16 @@ class Prep(unittest.TestCase):
         self.assertTrue(any("storahci" in c and "/d 3" in c for c in flat))
         self.assertTrue(any("deletevalue" in c for c in flat))
 
+    def test_the_state_file_exists_after_prepare_and_is_gone_after_a_clean_undo_but_kept_after_a_failed_one(self):
+        """The window shows Undo for as long as this file exists."""
+        path = self.state()
+        sp.run("prepare", path, runner=Runner(), platform="win32")
+        self.assertTrue(os.path.exists(path))
+        sp.run("undo", path, runner=Runner(fail="reg add"), platform="win32")
+        self.assertTrue(os.path.exists(path), "a failed undo leaves the record so Undo can be tried again")
+        sp.run("undo", path, runner=Runner(), platform="win32")
+        self.assertFalse(os.path.exists(path))
+
     def test_it_refuses_to_run_off_windows(self):
         with self.assertRaises(RuntimeError):
             sp.run("prepare", self.state(), runner=Runner(), platform="darwin")

@@ -1471,9 +1471,17 @@ if [ -n "${RYZEN:-}" ]; then
   # the job is installed from the RyzenAdj build the package carries (nullmoth-ryzen-power.sh installs only a build whose
   # SHA-256 is pinned). A failure at any step puts the earlier ones back. Off undoes each step; nothing runs on a Mac that
   # never turned it on. --ryzen-limits S:L:F:T sets the sustained, slow and fast limits in watts and the temperature limit.
-  case "$RYZEN" in on) RV=1;; off) RV=0;; *) stop "--ryzen-power takes on or off";; esac
   EXT=/Library/Extensions; RK=$EXT/NMSMN.kext; RREC=$ST/ryzen-power
   RPW="$(dirname "$0")/nullmoth-ryzen-power.sh"
+  if [ "$RYZEN" = status ]; then
+    # what is in place now, changing nothing: the record, the kext, the boot argument and the job's own status
+    echo "NOTE record: $(cat "$RREC" 2>/dev/null | tr '\n' ' ' || true)$([ -f "$RREC" ] || echo none)"
+    echo "NOTE NMSMN kext installed: $([ -d "$RK" ] && echo yes || echo no); loaded: $(kmutil showloaded --list-only 2>/dev/null | grep -q com.nullmoth.NMSMN && echo yes || echo no)"
+    echo "NOTE boot argument nmsmn=1 in NVRAM: $(nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -qx 'nmsmn=1' && echo yes || echo no)"
+    bash "$RPW" status 2>&1 | sed 's/^/NOTE job: /'
+    ok "Ryzen power profile status shown"; cleanup; echo "RESULT ok"; exit 0
+  fi
+  case "$RYZEN" in on) RV=1;; off) RV=0;; *) stop "--ryzen-power takes on, off or status";; esac
   [ -f "$STATE" ] || [ "$RV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn the Ryzen power profile on"
   BKC="$C.nullmoth-ryzen-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
   ra() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together

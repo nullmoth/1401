@@ -127,3 +127,28 @@ assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level, pkg: sent.at(-
 element('hyboff').onclick();
 assert.deepEqual({act: sent.at(-1).act, level: sent.at(-1).level}, {act: 'hybrid', level: 'off'});
 console.log('Card facts and hybrid laptop mode controls passed.');
+
+// Ryzen laptop power profile: ONE pane. Turn on posts the four limits and the checked package; Status and Turn it off post their own.
+element('ryst').value = '15'; element('rysl').value = '20'; element('ryfa').value = '25'; element('rytm').value = '75';
+event('scan', machine(26));
+element('ryzon').onclick();
+assert.deepEqual({act: sent.at(-1).act, on: sent.at(-1).on, stapm: sent.at(-1).stapm, slow: sent.at(-1).slow, fast: sent.at(-1).fast, temp: sent.at(-1).temp, pkg: sent.at(-1).pkg},
+  {act: 'ryzenpower', on: true, stapm: 15, slow: 20, fast: 25, temp: 75, pkg: '/tmp/driver.tar.gz'});
+element('ryzoff').onclick(); assert.deepEqual({act: sent.at(-1).act, on: sent.at(-1).on}, {act: 'ryzenpower', on: false});
+element('ryzstat').onclick(); assert.deepEqual({act: sent.at(-1).act, status: sent.at(-1).status}, {act: 'ryzenpower', status: true});
+console.log('Ryzen power profile controls passed.');
+
+// The user's own config.plist, for a Mac whose startup partition cannot be confirmed: the picker asks the app, the answer joins the list.
+const optsSeen = [];
+element('efi').appendChild = (o) => { optsSeen.push(o); };
+element('cfgpick').onclick();
+assert.equal(sent.at(-1).act, 'pickconfig');
+console.log('Config file picker passed.');
+
+// Intel VMD / RAID: the Mac app explains the external-drive route and the Windows-only steps; nothing to press.
+element('vmdpane').hidden = true;
+const v = machine(26); v.vmdOrRaid = true; event('scan', v);
+assert.equal(element('vmdpane').hidden, false);
+event('scan', machine(26));
+assert.equal(element('vmdpane').hidden, true);
+console.log('VMD / RAID explanation passed.');
