@@ -62,7 +62,7 @@ def acpi_fingerprints(directory):
 def diagnostic_hardware(report):
     """Keep device identity in failed-build logs without exporting the complete scan."""
     fields = {
-        "CPU": ("Manufacturer", "Processor Name", "Codename", "Core Count", "Thread Count", "CPU Count", "CPU Signature", "CPUID", "Family", "Model", "Stepping", "P-Core Count", "E-Core Count"),
+        "CPU": ("Manufacturer", "Processor Name", "Codename", "Core Count", "Thread Count", "CPU Count", "CPU Signature", "CPUID", "Family", "Model", "Stepping", "P-Core Count", "E-Core Count", "SIMD Features"),
         "Motherboard": ("Name", "Manufacturer", "Chipset", "Platform", "Version"),
         "BIOS": ("Firmware Type", "Version"),
         "GPU": ("Manufacturer", "Device ID", "Subsystem ID", "Device Type", "Codename", "PCI Path", "Resizable BAR", "ACPI Path", "Bus Type"),
@@ -71,8 +71,8 @@ def diagnostic_hardware(report):
         "Monitor": ("Connected GPU", "Connector Type"),
         "Storage Controllers": ("Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
         "Storage Drives": ("Model", "Bus Type", "Media Type", "Size", "System"),
-        "Input": ("Device ID", "Bus Type", "ACPI Path", "PCI Path"),
-        "Sound": ("Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path"),
+        "Input": ("Device ID", "Bus Type", "ACPI Path", "PCI Path", "Device", "Device Type"),   # Device = ACPI id (ELAN0412): picks the touchpad kexts
+        "Sound": ("Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path", "Controller Device ID"),
         "Bluetooth": ("Device ID", "Bus Type", "PCI Path", "ACPI Path"),
         "SD Controller": ("Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
         "Biometric": ("Device ID", "Bus Type"),
@@ -93,8 +93,9 @@ def diagnostic_hardware(report):
         if section in ("CPU", "Motherboard", "BIOS"):
             result[section] = select(value, allowed)
         else:
-            result[section] = [{"name": name[:512] if isinstance(name, str) else "unnamed device", **select(props, allowed)} for name, props in list(value.items())[:256]
-                               if isinstance(props, dict)]
+            result[section] = [{"name": name[:512] if isinstance(name, str) else "unnamed device", **select(props, allowed),
+                                **({"Disk Drive Count": len(props["Disk Drives"])} if isinstance(props.get("Disk Drives"), list) else {})}
+                               for name, props in list(value.items())[:256] if isinstance(props, dict)]
     if result:
         result["not_observed"] = ["USB port-to-connector routing", "BIOS setup options", "GPU BAR/VRAM size", "CPUID leaves",
                                   "fan and RGB wiring"]

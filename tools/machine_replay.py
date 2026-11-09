@@ -43,7 +43,7 @@ def reconstruct(c):
                                                                               "Secure Boot": "Disabled"}}
     r["CPU"].setdefault("Core Count", "4")
     r["CPU"].setdefault("CPU Count", "1")
-    r["CPU"]["SIMD Features"] = simd_for(r["CPU"])
+    r["CPU"].setdefault("SIMD Features", simd_for(r["CPU"]))
     for section in ("GPU", "Network", "USB Controllers", "Storage Controllers", "Input", "Sound", "Bluetooth", "SD Controller",
                     "Biometric"):
         rows = c.get(section)
@@ -60,8 +60,9 @@ def reconstruct(c):
     # The summary drops "Disk Drives", and the engine only checks a storage controller (VMD, unsupported SSDs) when it has one.
     # Every PCI controller is assumed to have a drive: the replay then refuses at least what the field refused.
     for ctl in r.get("Storage Controllers", {}).values():
-        if ctl.get("Bus Type") == "PCI":
-            ctl["Disk Drives"] = ["Disk"]
+        count = ctl.pop("Disk Drive Count", None)      # newer scans say how many drives the controller has
+        if ctl.get("Bus Type") == "PCI" and count != 0:
+            ctl["Disk Drives"] = ["Disk"] * (count or 1)
     for key in ("Resizable BAR",):
         for g in r.get("GPU", {}).values():
             g.setdefault(key, "Disabled")
