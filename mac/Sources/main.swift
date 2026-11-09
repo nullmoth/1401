@@ -537,6 +537,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
         // hybrid laptops: the Intel panel driver (NMIntelFB) and the nmhybrid boot argument (setup --hybrid off|copy|import).
         // The checked driver package rides along so setup can take the kext from it (it verifies the SHA-256 again).
+        // the user's own OpenCore config.plist, for a Mac whose startup partition cannot be confirmed (setup --config)
+        case "pickconfig":
+            let panel = NSOpenPanel()
+            panel.title = "Choose the OpenCore config.plist this Mac starts from"
+            panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+            if panel.runModal() == .OK, let u = panel.url, ConfigChoice.path(u.path) != nil { send("configPicked", ["path": u.path]) }
         case "autologinoff": run(mode: "verbose", pkg: "", efi: "auto", extra: ["--autologin-off"])
         case "hybrid":
             let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
@@ -1460,7 +1466,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             }
             args += extra
         }
-        if efi != "auto", !efi.isEmpty { args += ["--efi", efi] }
+        if let cfg = ConfigChoice.path(efi) { args += ["--config", cfg] }
+        else if efi != "auto", !efi.isEmpty, !efi.hasPrefix("config:") { args += ["--efi", efi] }
         let cmd = Privileged.bundleScript(res.appendingPathComponent("nullmoth-operation-capture.sh").path, args)
         send("run", ["state": "start", "mode": mode, "log": log.path])
         NSApp.activate(ignoringOtherApps: true)
