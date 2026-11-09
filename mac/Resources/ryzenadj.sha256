@@ -1,0 +1,4 @@
+# SHA-256 of each RyzenAdj build nullmoth-ryzen-power.sh may install, one per line, lowercase hex, optionally followed by
+# a note. Upstream RyzenAdj (https://github.com/FlyGoat/RyzenAdj, LGPL-3.0) has no macOS port at any tag: it reaches the
+# SMU through WinRing0 on Windows and libpci plus /dev/mem or a kernel module on Linux. Nothing is pinned until NullMoth
+# builds a macOS port (OS layer plus a kernel-side accessor) and records its hash here, with the tag and commit, in NOTICE.md.
