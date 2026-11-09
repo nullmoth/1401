@@ -537,6 +537,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
         // hybrid laptops: the Intel panel driver (NMIntelFB) and the nmhybrid boot argument (setup --hybrid off|copy|import).
         // The checked driver package rides along so setup can take the kext from it (it verifies the SHA-256 again).
+        case "autologinoff": run(mode: "verbose", pkg: "", efi: "auto", extra: ["--autologin-off"])
         case "hybrid":
             let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
             guard ["off", "copy", "import"].contains(level) else { break }
@@ -618,7 +619,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
