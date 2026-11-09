@@ -454,9 +454,29 @@ def _modern_nvidia_stays_ours():
     select = km.select_required_kexts
 
     def select_required_kexts(self, hardware_report, macos_version, needs_oclp, acpi_patches):
-        return select(self, _without_modern_nvidia_codename(hardware_report), macos_version, needs_oclp, acpi_patches)
+        out = select(self, _without_modern_nvidia_codename(hardware_report), macos_version, needs_oclp, acpi_patches)
+        _desktop_fan_sensors(self, hardware_report, macos_version)
+        return out
 
     km.select_required_kexts = select_required_kexts
+
+
+def _desktop_fan_sensors(km, hardware_report, macos_version):
+    """The engine adds SMCSuperIO (fan speeds from the board's Super I/O chip, VirtualSMC, BSD-3-Clause) only when the CPU is
+    Intel, so an AMD desktop got no fan readings at all although its board carries the same ITE, Nuvoton and Fintek chips
+    the plugin reads (AM4/AM5 boards: Nuvoton NCT67xx on ASUS and MSI, ITE IT86xx on Gigabyte). A desktop gets it whatever
+    the CPU; a laptop keeps its fans behind the embedded controller, which SMCSuperIO does not read, so laptops are left
+    as the engine chose."""
+    try:
+        platform = (hardware_report.get("Motherboard") or {}).get("Platform") or ""
+        if "Laptop" in platform:
+            return False
+        from Scripts.datasets import kext_data  # noqa: PLC0415 - upstream module, loaded with the engine
+        idx = kext_data.kext_index_by_name.get("SMCSuperIO")
+        return bool(km.check_kext(idx, macos_version)) if idx is not None else False
+    except Exception as e:   # never let a sensor choice stop a build; say why in the log
+        print(f"(fan sensors: SMCSuperIO not added: {type(e).__name__}: {e})", flush=True)
+        return False
 
 
 class _Sig(bytes):
