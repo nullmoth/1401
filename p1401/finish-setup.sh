@@ -71,6 +71,7 @@ done
 # --- the account ---------------------------------------------------------------------------------------------------
 if [ -z "$SHORT" ]; then printf "1401: account name (lower case, no spaces, e.g. alex): "; read -r SHORT; fi
 # grep in the C locale: a bash [a-z] follows the locale's collation, where it also matched "Alex"
+[ "$(printf '%s' "$SHORT" | wc -l | tr -d ' ')" = 0 ] || stop "the account name must be one line."
 printf '%s' "$SHORT" | LC_ALL=C grep -qE '^[a-z0-9._-]+$' || stop "the account name must be lower-case letters, digits, '.', '_' or '-'."
 printf '%s' "$SHORT" | LC_ALL=C grep -qE '^[a-z]' || stop "the account name must start with a letter."
 [ ${#SHORT} -le 31 ] || stop "the account name is longer than 31 characters."
@@ -119,7 +120,8 @@ if [ "$AUTOLOGIN" = 1 ]; then
   done
   printf "$out" > "$DATA/private/etc/kcpassword" && chmod 600 "$DATA/private/etc/kcpassword" && chown 0:0 "$DATA/private/etc/kcpassword" \
     && defaults write "$DATA/Library/Preferences/com.apple.loginwindow" autoLoginUser "$SHORT" \
-    && say "this account logs in by itself at start-up" \
+    && printf '%s\n' "$SHORT" > "$DATA/private/var/db/.nullmoth-autologin" \
+    && say "this account logs in by itself at start-up. That stores the password in a form anyone who can read this disk can recover; the 1401 Mac app offers to turn it off once the driver is installed, or turn it off in System Settings > Users & Groups." \
     || say "NOTE: automatic login could not be set; at the login window click the middle of the screen, type the password, press Enter."
 fi
 

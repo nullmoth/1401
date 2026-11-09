@@ -138,6 +138,18 @@ class FinishSetup(unittest.TestCase):
                 self.assertNotIn("-create", calls)
                 self.assertFalse((data / "private/var/db/.AppleSetupDone").exists())
 
+    def test_a_name_with_a_newline_is_refused_and_autologin_leaves_a_marker_and_a_warning(self):
+        t, data, node = self.make()
+        p, calls = self.run_script(t, data, node, ["--data", str(data), "--name", "A", "--user", "alex\nBad Name"], stdin="x\nx\n")
+        self.assertEqual(p.returncode, 1, p.stdout)
+        self.assertIn("one line", p.stdout)
+        self.assertNotIn("-create", calls)
+        t, data, node = self.make()
+        p, calls = self.run_script(t, data, node, ["--data", str(data), "--user", USER], stdin="\nsecret\nsecret\n")
+        self.assertEqual(p.returncode, 0, p.stdout)
+        self.assertEqual((data / "private/var/db/.nullmoth-autologin").read_text(), USER + "\n")
+        self.assertIn("anyone who can read this disk", p.stdout)
+
     def test_a_failed_write_removes_the_partial_account(self):
         t, data, node = self.make()
         p, calls = self.run_script(t, data, node, ["--data", str(data), "--user", USER, "--name", "A"],

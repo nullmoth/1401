@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -970,7 +970,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 # This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
 # app refuses too, and the kexts refuse to start on any other Darwin).
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
@@ -1012,7 +1012,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -1400,6 +1400,18 @@ CSR_NEW=$want"; echo "CHANGE csr-active-config $(printf '0x%04X' $cur) -> $(prin
     rm -f "$XS"; ok "WhateverXe taken out of OpenCore (backup: $BKO)"
   fi
   ok "Intel Xe graphics off - restart to finish"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ "${AUTOLOGINOFF:-0}" = 1 ]; then
+  # Only the automatic login 1401's Recovery script (finish-setup.sh) created, named in its marker file: one the user made
+  # themselves is not touched.
+  AM=/private/var/db/.nullmoth-autologin
+  [ -f "$AM" ] || { ok "automatic login was not set up by 1401 - nothing to turn off"; cleanup; echo "RESULT ok"; exit 0; }
+  cur=$(defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser 2>/dev/null)
+  if [ "$cur" = "$(cat "$AM")" ]; then
+    defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser && rm -f /etc/kcpassword || stop "could not turn automatic login off"
+  fi
+  rm -f "$AM"; ok "automatic login is off; the stored password file is gone"; cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${HYBRID:-}" ]; then
