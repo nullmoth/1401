@@ -1790,6 +1790,16 @@ PL
         stop "the OpenCore partition the Tahoe preparation changed (partition $CFGPART) is not connected - plug in the disk or stick it is on, then try again"
       fi
     fi
+    # A Mac that was prepared for Tahoe and never updated would wait here on every start, with the driver parked, for
+    # as long as it stays on macOS 15. After two weeks with no macOS installer on the disk the update is treated as
+    # abandoned: the settings come back exactly as "cancel" puts them back, and the driver starts on the next restart.
+    if [ "$UPD" = finish ] && [ "${FROM:-}" = "$MAJ" ] && [ "$MAJ" = 15 ]; then
+      pend_now=$(date +%s); pend_mod=$(stat -f %m "$PEND" 2>/dev/null || echo "$pend_now")
+      if [ $((pend_now - pend_mod)) -gt 1209600 ] && [ ! -d "/macOS Install Data" ] && ! ls -d /Applications/Install\ macOS*.app >/dev/null 2>&1; then
+        note "prepared for the macOS 26 update more than two weeks ago and still on macOS $MAJ with no installer on this Mac - turning the driver back on"
+        UPD=cancel
+      fi
+    fi
     if [ "$UPD" = finish ] && [ "${FROM:-}" = "$MAJ" ] && [ "$MAJ" = 15 ]; then echo "$(date) still on macOS $MAJ - waiting for the update"; cleanup; echo "RESULT ok"; exit 0; fi
     step "Setting the driver up for macOS $MAJ"; backup   # only once the update has happened: no backup per waiting boot
     if [ -d "/Library/NullMoth/kexts/$MAJ/NVAccel.kext" ]; then
@@ -1800,7 +1810,14 @@ PL
         -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository /Library/Extensions \
         -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/osupdate-kmutil.log" 2>&1
       INS=$(kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null)
-      for k in NVRM NVAccel NVRMFB NVRMAGDC; do echo "$INS" | grep -q "com.nullmoth.$k" || { cp -p "$BKC" "$C"; stop "com.nullmoth.$k is not in the new kernel collection - the driver stays parked (log: $ST/osupdate-kmutil.log)"; }; done
+      for k in NVRM NVAccel NVRMFB NVRMAGDC; do echo "$INS" | grep -q "com.nullmoth.$k" || {
+        # Retry on the next two starts; after that the driver is turned back on anyway. The boot guard switches it
+        # off again by itself if it cannot bring the display up, so a failed collection build no longer keeps a Mac
+        # parked forever with no way to see why.
+        tries=$(cat "$ST/update-tries" 2>/dev/null || echo 0); tries=$((tries + 1)); echo "$tries" > "$ST/update-tries"
+        echo "com.nullmoth.$k missing from the new kernel collection (try $tries), see $ST/osupdate-kmutil.log" > "$ST/update-blocked"
+        if [ "$tries" -lt 3 ]; then cp -p "$BKC" "$C"; stop "com.nullmoth.$k is not in the new kernel collection - the driver stays parked for now, another try at the next start (log: $ST/osupdate-kmutil.log)"; fi
+        note "com.nullmoth.$k still missing after $tries tries - turning the driver back on; the boot guard turns it off again if it cannot start"; break; }; done
       echo "$MAJ" > "$ST/os-major"; ok "macOS $MAJ kernel collection built with all four NullMoth kexts"
     else
       cp -p "$BKC" "$C"; stop "this driver has no kexts for macOS $MAJ - it stays parked; install a driver that supports macOS $MAJ"
@@ -1809,7 +1826,7 @@ PL
     bi=$(bidx); [ -n "$bi" ] && plutil -replace Kernel.Block.$bi.Enabled -bool true "$C"
     args_set del -nvoff
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
-    rm -f "$PEND" /Library/LaunchDaemons/com.nullmoth.osupdate.plist
+    rm -f "$PEND" "$ST/update-tries" "$ST/update-blocked" /Library/LaunchDaemons/com.nullmoth.osupdate.plist
     ok "driver settings restored for macOS $MAJ"
     cleanup; echo "RESULT ok"
     [ "$UPD" = finish ] && { sleep 2; /sbin/shutdown -r now; }
