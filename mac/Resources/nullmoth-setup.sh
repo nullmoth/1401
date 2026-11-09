@@ -976,6 +976,12 @@ if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
+# NVIDIA's driver package (the source of the GPU firmware) sits beside the driver package when 1401 put it on the stick
+# or the app downloaded it. The driver's install.sh passes it to package/fw_fetch.sh, which copies it and checks its
+# SHA-256 before reading anything from it; without the file the installer downloads it, and with no internet it stops
+# before changing anything.
+FWRUN_SRC="$(dirname "$PKG")/NVIDIA-Linux-x86_64-620.70.06.run"
+if [ -f "$FWRUN_SRC" ] && [ ! -L "$FWRUN_SRC" ]; then export NULLMOTH_FW_RUN="$FWRUN_SRC"; ok "found NVIDIA's driver package beside the driver package (GPU firmware source)"; else unset NULLMOTH_FW_RUN; fi
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
 PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
 if ! cperr=$(cp "$PKG" "$PKGDIR/" 2>&1); then
