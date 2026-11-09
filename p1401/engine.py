@@ -960,6 +960,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # AMD laptops: the vendor SSDT's ALIB returns no value in macOS and the boot stops at PCI configuration
                 from . import acpi_shims  # noqa: PLC0415
                 res.policy_changes += acpi_shims.apply(os.path.abspath(acpi_dir), out_dir)
+                # firmware that lists its processors only as x2APIC (Arrow Lake): macOS counts none and stops silently
+                from . import madt  # noqa: PLC0415
+                res.policy_changes += madt.apply(os.path.abspath(acpi_dir), out_dir)
                 res.policy_changes += policy_mod.legal_comments(os.path.join(out_dir, "EFI", "OC", "config.plist"))
                 # A fresh build left an OpenCore.efi that was not the verified release's (NM-YZZJY5WJ): the boot files
                 # are written back from the verified zip before the check, and a file that STILL differs is being
