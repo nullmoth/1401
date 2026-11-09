@@ -119,6 +119,19 @@ def diagnose(logs, stopped="", report=None):
              "If it still stops there, open the stick's EFI/OC/config.plist and add npci=0x3000 to boot-args "
              "(NVRAM > Add > 7C436110-AB2A-4BBB-A880-FE41995C9F82 > boot-args)."] + BIOS_BASE)
 
+    # The installer in Recovery reached Apple's servers' download step and stopped (1401 issue #111, screenshot only).
+    # The stick log cannot show why: the reason is in the installer's own log inside Recovery, so the steps ask for it.
+    if re.search(r"pkdownloaderror|pkdownload", said):
+        add("installer-download-failed", "The macOS installer could not download macOS (PKDownloadError)",
+            "The installer on the stick downloads macOS from Apple while it installs, and that download stopped. "
+            "The reason is written in the installer's own log, not in the stick log.",
+            ["Before trying again, in the installer's menu bar open Window > Installer Log, choose Show All Logs, "
+             "and Save it to the 1401 stick. Send it with these logs.",
+             "Check the network: in Recovery, Wi-Fi often does not work on a PC, so plug in an Ethernet cable.",
+             "In the installer's menu bar open Utilities > Terminal and type date. If the date or year is wrong, "
+             "set the clock in the BIOS to today and start from the stick again.",
+             "Then start the install again from the stick."])
+
     if re.search(r"black.*cursor|cursor.*black|黑屏|blackscreen", said):
         add("black-screen-cursor", "A black screen with only a mouse cursor after the install",
             "macOS has installed and started; the first-start setup screens are not drawing. Your Mac is working "
