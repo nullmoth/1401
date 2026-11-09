@@ -48,7 +48,8 @@ class Options(unittest.TestCase):
         missing = sorted(f for f in flags if f not in MAC_SRC and f not in SET_BY_THE_MAC_APP)
         self.assertEqual(missing, [])
         # and the ones the table says are set by a button really are mentioned by the Swift or the page
-        unreachable = sorted(f for f in SET_BY_THE_MAC_APP if f in flags and f not in MAC_SRC)
+        # --game-mode is the installer-time route; the card in the Tools tab reaches the same script through GameMode.swift
+        unreachable = sorted(f for f in SET_BY_THE_MAC_APP if f in flags and f not in MAC_SRC and f != "--game-mode")
         self.assertEqual(unreachable, [])
 
     def test_the_ryzen_power_profile_is_one_pane_with_limits_on_off_and_status(self):
