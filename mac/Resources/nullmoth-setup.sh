@@ -1493,7 +1493,7 @@ if [ -n "${EXPER:-}" ]; then
   # $ST/experimental names what was turned on and which boot arguments were added by it, so turning a feature off removes exactly
   # that and never an argument the user had set themselves. No package is involved, so there is nothing to pin.
   XREC=$ST/experimental; XCONF=/Library/GPUBundles/nvmtl/nvrm610.conf
-  xargs_of() { case "$1" in kbl) echo nmkbl=1;; kblhid) echo nmkblhid=1;; tgp) echo "nvrmtgp=1 nvrmgps=1 nvrmnvpcf=1";; igpuproxy) echo nvfbigpu=1;; xvt) echo nmxvt=1;; hybrid20) echo nmhybrid20=1;; esac; }
+  xargs_of() { case "$1" in kbl) echo nmkbl=1;; kblhid) echo nmkblhid=1;; tgp) echo "nvrmtgp=1 nvrmgps=1 nvrmnvpcf=1";; igpuproxy) echo nvfbigpu=1;; xvt) echo nmxvt=1;; hybrid20) echo nmhybrid20=1;; rtd3) echo nvrtd3=1;; esac; }
   xenv_of() { case "$1" in gameprio) echo NVMTL_GAME_GPU_PRIORITY=1;; hwrt) echo NVK_HWRT_QUERY=1;; curves) echo NVK_CURVES=1;; tile) echo NVMTL_TILE_SHADING=1;; icb) echo NVMTL_GPU_ICB=1;; esac; }
   XWANT=","; if [ "$EXPER" != none ]; then
     for id in $(echo "$EXPER" | tr ',' ' '); do
@@ -1513,7 +1513,7 @@ if [ -n "${EXPER:-}" ]; then
   XHAD=","; XADDED=""
   if [ -f "$XREC" ]; then while IFS= read -r l; do case "$l" in ON=*) XHAD="$XHAD${l#ON=},";; ARG=*) XADDED="$XADDED ${l#ARG=}";; esac; done < "$XREC"; fi
   XNEWADDED=""
-  for id in kbl kblhid tgp igpuproxy xvt hybrid20; do
+  for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3; do
     case "$XWANT" in *,$id,*) w=1;; *) w=0;; esac; case "$XHAD" in *,$id,*) h=1;; *) h=0;; esac
     if [ $w = 1 ] && [ $h = 0 ]; then
       for a in $(xargs_of $id); do
@@ -1538,7 +1538,7 @@ if [ -n "${EXPER:-}" ]; then
       if [ -n "$XENVL" ]; then echo "# --- 1401 experimental ---"; for kv in $XENVL; do echo "$kv"; done; echo "# --- end 1401 experimental ---"; fi; } > "$XTMP" \
       && chmod "$(stat -f %Lp "$XCONF")" "$XTMP" && chown "$(stat -f %u:%g "$XCONF")" "$XTMP" && mv -f "$XTMP" "$XCONF" || { rm -f "$XTMP"; cp -p "$BKC" "$C"; stop "could not update the driver's knob file - nothing changed"; }
   fi
-  { for id in kbl kblhid tgp igpuproxy xvt hybrid20 gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) echo "ON=$id";; esac; done
+  { for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) echo "ON=$id";; esac; done
     for ia in $XADDED; do echo "ARG=$ia"; done; } > "$XREC.tmp" && mv -f "$XREC.tmp" "$XREC"
   [ "$XWANT" = "," ] && rm -f "$XREC"
   ok "experimental features updated - restart for them to take effect"

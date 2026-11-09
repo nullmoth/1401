@@ -65,6 +65,14 @@ class Experimental(unittest.TestCase):
         e.run("none")
         self.assertEqual(e.args(), ["keepsyms=1"])
 
+    def test_idle_gpu_deep_sleep_is_the_one_runtime_d3_argument_and_comes_out_again(self):
+        e = Env()
+        e.run("rtd3")
+        self.assertEqual(e.args(), ["keepsyms=1", "nvrtd3=1"])
+        self.assertNotIn("nvrtd3res", " ".join(e.args()))
+        e.run("none")
+        self.assertEqual(e.args(), ["keepsyms=1"])
+
     def test_the_power_budget_is_three_arguments_together(self):
         e = Env()
         e.run("tgp")
