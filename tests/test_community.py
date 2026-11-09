@@ -82,6 +82,22 @@ class Choice(unittest.TestCase):
         self.assertEqual(names(add), ["XhciNudge"])
         self.assertEqual(community.chosen(machine(USB_Controllers=["1022-151E"]), TAHOE, False)[0], [])
 
+    def test_an_amd_processor_gets_intelmklfixup_only_with_the_opt_in(self):
+        report = machine()
+        report["CPU"]["Manufacturer"] = "AMD"
+        add, said = community.chosen(report, TAHOE, experimental=False)
+        self.assertEqual(add, [])
+        self.assertTrue(any("IntelMKLFixup" in s and "NOT in this build" in s for s in said), said)
+        for macos in (SEQUOIA, TAHOE):
+            add, _ = community.chosen(report, macos, experimental=True)
+            self.assertEqual(names(add), ["IntelMKLFixup"])
+
+    def test_an_intel_processor_never_gets_intelmklfixup(self):
+        report = machine()
+        report["CPU"]["Manufacturer"] = "Intel"
+        self.assertEqual(community.chosen(report, TAHOE, experimental=True)[0], [])
+        self.assertEqual(community.chosen(machine(), TAHOE, experimental=True)[0], [])    # no vendor in the scan: not added
+
 
 class Pins(unittest.TestCase):
     def test_every_pinned_file_is_licensed_for_1401_and_admitted(self):
