@@ -14,6 +14,7 @@ import unittest
 import zipfile
 
 from p1401 import engine, policy, validate
+from tests.ocvalidate_run import run_validator
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 OLD_REV = '0a21785'
@@ -51,14 +52,12 @@ class PickerVisible(unittest.TestCase):
 
     def _staged(self, directory, **boot):
         config = pathlib.Path(directory) / 'config.plist'
-        executable = pathlib.Path(directory) / 'ocvalidate'
-        executable.write_bytes(self.validator); executable.chmod(0o755)
         cfg = plistlib.loads(self.sample)
         cfg['Misc']['Boot'].update(boot)
         config.write_bytes(plistlib.dumps(cfg))
-        ok = subprocess.run([str(executable), str(config)], capture_output=True, text=True, timeout=30)
+        ok = run_validator(self.validator, str(config), 30)
         self.assertEqual(ok.returncode, 0, 'the crafted config must be valid before policy runs:\n' + ok.stdout)
-        return config, executable
+        return config, None
 
     def test_a_hidden_picker_is_made_able_to_show_the_remove_entry(self):
         with tempfile.TemporaryDirectory() as d:
@@ -70,7 +69,7 @@ class PickerVisible(unittest.TestCase):
             self.assertIs(boot['HideAuxiliary'], False)
             for r in ('show-picker', 'picker-lists-tools', 'show-installer-entry'):
                 self.assertIn(r, rules)
-            after = subprocess.run([str(executable), str(config)], capture_output=True, text=True, timeout=30)
+            after = run_validator(self.validator, str(config), 30)
             self.assertEqual(after.returncode, 0, after.stdout + after.stderr)
             # idempotent: a second pass changes nothing more about the picker
             again = [c["rule"] for c in policy.apply(str(config), result_for(d), engine.Policy())]
