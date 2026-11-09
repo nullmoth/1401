@@ -965,6 +965,9 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # firmware that lists its processors only as x2APIC (Arrow Lake): macOS counts none and stops silently
                 from . import madt  # noqa: PLC0415
                 res.policy_changes += madt.apply(os.path.abspath(acpi_dir), out_dir)
+                # more processor devices in the DSDT than the MADT enables (Arrow Lake HX laptops): hide the extra ones
+                from . import acpi_cpus  # noqa: PLC0415
+                res.policy_changes += acpi_cpus.apply(os.path.abspath(acpi_dir), out_dir)
                 if policy.utbmap:
                     from . import utbmap  # noqa: PLC0415
                     res.policy_changes += utbmap.apply(out_dir, policy.utbmap)
