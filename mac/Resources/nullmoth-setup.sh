@@ -57,6 +57,8 @@ cleanup() { for d in $MOUNTED; do diskutil unmount "$d" >/dev/null 2>&1; done; [
 stop() { echo "STOP $*"; cleanup; echo "RESULT stop"; exit 1; }
 [ "$(id -u)" = 0 ] || { [ -n "$COLLECT" ] && [ "$SCOPE" = driver ]; } || { echo "STOP needs administrator rights"; echo "RESULT stop"; exit 1; }
 [ "$UPD" = finish ] && [ ! -f "$ST/update-pending" ] && { echo "RESULT ok"; exit 0; }
+# true when a driver from this package may be installed on macOS "$1" (a full version such as 26.7.1)
+driver_os_ok() { case "${1%%.*}" in 15|26) return 0;; esac; return 1; }
 has() { plutil -extract "$1" raw -o - "$C" >/dev/null 2>&1; }
 get() { plutil -extract "$1" raw -o - "$C" 2>/dev/null; }
 mnt() { diskutil info "$1" 2>/dev/null | awk -F': *' '/Mount Point/{print $2}'; }
@@ -308,6 +310,158 @@ collect_recent_logs() {
   done
 }
 
+# --- macOS 27 sources ---
+# macOS 27 runs the driver through its own bring-up: NVRM injected by OpenCore, the other kexts from an auxiliary kernel
+# collection built on macOS 26, a display hand-over at boot (nvload, the WindowServer and login window gates) and an
+# Intel host for Apple's arm64-only programs. None of it exists on 15 or 26, so these sources are read only when this
+# Mac runs 27 or later, in both scopes (each reads what the running user can). Every source that cannot be read says
+# why on its own line, never a silent gap. The "macos27:" lines are one-line verdicts the support tooling sorts by.
+# Facts only: no network names, no paired-device names; addresses and identities are removed by the app's redaction.
+M27_ROOT=""        # file prefix; empty on a real Mac (the tests point it at a fixture tree)
+M27_GUID=7C436110-AB2A-4BBB-A880-FE41995C9F82
+m27_os_major() { local v; v=$(sw_vers -productVersion 2>/dev/null); v=${v%%.*}
+  case "$v" in ''|*[!0-9]*) echo 0;; *) echo "$v";; esac; }
+m27_flags() { ls -lO "$1" 2>/dev/null | awk '{print $5}'; }   # the file flags column (schg = system immutable)
+m27_tail() {  # <label> <path> <bytes>: the end of one log, or why it is not there
+  local f="$M27_ROOT$2"
+  echo "== $1 ($2)"
+  if [ ! -e "$f" ]; then echo "(not present: nothing on this Mac has written it)"
+  elif [ ! -r "$f" ]; then echo "(not readable by this user: Send logs, which asks for the administrator password, reads it)"
+  elif [ ! -s "$f" ]; then echo "(empty)"
+  else tail -c "$3" "$f" 2>&1 || echo "(read failed)"; fi
+  echo
+}
+m27_state() {
+  local out rc v val autogo heads labels l d D x86=0 dang=0 k f flags n
+  echo "== driver state on macOS 27, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "macos27: os $(sw_vers -productVersion 2>/dev/null) ($(sw_vers -buildVersion 2>/dev/null))"
+
+  echo; echo "== display: NVRM auto-go and the heads NVAccel published"
+  out=$(bounded 20 ioreg -c NVRM -lw0 2>&1); rc=$?
+  [ "$rc" = 0 ] || echo "(ioreg exit $rc) $(printf '%s\n' "$out" | tail -n 1)"
+  printf '%s\n' "$out" | grep -E '"nvrm-[A-Za-z0-9-]*" = ' | head -n 60
+  autogo=$(printf '%s\n' "$out" | sed -n 's/.*"nvrm-autogo" = "\([^"]*\)".*/\1/p' | head -n 1)
+  if [ -n "$autogo" ]; then echo "macos27: display autogo $autogo"
+  elif printf '%s\n' "$out" | grep -q '<class NVRM,'; then echo "macos27: display autogo not reported (NVRM is loaded, the property is absent)"
+  else echo "macos27: display autogo absent (NVRM is not in the registry: the kext OpenCore injects did not start)"; fi
+  out=$(bounded 10 sysctl debug.nvaccel_heads_published debug.nvaccelfb debug.nvrmfb_agdc debug.nvrmfb_agdc_k5 \
+        debug.nvaccel_iop debug.nvaccel_iop_ok debug.nvaccel_iop_fail debug.nvaccel_iop_flip 2>&1)
+  printf '%s\n' "$out"
+  heads=$(printf '%s\n' "$out" | sed -n 's/^debug\.nvaccel_heads_published: *\([0-9][0-9]*\).*/\1/p' | head -n 1)
+  echo "macos27: heads published ${heads:-unknown (the sysctl is missing: NVAccel is not loaded)}"
+
+  echo; echo "== driver start guard (NVRAM)"
+  for v in nullmoth-nv-starts nullmoth-nv-ok nullmoth-ws-loop; do
+    out=$(bounded 10 nvram "$M27_GUID:$v" 2>&1); rc=$?
+    if [ "$rc" = 0 ]; then
+      val=${out#*	}; echo "$v = $val"
+      # the guard turns the driver off at the next start once it counts 2 starts without a healthy desktop
+      if [ "$v" = nullmoth-nv-starts ]; then
+        case "$val" in %0[2-9]*|%[1-9]*|0x0*[2-9]|[2-9]) echo "macos27: nv-starts guard struck ($val): the next start runs without the driver";;
+                       *) echo "macos27: nv-starts guard $val";; esac
+      fi
+    else echo "$v: not set (nvram exit $rc)"; fi
+  done
+
+  echo; echo "== bring-up daemons"
+  labels=$( { ls "$M27_ROOT/Library/LaunchDaemons" 2>/dev/null | sed -n 's/^\(com\.nullmoth\.[A-Za-z0-9._-]*\)\.plist$/\1/p'
+              bounded 15 launchctl list 2>/dev/null | awk '$3 ~ /^com\.nullmoth\./ {print $3}'; } | sort -u)
+  if [ -z "$labels" ]; then echo "macos27: no bring-up daemons installed (no com.nullmoth launch daemon)"; fi
+  for l in $labels; do
+    out=$(bounded 10 launchctl print "system/$l" 2>&1); rc=$?
+    if [ "$rc" = 0 ]; then
+      echo "-- $l"; printf '%s\n' "$out" | grep -E '^[[:space:]]*(state|pid|last exit code|last exit reason|runs|program|path) = ' | head -n 12
+    else echo "-- $l: not loaded in the system domain (launchctl exit $rc)"; fi
+  done
+  d="$M27_ROOT/Library/NullMoth/bringup"
+  if [ -d "$d" ]; then echo; echo "-- /Library/NullMoth/bringup"; ls -la "$d" 2>&1 | head -n 40
+  else echo "macos27: bring-up folder missing (/Library/NullMoth/bringup)"; fi
+
+  echo; echo "== loaded NullMoth, A2X and support kexts"
+  out=$(bounded 30 kmutil showloaded --list-only 2>&1); rc=$?
+  if [ "$rc" != 0 ] || ! printf '%s\n' "$out" | grep -q 'com\.'; then
+    echo "(kmutil showloaded exit $rc: $(printf '%s\n' "$out" | head -n 2 | tr '\n' ' ')- reading kextstat instead)"
+    out=$(bounded 20 kextstat -l 2>&1); rc=$?
+    [ "$rc" = 0 ] || echo "(kextstat exit $rc)"
+  fi
+  printf '%s\n' "$out" | grep -iE 'nullmoth|a2x|lilu|virtualsmc|smc|whatevergreen|restrictevents|itlwm|airport|bluetooth|bluetool|btfirmware|brcm|rtl' | cut -c1-220 | head -n 60
+  for k in NVRM NVRMFB NVAccel NVRMAGDC NMXAudio; do
+    printf '%s\n' "$out" | grep -q "com\.nullmoth\.$k[[:space:]]" || echo "macos27: kext not loaded com.nullmoth.$k"
+  done
+  n=$(printf '%s\n' "$out" | grep -ic 'a2x')
+  echo "macos27: a2x kexts loaded $n"
+
+  echo; echo "== auxiliary kernel collection"
+  d="$M27_ROOT/Library/KernelCollections"
+  ls -lO "$d" 2>&1 | head -n 20
+  f="$d/AuxiliaryKernelExtensions.kc"
+  if [ -f "$f" ]; then
+    flags=$(m27_flags "$f")
+    case "$flags" in *schg*) echo "macos27: aux collection present, immutable";;
+      *) echo "macos27: aux collection present, NOT immutable (kernelmanagerd removes it at the next boot)";; esac
+    bounded 60 shasum -a 256 "$f" 2>&1 | awk '{print "aux collection sha256 " $1}'
+  else echo "macos27: aux collection MISSING (NVRMFB, NVAccel, NVRMAGDC and NMXAudio cannot load without it)"; fi
+  echo "-- driver bundles in /Library/Extensions"
+  ls -la "$M27_ROOT/Library/Extensions" 2>&1 | grep -E 'NVRM|NVAccel|NMX|a2x|total' | head -n 20
+
+  echo; echo "== dyld shared caches (Intel programs need an x86_64 cache)"
+  for d in /System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld /System/Volumes/Preboot/Cryptexes/Rosetta/System/Library/dyld /System/Library/dyld; do
+    D="$M27_ROOT$d"; echo "-- $d"
+    if [ ! -d "$D" ]; then echo "(not present)"; continue; fi
+    ls -la "$D" 2>&1 | grep -E 'x86_64|->' | head -n 40
+    for l in "$D"/*; do
+      [ -L "$l" ] || continue
+      [ -e "$l" ] || { echo "DANGLING ${l##*/} -> $(readlink "$l")"; dang=$((dang + 1)); }
+    done
+    for l in "$D"/dyld_shared_cache_x86_64*; do [ -e "$l" ] && { x86=$((x86 + 1)); break; }; done   # a dangling link is no cache
+  done
+  if [ "$dang" -gt 0 ]; then echo "macos27: dyld cache links dangling $dang"; fi
+  if [ "$x86" -gt 0 ]; then echo "macos27: dyld x86_64 cache present"; else echo "macos27: dyld x86_64 cache MISSING"; fi
+
+  echo; echo "== Intel host for arm64-only programs (a2x counters)"
+  out=$(bounded 15 sysctl -a 2>/dev/null | grep -iE '^[a-z0-9_.]*a2x' | head -n 120)
+  if [ -n "$out" ]; then
+    printf '%s\n' "$out"
+    printf '%s\n' "$out" | awk -F': *' 'tolower($1) ~ /refused/ && $2 + 0 > 0 {print "macos27: interpreter route refusals " $1 " " $2}'
+  else echo "macos27: a2x counters absent (the exec hook kext is not loaded)"; fi
+  # Programs left with the host's ad-hoc identity show up as keychain prompts and "App ID not approved" in bluetoothd.
+  # (log itself is left out: it logs its own arguments, so the query matched itself on a Mac without the host)
+  out=$(lshow 20 --last 30m --style compact --predicate 'process != "log" AND eventMessage CONTAINS ".a2xhost"' 2>&1 | grep -v '^Timestamp' | tail -n 40)
+  if printf '%s\n' "$out" | grep -q 'a2xhost'; then
+    printf '%s\n' "$out"; echo "macos27: programs running under the host identity (.a2xhost) in the last 30 min"
+  else echo "(no .a2xhost identity lines in the last 30 min)"; fi
+
+  echo; echo "== Bluetooth"
+  out=$(bounded 30 system_profiler SPBluetoothDataType 2>&1); rc=$?
+  [ "$rc" = 0 ] || echo "(system_profiler exit $rc)"
+  # the controller only: the device lists below it carry the names people give their devices
+  printf '%s\n' "$out" | awk '/(Not )?Connected:|Paired Devices:|Devices \(/ {exit} {print}' \
+    | grep -E '^[[:space:]]*(Bluetooth Controller|State|Chipset|Discoverable|Firmware Version|Product ID|Vendor ID|Transport|Supported services):' | head -n 20
+  [ "$rc" != 0 ] || printf '%s\n' "$out" | grep -qE '^[[:space:]]*(Chipset|Firmware Version|State):' || echo "macos27: Bluetooth controller not found"
+  bounded 10 launchctl print system/com.apple.bluetoothd 2>&1 | grep -E '^[[:space:]]*(state|pid|last exit code|last exit reason) = ' | head -n 4
+  lshow 20 --last 30m --style compact --predicate 'process == "bluetoothd" AND messageType == error' 2>&1 | grep -v '^Timestamp' | tail -n 30
+
+  echo; echo "== Wi-Fi"
+  bounded 15 networksetup -listallhardwareports 2>&1 | grep -E '^(Hardware Port|Device):' | head -n 20
+  out=$(bounded 30 system_profiler SPAirPortDataType 2>&1); rc=$?
+  [ "$rc" = 0 ] || echo "(system_profiler exit $rc)"
+  printf '%s\n' "$out" | grep -E '^[[:space:]]*(Card Type|Firmware Version|Status|Supported PHY Modes|Country Code|Locale):' | head -n 20
+  [ "$rc" != 0 ] || printf '%s\n' "$out" | grep -qE '^[[:space:]]*Card Type:' || echo "macos27: Wi-Fi interface not found"
+}
+m27_bringup_logs() {
+  m27_tail "display hand-over at boot" /var/tmp/nvload.log 120000
+  m27_tail "WindowServer and login window gates" /var/tmp/ws-gate.log 60000
+  m27_tail "login window gate" /var/tmp/lw-gate.log 30000
+  m27_tail "WindowServer output" /var/tmp/ws-stderr.log 60000
+  m27_tail "board lights" /var/log/lights.log 20000
+  m27_tail "driver boot log" /var/log/nvrm-boot.log 60000
+  # the bring-up lines from the kernel's own buffer (root only); the unified-log queries above keep the rest
+  echo "== kernel buffer: display bring-up lines"
+  if [ "$(id -u)" != 0 ]; then echo "(not readable by this user: Send logs, which asks for the administrator password, reads it)"
+  else bounded 20 dmesg 2>&1 | grep -E 'auto-go|go\([0-9]\)|rm_init_adapter|nv_get_firmware|vnode_open failed|NVAccel: headless|NVRMDisplay|0xdc0080|NVRM.*(fail|error)|stopped after' | tail -n 200; fi
+}
+# --- end macOS 27 sources ---
+
 if [ -n "$COLLECT" ]; then
   trap cleanup EXIT HUP INT TERM
   # "Send logs": gather what only root can read into $COLLECT for the app to upload. Read-only on the system: it
@@ -378,7 +532,7 @@ if [ -n "$COLLECT" ]; then
     echo; echo "== driver files"; ls -la /Library/Extensions/NV*.kext /Library/GPUBundles 2>/dev/null
     echo; echo "== installed component fingerprints"
     [ ! -f "$ST/driver-version" ] || { printf 'installed driver version: '; cat "$ST/driver-version"; }
-    for f in /Library/Extensions/NVRM.kext/Contents/MacOS/NVRM /Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel /Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB /Library/Extensions/NVRMAGDC.kext/Contents/MacOS/NVRMAGDC /Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/NVMTLDriver /Library/GPUBundles/nvmtl/libvulkan_nouveau.dylib; do
+    for f in /Library/Extensions/NVRM.kext/Contents/MacOS/NVRM /Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel /Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB /Library/Extensions/NVRMAGDC.kext/Contents/MacOS/NVRMAGDC /Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/NVMTLDriver /Library/GPUBundles/nvmtl/libvulkan_nouveau.dylib /Library/Extensions/NMXAudio.kext/Contents/MacOS/NMXAudio; do
       [ ! -f "$f" ] || shasum -a 256 "$f"
     done
     echo; echo "== processor"; sysctl machdep.cpu.vendor machdep.cpu.brand_string machdep.cpu.family machdep.cpu.model machdep.cpu.stepping 2>&1
@@ -398,6 +552,10 @@ if [ -n "$COLLECT" ]; then
     # whether it holds live surfaces, parked ones or a leak without these.
     echo; echo "== video memory"; sysctl -a 2>/dev/null | grep -E '^debug\.(nvrmfb_vram|nvaccel_vm)'
     } > "$COLLECT/driver-state.txt" 2>&1
+  if [ "$(m27_os_major)" -ge 27 ]; then
+    m27_state > "$COLLECT/macos27-state.txt" 2>&1
+    m27_bringup_logs > "$COLLECT/macos27-bringup-logs.txt" 2>&1
+  fi
   # the kernel's own words from the last boots: NVRM/NVAccel/NVRMFB print why they stopped (GSP boot, BAR, display).
   # The AMD/Intel test driver (NMXGPU, NMXAccel, amdgpu/i915/xe and DRM inside it) is in here too: before 1.14.4 none of
   # its lines were collected, so three machines that turned it on (one an RX 7900 XTX, 10-12) told us nothing.
@@ -801,6 +959,9 @@ INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PR
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
 if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+# This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
+# app refuses too, and the kexts refuse to start on any other Darwin).
+driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
