@@ -58,6 +58,13 @@ class Options(unittest.TestCase):
         self.assertIn('case "ryzen": ryzenAction(b)', MAC_SRC)
         self.assertIn("nullmoth-ryzen-power.sh", MAC_SRC)
 
+    def test_the_mac_app_explains_the_vmd_route_and_names_the_external_drive_checkbox(self):
+        page = (ROOT / "mac/Resources/index.html").read_text()
+        self.assertIn('id="vmdpane"', page)
+        self.assertIn("Install macOS on an external drive", page)
+        self.assertIn("vmdOrRaid", MAC_SRC)
+        self.assertIn("Install macOS on an external drive", FORM)
+
     def test_the_new_windows_choices_are_off_by_default_and_rebuild_on_change(self):
         for cb in ("persistNvram", "externalTarget", "newIdentity"):
             self.assertIn(cb, FORM)

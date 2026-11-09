@@ -636,7 +636,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "vmdOrRaid": App.hasVmdOrRaid(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
@@ -980,6 +980,36 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 default: break
                 }
             }
+        }
+    }
+    /// An Intel storage controller in RAID / VMD mode (PCI class 01:04 or the Volume Management Device class 01:08 at 8086) is on
+    /// this machine: the drives behind it are hidden from macOS, so the page explains the external-drive route.
+    static func hasVmdOrRaid() -> Bool {
+        services("IOPCIDevice").contains { s in
+            defer { IOObjectRelease(s) }
+            guard u32(s, "vendor-id").map({ $0 & 0xffff }) == 0x8086, let cls = u32(s, "class-code") else { return false }
+            return cls >> 8 == 0x0104 || cls >> 8 == 0x0108 && (u32(s, "device-id").map { [0x467F, 0x9A0B, 0xA77F, 0x7D0B, 0xB60B, 0x09AB].contains($0 & 0xffff) } ?? false)
+        }
+    }
+    func ryzenAction(_ b: [String: Any]) {
+        let op = b["op"] as? String ?? "status"
+        var path: String? = nil
+        if op == "install" {
+            let panel = NSOpenPanel()
+            panel.title = "Choose your RyzenAdj build"
+            panel.message = "Only a build whose SHA-256 is listed in this app is installed."
+            panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+            guard panel.runModal() == .OK, let url = panel.url else { send("ryzen", ["ok": false, "text": "Nothing chosen."]); return }
+            path = url.path
+        }
+        let n = { (k: String) in (b[k] as? NSNumber)?.intValue ?? -1 }
+        let a = RyzenPower.arguments(op: op, stapm: n("stapm"), slow: n("slow"), fast: n("fast"), temp: n("temp"), ryzenadj: path)
+        guard let args = a.args else { send("ryzen", ["ok": false, "text": a.why ?? "Not started."]); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let script = Bundle.main.resourceURL!.appendingPathComponent("nullmoth-ryzen-power.sh").path
+            let r = Privileged.run(Privileged.bundleScript(script, args), timeout: 120, admin: op != "status")
+            let text = redact(r.error ?? String(r.output.suffix(600)).trimmingCharacters(in: .whitespacesAndNewlines))
+            DispatchQueue.main.async { self.send("ryzen", ["ok": r.error == nil && !r.cancelled, "text": text]) }
         }
     }
     func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {

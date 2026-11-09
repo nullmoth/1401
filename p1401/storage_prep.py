@@ -144,7 +144,11 @@ def run(action, state_path, runner=subprocess.run, drive="C:", platform=None):
         go(finish_commands(drive))
     elif action == "undo":
         state = _read_state(state_path)
-        go(undo_commands(state.get("saved"), state.get("drive", drive)))
+        if go(undo_commands(state.get("saved"), state.get("drive", drive))):
+            try:
+                os.remove(state_path)    # the state file is what the window reads to know Prepare has run: gone after a clean undo
+            except OSError:
+                pass
     else:
         raise ValueError(f"unknown action {action!r}")
     return log

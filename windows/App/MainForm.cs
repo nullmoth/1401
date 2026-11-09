@@ -40,6 +40,32 @@ namespace A1401
         readonly CheckBox fullInstaller = new CheckBox();
         readonly Button utbPick = new Button(), recoveryPick = new Button();
         string recoveryDir = "";
+        // storage the PC hides from macOS (Intel VMD / RAID): the build's plan, and the three Windows preparation steps
+        readonly Button storPrepare = new Button(), storFinish = new Button(), storUndo = new Button();
+        string storageKind = "";
+        static string StoragePrepState()
+        {
+            return Path.Combine(Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? "", "NullMoth", "1401", "storage-prep.json");
+        }
+        // Prepare has run when its state file exists: that file is what Undo restores from, and Undo stays visible until it is gone
+        static bool StoragePrepared() { try { return File.Exists(StoragePrepState()); } catch (Exception) { return false; } }
+        bool StorageVmdPlan() { return storageKind == "vmd-off"; }
+        void StorageButtons()
+        {
+            storPrepare.Enabled = !StoragePrepared() && !busy;
+            storFinish.Enabled = StoragePrepared() && !busy;
+            storUndo.Enabled = StoragePrepared() && !busy;
+        }
+        async void RunStorage(string action, string confirm)
+        {
+            if (confirm != null && MessageBox.Show(this, confirm, "1401", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+            busy = true; StorageButtons();
+            int rc = await Engine.Run("p1401 storage-prep " + action, Say);
+            busy = false;
+            if (rc != 0) Say(Loc.F("Storage step '{0}' did not finish; read the lines above. Undo puts every value back.", action));
+            else if (action == "undo") try { File.Delete(StoragePrepState()); } catch (Exception) { }
+            StorageButtons(); Go(page);
+        }
         // build options of the engine that a user may choose (p1401 build --persistent-nvram-amd / --external-target)
         readonly CheckBox persistNvram = new CheckBox(), externalTarget = new CheckBox(), newIdentity = new CheckBox();
         string utbMapDir = "";
@@ -157,7 +183,7 @@ namespace A1401
             fullInstaller.AutoSize = true; fullInstaller.Checked = false;
             fullInstaller.BackColor = Color.Transparent; fullInstaller.ForeColor = Theme.Text; fullInstaller.Font = Theme.Picker;
             persistNvram.Text = Loc.T("AMD boards: keep iMessage and the startup-disk choice across restarts (emulated NVRAM). Off by default; not yet proven on a real AMD board.");
-            externalTarget.Text = Loc.T("Install macOS on a drive macOS can see (a USB SSD, or an SSD that is not behind Intel VMD or RAID). Turn this on when the PC's own drives are hidden from macOS and the build stops for that reason.");
+            externalTarget.Text = Loc.T("Install macOS on an external drive (a USB SSD, or an SSD that is not behind Intel VMD or RAID). Tick this when the PC's own drives are hidden from macOS: the internal drive and Windows are not touched.");
             newIdentity.Text = Loc.T("Make a new serial number for this Mac. Use it when macOS Setup says the Mac belongs to an organization, or Apple will not accept the serial for iMessage. A rebuild keeps the old one otherwise.");
             foreach (var cb in new[] { persistNvram, externalTarget, newIdentity })
             {
@@ -191,6 +217,12 @@ namespace A1401
                     recoveryPick.Text = Loc.F("Recovery image from {0} (click to go back to downloading it)", Path.GetFileName(recoveryDir));
                 }
             };
+            storPrepare.Text = Loc.T("Prepare Windows"); storFinish.Text = Loc.T("Finish (after the BIOS change)"); storUndo.Text = Loc.T("Undo the preparation");
+            foreach (var b in new[] { storPrepare, storFinish, storUndo })
+            { b.AutoSize = true; b.BackColor = Theme.Panel; b.ForeColor = Theme.Text; b.Font = Theme.Picker; b.FlatStyle = FlatStyle.Flat; }
+            storPrepare.Click += (s, e) => RunStorage("prepare", Loc.T("Prepare Windows to survive turning Intel VMD off?\r\n\r\nThis makes a restore point, pauses BitLocker, sets the standard AHCI and NVMe drivers to start at boot and arranges one Safe Mode start. Save your BitLocker recovery key first. Nothing is erased, and Undo puts every value back."));
+            storFinish.Click += (s, e) => RunStorage("finish", null);
+            storUndo.Click += (s, e) => RunStorage("undo", Loc.T("Put every value Prepare changed back?"));
             guide.ScriptErrorsSuppressed = true;
             ocLink.Text = Loc.T("OpenCore Install Guide (dortania.github.io/OpenCore-Install-Guide)"); ocLink.AutoSize = true;
             ocLink.LinkColor = Theme.Cyan; ocLink.Font = Theme.Link;
@@ -225,7 +257,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick, recoveryPick, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps, fullInstaller });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick, recoveryPick, storPrepare, storFinish, storUndo, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps, fullInstaller });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             // The stars drift: ten frames a second repaint the glass panels and the see-through text on them, never the
@@ -374,6 +406,17 @@ namespace A1401
                 int armHeight = Math.Max(24, armApps.GetPreferredSize(new Size(width, 0)).Height);
                 armApps.SetBounds(left, cursor, width, armHeight);
                 cursor = armApps.Bottom + 12;
+            }
+
+            {
+                int sx = left;
+                foreach (var b in new[] { storPrepare, storFinish, storUndo })
+                    if (b.Visible)
+                    {
+                        b.SetBounds(sx, cursor, b.PreferredSize.Width, Math.Max(30, b.PreferredSize.Height));
+                        sx = b.Right + 10;
+                    }
+                if (storPrepare.Visible || storFinish.Visible || storUndo.Visible) cursor = Math.Max(storPrepare.Bottom, Math.Max(storFinish.Bottom, storUndo.Bottom)) + 12;
             }
 
             if (recoveryPick.Visible)
@@ -533,7 +576,7 @@ namespace A1401
 
         void Show(params Control[] on)
         {
-            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick, recoveryPick, guide, ocLink, logLink, armApps, fullInstaller }) c.Visible = on.Contains(c);
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick, recoveryPick, storPrepare, storFinish, storUndo, guide, ocLink, logLink, armApps, fullInstaller }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
             appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
@@ -586,7 +629,11 @@ namespace A1401
                     next.Text = Loc.T(scanned ? "Continue >" : "Check this PC"); Show(facts, log); next.Enabled = true; break;
                 case 2:
                     note.Text = Loc.T(built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "Pick macOS 15 Sequoia or macOS 26 Tahoe below. 1401 builds the startup files (OpenCore EFI) for that version and checks them with OpenCore's own validator. Downloads OpenCore and drivers.");
-                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick); next.Enabled = scanned;
+                    next.Text = Loc.T(built ? "Continue >" : "Build"); var onPage = new List<Control> { facts, log, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick };
+                    // Prepare / Finish belong to a build whose plan is "turn VMD off"; Undo is there for as long as Prepare has run
+                    if (built && StorageVmdPlan()) { onPage.Add(storPrepare); onPage.Add(storFinish); }
+                    if (StoragePrepared()) { if (!onPage.Contains(storPrepare)) { onPage.Add(storPrepare); onPage.Add(storFinish); } onPage.Add(storUndo); }
+                    Show(onPage.ToArray()); StorageButtons(); next.Enabled = scanned;
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
@@ -781,6 +828,19 @@ namespace A1401
 // scan found. Only the sentence this app writes is localized.
                     summary = "macOS " + MacName(darwin) + Loc.T(" for this PC, as a ") + r["smbios"] + Loc.T(". The startup files passed OpenCore's own check.");
                     if (notices != null) foreach (var n in notices) if (IsSupportNotice("" + n)) summary += "\r\n" + n;
+                    // drives macOS cannot see (Intel VMD / RAID): the plan's steps and the BIOS path join the summary
+                    storageKind = "";
+                    object planObj;
+                    var plan = r.TryGetValue("storage_plan", out planObj) ? planObj as Dictionary<string, object> : null;
+                    if (plan != null && plan.ContainsKey("kind"))
+                    {
+                        storageKind = "" + plan["kind"];
+                        summary += "\r\n" + Loc.T(storageKind == "vmd-off"
+                            ? "This PC's drives are behind Intel VMD, which macOS cannot read. Plan:" : "Install macOS on a drive macOS can see. Plan:");
+                        var steps = plan.ContainsKey("steps") ? plan["steps"] as System.Collections.ArrayList : null;
+                        if (steps != null) { int n = 1; foreach (var st in steps) summary += "\r\n  " + (n++) + ". " + st; }
+                        if (storageKind == "vmd-off") summary += "\r\n" + Loc.T("BIOS: ") + plan["bios_path"] + "\r\n" + Loc.T("Or tick \"Install macOS on an external drive\" above and build again.");
+                    }
                     // settings taken from boots of the same processor that got past the hand-off (known_machines.json), and the USB map
                     var changes = r.ContainsKey("policy_changes") ? r["policy_changes"] as System.Collections.ArrayList : null;
                     if (changes != null)
