@@ -40,5 +40,18 @@ class StaleWait(unittest.TestCase):
         self.assertLess(block_start, end)
         self.assertIn('UPD=cancel', source[block_start:end])
 
+class FinishFails(unittest.TestCase):
+    def test_a_failed_collection_build_is_retried_then_the_driver_is_turned_back_on(self):
+        self.assertIn('update-tries', source)
+        self.assertIn('if [ "$tries" -lt 3 ]', source)
+        self.assertIn('turning the driver back on; the boot guard turns it off again', source)
+
+    def test_the_reason_is_written_where_the_app_can_read_it(self):
+        self.assertIn('"$ST/update-blocked"', source)
+
+    def test_counters_are_cleared_when_the_update_completes(self):
+        self.assertIn('rm -f "$PEND" "$ST/update-tries" "$ST/update-blocked"', source)
+
+
 if __name__ == '__main__':
     unittest.main()
