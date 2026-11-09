@@ -85,13 +85,15 @@ def config_facts(plist_path):
             "smbios": (c.get("PlatformInfo", {}).get("Generic", {}) or {}).get("SystemProductName")}
 
 
-def replay_one(bundle, macos="24", hardware=None, build=False):
+def replay_one(bundle, macos="24", hardware=None, build=False, report_override=None):
     """Run the builder over one bundle in a fresh process: plan mode, or a full build with the config's settings read back."""
     work = tempfile.mkdtemp(prefix="1401-bundle-")
     name = os.path.basename(bundle)
     try:
         try:
             report, acpi = prepare(bundle, work, hardware)
+            if report_override:      # another source of the same PC's hardware (the Windows scan), the bundle's own ACPI
+                shutil.copyfile(report_override, report)
         except Exception as e:  # noqa: BLE001 - an unreadable bundle is a result
             return {"bundle": name, "ok": False, "stage": "prepare", "error": f"{type(e).__name__}: {e}"[:300]}
         out = os.path.join(work, "efi")
@@ -121,7 +123,7 @@ def main(argv):
     if not argv:
         print(__doc__)
         return 2
-    macos, hardware, many, out, jobs, build = "24", None, None, None, 4, False
+    macos, hardware, many, out, jobs, build, overrides = "24", None, None, None, 4, False, None
     it = iter(argv)
     paths = []
     for a in it:
@@ -129,6 +131,8 @@ def main(argv):
             macos = next(it)
         elif a == "--hardware":
             hardware = next(it)
+        elif a == "--overrides":
+            overrides = next(it)
         elif a == "--build":
             build = True
         elif a == "--many":
@@ -143,7 +147,10 @@ def main(argv):
         paths = [os.path.join(many, n) for n in sorted(os.listdir(many))]
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(jobs) as ex:
-            results = list(ex.map(lambda p: replay_one(p, macos, None, build), paths))
+            ov = {}
+            if overrides:
+                ov = {n[:-5]: os.path.join(overrides, n) for n in os.listdir(overrides) if n.endswith(".json")}
+            results = list(ex.map(lambda p: replay_one(p, macos, None, build, ov.get(os.path.basename(p))), paths))
     else:
         results = [replay_one(p, macos, hardware, build) for p in paths]
     if out:
