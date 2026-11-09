@@ -197,8 +197,14 @@ unin = (DRV / "package/uninstall.sh").read_text()
 arm("the NVIDIA installer installs no NPU userland and no AMD/Intel kexts",
     "Library/NullMoth/npu" not in inst and "NMXNPU" not in inst and "NMXAccel" not in inst)
 # 2.7: the NVIDIA package carries the audio driver it installs on macOS 26 (NMXAudio), so its uninstaller removes it too
-arm("the NVIDIA uninstaller removes the NVIDIA driver (and the audio driver it carries) only", 'KEXTS="NVRM NVAccel NVRMFB NVRMAGDC NVPrimarySelector NMXAudio";' in unin
-    and "NMXGPU" not in unin and "/Library/NullMoth/npu" not in unin)
+# the checkout under test decides which uninstaller is right: 2.7 on carries the audio driver, older ones do not. A sibling
+# driver/ checkout on an old branch used to fail this arm for the wrong reason (the uninstaller was correct for its version).
+_ver = re.search(r"^## (\d+)\.(\d+)", (DRV / "CHANGELOG.md").read_text(), re.M)
+_carries_audio = bool(_ver) and (int(_ver.group(1)), int(_ver.group(2))) >= (2, 7)
+_kexts = 'KEXTS="NVRM NVAccel NVRMFB NVRMAGDC NVPrimarySelector' + (' NMXAudio";' if _carries_audio else '";')
+arm("the NVIDIA uninstaller removes the NVIDIA driver (and, from 2.7, the audio driver it carries) only",
+    _kexts in unin and "NMXGPU" not in unin and "/Library/NullMoth/npu" not in unin,
+    f"driver {_ver.group(0)[3:] if _ver else '?'}: expects {'with' if _carries_audio else 'without'} NMXAudio")
 arm("turning it off clears the NPU opt-in", "ga del nmxnpu=1" in src)
 # the AMD/Intel driver is its own package: setup takes only its kexts, never the NVIDIA driver's cached accelerators
 arm("setup takes the AMD/Intel kexts from their own package, one by one",
