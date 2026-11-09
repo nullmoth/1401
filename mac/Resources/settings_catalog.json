@@ -1,0 +1,236 @@
+{
+ "block_end": "# --- end my settings ---",
+ "block_start": "# --- my settings, kept on update ---",
+ "conf_path": "/Library/GPUBundles/nvmtl/nvrm610.conf",
+ "kept_pattern": "^(NVMTL|NVK|NVRM)_[A-Z0-9_]+=[A-Za-z0-9._,=*-]{0,160}$",
+ "settings": [
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Advertise HDR10 to displays that list PQ in their EDID.",
+   "id": "hdr",
+   "key": "nvfbhdr",
+   "kind": "bool",
+   "rng": null,
+   "title": "HDR10",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Scan out 30-bit surfaces on mode changes.",
+   "id": "10bit",
+   "key": "nvfb10bit",
+   "kind": "bool",
+   "rng": null,
+   "title": "10-bit colour",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Let WindowServer request variable refresh on displays that support it.",
+   "id": "vrr",
+   "key": "nvfbvrr",
+   "kind": "bool",
+   "rng": null,
+   "title": "Variable refresh rate (G-Sync Compatible / Adaptive-Sync)",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Bits per colour channel on the link; default lets the driver pick.",
+   "id": "bpc",
+   "key": "nvfbbpc",
+   "kind": "enum",
+   "rng": null,
+   "title": "Output colour depth",
+   "values": {
+    "10": "10",
+    "12": "12",
+    "6": "6",
+    "8": "8"
+   },
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Pixel format on the link; default lets the driver pick.",
+   "id": "format",
+   "key": "nvfbformat",
+   "kind": "enum",
+   "rng": null,
+   "title": "Output colour format",
+   "values": {
+    "rgb": "0",
+    "ycbcr422": "1",
+    "ycbcr444": "2"
+   },
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Full or limited RGB range; default lets the driver pick.",
+   "id": "range",
+   "key": "nvfbrange",
+   "kind": "enum",
+   "rng": null,
+   "title": "Output dynamic range",
+   "values": {
+    "full": "1",
+    "limited": "2"
+   },
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Saturation gain, 0 to 200; 100 leaves colours alone.",
+   "id": "vibrance",
+   "key": "nvfbvib",
+   "kind": "int",
+   "rng": [
+    0,
+    200
+   ],
+   "title": "Digital vibrance",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Offer desktops larger than the panel and scale them down. Reserves scanout memory.",
+   "id": "dsr",
+   "key": "nvfbdsr",
+   "kind": "bool",
+   "rng": null,
+   "title": "Dynamic super resolution (render above the panel's resolution)",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Back scaled modes with a desktop up to twice the panel raster.",
+   "id": "hidpi",
+   "key": "nvfbhidpi",
+   "kind": "bool",
+   "rng": null,
+   "title": "HiDPI 'looks like' modes",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Offer extra resolutions on a rotated head.",
+   "id": "rotscale",
+   "key": "nvfbrotscale",
+   "kind": "bool",
+   "rng": null,
+   "title": "Scaled modes on rotated displays",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "Bit mask of framebuffer indices that form one logical display, for example 3 for the first two. 0 or default turns it off.",
+   "id": "surround",
+   "key": "nvfbsurround",
+   "kind": "int",
+   "rng": [
+    1,
+    255
+   ],
+   "title": "Surround (several displays as one)",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "restart",
+   "group": "Display",
+   "help": "On by default; off disables brightness control through the panel's AUX channel.",
+   "id": "edp-backlight",
+   "key": "nvfbedpbl",
+   "kind": "bool",
+   "rng": null,
+   "title": "Laptop panel brightness over the display link",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "relaunch the application",
+   "group": "Performance",
+   "help": "One number for every application (60) or a list per application (Game=60,*=0). 10 to 1000; 0 is unlimited. Never applies to WindowServer.",
+   "id": "fps-limit",
+   "key": "NVMTL_FPS_LIMIT",
+   "kind": "text",
+   "rng": null,
+   "title": "Frame-rate limit",
+   "values": null,
+   "where": "conf"
+  },
+  {
+   "effect": "restart",
+   "group": "Performance",
+   "help": "How many parts of GPU work may be queued ahead, 1 to 32 (default 16). A low number cuts input lag and can cost frame rate. Applies to every application, the desktop included.",
+   "id": "queue-depth",
+   "key": "NVMTL_GSUB_INFLIGHT",
+   "kind": "int",
+   "rng": [
+    1,
+    32
+   ],
+   "title": "Low-latency mode (GPU work queued ahead)",
+   "values": null,
+   "where": "conf"
+  },
+  {
+   "effect": "relaunch the application",
+   "group": "Performance",
+   "help": "Size at which the shader cache is trimmed (default 2048). 0 turns trimming off.",
+   "id": "shader-cache-mb",
+   "key": "NVMTL_SPVCACHE_MAX_MB",
+   "kind": "int",
+   "rng": [
+    64,
+    1000000
+   ],
+   "title": "Shader cache size limit (MB)",
+   "values": null,
+   "where": "conf"
+  },
+  {
+   "effect": "relaunch the application",
+   "group": "Performance",
+   "help": "On by default; off turns every shipped per-application profile off.",
+   "id": "app-profiles",
+   "key": "NVMTL_APP_PROFILE",
+   "kind": "bool",
+   "rng": null,
+   "title": "Built-in per-application profiles",
+   "values": null,
+   "where": "conf"
+  },
+  {
+   "effect": "restart",
+   "group": "Performance",
+   "help": "On by default for stability; off places it in video memory (faster in some games, unsafe for the desktop).",
+   "id": "local-map-sysmem",
+   "key": "NVK_LOCAL_MAP_SYSMEM",
+   "kind": "bool",
+   "rng": null,
+   "title": "Keep CPU-written memory in system RAM",
+   "values": null,
+   "where": "conf"
+  }
+ ]
+}
