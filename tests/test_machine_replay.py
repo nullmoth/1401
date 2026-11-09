@@ -157,14 +157,14 @@ class FixesFromTheReplay(unittest.TestCase):
     def test_a_hygon_dhyana_is_planned_as_a_zen_1_with_a_notice_that_it_is_untested(self):
         from p1401.report import normalize
         rep, notes = normalize({"CPU": {"Manufacturer": "HygonGenuine", "Processor Name": "Hygon C86-3G", "Codename": "Unknown"},
-                                "Motherboard": {"Name": "x", "Platform": "Desktop"}, "GPU": {}})
+                                "Motherboard": {"Name": "x", "Platform": "Desktop"}, "GPU": {"g": {"Manufacturer": "AMD", "Device ID": "1002-1234"}}})
         self.assertEqual((rep["CPU"]["Manufacturer"], rep["CPU"]["Codename"]), ("AMD", "Summit Ridge"))
         self.assertTrue(any("not been run on a Hygon PC" in n for n in notes))
 
     def test_a_zhaoxin_cpu_stops_with_the_exact_reason(self):
         from p1401.report import normalize
         with self.assertRaises(RuntimeError) as c:
-            normalize({"CPU": {"Manufacturer": "CentaurHauls", "Processor Name": "ZHAOXIN KaiXian KX-U6780A"}, "Motherboard": {}, "GPU": {}})
+            normalize({"CPU": {"Manufacturer": "CentaurHauls", "Processor Name": "ZHAOXIN KaiXian KX-U6780A"}, "Motherboard": {}, "GPU": {"g": {"Manufacturer": "AMD", "Device ID": "1002-1234"}}})
         self.assertIn("CentaurHauls", str(c.exception))
         self.assertIn("CPUID vendor", str(c.exception))
 
@@ -183,6 +183,62 @@ class FixesFromTheReplay(unittest.TestCase):
         self.assertEqual(name, "Artic")
         plistlib.dumps({"Comment": f"ALIB to XLIB in {name}"})      # a NUL in the string raises ValueError
 
+    def test_a_processor_name_with_nul_and_binary_after_it_is_cut_at_the_readable_part(self):
+        import plistlib
+        from p1401.report import normalize
+        rep, notes = normalize({"CPU": {"Manufacturer": "AMD", "Processor Name": "AMD Custom APU 0932\x00  AmdCcxVhFf3PeiInit Entry"},
+                                "Motherboard": {"Name": "x", "Platform": "Laptop"}, "GPU": {"g": {"Manufacturer": "AMD", "Device ID": "1002-1234"}}})
+        self.assertEqual(rep["CPU"]["Processor Name"], "AMD Custom APU 0932")
+        plistlib.dumps({"revcpuname": rep["CPU"]["Processor Name"]})
+        self.assertTrue(any("unreadable characters" in n for n in notes))
+
+    def test_a_scan_with_an_empty_graphics_list_stops_with_a_sentence_not_an_attribute_error(self):
+        from p1401.report import normalize
+        with self.assertRaises(RuntimeError) as c:
+            normalize({"CPU": {"Manufacturer": "AMD"}, "Motherboard": {"Platform": "Desktop"}, "GPU": {}})
+        self.assertIn("no graphics adapter", str(c.exception))
+
+    def test_the_macos_range_of_a_card_is_said_in_words(self):
+        from p1401 import unsupported
+        self.assertEqual(unsupported._darwin_range({"Compatibility": ("25.99.99", "20.0.0")}), "works with macOS 11 to 26")
+        self.assertEqual(unsupported._darwin_range({"Compatibility": (None, None)}), "no macOS version")
+
+    def test_the_linux_probe_gives_intel_cpus_a_codename_a_chipset_and_the_bluetooth_adapter(self):
+        import json
+        import tempfile
+        from p1401 import probe_report
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "acpi", "tables"))
+        open(os.path.join(d, "acpi", "tables", "DSDT.aml"), "wb").write(b"DSDT" + b"\0" * 60)
+        json.dump({"dmi": {"board_vendor": "Gigabyte", "board_name": "H110M-DS2", "chassis_type": "3"}, "firmware": {},
+                   "cpu": {"vendor": "GenuineIntel", "brand": "13th Gen Intel(R) Core(TM) i7-13700KF", "family": 6, "model": 183,
+                           "stepping": 1, "cores": 16, "packages": 1, "features": {}},
+                   "pci": [{"class": "0x060100", "vendor": "0x8086", "device": "0xa143"}],
+                   "usb": {"devices": [{"vid": "8087", "pid": "0a2a", "interfaces": [{"class": "e0", "subclass": "01", "protocol": "01"}]},
+                                       {"vid": "1a2c", "pid": "4882", "interfaces": [{"class": "03", "subclass": "01", "protocol": "01"}]}]},
+                   "audio": []}, open(os.path.join(d, "report.json"), "w"))
+        out = tempfile.mkdtemp()
+        rep = json.load(open(probe_report.convert(d, out)[0]))
+        self.assertEqual(rep["CPU"]["Codename"], "Raptor Lake-S")
+        self.assertEqual(rep["Motherboard"]["Chipset"], "H110")
+        self.assertEqual([b["Device ID"] for b in rep["Bluetooth"].values()], ["8087-0A2A"])
+
+    def test_a_cpus_own_graphics_is_integrated_with_the_cpu_codename_even_when_it_is_the_boot_display(self):
+        import json
+        import tempfile
+        from p1401 import probe_report
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "acpi", "tables"))
+        open(os.path.join(d, "acpi", "tables", "DSDT.aml"), "wb").write(b"DSDT" + b"\0" * 60)
+        json.dump({"dmi": {"board_name": "B760M", "chassis_type": "3"}, "firmware": {},
+                   "cpu": {"vendor": "GenuineIntel", "brand": "13th Gen Intel(R) Core(TM) i7-13700KF", "family": 6, "model": 183,
+                           "stepping": 1, "cores": 16, "packages": 1, "features": {}},
+                   "pci": [{"class": "0x030000", "vendor": "0x8086", "device": "0xa780", "boot_vga": "1", "device_name": "Raptor Lake-S UHD"}],
+                   "usb": {"devices": []}, "audio": []}, open(os.path.join(d, "report.json"), "w"))
+        rep = json.load(open(probe_report.convert(d, tempfile.mkdtemp())[0]))
+        gpu = next(iter(rep["GPU"].values()))
+        self.assertEqual((gpu["Device Type"], gpu["Codename"]), ("Integrated GPU", "Raptor Lake-S"))
+
     def test_a_scan_with_no_network_section_is_planned_not_rejected(self):
         c = copy.deepcopy(census.BASELINE)
         del c["Network"]
@@ -192,7 +248,7 @@ class FixesFromTheReplay(unittest.TestCase):
     def test_a_mobile_processor_the_scan_calls_a_desktop_is_set_up_as_a_laptop(self):
         from p1401.report import normalize
         rep, notes = normalize({"CPU": {"Manufacturer": "Intel", "Processor Name": "12th Gen Intel(R) Core(TM) i5-12450H"},
-                                "Motherboard": {"Name": "Mini PC", "Platform": "Desktop"}, "GPU": {}})
+                                "Motherboard": {"Name": "Mini PC", "Platform": "Desktop"}, "GPU": {"g": {"Manufacturer": "AMD", "Device ID": "1002-1234"}}})
         self.assertEqual(rep["Motherboard"]["Platform"], "Laptop")
 
 
