@@ -43,7 +43,53 @@ def _pci_entry(d, name=None):
     return e
 
 
+_SNIFFER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "upstream", "Hardware-Sniffer", "Scripts", "datasets")
+
+
+def _sniffer_table(name):
+    """A dataset module of the vendored Hardware Sniffer, loaded by path (its package is also called Scripts)."""
+    import importlib.util  # noqa: PLC0415
+    spec = importlib.util.spec_from_file_location("hs_" + name, os.path.join(_SNIFFER, name + ".py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _intel_codename(cpu):
+    """The codename the Windows scan gives an Intel CPU, from the same table (CPUID family, model, stepping + name hint). Every
+    Booter quirk the builder sets is keyed on it; the probe wrote 'Unknown' and the quirks came out wrong for all Intel PCs."""
+    ident = f"Family {cpu.get('family')} Model {cpu.get('model')} Stepping {cpu.get('stepping')}"
+    name = cpu.get("brand", "")
+    try:
+        table = _sniffer_table("cpu_data").identifier
+    except (OSError, AttributeError, ImportError):
+        return "Unknown"
+    if ident in "Family 6 Model 142 Stepping 10" and ("0U" in name or "7U" in name) and "82" not in name:
+        return "Kaby Lake-R"
+    for entry in table[::-1]:
+        codename, ident_key = entry[:2]
+        hint = entry[-1] if len(entry) > 2 else None
+        if ident_key in ident and (not hint or hint in name):
+            return codename
+    return "Unknown"
+
+
+def _chipset(pci, board_name, amd):
+    """The Windows scan names the chipset from the LPC bridge's PCI ID (Intel) or the board name (AMD)."""
+    if not amd:
+        table = _sniffer_table("chipset_data").chipset_controllers
+        for d in pci:
+            if (d.get("class") or "").startswith("0x0601"):
+                hit = table.get(f"{_id(d.get('vendor'))}-{_id(d.get('device'))}")
+                if hit:
+                    return hit
+    m = (AMD_CHIPSET if amd else INTEL_CHIPSET).search(board_name or "")
+    return m.group(1) if m else "Unknown"
+
+
 def _codename(cpu):
+    if cpu.get("vendor") == "GenuineIntel":
+        return _intel_codename(cpu)
     if cpu.get("vendor") != "AuthenticAMD":
         return "Unknown"
     fam, mod = cpu.get("family", 0), cpu.get("model", 0)
@@ -81,7 +127,7 @@ def convert(probe_dir, out_dir):
         gpus.append(e)
 
     report = {
-        "Motherboard": {"Name": board, "Chipset": m.group(1) if m else "Unknown",
+        "Motherboard": {"Name": board, "Chipset": _chipset(pci, dmi.get("board_name"), amd),
                         "Platform": "Laptop" if str(dmi.get("chassis_type")) in LAPTOP_CHASSIS else "Desktop"},
         "BIOS": {"Version": dmi.get("bios_version") or "", "Firmware Type": (rep.get("firmware") or {}).get("boot_mode", "UEFI"),
                  "Secure Boot": "Enabled" if (rep.get("firmware") or {}).get("SecureBoot") == 1 else "Disabled"},
@@ -102,7 +148,10 @@ def convert(probe_dir, out_dir):
                   for a in rep.get("audio") or [] if isinstance(a, dict)],
         "Input": [],
         "Monitor": [],
-        "Bluetooth": [],
+        "Bluetooth": [{"name": d.get("product") or "Bluetooth adapter", "Bus Type": "USB",
+                       "Device ID": f"{str(d.get('vid', '')).upper().zfill(4)}-{str(d.get('pid', '')).upper().zfill(4)}"}
+                      for d in ((rep.get("usb") or {}).get("devices") or [])
+                      if any((i.get("class"), i.get("subclass"), i.get("protocol")) == ("e0", "01", "01") for i in d.get("interfaces") or [])],
     }
     # The Windows report keys each device section by device name (Hardware Sniffer layout); repeats get "_#n".
     for k, v in list(report.items()):
