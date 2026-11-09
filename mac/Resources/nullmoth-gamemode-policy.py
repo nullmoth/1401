@@ -62,7 +62,43 @@ def current_nice(pid, runner=run):
         return None
 
 
-def apply(game_pid, procs, runner=run, state=STATE):
+ACTIVE_KEY = "com.nullmoth.gamemode.active"
+ACTIVE_FILE = os.environ.get("NULLMOTH_STATE_DIR", "/Library/NullMoth") + "/gamemode-active"
+
+
+def publish_active(active, notifier=None, active_file=ACTIVE_FILE):
+    """Tells every Metal client on the Mac whether a game is active: the notify(3) key's state (1 or 0) and a root-owned file
+    that exists only while a game is active. notifier(name, value) can be replaced in tests."""
+    if notifier is None:
+        notifier = _notify
+    notifier(ACTIVE_KEY, 1 if active else 0)
+    try:
+        if active:
+            os.makedirs(os.path.dirname(active_file), exist_ok=True)
+            with open(active_file + ".tmp", "w") as f:
+                f.write("1\n")
+            os.replace(active_file + ".tmp", active_file)
+            os.chmod(active_file, 0o644)
+        elif os.path.exists(active_file):
+            os.remove(active_file)
+    except OSError:
+        pass
+
+
+def _notify(name, value):
+    """notify_set_state then notify_post, through libSystem. A failure is not an error: the file still says it."""
+    try:
+        import ctypes
+        lib = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+        token = ctypes.c_int(0)
+        if lib.notify_register_check(name.encode(), ctypes.byref(token)) == 0:
+            lib.notify_set_state(token, ctypes.c_uint64(value))
+        lib.notify_post(name.encode())
+    except (OSError, AttributeError):
+        pass
+
+
+def apply(game_pid, procs, runner=run, state=STATE, publish=None):
     """Carries out plan(), recording what each change needs to be undone. Returns the record."""
     record = {"game": game_pid, "raised": [], "backgrounded": []}
     for act, pid in plan(game_pid, procs):
@@ -77,10 +113,11 @@ def apply(game_pid, procs, runner=run, state=STATE):
     with open(state + ".tmp", "w") as f:
         json.dump(record, f)
     os.replace(state + ".tmp", state)
+    (publish or publish_active)(True)
     return record
 
 
-def restore(runner=run, state=STATE):
+def restore(runner=run, state=STATE, publish=None):
     """Undoes what the record says, for the processes that still exist. Returns how many changes were undone."""
     try:
         with open(state) as f:
@@ -98,6 +135,7 @@ def restore(runner=run, state=STATE):
         os.remove(state)
     except OSError:
         pass
+    (publish or publish_active)(False)
     return n
 
 
