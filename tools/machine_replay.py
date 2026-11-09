@@ -81,13 +81,13 @@ def _engine():
     return _ENGINE
 
 
-def replay(c, macos="", experimental=False, tahoe_audio="voodoohda"):
+def replay(c, macos="", experimental=False, tahoe_audio="voodoohda", external_target=False):
     """One corpus row -> what the builder decides for it. Never raises: a refusal or a crash is part of the answer."""
     E = _engine()
     engine = E["engine"]
     from p1401 import scan_evidence
     report = reconstruct(c)
-    pol = engine.Policy(macos=macos, experimental_drivers=experimental, tahoe_audio=tahoe_audio)
+    pol = engine.Policy(macos=macos, experimental_drivers=experimental, tahoe_audio=tahoe_audio, external_target=external_target)
     pol = engine.dataclasses.replace(pol, prefer=dict(pol.prefer))
     res = engine.BuildResult(ok=False, out_dir="")
     out = {"ok": False, "refused": "", "crash": ""}
@@ -110,8 +110,11 @@ def replay(c, macos="", experimental=False, tahoe_audio="voodoohda"):
             sel = engine._select(o, h, pol, res, rep,
                                  lambda: scan_evidence.unbound_report_capture(report, "replay"), lambda: ("", None))
             kexts = [k.name for k in o.k.kexts if k.checked]
+            located = [(engine.unsupported.locate(sel.hw, k, v if isinstance(v, dict) else None), v) for k, v in (sel.disabled or {}).items()]
             out.update(ok=True, macos=sel.mv, smbios=sel.smbios, needs_oclp=bool(sel.needs_oclp), kexts=sorted(kexts),
                        disabled=sorted(str(v.get("Device ID") if isinstance(v, dict) else v) for v in (sel.disabled or {}).values()),
+                       disabled_detail=sorted([sec or "?", str(v.get("Device ID") if isinstance(v, dict) else v), name or "?"]
+                                              for (sec, name), v in located),
                        bios=o.check_bios_requirements(rep, sel.cust), net_status=str(sel.net_status),
                        decisions=[(d.prompt[:60], d.answer) for d in h.decisions],
                        compat=_compat(sel.hw))
@@ -138,12 +141,12 @@ def _compat(hw):
 
 
 def _task(args):
-    c, macos = args
-    return c["key"], macos, replay(c["hardware"], macos=macos)
+    c, macos, kw = args
+    return c["key"], macos, replay(c["hardware"], macos=macos, **kw)
 
 
-def run(machines, macos_list=("24", "25"), jobs=None):
-    tasks = [({"key": m["key"], "hardware": m["hardware"]}, mv) for m in machines for mv in macos_list]
+def run(machines, macos_list=("24", "25"), jobs=None, **kw):
+    tasks = [({"key": m["key"], "hardware": m["hardware"]}, mv, kw) for m in machines for mv in macos_list]
     ctx = multiprocessing.get_context("spawn")
     results = {}
     with ctx.Pool(jobs or max(2, (os.cpu_count() or 4) // 2), maxtasksperchild=200) as pool:

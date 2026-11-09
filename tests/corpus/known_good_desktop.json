@@ -1,0 +1,5668 @@
+{
+ "about": "Machines that reached the macOS desktop: CPU -> Mac model (SMBIOS) and macOS major, display adapter PCI id -> NullMoth driver loaded / Metal running (counts of reports).",
+ "cpus": {
+  "11th Gen Intel(R) Core(TM) i5-11260H @ 2.60GHz": {
+   "macos": {
+    "15": 14,
+    "26": 18
+   },
+   "models": {
+    "MacBookPro16,2": 32
+   },
+   "n": 32
+  },
+  "11th Gen Intel(R) Core(TM) i5-11300H @ 3.10GHz": {
+   "macos": {
+    "15": 9,
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 11
+   },
+   "n": 11
+  },
+  "11th Gen Intel(R) Core(TM) i5-11320H @ 3.20GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacBookPro16,2": 1
+   },
+   "n": 1
+  },
+  "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz": {
+   "macos": {
+    "15": 8
+   },
+   "models": {
+    "MacBookPro16,2": 8
+   },
+   "n": 8
+  },
+  "11th Gen Intel(R) Core(TM) i5-11400 @ 2.60GHz": {
+   "macos": {
+    "15": 22,
+    "26": 90
+   },
+   "models": {
+    "MacPro7,1": 106,
+    "iMac20,1": 4,
+    "iMac20,2": 2
+   },
+   "n": 112
+  },
+  "11th Gen Intel(R) Core(TM) i5-11400F @ 2.60GHz": {
+   "macos": {
+    "15": 59,
+    "26": 78
+   },
+   "models": {
+    "MacPro7,1": 137
+   },
+   "n": 137
+  },
+  "11th Gen Intel(R) Core(TM) i5-11400H @ 2.70GHz": {
+   "macos": {
+    "15": 141,
+    "26": 238,
+    "?": 24
+   },
+   "models": {
+    "MacBookPro16,1": 40,
+    "MacBookPro16,2": 355,
+    "MacBookPro16,4": 5,
+    "Notebook263,8201": 1,
+    "iMacPro1,1": 2
+   },
+   "n": 403
+  },
+  "11th Gen Intel(R) Core(TM) i5-11500 @ 2.70GHz": {
+   "macos": {
+    "15": 5
+   },
+   "models": {
+    "MacPro7,1": 5
+   },
+   "n": 5
+  },
+  "11th Gen Intel(R) Core(TM) i5-11600K @ 3.90GHz": {
+   "macos": {
+    "15": 1,
+    "26": 29
+   },
+   "models": {
+    "MacPro7,1": 30
+   },
+   "n": 30
+  },
+  "11th Gen Intel(R) Core(TM) i5-11600KF @ 3.90GHz": {
+   "macos": {
+    "26": 11
+   },
+   "models": {
+    "MacPro7,1": 11
+   },
+   "n": 11
+  },
+  "11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz": {
+   "macos": {
+    "15": 19,
+    "26": 14
+   },
+   "models": {
+    "MacBookPro16,2": 33
+   },
+   "n": 33
+  },
+  "11th Gen Intel(R) Core(TM) i7-11390H @ 3.40GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacBookPro16,2": 1
+   },
+   "n": 1
+  },
+  "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz": {
+   "macos": {
+    "15": 26
+   },
+   "models": {
+    "MacBookPro16,2": 4,
+    "iMacPro1,1": 22
+   },
+   "n": 26
+  },
+  "11th Gen Intel(R) Core(TM) i7-11700 @ 2.50GHz": {
+   "macos": {
+    "15": 1,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 6
+   },
+   "n": 6
+  },
+  "11th Gen Intel(R) Core(TM) i7-11700F @ 2.50GHz": {
+   "macos": {
+    "15": 23,
+    "26": 35
+   },
+   "models": {
+    "MacPro7,1": 56,
+    "iMacPro1,1": 2
+   },
+   "n": 58
+  },
+  "11th Gen Intel(R) Core(TM) i7-11700K @ 3.60GHz": {
+   "macos": {
+    "15": 11,
+    "26": 32
+   },
+   "models": {
+    "MacPro7,1": 38,
+    "iMacPro1,1": 5
+   },
+   "n": 43
+  },
+  "11th Gen Intel(R) Core(TM) i7-11700KF @ 3.60GHz": {
+   "macos": {
+    "15": 5,
+    "26": 15
+   },
+   "models": {
+    "MacPro7,1": 20
+   },
+   "n": 20
+  },
+  "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz": {
+   "macos": {
+    "15": 154,
+    "26": 397,
+    "?": 1
+   },
+   "models": {
+    "MacBookPro15,1": 1,
+    "MacBookPro16,1": 61,
+    "MacBookPro16,2": 458,
+    "MacBookPro16,4": 14,
+    "MacPro7,1": 4,
+    "iMacPro1,1": 14
+   },
+   "n": 552
+  },
+  "11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz": {
+   "macos": {
+    "15": 1,
+    "26": 17
+   },
+   "models": {
+    "MacBookPro16,2": 17,
+    "MacBookPro16,3": 1
+   },
+   "n": 18
+  },
+  "11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "11th Gen Intel(R) Core(TM) i9-11900 @ 2.50GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "11th Gen Intel(R) Core(TM) i9-11900F @ 2.50GHz": {
+   "macos": {
+    "15": 1,
+    "26": 10
+   },
+   "models": {
+    "MacPro7,1": 11
+   },
+   "n": 11
+  },
+  "11th Gen Intel(R) Core(TM) i9-11900H @ 2.50GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacBookPro16,2": 4
+   },
+   "n": 4
+  },
+  "11th Gen Intel(R) Core(TM) i9-11900K @ 3.50GHz": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "11th Gen Intel(R) Core(TM) i9-11900KF @ 3.50GHz": {
+   "macos": {
+    "15": 7,
+    "26": 23
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 28
+   },
+   "n": 30
+  },
+  "11th Gen Intel(R) Core(TM) i9-11900T @ 1.50GHz": {
+   "macos": {
+    "26": 13
+   },
+   "models": {
+    "MacPro7,1": 13
+   },
+   "n": 13
+  },
+  "12th Gen Intel(R) Core(TM) i3-12100": {
+   "macos": {
+    "15": 8,
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 11
+   },
+   "n": 11
+  },
+  "12th Gen Intel(R) Core(TM) i3-12100F": {
+   "macos": {
+    "15": 63,
+    "26": 58,
+    "?": 3
+   },
+   "models": {
+    "MacPro7,1": 109,
+    "iMac20,1": 7,
+    "iMacPro1,1": 8
+   },
+   "n": 124
+  },
+  "12th Gen Intel(R) Core(TM) i5-12400": {
+   "macos": {
+    "15": 70,
+    "26": 185
+   },
+   "models": {
+    "MacBookPro15,1": 1,
+    "MacBookPro16,2": 8,
+    "MacPro7,1": 229,
+    "iMacPro1,1": 17
+   },
+   "n": 255
+  },
+  "12th Gen Intel(R) Core(TM) i5-12400F": {
+   "macos": {
+    "15": 268,
+    "26": 586,
+    "?": 14
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 796,
+    "iMac20,1": 13,
+    "iMac20,2": 2,
+    "iMacPro1,1": 55
+   },
+   "n": 868
+  },
+  "12th Gen Intel(R) Core(TM) i5-1240P": {
+   "macos": {
+    "15": 19
+   },
+   "models": {
+    "MacBookPro16,2": 19
+   },
+   "n": 19
+  },
+  "12th Gen Intel(R) Core(TM) i5-12450H": {
+   "macos": {
+    "15": 172,
+    "26": 99,
+    "?": 8
+   },
+   "models": {
+    "A263,8201": 1,
+    "MacBookPro16,1": 2,
+    "MacBookPro16,2": 274,
+    "iMacPro1,1": 2
+   },
+   "n": 279
+  },
+  "12th Gen Intel(R) Core(TM) i5-12450HX": {
+   "macos": {
+    "15": 33,
+    "26": 190
+   },
+   "models": {
+    "MacBookPro16,1": 6,
+    "MacBookPro16,2": 202,
+    "MacBookPro16,4": 15
+   },
+   "n": 223
+  },
+  "12th Gen Intel(R) Core(TM) i5-12490F": {
+   "macos": {
+    "15": 63,
+    "26": 167,
+    "?": 10
+   },
+   "models": {
+    "MacBookPro16,2": 5,
+    "MacPro7,1": 234,
+    "iMacPro1,1": 1
+   },
+   "n": 240
+  },
+  "12th Gen Intel(R) Core(TM) i5-12500": {
+   "macos": {
+    "15": 3,
+    "26": 2,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 6
+   },
+   "n": 6
+  },
+  "12th Gen Intel(R) Core(TM) i5-12500E": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "iMac20,2": 4
+   },
+   "n": 4
+  },
+  "12th Gen Intel(R) Core(TM) i5-12500H": {
+   "macos": {
+    "15": 47,
+    "26": 109,
+    "?": 46
+   },
+   "models": {
+    "MacBookPro16,1": 3,
+    "MacBookPro16,2": 193,
+    "MacBookPro16,4": 1,
+    "iMacPro1,1": 5
+   },
+   "n": 202
+  },
+  "12th Gen Intel(R) Core(TM) i5-12600": {
+   "macos": {
+    "15": 4,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 18
+   },
+   "n": 18
+  },
+  "12th Gen Intel(R) Core(TM) i5-12600K": {
+   "macos": {
+    "15": 5,
+    "26": 25
+   },
+   "models": {
+    "MacPro7,1": 30
+   },
+   "n": 30
+  },
+  "12th Gen Intel(R) Core(TM) i5-12600KF": {
+   "macos": {
+    "15": 118,
+    "26": 340,
+    "?": 49
+   },
+   "models": {
+    "A263,8201": 2,
+    "MacPro7,1": 498,
+    "iMac20,1": 2,
+    "iMac20,2": 1,
+    "iMacPro1,1": 4
+   },
+   "n": 507
+  },
+  "12th Gen Intel(R) Core(TM) i7-1260P": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacBookPro16,2": 4
+   },
+   "n": 4
+  },
+  "12th Gen Intel(R) Core(TM) i7-12650H": {
+   "macos": {
+    "15": 67,
+    "26": 229,
+    "?": 56
+   },
+   "models": {
+    "MacBookPro16,1": 13,
+    "MacBookPro16,2": 269,
+    "MacBookPro16,4": 50,
+    "MacPro7,1": 9,
+    "iMac20,1": 1,
+    "iMac20,2": 7,
+    "iMacPro1,1": 3
+   },
+   "n": 352
+  },
+  "12th Gen Intel(R) Core(TM) i7-12700": {
+   "macos": {
+    "15": 23,
+    "26": 76
+   },
+   "models": {
+    "MacPro7,1": 96,
+    "iMacPro1,1": 3
+   },
+   "n": 99
+  },
+  "12th Gen Intel(R) Core(TM) i7-12700F": {
+   "macos": {
+    "15": 49,
+    "26": 55
+   },
+   "models": {
+    "MacPro7,1": 97,
+    "iMacPro1,1": 7
+   },
+   "n": 104
+  },
+  "12th Gen Intel(R) Core(TM) i7-12700H": {
+   "macos": {
+    "15": 233,
+    "26": 390,
+    "?": 29
+   },
+   "models": {
+    "MacBookPro16,1": 70,
+    "MacBookPro16,2": 502,
+    "MacBookPro16,3": 4,
+    "MacBookPro16,4": 51,
+    "MacPro7,1": 19,
+    "iMac20,2": 2,
+    "iMacPro1,1": 4
+   },
+   "n": 652
+  },
+  "12th Gen Intel(R) Core(TM) i7-12700K": {
+   "macos": {
+    "15": 27,
+    "26": 157,
+    "?": 5
+   },
+   "models": {
+    "MS-7D25": 1,
+    "MacPro7,1": 77,
+    "iMac20,1": 3,
+    "iMac20,2": 106,
+    "iMacPro1,1": 2
+   },
+   "n": 189
+  },
+  "12th Gen Intel(R) Core(TM) i7-12700KF": {
+   "macos": {
+    "15": 89,
+    "26": 296,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 369,
+    "iMacPro1,1": 17
+   },
+   "n": 386
+  },
+  "12th Gen Intel(R) Core(TM) i7-12800H": {
+   "macos": {
+    "15": 30,
+    "26": 49
+   },
+   "models": {
+    "MacBookPro16,2": 65,
+    "MacPro7,1": 14
+   },
+   "n": 79
+  },
+  "12th Gen Intel(R) Core(TM) i7-12800HX": {
+   "macos": {
+    "15": 107,
+    "26": 99,
+    "?": 3
+   },
+   "models": {
+    "MacBookPro16,1": 6,
+    "MacBookPro16,2": 201,
+    "MacBookPro16,4": 2
+   },
+   "n": 209
+  },
+  "12th Gen Intel(R) Core(TM) i7-12850HX": {
+   "macos": {
+    "15": 9,
+    "26": 10
+   },
+   "models": {
+    "MacBookPro16,1": 9,
+    "MacBookPro16,2": 10
+   },
+   "n": 19
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900F": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900H": {
+   "macos": {
+    "15": 114,
+    "26": 194
+   },
+   "models": {
+    "MacBookPro16,1": 73,
+    "MacBookPro16,2": 226,
+    "MacBookPro16,4": 1,
+    "MacPro7,1": 8
+   },
+   "n": 308
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900HK": {
+   "macos": {
+    "15": 38,
+    "26": 44
+   },
+   "models": {
+    "MacBookPro16,2": 32,
+    "MacPro7,1": 48,
+    "iMacPro1,1": 2
+   },
+   "n": 82
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900HX": {
+   "macos": {
+    "15": 1,
+    "26": 10
+   },
+   "models": {
+    "MacBookPro16,2": 11
+   },
+   "n": 11
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900K": {
+   "macos": {
+    "15": 35,
+    "26": 84
+   },
+   "models": {
+    "MacPro7,1": 111,
+    "iMacPro1,1": 8
+   },
+   "n": 119
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900KF": {
+   "macos": {
+    "15": 12,
+    "26": 19
+   },
+   "models": {
+    "MacPro7,1": 31
+   },
+   "n": 31
+  },
+  "12th Gen Intel(R) Core(TM) i9-12900KS": {
+   "macos": {
+    "15": 5,
+    "26": 32,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 11,
+    "iMac20,2": 27
+   },
+   "n": 38
+  },
+  "12th Gen Intel(R) Core(TM) i9-12950HX": {
+   "macos": {
+    "15": 23
+   },
+   "models": {
+    "MacBookPro16,2": 19,
+    "MacPro7,1": 4
+   },
+   "n": 23
+  },
+  "13th Gen Intel(R) Core(TM) i3-13100": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "13th Gen Intel(R) Core(TM) i3-13100F": {
+   "macos": {
+    "15": 11,
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 12,
+    "iMacPro1,1": 1
+   },
+   "n": 13
+  },
+  "13th Gen Intel(R) Core(TM) i5-13400": {
+   "macos": {
+    "15": 21,
+    "26": 32,
+    "?": 7
+   },
+   "models": {
+    "MacPro7,1": 38,
+    "iMac20,1": 9,
+    "iMac20,2": 6,
+    "iMacPro1,1": 7
+   },
+   "n": 60
+  },
+  "13th Gen Intel(R) Core(TM) i5-13400F": {
+   "macos": {
+    "15": 73,
+    "26": 162,
+    "?": 20
+   },
+   "models": {
+    "A263,8201": 1,
+    "MacPro7,1": 247,
+    "iMac20,2": 6,
+    "iMacPro1,1": 1
+   },
+   "n": 255
+  },
+  "13th Gen Intel(R) Core(TM) i5-13400T": {
+   "macos": {
+    "15": 6,
+    "26": 7
+   },
+   "models": {
+    "MacPro7,1": 10,
+    "iMac20,2": 3
+   },
+   "n": 13
+  },
+  "13th Gen Intel(R) Core(TM) i5-13420H": {
+   "macos": {
+    "15": 21,
+    "26": 156
+   },
+   "models": {
+    "MacBookPro16,1": 19,
+    "MacBookPro16,2": 158
+   },
+   "n": 177
+  },
+  "13th Gen Intel(R) Core(TM) i5-13450HX": {
+   "macos": {
+    "15": 11,
+    "26": 35
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 41,
+    "iMacPro1,1": 4
+   },
+   "n": 46
+  },
+  "13th Gen Intel(R) Core(TM) i5-13490F": {
+   "macos": {
+    "15": 54,
+    "26": 76,
+    "?": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3,
+    "MacPro7,1": 115,
+    "iMac20,1": 1,
+    "iMacPro1,1": 14
+   },
+   "n": 133
+  },
+  "13th Gen Intel(R) Core(TM) i5-13500": {
+   "macos": {
+    "15": 17,
+    "26": 29
+   },
+   "models": {
+    "MacPro7,1": 36,
+    "iMacPro1,1": 10
+   },
+   "n": 46
+  },
+  "13th Gen Intel(R) Core(TM) i5-13500H": {
+   "macos": {
+    "15": 34,
+    "26": 40
+   },
+   "models": {
+    "MacBookPro16,2": 74
+   },
+   "n": 74
+  },
+  "13th Gen Intel(R) Core(TM) i5-13500HX": {
+   "macos": {
+    "15": 24,
+    "26": 39
+   },
+   "models": {
+    "MacBookPro16,2": 53,
+    "MacPro7,1": 10
+   },
+   "n": 63
+  },
+  "13th Gen Intel(R) Core(TM) i5-13500T": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "13th Gen Intel(R) Core(TM) i5-13600": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "13th Gen Intel(R) Core(TM) i5-13600HX": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacBookPro16,4": 1
+   },
+   "n": 3
+  },
+  "13th Gen Intel(R) Core(TM) i5-13600K": {
+   "macos": {
+    "15": 34,
+    "26": 24,
+    "?": 3
+   },
+   "models": {
+    "MacPro7,1": 53,
+    "iMac20,1": 3,
+    "iMacPro1,1": 5
+   },
+   "n": 61
+  },
+  "13th Gen Intel(R) Core(TM) i5-13600KF": {
+   "macos": {
+    "15": 108,
+    "26": 207,
+    "?": 9
+   },
+   "models": {
+    "MacPro7,1": 303,
+    "iMacPro1,1": 21
+   },
+   "n": 324
+  },
+  "13th Gen Intel(R) Core(TM) i7-13620H": {
+   "macos": {
+    "15": 124,
+    "26": 265,
+    "?": 6
+   },
+   "models": {
+    "MacBookPro16,1": 56,
+    "MacBookPro16,2": 339
+   },
+   "n": 395
+  },
+  "13th Gen Intel(R) Core(TM) i7-13650HX": {
+   "macos": {
+    "15": 175,
+    "26": 262,
+    "?": 64
+   },
+   "models": {
+    "MacBookPro16,2": 341,
+    "MacBookPro16,3": 5,
+    "MacBookPro16,4": 78,
+    "MacPro7,1": 46,
+    "iMac20,2": 1,
+    "iMacPro1,1": 30
+   },
+   "n": 501
+  },
+  "13th Gen Intel(R) Core(TM) i7-13700": {
+   "macos": {
+    "15": 6,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 7
+   },
+   "n": 7
+  },
+  "13th Gen Intel(R) Core(TM) i7-13700F": {
+   "macos": {
+    "15": 11,
+    "26": 33
+   },
+   "models": {
+    "MacPro7,1": 44
+   },
+   "n": 44
+  },
+  "13th Gen Intel(R) Core(TM) i7-13700H": {
+   "macos": {
+    "15": 25,
+    "26": 176
+   },
+   "models": {
+    "MacBookPro16,1": 11,
+    "MacBookPro16,2": 179,
+    "MacPro7,1": 10,
+    "iMacPro1,1": 1
+   },
+   "n": 201
+  },
+  "13th Gen Intel(R) Core(TM) i7-13700HX": {
+   "macos": {
+    "15": 16,
+    "26": 121,
+    "?": 20
+   },
+   "models": {
+    "MacBookPro16,1": 36,
+    "MacBookPro16,2": 120,
+    "MacPro7,1": 1
+   },
+   "n": 157
+  },
+  "13th Gen Intel(R) Core(TM) i7-13700K": {
+   "macos": {
+    "15": 32,
+    "26": 63,
+    "?": 6
+   },
+   "models": {
+    "MacPro7,1": 101
+   },
+   "n": 101
+  },
+  "13th Gen Intel(R) Core(TM) i7-13700KF": {
+   "macos": {
+    "15": 23,
+    "26": 86
+   },
+   "models": {
+    "MacPro7,1": 109
+   },
+   "n": 109
+  },
+  "13th Gen Intel(R) Core(TM) i7-13790F": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "13th Gen Intel(R) Core(TM) i7-13800H": {
+   "macos": {
+    "15": 8,
+    "26": 9
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900F": {
+   "macos": {
+    "15": 4,
+    "26": 13
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900H": {
+   "macos": {
+    "15": 85,
+    "26": 116,
+    "?": 24
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 219,
+    "MacBookPro16,4": 2,
+    "MacPro7,1": 3
+   },
+   "n": 225
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900HK": {
+   "macos": {
+    "15": 9
+   },
+   "models": {
+    "MacBookPro16,2": 9
+   },
+   "n": 9
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900HX": {
+   "macos": {
+    "15": 104,
+    "26": 334,
+    "?": 23
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 294,
+    "MacBookPro16,3": 4,
+    "MacBookPro16,4": 136,
+    "MacPro7,1": 13,
+    "iMac20,2": 10,
+    "iMacPro1,1": 3
+   },
+   "n": 461
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900K": {
+   "macos": {
+    "15": 8,
+    "26": 59
+   },
+   "models": {
+    "MacPro7,1": 66,
+    "iMac20,2": 1
+   },
+   "n": 67
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900KF": {
+   "macos": {
+    "15": 17,
+    "26": 65,
+    "?": 2
+   },
+   "models": {
+    "MacPro7,1": 84
+   },
+   "n": 84
+  },
+  "13th Gen Intel(R) Core(TM) i9-13900KS": {
+   "macos": {
+    "26": 15
+   },
+   "models": {
+    "MacPro7,1": 15
+   },
+   "n": 15
+  },
+  "13th Gen Intel(R) Core(TM) i9-13905H": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "13th Gen Intel(R) Core(TM) i9-13950HX": {
+   "macos": {
+    "26": 84
+   },
+   "models": {
+    "MacBookPro16,2": 12,
+    "MacBookPro16,4": 72
+   },
+   "n": 84
+  },
+  "13th Gen Intel(R) Core(TM) i9-13980HX": {
+   "macos": {
+    "15": 27,
+    "26": 234,
+    "?": 41
+   },
+   "models": {
+    "MacBookPro16,1": 19,
+    "MacBookPro16,2": 179,
+    "MacBookPro16,4": 9,
+    "MacPro7,1": 95
+   },
+   "n": 302
+  },
+  "13th Gen user(R) Core(TM) i7-13620H": {
+   "macos": {
+    "15": 2,
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 4
+   },
+   "n": 4
+  },
+  "3.6 GHz AMD Ryzen 5 3600 6-Core Processor": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "AMD Eng Sample: 100-000000263-30_Y": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 3 1200 Quad-Core Processor": {
+   "macos": {
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 5
+   },
+   "n": 5
+  },
+  "AMD Ryzen 3 2200G with Radeon Vega Graphics": {
+   "macos": {
+    "15": 12
+   },
+   "models": {
+    "MacPro7,1": 11,
+    "iMacPro1,1": 1
+   },
+   "n": 12
+  },
+  "AMD Ryzen 3 3100 4-Core Processor": {
+   "macos": {
+    "15": 4,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "AMD Ryzen 3 4300G with Radeon Graphics": {
+   "macos": {
+    "26": 24
+   },
+   "models": {
+    "MacPro7,1": 24
+   },
+   "n": 24
+  },
+  "AMD Ryzen 3 PRO 4350G with Radeon Graphics": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen 5 1600 Six-Core Processor": {
+   "macos": {
+    "15": 4,
+    "26": 19
+   },
+   "models": {
+    "MacPro7,1": 23
+   },
+   "n": 23
+  },
+  "AMD Ryzen 5 240 w/ Radeon 760M Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 5 2400G with Radeon Vega Graphics": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen 5 2600 Six-Core Processor": {
+   "macos": {
+    "15": 23,
+    "26": 38
+   },
+   "models": {
+    "MacPro7,1": 49,
+    "iMacPro1,1": 12
+   },
+   "n": 61
+  },
+  "AMD Ryzen 5 2600X Six-Core Processor": {
+   "macos": {
+    "15": 5,
+    "26": 28
+   },
+   "models": {
+    "MacPro7,1": 33
+   },
+   "n": 33
+  },
+  "AMD Ryzen 5 3400G with Radeon Vega Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 8
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "AMD Ryzen 5 3500 6-Core Processor": {
+   "macos": {
+    "15": 6,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 20
+   },
+   "n": 20
+  },
+  "AMD Ryzen 5 3500X 6-Core Processor": {
+   "macos": {
+    "15": 2,
+    "26": 21
+   },
+   "models": {
+    "MacPro7,1": 23
+   },
+   "n": 23
+  },
+  "AMD Ryzen 5 3550H with Radeon Vega Mobile Gfx": {
+   "macos": {
+    "15": 13,
+    "26": 6
+   },
+   "models": {
+    "MacBookPro16,2": 13,
+    "MacPro7,1": 6
+   },
+   "n": 19
+  },
+  "AMD Ryzen 5 3600 6-Core Processor": {
+   "macos": {
+    "15": 104,
+    "26": 229,
+    "?": 1
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 284,
+    "iMac20,1": 26,
+    "iMacPro1,1": 22
+   },
+   "n": 334
+  },
+  "AMD Ryzen 5 3600X 6-Core Processor": {
+   "macos": {
+    "15": 10,
+    "26": 44
+   },
+   "models": {
+    "MacPro7,1": 52,
+    "iMac19,1": 2
+   },
+   "n": 54
+  },
+  "AMD Ryzen 5 4500 6-Core Processor": {
+   "macos": {
+    "15": 3,
+    "26": 59
+   },
+   "models": {
+    "MacPro7,1": 62
+   },
+   "n": 62
+  },
+  "AMD Ryzen 5 4600G with Radeon Graphics": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen 5 4600H with Radeon Graphics": {
+   "macos": {
+    "15": 31,
+    "26": 58,
+    "?": 3
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 83,
+    "MacBookPro16,3": 8
+   },
+   "n": 92
+  },
+  "AMD Ryzen 5 5500": {
+   "macos": {
+    "15": 112,
+    "26": 191,
+    "?": 13
+   },
+   "models": {
+    "A263,8201": 1,
+    "MacPro7,1": 307,
+    "iMac20,2": 5,
+    "iMacPro1,1": 3
+   },
+   "n": 316
+  },
+  "AMD Ryzen 5 5500F 6-Core Processor": {
+   "macos": {
+    "26": 7
+   },
+   "models": {
+    "MacPro7,1": 7
+   },
+   "n": 7
+  },
+  "AMD Ryzen 5 5500GT with Radeon Graphics": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen 5 5500U with Radeon Graphics": {
+   "macos": {
+    "26": 6
+   },
+   "models": {
+    "MacBookPro16,2": 6
+   },
+   "n": 6
+  },
+  "AMD Ryzen 5 5500X3D 6-Core Processor": {
+   "macos": {
+    "15": 1,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 15
+   },
+   "n": 15
+  },
+  "AMD Ryzen 5 5600 6-Core Processor": {
+   "macos": {
+    "15": 143,
+    "26": 265,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 402,
+    "iMac20,2": 4,
+    "iMacPro1,1": 3
+   },
+   "n": 409
+  },
+  "AMD Ryzen 5 5600G with Radeon Graphics": {
+   "macos": {
+    "15": 43,
+    "26": 143
+   },
+   "models": {
+    "MacPro7,1": 182,
+    "iMac20,1": 4
+   },
+   "n": 186
+  },
+  "AMD Ryzen 5 5600GT with Radeon Graphics": {
+   "macos": {
+    "15": 3,
+    "26": 13
+   },
+   "models": {
+    "MacPro7,1": 13,
+    "iMacPro1,1": 3
+   },
+   "n": 16
+  },
+  "AMD Ryzen 5 5600H with Radeon Graphics": {
+   "macos": {
+    "15": 77,
+    "26": 64,
+    "?": 2
+   },
+   "models": {
+    "MacBookPro16,2": 98,
+    "MacBookPro16,3": 31,
+    "iMac20,1": 14
+   },
+   "n": 143
+  },
+  "AMD Ryzen 5 5600U with Radeon Graphics": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacBookPro16,2": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen 5 5600X": {
+   "macos": {
+    "26": 10
+   },
+   "models": {
+    "MacPro7,1": 10
+   },
+   "n": 10
+  },
+  "AMD Ryzen 5 5600X 6-Core Processor": {
+   "macos": {
+    "15": 117,
+    "26": 273,
+    "?": 1
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 377,
+    "iMacPro1,1": 12
+   },
+   "n": 391
+  },
+  "AMD Ryzen 5 5600X3D 6-Core Processor": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "iMacPro1,1": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 5 5600XT 6-Core Processor": {
+   "macos": {
+    "15": 21,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 35
+   },
+   "n": 35
+  },
+  "AMD Ryzen 5 6600H with Radeon Graphics": {
+   "macos": {
+    "26": 20
+   },
+   "models": {
+    "MacBookPro16,2": 20
+   },
+   "n": 20
+  },
+  "AMD Ryzen 5 7235HS": {
+   "macos": {
+    "26": 6
+   },
+   "models": {
+    "MacBookPro16,2": 6
+   },
+   "n": 6
+  },
+  "AMD Ryzen 5 7500F 6-Core Processor": {
+   "macos": {
+    "15": 110,
+    "26": 133
+   },
+   "models": {
+    "MacPro7,1": 241,
+    "iMacPro1,1": 2
+   },
+   "n": 243
+  },
+  "AMD Ryzen 5 7500X3D 6-Core Processor": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 5 7535HS with Radeon Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 3
+   },
+   "models": {
+    "MacBookPro16,2": 4
+   },
+   "n": 4
+  },
+  "AMD Ryzen 5 7600 6-Core Processor": {
+   "macos": {
+    "15": 10,
+    "26": 89
+   },
+   "models": {
+    "MacPro7,1": 99
+   },
+   "n": 99
+  },
+  "AMD Ryzen 5 7600X 6-Core Processor": {
+   "macos": {
+    "15": 9,
+    "26": 51,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 49,
+    "iMac20,2": 8,
+    "iMacPro1,1": 4
+   },
+   "n": 61
+  },
+  "AMD Ryzen 5 7600X3D 6-Core Processor": {
+   "macos": {
+    "15": 1,
+    "26": 18
+   },
+   "models": {
+    "MacPro7,1": 19
+   },
+   "n": 19
+  },
+  "AMD Ryzen 5 7640HS w/ Radeon 760M Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 12
+   },
+   "models": {
+    "MacBookPro16,2": 13
+   },
+   "n": 13
+  },
+  "AMD Ryzen 5 8400F 6-Core Processor": {
+   "macos": {
+    "15": 7,
+    "26": 7
+   },
+   "models": {
+    "MacPro7,1": 14
+   },
+   "n": 14
+  },
+  "AMD Ryzen 5 8600G w/ Radeon 760M Graphics": {
+   "macos": {
+    "26": 12
+   },
+   "models": {
+    "MacPro7,1": 12
+   },
+   "n": 12
+  },
+  "AMD Ryzen 5 8645HS w/ Radeon 760M Graphics": {
+   "macos": {
+    "15": 6,
+    "26": 59
+   },
+   "models": {
+    "MacBookPro16,2": 65
+   },
+   "n": 65
+  },
+  "AMD Ryzen 5 9500F 6-Core Processor": {
+   "macos": {
+    "26": 6
+   },
+   "models": {
+    "MacPro7,1": 6
+   },
+   "n": 6
+  },
+  "AMD Ryzen 5 9600X 6-Core Processor": {
+   "macos": {
+    "15": 48,
+    "26": 173,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 222
+   },
+   "n": 222
+  },
+  "AMD Ryzen 5 PRO 4650G with Radeon Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 11
+   },
+   "models": {
+    "MacPro7,1": 12
+   },
+   "n": 12
+  },
+  "AMD Ryzen 7 1700 Eight-Core Processor": {
+   "macos": {
+    "15": 5,
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 7
+   },
+   "n": 7
+  },
+  "AMD Ryzen 7 260 w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 5,
+    "26": 25
+   },
+   "models": {
+    "MacBookPro16,2": 30
+   },
+   "n": 30
+  },
+  "AMD Ryzen 7 2700 Eight-Core Processor": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen 7 2700X Eight-Core Processor": {
+   "macos": {
+    "15": 7,
+    "26": 25
+   },
+   "models": {
+    "MacPro7,1": 32
+   },
+   "n": 32
+  },
+  "AMD Ryzen 7 3700X 8-Core Processor": {
+   "macos": {
+    "15": 48,
+    "26": 69
+   },
+   "models": {
+    "MacPro7,1": 115,
+    "iMac20,1": 2
+   },
+   "n": 117
+  },
+  "AMD Ryzen 7 3750H with Radeon Vega Mobile Gfx": {
+   "macos": {
+    "15": 8
+   },
+   "models": {
+    "MacBookPro16,2": 4,
+    "MacBookPro16,3": 4
+   },
+   "n": 8
+  },
+  "AMD Ryzen 7 3800X 8-Core Processor": {
+   "macos": {
+    "15": 19,
+    "26": 23
+   },
+   "models": {
+    "MacPro7,1": 42
+   },
+   "n": 42
+  },
+  "AMD Ryzen 7 4800H with Radeon Graphics": {
+   "macos": {
+    "15": 91,
+    "26": 84,
+    "?": 26
+   },
+   "models": {
+    "MacBookPro16,2": 163,
+    "MacBookPro16,3": 18,
+    "MacPro7,1": 14,
+    "iMacPro1,1": 6
+   },
+   "n": 201
+  },
+  "AMD Ryzen 7 4800HS with Radeon Graphics": {
+   "macos": {
+    "15": 14
+   },
+   "models": {
+    "MacBookPro16,2": 3,
+    "MacBookPro16,3": 11
+   },
+   "n": 14
+  },
+  "AMD Ryzen 7 5700": {
+   "macos": {
+    "15": 3,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "AMD Ryzen 7 5700G with Radeon Graphics": {
+   "macos": {
+    "15": 30,
+    "26": 23
+   },
+   "models": {
+    "MacPro7,1": 53
+   },
+   "n": 53
+  },
+  "AMD Ryzen 7 5700X 8-Core Processor": {
+   "macos": {
+    "15": 99,
+    "26": 309,
+    "?": 16
+   },
+   "models": {
+    "MacPro7,1": 415,
+    "iMac20,1": 6,
+    "iMacPro1,1": 3
+   },
+   "n": 424
+  },
+  "AMD Ryzen 7 5700X3D 8-Core Processor": {
+   "macos": {
+    "15": 42,
+    "26": 56
+   },
+   "models": {
+    "MacPro7,1": 95,
+    "iMacPro1,1": 3
+   },
+   "n": 98
+  },
+  "AMD Ryzen 7 5800 8-Core Processor": {
+   "macos": {
+    "15": 19,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 29,
+    "iMacPro1,1": 4
+   },
+   "n": 33
+  },
+  "AMD Ryzen 7 5800H with Radeon Graphics": {
+   "macos": {
+    "15": 141,
+    "26": 282,
+    "?": 41
+   },
+   "models": {
+    "MacBookPro16,2": 390,
+    "MacBookPro16,3": 50,
+    "MacPro7,1": 18,
+    "iMacPro1,1": 6
+   },
+   "n": 464
+  },
+  "AMD Ryzen 7 5800HS with Radeon Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 15
+   },
+   "models": {
+    "MacBookPro16,2": 16
+   },
+   "n": 16
+  },
+  "AMD Ryzen 7 5800U with Radeon Graphics": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen 7 5800X 8-Core Processor": {
+   "macos": {
+    "15": 54,
+    "26": 147
+   },
+   "models": {
+    "MacPro7,1": 187,
+    "iMac19,1": 9,
+    "iMacPro1,1": 5
+   },
+   "n": 201
+  },
+  "AMD Ryzen 7 5800X3D 8-Core Processor": {
+   "macos": {
+    "15": 27,
+    "26": 85
+   },
+   "models": {
+    "MacPro7,1": 86,
+    "iMac20,2": 11,
+    "iMacPro1,1": 15
+   },
+   "n": 112
+  },
+  "AMD Ryzen 7 5800XT 8-Core Processor": {
+   "macos": {
+    "15": 2,
+    "26": 22
+   },
+   "models": {
+    "MacPro7,1": 24
+   },
+   "n": 24
+  },
+  "AMD Ryzen 7 6800H with Radeon Graphics": {
+   "macos": {
+    "15": 90,
+    "26": 120,
+    "?": 4
+   },
+   "models": {
+    "MacBookPro16,1": 53,
+    "MacBookPro16,2": 96,
+    "MacBookPro16,3": 3,
+    "MacBookPro16,4": 50,
+    "MacPro7,1": 12
+   },
+   "n": 214
+  },
+  "AMD Ryzen 7 7435H": {
+   "macos": {
+    "15": 17,
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 19
+   },
+   "n": 19
+  },
+  "AMD Ryzen 7 7435HS": {
+   "macos": {
+    "15": 41,
+    "26": 41
+   },
+   "models": {
+    "MacBookPro16,2": 71,
+    "iMacPro1,1": 11
+   },
+   "n": 82
+  },
+  "AMD Ryzen 7 7445H w/Radeon 740M Graphics": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacBookPro16,2": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen 7 7445HS w/ Radeon 740M Graphics": {
+   "macos": {
+    "15": 18,
+    "26": 70
+   },
+   "models": {
+    "MacBookPro16,2": 88
+   },
+   "n": 88
+  },
+  "AMD Ryzen 7 7700 8-Core Processor": {
+   "macos": {
+    "15": 36,
+    "26": 64
+   },
+   "models": {
+    "MacPro7,1": 100
+   },
+   "n": 100
+  },
+  "AMD Ryzen 7 7700X 8-Core Processor": {
+   "macos": {
+    "15": 7,
+    "26": 22
+   },
+   "models": {
+    "MacPro7,1": 29
+   },
+   "n": 29
+  },
+  "AMD Ryzen 7 7700X3D 8-Core Processor": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen 7 7735H with Radeon Graphics": {
+   "macos": {
+    "15": 27,
+    "26": 92,
+    "?": 10
+   },
+   "models": {
+    "MacBookPro16,2": 96,
+    "MacBookPro16,3": 19,
+    "MacPro7,1": 6,
+    "iMacPro1,1": 8
+   },
+   "n": 129
+  },
+  "AMD Ryzen 7 7735HS with Radeon Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 7
+   },
+   "models": {
+    "MacBookPro16,2": 8
+   },
+   "n": 8
+  },
+  "AMD Ryzen 7 7745HX with Radeon Graphics": {
+   "macos": {
+    "15": 60,
+    "26": 17
+   },
+   "models": {
+    "MacBookPro16,2": 67,
+    "iMacPro1,1": 10
+   },
+   "n": 77
+  },
+  "AMD Ryzen 7 7800X3D 8-Core Processor": {
+   "macos": {
+    "15": 98,
+    "26": 196,
+    "?": 2
+   },
+   "models": {
+    "MacPro7,1": 289,
+    "iMacPro1,1": 7
+   },
+   "n": 296
+  },
+  "AMD Ryzen 7 7840H  w/ Radeon 780M Graphics": {
+   "macos": {
+    "?": 12
+   },
+   "models": {
+    "MacBookPro16,2": 12
+   },
+   "n": 12
+  },
+  "AMD Ryzen 7 7840H w/ Radeon 780M Graphics": {
+   "macos": {
+    "26": 17
+   },
+   "models": {
+    "MacBookPro16,2": 17
+   },
+   "n": 17
+  },
+  "AMD Ryzen 7 7840H w/Radeon 780M Graphics": {
+   "macos": {
+    "15": 28,
+    "26": 19,
+    "?": 7
+   },
+   "models": {
+    "MacBookPro16,2": 54
+   },
+   "n": 54
+  },
+  "AMD Ryzen 7 7840H with Radeon 780M Graphics": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen 7 7840HS w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 6,
+    "26": 37
+   },
+   "models": {
+    "MacBookPro16,1": 21,
+    "MacBookPro16,2": 22
+   },
+   "n": 43
+  },
+  "AMD Ryzen 7 7840HS with Radeon 780M Graphics": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 7 8700F 8-Core Processor": {
+   "macos": {
+    "15": 20,
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 23
+   },
+   "n": 23
+  },
+  "AMD Ryzen 7 8840HX with Radeon Graphics": {
+   "macos": {
+    "15": 42
+   },
+   "models": {
+    "MacBookPro16,1": 18,
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 22
+   },
+   "n": 42
+  },
+  "AMD Ryzen 7 8845H w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 35,
+    "26": 69,
+    "?": 5
+   },
+   "models": {
+    "MacBookPro16,2": 75,
+    "MacBookPro16,4": 15,
+    "MacPro7,1": 19
+   },
+   "n": 109
+  },
+  "AMD Ryzen 7 8845HS w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 51,
+    "26": 39
+   },
+   "models": {
+    "MacBookPro16,2": 90
+   },
+   "n": 90
+  },
+  "AMD Ryzen 7 9700X 8-Core Processor": {
+   "macos": {
+    "15": 102,
+    "26": 180,
+    "?": 4
+   },
+   "models": {
+    "A263,8201": 1,
+    "MacPro7,1": 285
+   },
+   "n": 286
+  },
+  "AMD Ryzen 7 9800X3D 8-Core Processor": {
+   "macos": {
+    "15": 135,
+    "26": 211,
+    "?": 17
+   },
+   "models": {
+    "MacPro7,1": 350,
+    "iMacPro1,1": 13
+   },
+   "n": 363
+  },
+  "AMD Ryzen 7 9850X3D 8-Core Processor": {
+   "macos": {
+    "15": 6,
+    "26": 168
+   },
+   "models": {
+    "MacPro7,1": 174
+   },
+   "n": 174
+  },
+  "AMD Ryzen 7 H 260 w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 5,
+    "?": 3
+   },
+   "models": {
+    "MacBookPro16,2": 8
+   },
+   "n": 8
+  },
+  "AMD Ryzen 9 3900X 12-Core Processor": {
+   "macos": {
+    "15": 29,
+    "26": 12
+   },
+   "models": {
+    "MacBookPro16,2": 10,
+    "MacPro7,1": 13,
+    "iMacPro1,1": 18
+   },
+   "n": 41
+  },
+  "AMD Ryzen 9 3900XT 12-Core Processor": {
+   "macos": {
+    "15": 2,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 9 3950X 16-Core Processor": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen 9 5900 12-Core Processor": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "AMD Ryzen 9 5900HS with Radeon Graphics": {
+   "macos": {
+    "15": 1,
+    "26": 25
+   },
+   "models": {
+    "MacBookPro16,2": 26
+   },
+   "n": 26
+  },
+  "AMD Ryzen 9 5900HX with Radeon Graphics": {
+   "macos": {
+    "15": 3,
+    "26": 13,
+    "?": 3
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 17,
+    "MacBookPro16,3": 1
+   },
+   "n": 19
+  },
+  "AMD Ryzen 9 5900X 12-Core Processor": {
+   "macos": {
+    "15": 34,
+    "26": 103
+   },
+   "models": {
+    "A263,8201": 2,
+    "MacPro7,1": 135
+   },
+   "n": 137
+  },
+  "AMD Ryzen 9 5900XT 16-Core Processor": {
+   "macos": {
+    "15": 2,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 7
+   },
+   "n": 7
+  },
+  "AMD Ryzen 9 5950X 16-Core Processor": {
+   "macos": {
+    "15": 11,
+    "26": 68
+   },
+   "models": {
+    "MacPro7,1": 79
+   },
+   "n": 79
+  },
+  "AMD Ryzen 9 6900HS with Radeon Graphics": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "MacBookPro16,2": 4
+   },
+   "n": 4
+  },
+  "AMD Ryzen 9 6900HX with Radeon Graphics": {
+   "macos": {
+    "15": 4,
+    "26": 30,
+    "?": 9
+   },
+   "models": {
+    "MacBookPro16,2": 18,
+    "MacBookPro16,4": 25
+   },
+   "n": 43
+  },
+  "AMD Ryzen 9 7845HX with Radeon Graphics": {
+   "macos": {
+    "15": 81,
+    "26": 21,
+    "?": 1
+   },
+   "models": {
+    "MacBookPro16,2": 83,
+    "MacPro7,1": 9,
+    "iMacPro1,1": 11
+   },
+   "n": 103
+  },
+  "AMD Ryzen 9 7900 12-Core Processor": {
+   "macos": {
+    "15": 3,
+    "26": 6
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "AMD Ryzen 9 7900X 12-Core Processor": {
+   "macos": {
+    "15": 15,
+    "26": 6
+   },
+   "models": {
+    "MacPro7,1": 20,
+    "iMac19,1": 1
+   },
+   "n": 21
+  },
+  "AMD Ryzen 9 7900X3D 12-Core Processor": {
+   "macos": {
+    "15": 1,
+    "26": 8
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "AMD Ryzen 9 7940H w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 4,
+    "26": 16,
+    "?": 16
+   },
+   "models": {
+    "MacBookPro16,1": 3,
+    "MacBookPro16,2": 17,
+    "MacPro7,1": 16
+   },
+   "n": 36
+  },
+  "AMD Ryzen 9 7940HS w/ Radeon 780M Graphics": {
+   "macos": {
+    "26": 12
+   },
+   "models": {
+    "MacBookPro16,2": 12
+   },
+   "n": 12
+  },
+  "AMD Ryzen 9 7940HX with Radeon Graphics": {
+   "macos": {
+    "15": 20,
+    "26": 85,
+    "?": 24
+   },
+   "models": {
+    "MacBookPro16,1": 5,
+    "MacBookPro16,2": 49,
+    "MacBookPro16,4": 69,
+    "MacPro7,1": 3,
+    "iMac20,2": 1,
+    "iMacPro1,1": 2
+   },
+   "n": 129
+  },
+  "AMD Ryzen 9 7945HX with Radeon Graphics": {
+   "macos": {
+    "15": 30,
+    "26": 33
+   },
+   "models": {
+    "MacBookPro16,2": 59,
+    "MacPro7,1": 4
+   },
+   "n": 63
+  },
+  "AMD Ryzen 9 7950X 16-Core Processor": {
+   "macos": {
+    "15": 7,
+    "26": 35
+   },
+   "models": {
+    "MacPro7,1": 42
+   },
+   "n": 42
+  },
+  "AMD Ryzen 9 7950X3D 16-Core Processor": {
+   "macos": {
+    "15": 14,
+    "26": 25,
+    "?": 2
+   },
+   "models": {
+    "MacPro7,1": 41
+   },
+   "n": 41
+  },
+  "AMD Ryzen 9 8940HX with Radeon Graphics": {
+   "macos": {
+    "15": 40,
+    "26": 86,
+    "?": 7
+   },
+   "models": {
+    "MacBookPro16,2": 132,
+    "MacPro7,1": 1
+   },
+   "n": 133
+  },
+  "AMD Ryzen 9 8945H w/ Radeon 780M Graphics": {
+   "macos": {
+    "26": 11
+   },
+   "models": {
+    "MacBookPro16,2": 11
+   },
+   "n": 11
+  },
+  "AMD Ryzen 9 8945HS w/ Radeon 780M Graphics": {
+   "macos": {
+    "15": 34,
+    "26": 18
+   },
+   "models": {
+    "MacBookPro16,1": 40,
+    "MacBookPro16,2": 10,
+    "MacPro7,1": 2
+   },
+   "n": 52
+  },
+  "AMD Ryzen 9 8945HX with Radeon Graphics": {
+   "macos": {
+    "15": 29,
+    "26": 53,
+    "?": 30
+   },
+   "models": {
+    "MacBookPro16,1": 21,
+    "MacBookPro16,2": 40,
+    "MacBookPro16,4": 17,
+    "MacPro7,1": 34
+   },
+   "n": 112
+  },
+  "AMD Ryzen 9 9850HX 12-Core Processor": {
+   "macos": {
+    "15": 3,
+    "26": 18
+   },
+   "models": {
+    "MacBookPro16,2": 21
+   },
+   "n": 21
+  },
+  "AMD Ryzen 9 9900X 12-Core Processor": {
+   "macos": {
+    "15": 34,
+    "26": 23
+   },
+   "models": {
+    "MacPro7,1": 56,
+    "iMacPro1,1": 1
+   },
+   "n": 57
+  },
+  "AMD Ryzen 9 9900X3D 12-Core Processor": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen 9 9950X 16-Core Processor": {
+   "macos": {
+    "15": 13,
+    "26": 47
+   },
+   "models": {
+    "MacPro7,1": 55,
+    "iMacPro1,1": 5
+   },
+   "n": 60
+  },
+  "AMD Ryzen 9 9950X3D 16-Core Processor": {
+   "macos": {
+    "15": 61,
+    "26": 107
+   },
+   "models": {
+    "MacPro7,1": 168
+   },
+   "n": 168
+  },
+  "AMD Ryzen 9 9955HX 16-Core Processor": {
+   "macos": {
+    "15": 47,
+    "26": 94,
+    "?": 29
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 142,
+    "MacBookPro16,3": 1,
+    "MacBookPro16,4": 3,
+    "MacPro7,1": 22,
+    "iMac20,2": 1
+   },
+   "n": 170
+  },
+  "AMD Ryzen 9 9955HX3D 16-Core Processor": {
+   "macos": {
+    "15": 8,
+    "26": 14
+   },
+   "models": {
+    "MacBookPro16,2": 11,
+    "MacPro7,1": 11
+   },
+   "n": 22
+  },
+  "AMD Ryzen AI 7 350 w/ Radeon 860M": {
+   "macos": {
+    "15": 20,
+    "26": 66
+   },
+   "models": {
+    "MacBookPro16,2": 26,
+    "MacPro7,1": 60
+   },
+   "n": 86
+  },
+  "AMD Ryzen AI 9 365 w/ Radeon 880M": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacBookPro16,2": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen AI 9 HX 370 w/ Radeon 890M": {
+   "macos": {
+    "26": 9
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 8
+   },
+   "n": 9
+  },
+  "AMD Ryzen Embedded V1756B with Radeon Vega Gfx": {
+   "macos": {
+    "15": 8
+   },
+   "models": {
+    "MacPro7,1": 8
+   },
+   "n": 8
+  },
+  "AMD Ryzen Threadripper 1900X 8-Core Processor": {
+   "macos": {
+    "15": 15
+   },
+   "models": {
+    "iMacPro1,1": 15
+   },
+   "n": 15
+  },
+  "AMD Ryzen Threadripper 1920X 12-Core Processor": {
+   "macos": {
+    "15": 13
+   },
+   "models": {
+    "MacPro7,1": 13
+   },
+   "n": 13
+  },
+  "AMD Ryzen Threadripper 2990WX 32-Core Processor": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "AMD Ryzen Threadripper 3960X 24-Core Processor": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "AMD Ryzen Threadripper PRO 3945WX 12-Cores": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Genuine Intel(R) 0000": {
+   "macos": {
+    "15": 33,
+    "26": 44
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 61,
+    "iMacPro1,1": 14
+   },
+   "n": 77
+  },
+  "Genuine Intel(R) CPU 0000 @ 2.10GHz": {
+   "macos": {
+    "15": 7
+   },
+   "models": {
+    "MacPro7,1": 7
+   },
+   "n": 7
+  },
+  "Genuine Intel(R) CPU 0000 @ 2.40GHz": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Genuine Intel(R) CPU 0000 @ 2.90GHz": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "Genuine Intel(R) CPU 0000 @ 3.00GHz": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "iMac20,1": 2
+   },
+   "n": 2
+  },
+  "Genuine Intel(R) CPU 0000 @ 3.30GHz": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "iMacPro1,1": 2
+   },
+   "n": 2
+  },
+  "Genuine Intel(R) CPU 0000 @ 3.50GHz": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "iMacPro1,1": 2
+   },
+   "n": 2
+  },
+  "Intel Core Processor (Haswell, no TSX)": {
+   "macos": {
+    "15": 11,
+    "26": 5
+   },
+   "models": {
+    "iMac20,1": 16
+   },
+   "n": 16
+  },
+  "Intel Core Processor (Skylake)": {
+   "macos": {
+    "15": 15,
+    "26": 39
+   },
+   "models": {
+    "MacPro7,1": 1,
+    "iMac19,1": 42,
+    "iMac20,1": 6,
+    "iMacPro1,1": 5
+   },
+   "n": 54
+  },
+  "Intel Core Processor (Skylake, IBRS, no TSX)": {
+   "macos": {
+    "15": 16,
+    "26": 40
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacPro7,1": 40,
+    "iMac19,1": 1,
+    "iMacPro1,1": 13
+   },
+   "n": 56
+  },
+  "Intel Xeon Processor (Cascadelake)": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) CC150 CPU @ 3.50GHz": {
+   "macos": {
+    "15": 17
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) 5 210H": {
+   "macos": {
+    "15": 32,
+    "26": 20
+   },
+   "models": {
+    "MacBookPro16,2": 52
+   },
+   "n": 52
+  },
+  "Intel(R) Core(TM) 7 240H": {
+   "macos": {
+    "15": 36,
+    "26": 25
+   },
+   "models": {
+    "MacBookPro16,2": 61
+   },
+   "n": 61
+  },
+  "Intel(R) Core(TM) Ultra 5 225": {
+   "macos": {
+    "26": 9
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "Intel(R) Core(TM) Ultra 5 225F": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) Ultra 5 225H": {
+   "macos": {
+    "26": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) Ultra 5 230F": {
+   "macos": {
+    "15": 9,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 10
+   },
+   "n": 10
+  },
+  "Intel(R) Core(TM) Ultra 5 235HX": {
+   "macos": {
+    "15": 2,
+    "26": 5
+   },
+   "models": {
+    "MacBookPro16,2": 7
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) Ultra 5 245K": {
+   "macos": {
+    "15": 5,
+    "26": 24
+   },
+   "models": {
+    "MacPro7,1": 27,
+    "iMacPro1,1": 2
+   },
+   "n": 29
+  },
+  "Intel(R) Core(TM) Ultra 5 245KF": {
+   "macos": {
+    "15": 19,
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 21
+   },
+   "n": 21
+  },
+  "Intel(R) Core(TM) Ultra 5 250K Plus": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) Ultra 5 336H": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) Ultra 7 155H": {
+   "macos": {
+    "15": 2,
+    "26": 5
+   },
+   "models": {
+    "MacBookPro16,2": 7
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) Ultra 7 251HX": {
+   "macos": {
+    "15": 31
+   },
+   "models": {
+    "MacBookPro16,2": 31
+   },
+   "n": 31
+  },
+  "Intel(R) Core(TM) Ultra 7 255H": {
+   "macos": {
+    "15": 1,
+    "26": 9
+   },
+   "models": {
+    "MacBookPro16,2": 10
+   },
+   "n": 10
+  },
+  "Intel(R) Core(TM) Ultra 7 255HX": {
+   "macos": {
+    "15": 57,
+    "26": 174,
+    "?": 2
+   },
+   "models": {
+    "MacBookPro16,1": 41,
+    "MacBookPro16,2": 94,
+    "MacPro7,1": 98
+   },
+   "n": 233
+  },
+  "Intel(R) Core(TM) Ultra 7 265": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) Ultra 7 265F": {
+   "macos": {
+    "15": 8
+   },
+   "models": {
+    "MacPro7,1": 1,
+    "iMacPro1,1": 7
+   },
+   "n": 8
+  },
+  "Intel(R) Core(TM) Ultra 7 265K": {
+   "macos": {
+    "15": 33,
+    "26": 132
+   },
+   "models": {
+    "MacPro7,1": 165
+   },
+   "n": 165
+  },
+  "Intel(R) Core(TM) Ultra 7 265KF": {
+   "macos": {
+    "15": 3,
+    "26": 56,
+    "?": 2
+   },
+   "models": {
+    "MacPro7,1": 56,
+    "iMac20,2": 5
+   },
+   "n": 61
+  },
+  "Intel(R) Core(TM) Ultra 7 270K Plus": {
+   "macos": {
+    "15": 25,
+    "26": 89,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 114,
+    "iMac20,2": 1
+   },
+   "n": 115
+  },
+  "Intel(R) Core(TM) Ultra 9 185H": {
+   "macos": {
+    "15": 29,
+    "26": 75
+   },
+   "models": {
+    "MacBookPro16,1": 22,
+    "MacBookPro16,2": 82
+   },
+   "n": 104
+  },
+  "Intel(R) Core(TM) Ultra 9 275HX": {
+   "macos": {
+    "15": 46,
+    "26": 227,
+    "?": 77
+   },
+   "models": {
+    "MacBookPro16,1": 34,
+    "MacBookPro16,2": 239,
+    "MacBookPro16,4": 26,
+    "MacPro7,1": 51
+   },
+   "n": 350
+  },
+  "Intel(R) Core(TM) Ultra 9 285": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) Ultra 9 285H": {
+   "macos": {
+    "15": 15,
+    "26": 11
+   },
+   "models": {
+    "MacBookPro16,2": 13,
+    "MacPro7,1": 12,
+    "iMacPro1,1": 1
+   },
+   "n": 26
+  },
+  "Intel(R) Core(TM) Ultra 9 285HX": {
+   "macos": {
+    "15": 5,
+    "?": 2
+   },
+   "models": {
+    "MacBookPro16,2": 7
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) Ultra 9 285K": {
+   "macos": {
+    "15": 6,
+    "26": 28
+   },
+   "models": {
+    "MacPro7,1": 28,
+    "iMacPro1,1": 6
+   },
+   "n": 34
+  },
+  "Intel(R) Core(TM) Ultra 9 290HX Plus": {
+   "macos": {
+    "15": 9,
+    "26": 18,
+    "?": 15
+   },
+   "models": {
+    "MacBookPro16,2": 42
+   },
+   "n": 42
+  },
+  "Intel(R) Core(TM) i3-10100 CPU @ 3.60GHz": {
+   "macos": {
+    "15": 4,
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 3,
+    "Macmini8,1": 2,
+    "iMac20,1": 2
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) i3-10100F CPU @ 3.60GHz": {
+   "macos": {
+    "15": 18,
+    "26": 22
+   },
+   "models": {
+    "MacPro7,1": 40
+   },
+   "n": 40
+  },
+  "Intel(R) Core(TM) i3-10105 CPU @ 3.70GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacPro7,1": 1,
+    "iMac20,1": 3
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) i3-10105F CPU @ 3.70GHz": {
+   "macos": {
+    "15": 24,
+    "26": 24
+   },
+   "models": {
+    "MacPro7,1": 46,
+    "iMac20,1": 2
+   },
+   "n": 48
+  },
+  "Intel(R) Core(TM) i3-14100F": {
+   "macos": {
+    "15": 2,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) i3-4130 CPU @ 3.40GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i3-7100 CPU @ 3.90GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "iMac18,3": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i3-7350K CPU @ 4.20GHz": {
+   "macos": {
+    "26": 7
+   },
+   "models": {
+    "iMac19,2": 7
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) i3-8100 CPU @ 3.60GHz": {
+   "macos": {
+    "15": 1,
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 5
+   },
+   "n": 5
+  },
+  "Intel(R) Core(TM) i3-9100F CPU @ 3.60GHz": {
+   "macos": {
+    "15": 7,
+    "26": 10
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) i5-10200H CPU @ 2.40GHz": {
+   "macos": {
+    "15": 53,
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,1": 4,
+    "MacBookPro16,2": 10,
+    "MacBookPro16,3": 21,
+    "MacBookPro16,4": 10,
+    "iMac20,1": 7,
+    "iMacPro1,1": 3
+   },
+   "n": 55
+  },
+  "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz": {
+   "macos": {
+    "15": 31,
+    "26": 66
+   },
+   "models": {
+    "MacBookPro16,1": 45,
+    "MacBookPro16,2": 15,
+    "MacBookPro16,3": 30,
+    "MacBookPro16,4": 6,
+    "iMac20,1": 1
+   },
+   "n": 97
+  },
+  "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz": {
+   "macos": {
+    "15": 58,
+    "26": 121
+   },
+   "models": {
+    "MacBookPro16,1": 12,
+    "MacPro7,1": 91,
+    "iMac20,1": 75,
+    "iMacPro1,1": 1
+   },
+   "n": 179
+  },
+  "Intel(R) Core(TM) i5-10400F CPU @ 2.90GHz": {
+   "macos": {
+    "15": 213,
+    "26": 148,
+    "?": 4
+   },
+   "models": {
+    "MacPro7,1": 332,
+    "iMac20,1": 12,
+    "iMac20,2": 5,
+    "iMacPro1,1": 16
+   },
+   "n": 365
+  },
+  "Intel(R) Core(TM) i5-10500 CPU @ 3.10GHz": {
+   "macos": {
+    "15": 5,
+    "26": 13
+   },
+   "models": {
+    "MacPro7,1": 11,
+    "iMac20,1": 7
+   },
+   "n": 18
+  },
+  "Intel(R) Core(TM) i5-10500H CPU @ 2.50GHz": {
+   "macos": {
+    "26": 5
+   },
+   "models": {
+    "MacBookPro16,1": 5
+   },
+   "n": 5
+  },
+  "Intel(R) Core(TM) i5-10505 CPU @ 3.20GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "iMac20,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i5-10600 CPU @ 3.30GHz": {
+   "macos": {
+    "?": 30
+   },
+   "models": {
+    "MacPro7,1": 7,
+    "iMac20,1": 23
+   },
+   "n": 30
+  },
+  "Intel(R) Core(TM) i5-10600K CPU @ 4.10GHz": {
+   "macos": {
+    "15": 13,
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 7,
+    "iMac20,1": 10
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) i5-10600KF CPU @ 4.10GHz": {
+   "macos": {
+    "15": 17,
+    "26": 8,
+    "?": 9
+   },
+   "models": {
+    "MS-7C76": 1,
+    "MacPro7,1": 25,
+    "iMac20,2": 8
+   },
+   "n": 34
+  },
+  "Intel(R) Core(TM) i5-14400": {
+   "macos": {
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 14
+   },
+   "n": 14
+  },
+  "Intel(R) Core(TM) i5-14400F": {
+   "macos": {
+    "15": 58,
+    "26": 81
+   },
+   "models": {
+    "MacPro7,1": 136,
+    "iMacPro1,1": 3
+   },
+   "n": 139
+  },
+  "Intel(R) Core(TM) i5-14450HX": {
+   "macos": {
+    "15": 2,
+    "26": 13,
+    "?": 1
+   },
+   "models": {
+    "MacBookPro16,2": 16
+   },
+   "n": 16
+  },
+  "Intel(R) Core(TM) i5-14490F": {
+   "macos": {
+    "15": 8,
+    "26": 8
+   },
+   "models": {
+    "MacPro7,1": 16
+   },
+   "n": 16
+  },
+  "Intel(R) Core(TM) i5-14500": {
+   "macos": {
+    "15": 2,
+    "26": 15
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) i5-14500HX": {
+   "macos": {
+    "15": 1,
+    "26": 3
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,2": 2,
+    "iMacPro1,1": 1
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) i5-14500T": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i5-14600K": {
+   "macos": {
+    "15": 93,
+    "26": 123
+   },
+   "models": {
+    "MacPro7,1": 207,
+    "iMacPro1,1": 9
+   },
+   "n": 216
+  },
+  "Intel(R) Core(TM) i5-14600KF": {
+   "macos": {
+    "15": 104,
+    "26": 234,
+    "?": 8
+   },
+   "models": {
+    "MacPro7,1": 335,
+    "iMac20,1": 3,
+    "iMac20,2": 1,
+    "iMacPro1,1": 7
+   },
+   "n": 346
+  },
+  "Intel(R) Core(TM) i5-2500 CPU @ 3.30GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i5-4460  CPU @ 3.20GHz": {
+   "macos": {
+    "15": 6,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1,
+    "iMac16,2": 6
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) i5-4460S CPU @ 2.90GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i5-4570 CPU @ 3.20GHz": {
+   "macos": {
+    "15": 12,
+    "26": 6
+   },
+   "models": {
+    "MacPro7,1": 1,
+    "iMac14,4": 10,
+    "iMac19,1": 7
+   },
+   "n": 18
+  },
+  "Intel(R) Core(TM) i5-4690 CPU @ 3.50GHz": {
+   "macos": {
+    "15": 17
+   },
+   "models": {
+    "MacPro7,1": 7,
+    "iMacPro1,1": 10
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) i5-4690K CPU @ 3.50GHz": {
+   "macos": {
+    "15": 1,
+    "26": 2
+   },
+   "models": {
+    "iMac14,4": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) i5-6500 CPU @ 3.20GHz": {
+   "macos": {
+    "15": 10,
+    "26": 8
+   },
+   "models": {
+    "MacPro7,1": 9,
+    "iMac17,1": 8,
+    "iMac19,1": 1
+   },
+   "n": 18
+  },
+  "Intel(R) Core(TM) i5-6600 CPU @ 3.30GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i5-7400 CPU @ 3.00GHz": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "iMac19,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i5-7500 CPU @ 3.40GHz": {
+   "macos": {
+    "15": 2,
+    "26": 10
+   },
+   "models": {
+    "MacPro7,1": 6,
+    "iMac18,3": 5,
+    "iMacPro1,1": 1
+   },
+   "n": 12
+  },
+  "Intel(R) Core(TM) i5-8257U CPU @ 1.40GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacBookPro16,3": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) i5-8400 CPU @ 2.80GHz": {
+   "macos": {
+    "15": 7,
+    "26": 10
+   },
+   "models": {
+    "MacPro7,1": 11,
+    "iMac19,1": 4,
+    "iMacPro1,1": 2
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz": {
+   "macos": {
+    "15": 1,
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2,
+    "iMac19,1": 1
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz": {
+   "macos": {
+    "15": 63,
+    "26": 68
+   },
+   "models": {
+    "MacBookPro15,1": 17,
+    "MacBookPro16,1": 21,
+    "MacBookPro16,3": 78,
+    "MacBookPro16,4": 11,
+    "MacPro7,1": 3,
+    "iMac19,1": 1
+   },
+   "n": 131
+  },
+  "Intel(R) Core(TM) i5-9300HF CPU @ 2.40GHz": {
+   "macos": {
+    "15": 11,
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacBookPro16,3": 2,
+    "MacPro7,1": 10
+   },
+   "n": 13
+  },
+  "Intel(R) Core(TM) i5-9400 CPU @ 2.90GHz": {
+   "macos": {
+    "15": 3,
+    "26": 1
+   },
+   "models": {
+    "MacBookPro16,1": 1,
+    "MacPro7,1": 1,
+    "iMac19,1": 2
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) i5-9400F CPU @ 2.90GHz": {
+   "macos": {
+    "15": 109,
+    "26": 157,
+    "?": 1
+   },
+   "models": {
+    "A263,8201": 2,
+    "MacPro7,1": 259,
+    "iMac19,1": 4,
+    "iMac20,2": 1,
+    "iMacPro1,1": 1
+   },
+   "n": 267
+  },
+  "Intel(R) Core(TM) i5-9500 CPU @ 3.00GHz": {
+   "macos": {
+    "15": 1,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 2,
+    "iMac20,1": 4
+   },
+   "n": 6
+  },
+  "Intel(R) Core(TM) i5-9600K CPU @ 3.70GHz": {
+   "macos": {
+    "15": 29,
+    "26": 19
+   },
+   "models": {
+    "MacPro7,1": 17,
+    "iMac19,1": 24,
+    "iMac20,1": 7
+   },
+   "n": 48
+  },
+  "Intel(R) Core(TM) i5-9600KF CPU @ 3.70GHz": {
+   "macos": {
+    "15": 38,
+    "26": 22,
+    "?": 9
+   },
+   "models": {
+    "A263,8201": 1,
+    "MacPro7,1": 65,
+    "iMac19,1": 3
+   },
+   "n": 69
+  },
+  "Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "MacBookAir9,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz": {
+   "macos": {
+    "15": 33,
+    "26": 74,
+    "?": 17
+   },
+   "models": {
+    "MacBookPro16,1": 4,
+    "MacPro7,1": 75,
+    "iMac19,1": 3,
+    "iMac20,1": 41,
+    "iMac20,2": 1
+   },
+   "n": 124
+  },
+  "Intel(R) Core(TM) i7-10700F CPU @ 2.90GHz": {
+   "macos": {
+    "15": 6,
+    "26": 49,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 56
+   },
+   "n": 56
+  },
+  "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz": {
+   "macos": {
+    "15": 24,
+    "26": 60
+   },
+   "models": {
+    "MacPro7,1": 67,
+    "iMac20,1": 17
+   },
+   "n": 84
+  },
+  "Intel(R) Core(TM) i7-10700KF CPU @ 3.80GHz": {
+   "macos": {
+    "15": 2,
+    "26": 24
+   },
+   "models": {
+    "MacPro7,1": 26
+   },
+   "n": 26
+  },
+  "Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz": {
+   "macos": {
+    "15": 136,
+    "26": 207,
+    "?": 6
+   },
+   "models": {
+    "MacBookPro16,1": 170,
+    "MacBookPro16,2": 36,
+    "MacBookPro16,4": 142,
+    "iMac20,2": 1
+   },
+   "n": 349
+  },
+  "Intel(R) Core(TM) i7-10850H CPU @ 2.70GHz": {
+   "macos": {
+    "15": 34,
+    "26": 14
+   },
+   "models": {
+    "MacBookPro16,1": 24,
+    "MacBookPro16,2": 1,
+    "MacBookPro16,4": 16,
+    "iMacPro1,1": 7
+   },
+   "n": 48
+  },
+  "Intel(R) Core(TM) i7-10870H CPU @ 2.20GHz": {
+   "macos": {
+    "15": 33,
+    "26": 27,
+    "?": 3
+   },
+   "models": {
+    "MacBookPro16,1": 55,
+    "iMac20,1": 1,
+    "iMacPro1,1": 7
+   },
+   "n": 63
+  },
+  "Intel(R) Core(TM) i7-10875H CPU @ 2.30GHz": {
+   "macos": {
+    "15": 59,
+    "26": 102,
+    "?": 2
+   },
+   "models": {
+    "MacBookPro16,1": 113,
+    "MacBookPro16,3": 6,
+    "MacBookPro16,4": 29,
+    "MacPro7,1": 4,
+    "iMac20,1": 2,
+    "iMacPro1,1": 9
+   },
+   "n": 163
+  },
+  "Intel(R) Core(TM) i7-14650HX": {
+   "macos": {
+    "15": 161,
+    "26": 308,
+    "?": 98
+   },
+   "models": {
+    "MacBookPro16,1": 24,
+    "MacBookPro16,2": 421,
+    "MacBookPro16,4": 48,
+    "MacPro7,1": 59,
+    "iMac19,1": 2,
+    "iMacPro1,1": 13
+   },
+   "n": 567
+  },
+  "Intel(R) Core(TM) i7-14700": {
+   "macos": {
+    "15": 1,
+    "26": 23
+   },
+   "models": {
+    "MacPro7,1": 16,
+    "iMac20,2": 8
+   },
+   "n": 24
+  },
+  "Intel(R) Core(TM) i7-14700F": {
+   "macos": {
+    "15": 44,
+    "26": 61,
+    "?": 1
+   },
+   "models": {
+    "MacPro7,1": 104,
+    "iMacPro1,1": 2
+   },
+   "n": 106
+  },
+  "Intel(R) Core(TM) i7-14700HX": {
+   "macos": {
+    "15": 34,
+    "26": 119
+   },
+   "models": {
+    "MacBookPro16,2": 130,
+    "MacBookPro16,4": 10,
+    "MacPro7,1": 13
+   },
+   "n": 153
+  },
+  "Intel(R) Core(TM) i7-14700K": {
+   "macos": {
+    "15": 23,
+    "26": 23
+   },
+   "models": {
+    "MacPro7,1": 45,
+    "iMacPro1,1": 1
+   },
+   "n": 46
+  },
+  "Intel(R) Core(TM) i7-14700KF": {
+   "macos": {
+    "15": 31,
+    "26": 345
+   },
+   "models": {
+    "MacPro7,1": 366,
+    "iMacPro1,1": 10
+   },
+   "n": 376
+  },
+  "Intel(R) Core(TM) i7-14790F": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i7-2600K CPU @ 3.40GHz": {
+   "macos": {
+    "26": 9
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "Intel(R) Core(TM) i7-3770 CPU @ 3.40GHz": {
+   "macos": {
+    "15": 2,
+    "26": 6
+   },
+   "models": {
+    "MacPro7,1": 8
+   },
+   "n": 8
+  },
+  "Intel(R) Core(TM) i7-3770K CPU @ 3.50GHz": {
+   "macos": {
+    "15": 5,
+    "26": 12
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "Intel(R) Core(TM) i7-4770 CPU @ 3.40GHz": {
+   "macos": {
+    "15": 2,
+    "26": 7
+   },
+   "models": {
+    "MacPro7,1": 8,
+    "iMacPro1,1": 1
+   },
+   "n": 9
+  },
+  "Intel(R) Core(TM) i7-4770S CPU @ 3.10GHz": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "iMac14,4": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) i7-4790 CPU @ 3.60GHz": {
+   "macos": {
+    "15": 4,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "Intel(R) Core(TM) i7-4790K CPU @ 4.00GHz": {
+   "macos": {
+    "15": 10,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 11
+   },
+   "n": 11
+  },
+  "Intel(R) Core(TM) i7-4870HQ CPU @ 2.50GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacBookPro11,5": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i7-5820K CPU @ 3.30GHz": {
+   "macos": {
+    "15": 4,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 5
+   },
+   "n": 5
+  },
+  "Intel(R) Core(TM) i7-5930K CPU @ 3.50GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "iMac17,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i7-6700K CPU @ 4.00GHz": {
+   "macos": {
+    "15": 7,
+    "26": 41
+   },
+   "models": {
+    "MacPro7,1": 14,
+    "iMac20,1": 34
+   },
+   "n": 48
+  },
+  "Intel(R) Core(TM) i7-7700 CPU @ 3.60GHz": {
+   "macos": {
+    "15": 10,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 4,
+    "iMac18,3": 6,
+    "iMacPro1,1": 5
+   },
+   "n": 15
+  },
+  "Intel(R) Core(TM) i7-7700K CPU @ 4.20GHz": {
+   "macos": {
+    "15": 39,
+    "26": 95
+   },
+   "models": {
+    "MacBookPro14,3": 10,
+    "MacPro7,1": 11,
+    "iMac20,1": 112,
+    "iMacPro1,1": 1
+   },
+   "n": 134
+  },
+  "Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz": {
+   "macos": {
+    "15": 7
+   },
+   "models": {
+    "MacBookPro14,3": 2,
+    "MacBookPro16,1": 5
+   },
+   "n": 7
+  },
+  "Intel(R) Core(TM) i7-8550U CPU @ 1.80GHz": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacBookPro15,2": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz": {
+   "macos": {
+    "15": 77,
+    "26": 33
+   },
+   "models": {
+    "MacPro7,1": 35,
+    "iMac19,1": 39,
+    "iMac20,1": 27,
+    "iMac20,2": 9
+   },
+   "n": 110
+  },
+  "Intel(R) Core(TM) i7-8700K CPU @ 3.70GHz": {
+   "macos": {
+    "15": 61,
+    "26": 74
+   },
+   "models": {
+    "MacPro7,1": 102,
+    "iMac19,1": 32,
+    "iMac20,1": 1
+   },
+   "n": 135
+  },
+  "Intel(R) Core(TM) i7-8700T CPU @ 2.40GHz": {
+   "macos": {
+    "26": 10
+   },
+   "models": {
+    "iMac19,1": 8,
+    "iMac20,2": 2
+   },
+   "n": 10
+  },
+  "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz": {
+   "macos": {
+    "26": 8
+   },
+   "models": {
+    "MacBookPro15,3": 5,
+    "MacBookPro16,4": 3
+   },
+   "n": 8
+  },
+  "Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz": {
+   "macos": {
+    "15": 40,
+    "26": 57,
+    "?": 3
+   },
+   "models": {
+    "MacPro7,1": 71,
+    "iMac19,1": 14,
+    "iMac20,1": 15
+   },
+   "n": 100
+  },
+  "Intel(R) Core(TM) i7-9700F CPU @ 3.00GHz": {
+   "macos": {
+    "15": 4,
+    "26": 43
+   },
+   "models": {
+    "MacPro7,1": 44,
+    "iMacPro1,1": 3
+   },
+   "n": 47
+  },
+  "Intel(R) Core(TM) i7-9700K CPU @ 3.60GHz": {
+   "macos": {
+    "15": 18,
+    "26": 65
+   },
+   "models": {
+    "MacPro7,1": 61,
+    "iMac19,1": 12,
+    "iMac20,1": 1,
+    "iMac20,2": 6,
+    "iMacPro1,1": 3
+   },
+   "n": 83
+  },
+  "Intel(R) Core(TM) i7-9700KF CPU @ 3.60GHz": {
+   "macos": {
+    "15": 2,
+    "26": 9
+   },
+   "models": {
+    "MacPro7,1": 11
+   },
+   "n": 11
+  },
+  "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz": {
+   "macos": {
+    "15": 112,
+    "26": 214,
+    "?": 21
+   },
+   "models": {
+    "MacBookPro15,1": 2,
+    "MacBookPro15,3": 7,
+    "MacBookPro16,1": 162,
+    "MacBookPro16,3": 9,
+    "MacBookPro16,4": 167
+   },
+   "n": 347
+  },
+  "Intel(R) Core(TM) i7-9850H CPU @ 2.60GHz": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacBookPro16,1": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) i9-10850K CPU @ 3.60GHz": {
+   "macos": {
+    "15": 25,
+    "26": 9,
+    "?": 2
+   },
+   "models": {
+    "MacPro7,1": 15,
+    "iMac20,2": 20,
+    "iMacPro1,1": 1
+   },
+   "n": 36
+  },
+  "Intel(R) Core(TM) i9-10885H CPU @ 2.40GHz": {
+   "macos": {
+    "26": 29
+   },
+   "models": {
+    "MacBookPro16,2": 2,
+    "MacBookPro16,4": 27
+   },
+   "n": 29
+  },
+  "Intel(R) Core(TM) i9-10900 CPU @ 2.80GHz": {
+   "macos": {
+    "15": 20,
+    "26": 46
+   },
+   "models": {
+    "MacBookPro16,1": 8,
+    "MacPro7,1": 39,
+    "iMac20,2": 18,
+    "this-mac": 1
+   },
+   "n": 66
+  },
+  "Intel(R) Core(TM) i9-10900F CPU @ 2.80GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz": {
+   "macos": {
+    "15": 17,
+    "26": 8
+   },
+   "models": {
+    "MacPro7,1": 8,
+    "iMac20,2": 17
+   },
+   "n": 25
+  },
+  "Intel(R) Core(TM) i9-10900KF CPU @ 3.70GHz": {
+   "macos": {
+    "15": 6
+   },
+   "models": {
+    "MacPro7,1": 5,
+    "iMacPro1,1": 1
+   },
+   "n": 6
+  },
+  "Intel(R) Core(TM) i9-10900X CPU @ 3.70GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Core(TM) i9-10980HK CPU @ 2.40GHz": {
+   "macos": {
+    "26": 2
+   },
+   "models": {
+    "MacBookPro16,2": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i9-10980XE CPU @ 3.00GHz": {
+   "macos": {
+    "15": 1,
+    "26": 10
+   },
+   "models": {
+    "MacPro7,1": 11
+   },
+   "n": 11
+  },
+  "Intel(R) Core(TM) i9-14900": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) i9-14900HX": {
+   "macos": {
+    "15": 118,
+    "26": 306,
+    "?": 10
+   },
+   "models": {
+    "MacBookPro16,1": 15,
+    "MacBookPro16,2": 303,
+    "MacBookPro16,4": 42,
+    "MacPro7,1": 72,
+    "iMac20,2": 1,
+    "iMacPro1,1": 1
+   },
+   "n": 434
+  },
+  "Intel(R) Core(TM) i9-14900K": {
+   "macos": {
+    "15": 34,
+    "26": 76
+   },
+   "models": {
+    "MacPro7,1": 97,
+    "iMacPro1,1": 13
+   },
+   "n": 110
+  },
+  "Intel(R) Core(TM) i9-14900KF": {
+   "macos": {
+    "15": 27,
+    "26": 100
+   },
+   "models": {
+    "A263,8201": 1,
+    "MacPro7,1": 117,
+    "iMac20,1": 8,
+    "iMacPro1,1": 1
+   },
+   "n": 127
+  },
+  "Intel(R) Core(TM) i9-14900KS": {
+   "macos": {
+    "15": 6,
+    "26": 17
+   },
+   "models": {
+    "MacPro7,1": 23
+   },
+   "n": 23
+  },
+  "Intel(R) Core(TM) i9-7900X CPU @ 3.30GHz": {
+   "macos": {
+    "15": 2,
+    "26": 3
+   },
+   "models": {
+    "MacPro7,1": 5
+   },
+   "n": 5
+  },
+  "Intel(R) Core(TM) i9-8950HK CPU @ 2.90GHz": {
+   "macos": {
+    "?": 2
+   },
+   "models": {
+    "iMac19,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz": {
+   "macos": {
+    "26": 10
+   },
+   "models": {
+    "MacBookPro16,1": 10
+   },
+   "n": 10
+  },
+  "Intel(R) Core(TM) i9-9900K CPU @ 3.60GHz": {
+   "macos": {
+    "15": 15,
+    "26": 35
+   },
+   "models": {
+    "MacBookPro16,1": 12,
+    "MacPro7,1": 25,
+    "iMac19,1": 8,
+    "iMac20,1": 5
+   },
+   "n": 50
+  },
+  "Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacPro7,1": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Core(TM) i9-9900KS CPU @ 4.00GHz": {
+   "macos": {
+    "26": 7,
+    "?": 2
+   },
+   "models": {
+    "MacBookPro16,1": 2,
+    "MacBookPro16,4": 5,
+    "MacPro7,1": 2
+   },
+   "n": 9
+  },
+  "Intel(R) Core(TM) i9-9900X CPU @ 3.50GHz": {
+   "macos": {
+    "15": 3,
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 5
+   },
+   "n": 5
+  },
+  "Intel(R) Core(TM) i9-9980HK CPU @ 2.40GHz": {
+   "macos": {
+    "15": 7
+   },
+   "models": {
+    "MacPro7,1": 7
+   },
+   "n": 7
+  },
+  "Intel(R) Xeon(R) CPU           X5460  @ 3.16GHz": {
+   "macos": {
+    "15": 15
+   },
+   "models": {
+    "MacPro3,1": 15
+   },
+   "n": 15
+  },
+  "Intel(R) Xeon(R) CPU           X5690  @ 3.47GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro5,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) CPU E3-1220 v3 @ 3.10GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) CPU E3-1230 V2 @ 3.30GHz": {
+   "macos": {
+    "26": 9
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "Intel(R) Xeon(R) CPU E3-1230 v3 @ 3.30GHz": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) CPU E3-1230 v5 @ 3.40GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) CPU E3-1231 v3 @ 3.40GHz": {
+   "macos": {
+    "15": 12,
+    "26": 2,
+    "?": 3
+   },
+   "models": {
+    "MacPro7,1": 11,
+    "iMac19,1": 1,
+    "iMacPro1,1": 5
+   },
+   "n": 17
+  },
+  "Intel(R) Xeon(R) CPU E3-1240 v6 @ 3.70GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) CPU E3-1270 v3 @ 3.50GHz": {
+   "macos": {
+    "15": 9
+   },
+   "models": {
+    "MacPro7,1": 2,
+    "iMacPro1,1": 7
+   },
+   "n": 9
+  },
+  "Intel(R) Xeon(R) CPU E3-1275 v3 @ 3.50GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) CPU E5-1603 v4 @ 2.80GHz": {
+   "macos": {
+    "15": 14
+   },
+   "models": {
+    "MacPro7,1": 14
+   },
+   "n": 14
+  },
+  "Intel(R) Xeon(R) CPU E5-1650 0 @ 3.20GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacPro7,1": 3,
+    "iMacPro1,1": 1
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) CPU E5-1650 v2 @ 3.50GHz": {
+   "macos": {
+    "15": 8
+   },
+   "models": {
+    "MacPro7,1": 8
+   },
+   "n": 8
+  },
+  "Intel(R) Xeon(R) CPU E5-1650 v4 @ 3.60GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) CPU E5-2630 v4 @ 2.20GHz": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) CPU E5-2640 v4 @ 2.40GHz": {
+   "macos": {
+    "15": 9
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "Intel(R) Xeon(R) CPU E5-2666 v3 @ 2.90GHz": {
+   "macos": {
+    "15": 37,
+    "26": 17,
+    "?": 4
+   },
+   "models": {
+    "MacPro7,1": 43,
+    "iMacPro1,1": 15
+   },
+   "n": 58
+  },
+  "Intel(R) Xeon(R) CPU E5-2667 v4 @ 3.20GHz": {
+   "macos": {
+    "15": 8,
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 12
+   },
+   "n": 12
+  },
+  "Intel(R) Xeon(R) CPU E5-2670 v3 @ 2.30GHz": {
+   "macos": {
+    "15": 9
+   },
+   "models": {
+    "MacPro7,1": 9
+   },
+   "n": 9
+  },
+  "Intel(R) Xeon(R) CPU E5-2673 v3 @ 2.40GHz": {
+   "macos": {
+    "15": 3,
+    "26": 14
+   },
+   "models": {
+    "MacPro7,1": 17
+   },
+   "n": 17
+  },
+  "Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "iMacPro1,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz": {
+   "macos": {
+    "15": 18,
+    "26": 7
+   },
+   "models": {
+    "MacPro7,1": 12,
+    "iMacPro1,1": 13
+   },
+   "n": 25
+  },
+  "Intel(R) Xeon(R) CPU E5-2686 v4 @ 2.30GHz": {
+   "macos": {
+    "15": 1,
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Xeon(R) CPU E5-2690 v4 @ 2.60GHz": {
+   "macos": {
+    "26": 13
+   },
+   "models": {
+    "MacPro7,1": 13
+   },
+   "n": 13
+  },
+  "Intel(R) Xeon(R) CPU E5-2696 v3 @ 2.30GHz": {
+   "macos": {
+    "15": 12,
+    "26": 5
+   },
+   "models": {
+    "MacPro7,1": 15,
+    "iMacPro1,1": 2
+   },
+   "n": 17
+  },
+  "Intel(R) Xeon(R) CPU E5-2698B v3 @ 2.00GHz": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "Intel(R) Xeon(R) E-2224G CPU @ 3.50GHz": {
+   "macos": {
+    "15": 2,
+    "26": 2
+   },
+   "models": {
+    "MacPro7,1": 2,
+    "iMac19,1": 2
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) E-2286M  CPU @ 2.40GHz": {
+   "macos": {
+    "15": 7
+   },
+   "models": {
+    "MacBookPro15,1": 7
+   },
+   "n": 7
+  },
+  "Intel(R) Xeon(R) W-10855M CPU @ 2.80GHz": {
+   "macos": {
+    "26": 19
+   },
+   "models": {
+    "MacBookPro16,1": 2,
+    "MacBookPro16,4": 17
+   },
+   "n": 19
+  },
+  "Intel(R) Xeon(R) W-11855M CPU @ 3.20GHz": {
+   "macos": {
+    "15": 3
+   },
+   "models": {
+    "MacBookPro16,2": 3
+   },
+   "n": 3
+  },
+  "Intel(R) Xeon(R) W-11955M CPU @ 2.60GHz": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "MacBookPro16,2": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) W-1250 CPU @ 3.30GHz": {
+   "macos": {
+    "15": 2
+   },
+   "models": {
+    "iMacPro1,1": 2
+   },
+   "n": 2
+  },
+  "Intel(R) Xeon(R) W-2133 CPU @ 3.60GHz": {
+   "macos": {
+    "15": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) W-2135 CPU @ 3.70GHz": {
+   "macos": {
+    "26": 4
+   },
+   "models": {
+    "MacPro7,1": 4
+   },
+   "n": 4
+  },
+  "Intel(R) Xeon(R) W-2235 CPU @ 3.80GHz": {
+   "macos": {
+    "15": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  },
+  "user Ryzen 5 9600 6-Core Processor": {
+   "macos": {
+    "26": 1
+   },
+   "models": {
+    "MacPro7,1": 1
+   },
+   "n": 1
+  }
+ },
+ "gpus": {
+  "1002-1114": {
+   "driver": 34,
+   "metal": 33,
+   "n": 34
+  },
+  "1002-13C0": {
+   "driver": 56,
+   "metal": 57,
+   "n": 57
+  },
+  "1002-150E": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "1002-15BF": {
+   "driver": 36,
+   "metal": 36,
+   "n": 36
+  },
+  "1002-15D8": {
+   "driver": 11,
+   "metal": 8,
+   "n": 13
+  },
+  "1002-15DD": {
+   "driver": 9,
+   "metal": 8,
+   "n": 9
+  },
+  "1002-1636": {
+   "driver": 72,
+   "metal": 77,
+   "n": 83
+  },
+  "1002-1638": {
+   "driver": 273,
+   "metal": 265,
+   "n": 281
+  },
+  "1002-164C": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "1002-164E": {
+   "driver": 132,
+   "metal": 128,
+   "n": 132
+  },
+  "1002-1681": {
+   "driver": 177,
+   "metal": 168,
+   "n": 178
+  },
+  "1002-1900": {
+   "driver": 83,
+   "metal": 82,
+   "n": 84
+  },
+  "1002-1901": {
+   "driver": 63,
+   "metal": 62,
+   "n": 63
+  },
+  "1002-665C": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "1002-67D7": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "1002-67DF": {
+   "driver": 15,
+   "metal": 28,
+   "n": 29
+  },
+  "1002-67E3": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "1002-67EF": {
+   "driver": 4,
+   "metal": 4,
+   "n": 4
+  },
+  "1002-67FF": {
+   "driver": 4,
+   "metal": 4,
+   "n": 4
+  },
+  "1002-687F": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "1002-699F": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "1002-73BF": {
+   "driver": 9,
+   "metal": 9,
+   "n": 9
+  },
+  "1002-73DF": {
+   "driver": 0,
+   "metal": 0,
+   "n": 1
+  },
+  "1002-73FF": {
+   "driver": 13,
+   "metal": 20,
+   "n": 20
+  },
+  "1002-7590": {
+   "driver": 0,
+   "metal": 0,
+   "n": 2
+  },
+  "10DE-06C8": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "10DE-0FC6": {
+   "driver": 0,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-1D01": {
+   "driver": 2,
+   "metal": 0,
+   "n": 2
+  },
+  "10DE-1E04": {
+   "driver": 29,
+   "metal": 24,
+   "n": 29
+  },
+  "10DE-1E07": {
+   "driver": 206,
+   "metal": 202,
+   "n": 207
+  },
+  "10DE-1E81": {
+   "driver": 70,
+   "metal": 68,
+   "n": 71
+  },
+  "10DE-1E82": {
+   "driver": 17,
+   "metal": 17,
+   "n": 18
+  },
+  "10DE-1E84": {
+   "driver": 291,
+   "metal": 283,
+   "n": 293
+  },
+  "10DE-1E87": {
+   "driver": 100,
+   "metal": 89,
+   "n": 101
+  },
+  "10DE-1E89": {
+   "driver": 155,
+   "metal": 141,
+   "n": 155
+  },
+  "10DE-1E90": {
+   "driver": 34,
+   "metal": 34,
+   "n": 34
+  },
+  "10DE-1E91": {
+   "driver": 30,
+   "metal": 28,
+   "n": 31
+  },
+  "10DE-1E93": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-1EB0": {
+   "driver": 9,
+   "metal": 7,
+   "n": 10
+  },
+  "10DE-1EB1": {
+   "driver": 4,
+   "metal": 3,
+   "n": 4
+  },
+  "10DE-1EB5": {
+   "driver": 5,
+   "metal": 5,
+   "n": 5
+  },
+  "10DE-1ED3": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-1F02": {
+   "driver": 79,
+   "metal": 76,
+   "n": 80
+  },
+  "10DE-1F03": {
+   "driver": 34,
+   "metal": 31,
+   "n": 35
+  },
+  "10DE-1F06": {
+   "driver": 234,
+   "metal": 220,
+   "n": 246
+  },
+  "10DE-1F07": {
+   "driver": 63,
+   "metal": 60,
+   "n": 66
+  },
+  "10DE-1F08": {
+   "driver": 280,
+   "metal": 260,
+   "n": 282
+  },
+  "10DE-1F0A": {
+   "driver": 88,
+   "metal": 87,
+   "n": 89
+  },
+  "10DE-1F11": {
+   "driver": 16,
+   "metal": 16,
+   "n": 16
+  },
+  "10DE-1F12": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "10DE-1F14": {
+   "driver": 4,
+   "metal": 3,
+   "n": 4
+  },
+  "10DE-1F15": {
+   "driver": 95,
+   "metal": 90,
+   "n": 95
+  },
+  "10DE-1F36": {
+   "driver": 25,
+   "metal": 23,
+   "n": 25
+  },
+  "10DE-1F50": {
+   "driver": 10,
+   "metal": 9,
+   "n": 10
+  },
+  "10DE-1F55": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "10DE-1F82": {
+   "driver": 268,
+   "metal": 252,
+   "n": 276
+  },
+  "10DE-1F83": {
+   "driver": 13,
+   "metal": 12,
+   "n": 13
+  },
+  "10DE-1F91": {
+   "driver": 46,
+   "metal": 43,
+   "n": 46
+  },
+  "10DE-1F95": {
+   "driver": 52,
+   "metal": 51,
+   "n": 53
+  },
+  "10DE-1F99": {
+   "driver": 90,
+   "metal": 89,
+   "n": 90
+  },
+  "10DE-1F9D": {
+   "driver": 51,
+   "metal": 49,
+   "n": 51
+  },
+  "10DE-1FB0": {
+   "driver": 12,
+   "metal": 10,
+   "n": 12
+  },
+  "10DE-1FB8": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "10DE-1FB9": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-1FBA": {
+   "driver": 10,
+   "metal": 10,
+   "n": 10
+  },
+  "10DE-1FF2": {
+   "driver": 5,
+   "metal": 5,
+   "n": 5
+  },
+  "10DE-2182": {
+   "driver": 184,
+   "metal": 175,
+   "n": 185
+  },
+  "10DE-2184": {
+   "driver": 151,
+   "metal": 145,
+   "n": 152
+  },
+  "10DE-2187": {
+   "driver": 87,
+   "metal": 85,
+   "n": 88
+  },
+  "10DE-2188": {
+   "driver": 120,
+   "metal": 117,
+   "n": 122
+  },
+  "10DE-2191": {
+   "driver": 158,
+   "metal": 153,
+   "n": 163
+  },
+  "10DE-21C4": {
+   "driver": 439,
+   "metal": 423,
+   "n": 440
+  },
+  "10DE-2203": {
+   "driver": 18,
+   "metal": 18,
+   "n": 18
+  },
+  "10DE-2204": {
+   "driver": 134,
+   "metal": 121,
+   "n": 135
+  },
+  "10DE-2206": {
+   "driver": 303,
+   "metal": 294,
+   "n": 305
+  },
+  "10DE-2207": {
+   "driver": 12,
+   "metal": 12,
+   "n": 14
+  },
+  "10DE-2208": {
+   "driver": 283,
+   "metal": 278,
+   "n": 283
+  },
+  "10DE-220A": {
+   "driver": 72,
+   "metal": 72,
+   "n": 72
+  },
+  "10DE-2216": {
+   "driver": 238,
+   "metal": 231,
+   "n": 240
+  },
+  "10DE-2231": {
+   "driver": 16,
+   "metal": 15,
+   "n": 16
+  },
+  "10DE-2414": {
+   "driver": 4,
+   "metal": 4,
+   "n": 4
+  },
+  "10DE-2460": {
+   "driver": 28,
+   "metal": 28,
+   "n": 28
+  },
+  "10DE-2482": {
+   "driver": 353,
+   "metal": 339,
+   "n": 355
+  },
+  "10DE-2484": {
+   "driver": 666,
+   "metal": 651,
+   "n": 673
+  },
+  "10DE-2486": {
+   "driver": 47,
+   "metal": 47,
+   "n": 48
+  },
+  "10DE-2487": {
+   "driver": 248,
+   "metal": 247,
+   "n": 256
+  },
+  "10DE-2488": {
+   "driver": 170,
+   "metal": 165,
+   "n": 172
+  },
+  "10DE-2489": {
+   "driver": 497,
+   "metal": 498,
+   "n": 506
+  },
+  "10DE-249C": {
+   "driver": 29,
+   "metal": 26,
+   "n": 29
+  },
+  "10DE-249D": {
+   "driver": 74,
+   "metal": 72,
+   "n": 74
+  },
+  "10DE-24A0": {
+   "driver": 40,
+   "metal": 40,
+   "n": 40
+  },
+  "10DE-24B0": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "10DE-24B6": {
+   "driver": 6,
+   "metal": 5,
+   "n": 6
+  },
+  "10DE-24B8": {
+   "driver": 5,
+   "metal": 5,
+   "n": 5
+  },
+  "10DE-24C7": {
+   "driver": 5,
+   "metal": 5,
+   "n": 5
+  },
+  "10DE-24C9": {
+   "driver": 175,
+   "metal": 172,
+   "n": 176
+  },
+  "10DE-24DC": {
+   "driver": 6,
+   "metal": 6,
+   "n": 6
+  },
+  "10DE-24DD": {
+   "driver": 71,
+   "metal": 68,
+   "n": 71
+  },
+  "10DE-24E0": {
+   "driver": 75,
+   "metal": 71,
+   "n": 75
+  },
+  "10DE-2503": {
+   "driver": 179,
+   "metal": 178,
+   "n": 182
+  },
+  "10DE-2504": {
+   "driver": 737,
+   "metal": 735,
+   "n": 750
+  },
+  "10DE-2507": {
+   "driver": 271,
+   "metal": 261,
+   "n": 273
+  },
+  "10DE-2508": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-2520": {
+   "driver": 352,
+   "metal": 342,
+   "n": 353
+  },
+  "10DE-2523": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "10DE-2531": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "10DE-2544": {
+   "driver": 79,
+   "metal": 76,
+   "n": 80
+  },
+  "10DE-2560": {
+   "driver": 668,
+   "metal": 659,
+   "n": 672
+  },
+  "10DE-2563": {
+   "driver": 15,
+   "metal": 15,
+   "n": 15
+  },
+  "10DE-2571": {
+   "driver": 8,
+   "metal": 7,
+   "n": 8
+  },
+  "10DE-2582": {
+   "driver": 132,
+   "metal": 131,
+   "n": 133
+  },
+  "10DE-2584": {
+   "driver": 220,
+   "metal": 209,
+   "n": 229
+  },
+  "10DE-25A0": {
+   "driver": 56,
+   "metal": 57,
+   "n": 58
+  },
+  "10DE-25A2": {
+   "driver": 126,
+   "metal": 129,
+   "n": 133
+  },
+  "10DE-25A5": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "10DE-25AC": {
+   "driver": 12,
+   "metal": 11,
+   "n": 12
+  },
+  "10DE-25AD": {
+   "driver": 20,
+   "metal": 18,
+   "n": 20
+  },
+  "10DE-25B8": {
+   "driver": 7,
+   "metal": 7,
+   "n": 7
+  },
+  "10DE-25B9": {
+   "driver": 8,
+   "metal": 8,
+   "n": 8
+  },
+  "10DE-25BA": {
+   "driver": 14,
+   "metal": 14,
+   "n": 14
+  },
+  "10DE-25BC": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "10DE-25E0": {
+   "driver": 46,
+   "metal": 46,
+   "n": 46
+  },
+  "10DE-25E2": {
+   "driver": 29,
+   "metal": 29,
+   "n": 29
+  },
+  "10DE-25EC": {
+   "driver": 111,
+   "metal": 108,
+   "n": 111
+  },
+  "10DE-25ED": {
+   "driver": 21,
+   "metal": 21,
+   "n": 21
+  },
+  "10DE-2684": {
+   "driver": 136,
+   "metal": 136,
+   "n": 136
+  },
+  "10DE-2685": {
+   "driver": 10,
+   "metal": 10,
+   "n": 10
+  },
+  "10DE-2689": {
+   "driver": 75,
+   "metal": 75,
+   "n": 75
+  },
+  "10DE-2702": {
+   "driver": 99,
+   "metal": 98,
+   "n": 101
+  },
+  "10DE-2704": {
+   "driver": 113,
+   "metal": 112,
+   "n": 116
+  },
+  "10DE-2705": {
+   "driver": 146,
+   "metal": 146,
+   "n": 146
+  },
+  "10DE-2709": {
+   "driver": 13,
+   "metal": 13,
+   "n": 13
+  },
+  "10DE-2717": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "10DE-2757": {
+   "driver": 56,
+   "metal": 56,
+   "n": 56
+  },
+  "10DE-2782": {
+   "driver": 184,
+   "metal": 183,
+   "n": 184
+  },
+  "10DE-2783": {
+   "driver": 394,
+   "metal": 383,
+   "n": 396
+  },
+  "10DE-2786": {
+   "driver": 312,
+   "metal": 310,
+   "n": 314
+  },
+  "10DE-2788": {
+   "driver": 78,
+   "metal": 78,
+   "n": 79
+  },
+  "10DE-27A0": {
+   "driver": 29,
+   "metal": 29,
+   "n": 29
+  },
+  "10DE-27BB": {
+   "driver": 71,
+   "metal": 67,
+   "n": 72
+  },
+  "10DE-27E0": {
+   "driver": 193,
+   "metal": 185,
+   "n": 193
+  },
+  "10DE-2803": {
+   "driver": 524,
+   "metal": 510,
+   "n": 526
+  },
+  "10DE-2805": {
+   "driver": 31,
+   "metal": 31,
+   "n": 31
+  },
+  "10DE-2808": {
+   "driver": 61,
+   "metal": 60,
+   "n": 61
+  },
+  "10DE-2820": {
+   "driver": 217,
+   "metal": 215,
+   "n": 218
+  },
+  "10DE-2860": {
+   "driver": 326,
+   "metal": 323,
+   "n": 327
+  },
+  "10DE-2882": {
+   "driver": 913,
+   "metal": 899,
+   "n": 924
+  },
+  "10DE-28A0": {
+   "driver": 794,
+   "metal": 767,
+   "n": 800
+  },
+  "10DE-28A1": {
+   "driver": 197,
+   "metal": 192,
+   "n": 197
+  },
+  "10DE-28E0": {
+   "driver": 1326,
+   "metal": 1297,
+   "n": 1333
+  },
+  "10DE-28E1": {
+   "driver": 237,
+   "metal": 233,
+   "n": 238
+  },
+  "10DE-2B85": {
+   "driver": 89,
+   "metal": 89,
+   "n": 89
+  },
+  "10DE-2B87": {
+   "driver": 18,
+   "metal": 18,
+   "n": 19
+  },
+  "10DE-2B8C": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-2C02": {
+   "driver": 573,
+   "metal": 562,
+   "n": 573
+  },
+  "10DE-2C05": {
+   "driver": 439,
+   "metal": 427,
+   "n": 442
+  },
+  "10DE-2C09": {
+   "driver": 27,
+   "metal": 27,
+   "n": 27
+  },
+  "10DE-2C18": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "10DE-2C19": {
+   "driver": 7,
+   "metal": 7,
+   "n": 7
+  },
+  "10DE-2C58": {
+   "driver": 39,
+   "metal": 38,
+   "n": 39
+  },
+  "10DE-2C59": {
+   "driver": 11,
+   "metal": 11,
+   "n": 11
+  },
+  "10DE-2D04": {
+   "driver": 723,
+   "metal": 715,
+   "n": 724
+  },
+  "10DE-2D05": {
+   "driver": 858,
+   "metal": 834,
+   "n": 861
+  },
+  "10DE-2D18": {
+   "driver": 133,
+   "metal": 133,
+   "n": 133
+  },
+  "10DE-2D19": {
+   "driver": 403,
+   "metal": 392,
+   "n": 404
+  },
+  "10DE-2D58": {
+   "driver": 115,
+   "metal": 114,
+   "n": 115
+  },
+  "10DE-2D59": {
+   "driver": 277,
+   "metal": 269,
+   "n": 279
+  },
+  "10DE-2D83": {
+   "driver": 116,
+   "metal": 116,
+   "n": 116
+  },
+  "10DE-2D85": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "10DE-2D98": {
+   "driver": 40,
+   "metal": 39,
+   "n": 41
+  },
+  "10DE-2F04": {
+   "driver": 677,
+   "metal": 668,
+   "n": 678
+  },
+  "10DE-2F06": {
+   "driver": 51,
+   "metal": 51,
+   "n": 51
+  },
+  "10DE-2F18": {
+   "driver": 134,
+   "metal": 133,
+   "n": 135
+  },
+  "10DE-2F58": {
+   "driver": 64,
+   "metal": 63,
+   "n": 67
+  },
+  "10DE-67FF": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "10EE-2507": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "1234-1111": {
+   "driver": 6,
+   "metal": 2,
+   "n": 8
+  },
+  "15AD-0405": {
+   "driver": 9,
+   "metal": 8,
+   "n": 10
+  },
+  "1AF4-1050": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "8086-0000": {
+   "driver": 4,
+   "metal": 4,
+   "n": 4
+  },
+  "8086-0412": {
+   "driver": 22,
+   "metal": 22,
+   "n": 22
+  },
+  "8086-0D26": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "8086-1912": {
+   "driver": 22,
+   "metal": 17,
+   "n": 22
+  },
+  "8086-2949": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "8086-3E92": {
+   "driver": 109,
+   "metal": 108,
+   "n": 112
+  },
+  "8086-3E98": {
+   "driver": 75,
+   "metal": 74,
+   "n": 75
+  },
+  "8086-3E9B": {
+   "driver": 708,
+   "metal": 737,
+   "n": 741
+  },
+  "8086-3EA5": {
+   "driver": 36,
+   "metal": 45,
+   "n": 45
+  },
+  "8086-3EA6": {
+   "driver": 50,
+   "metal": 56,
+   "n": 56
+  },
+  "8086-409A": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "8086-4626": {
+   "driver": 37,
+   "metal": 33,
+   "n": 37
+  },
+  "8086-4680": {
+   "driver": 74,
+   "metal": 68,
+   "n": 76
+  },
+  "8086-4682": {
+   "driver": 26,
+   "metal": 26,
+   "n": 26
+  },
+  "8086-4688": {
+   "driver": 134,
+   "metal": 109,
+   "n": 135
+  },
+  "8086-468B": {
+   "driver": 68,
+   "metal": 66,
+   "n": 69
+  },
+  "8086-4690": {
+   "driver": 4,
+   "metal": 4,
+   "n": 4
+  },
+  "8086-4692": {
+   "driver": 30,
+   "metal": 27,
+   "n": 30
+  },
+  "8086-46A0": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "8086-46A3": {
+   "driver": 346,
+   "metal": 293,
+   "n": 354
+  },
+  "8086-46A6": {
+   "driver": 536,
+   "metal": 451,
+   "n": 549
+  },
+  "8086-499A": {
+   "driver": 19,
+   "metal": 18,
+   "n": 19
+  },
+  "8086-4C8A": {
+   "driver": 4,
+   "metal": 4,
+   "n": 5
+  },
+  "8086-4C8B": {
+   "driver": 70,
+   "metal": 67,
+   "n": 70
+  },
+  "8086-5912": {
+   "driver": 31,
+   "metal": 31,
+   "n": 31
+  },
+  "8086-5916": {
+   "driver": 12,
+   "metal": 12,
+   "n": 12
+  },
+  "8086-591B": {
+   "driver": 7,
+   "metal": 7,
+   "n": 7
+  },
+  "8086-7D51": {
+   "driver": 13,
+   "metal": 13,
+   "n": 13
+  },
+  "8086-7D55": {
+   "driver": 17,
+   "metal": 17,
+   "n": 17
+  },
+  "8086-7D67": {
+   "driver": 428,
+   "metal": 415,
+   "n": 428
+  },
+  "8086-8A52": {
+   "driver": 2,
+   "metal": 2,
+   "n": 2
+  },
+  "8086-8AC0": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "8086-9A49": {
+   "driver": 150,
+   "metal": 132,
+   "n": 160
+  },
+  "8086-9A5A": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  },
+  "8086-9A60": {
+   "driver": 263,
+   "metal": 224,
+   "n": 264
+  },
+  "8086-9A68": {
+   "driver": 367,
+   "metal": 310,
+   "n": 368
+  },
+  "8086-9BA4": {
+   "driver": 17,
+   "metal": 11,
+   "n": 18
+  },
+  "8086-9BC4": {
+   "driver": 213,
+   "metal": 218,
+   "n": 218
+  },
+  "8086-9BC5": {
+   "driver": 141,
+   "metal": 139,
+   "n": 143
+  },
+  "8086-9BC8": {
+   "driver": 51,
+   "metal": 51,
+   "n": 53
+  },
+  "8086-9BE6": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "8086-A1E8": {
+   "driver": 1,
+   "metal": 1,
+   "n": 1
+  },
+  "8086-A720": {
+   "driver": 19,
+   "metal": 18,
+   "n": 19
+  },
+  "8086-A780": {
+   "driver": 205,
+   "metal": 200,
+   "n": 206
+  },
+  "8086-A782": {
+   "driver": 9,
+   "metal": 9,
+   "n": 9
+  },
+  "8086-A788": {
+   "driver": 469,
+   "metal": 435,
+   "n": 473
+  },
+  "8086-A78B": {
+   "driver": 341,
+   "metal": 316,
+   "n": 342
+  },
+  "8086-A7A0": {
+   "driver": 164,
+   "metal": 143,
+   "n": 164
+  },
+  "8086-A7A8": {
+   "driver": 408,
+   "metal": 350,
+   "n": 413
+  },
+  "8086-A7AB": {
+   "driver": 90,
+   "metal": 60,
+   "n": 90
+  },
+  "8086-B0A0": {
+   "driver": 3,
+   "metal": 3,
+   "n": 3
+  },
+  "8086-DCC5": {
+   "driver": 9,
+   "metal": 7,
+   "n": 9
+  },
+  "DE10-2191": {
+   "driver": 1,
+   "metal": 0,
+   "n": 1
+  }
+ },
+ "schema": 1
+}

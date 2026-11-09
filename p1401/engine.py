@@ -113,6 +113,10 @@ STOP_LEADS = (
                   "encryption recovery key and follow the exact system vendor's storage migration procedure. Changing "
                   "mode without preparing Windows can prevent it from booting or make RAID/Optane data inaccessible. "
                   "If no safe migration is documented, stop. After migration and a normal Windows boot, run Check this PC again."),
+    ("No compatible storage controller", "macOS cannot use any internal drive in this PC: every storage controller it found is "
+                                         "on the list of drives macOS is known not to work with. Add a drive macOS can use "
+                                         "(a SATA SSD, or an NVMe SSD from another maker) and run Check this PC again. The "
+                                         "drives it rejected are named below."),
     ("without a supported GPU", "macOS has no driver for this PC's graphics, so 1401 cannot build for it. Supported: most AMD "
                                 "Radeon desktop cards up to RX 6000, Intel UHD/Iris integrated graphics up to 10th gen, and "
                                 "NVIDIA GeForce RTX cards through the NullMoth driver."),
@@ -200,6 +204,10 @@ class Policy:
     persistent_nvram_amd: bool = False
     # A USB port map the user made (a UTBMap.kext folder): used instead of UTBDefault.kext (p1401/utbmap.py).
     utbmap: str = ""
+    # Build although every internal drive is behind Intel VMD or on the list of drives macOS cannot use. macOS goes on another
+    # drive (a USB SSD, or a drive macOS can see); the internal ones stay as they are. Off by default: the stick-to-first-boot
+    # path for an external target has not been run on a VMD machine, so it is opt-in until a tester confirms it.
+    external_target: bool = False
 
 
 @dataclass
@@ -338,7 +346,9 @@ class Headless:
             # "The engine had just printed: ...".)
             why = "\n".join(n for n in self.notices[-3:] + [ctx] if n).strip() or "(it printed nothing)"
             raise RuntimeError("OpenCore-Simplify could not read this PC's ACPI tables. It said:\n" + why[-3000:])
-        if self._repeat >= 3:
+        # A bare "Press Enter" is never rejected, and the engine asks it once per notice (an AMD card plus an Intel iGPU with
+        # an Xe root patch asks three in a row); only a question can be asked again because the answer was refused.
+        if self._repeat >= (50 if p.startswith("Press Enter") else 3):
             raise EngineLoop(f"engine re-asked {p!r} {self._repeat}x - our answer was rejected.\n{ctx}")
         for pat, ans in PROMPT_RULES:
             if re.search(pat, p):
@@ -824,12 +834,28 @@ def _prepare_for_build(out_dir, res, policy, h):
     return machine_key, prior_identity
 
 
+def _set_aside_storage(report, h):
+    """external_target: storage controllers macOS cannot use (Intel VMD, drives on its unsupported list) stop counting as
+    places to install, so the engine's "no compatible storage" and VMD stops do not apply. They are named in a note."""
+    from Scripts.datasets import pci_data  # noqa: PLC0415 - importable once the engine is loaded
+    for name, props in (report.get("Storage Controllers") or {}).items():
+        did, sub = props.get("Device ID"), props.get("Subsystem ID", "0" * 8)
+        bad = did in pci_data.IntelVMDIDs or sub in (pci_data.UnsupportedNVMeSSDIDs.get(did) or ())
+        if bad and props.get("Disk Drives"):
+            props["Disk Drives"] = []
+            h.notices.append(f"Storage: {name} ({did}) is " + ("behind Intel VMD" if did in pci_data.IntelVMDIDs else
+                             "a drive macOS cannot use") + ", so macOS cannot be installed on it. Install macOS on a drive that is not "
+                             "behind VMD, such as a USB SSD; the internal drive and Windows are left as they are.")
+
+
 def _select(o, h, policy, res, report, load_capture, prepare):
     """Everything the builder decides from the hardware report alone: compatibility, macOS version, SMBIOS, kexts, disabled
     devices, notices. build() runs it before the EFI is written; tools/machine_replay.py runs the same code over every PC
     the field has sent, so a rule changed here is changed for both. load_capture() returns the scan receipt;
     prepare() runs the output-folder checks at the point the build did them and returns (machine key, prior identity)."""
     _nullmoth_gpu_pass(o.c, h)
+    if policy.external_target:
+        _set_aside_storage(report, h)
     hw, native, oclp_versions, _ = o.c.check_compatibility(report)
     res.hardware = hw
     # The suggestion is read after the Wi-Fi pre-pass: a card it disables must not hold the version down.
@@ -865,7 +891,7 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
     net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
     # whatever is still switched off now has no driver: say so in plain words, with what to use instead
-    h.notices.extend(unsupported.notes(hw, disabled, held_ids, h.notices))
+    h.notices.extend(unsupported.notes(hw, disabled, cust, mv, held_ids, h.notices))
     # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
     # also removes them from any config that still names them).
     from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
