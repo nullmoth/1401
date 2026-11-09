@@ -1548,7 +1548,14 @@ PL
         -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository /Library/Extensions \
         -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/osupdate-kmutil.log" 2>&1
       INS=$(kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null)
-      for k in NVRM NVAccel NVRMFB NVRMAGDC; do echo "$INS" | grep -q "com.nullmoth.$k" || { cp -p "$BKC" "$C"; stop "com.nullmoth.$k is not in the new kernel collection - the driver stays parked (log: $ST/osupdate-kmutil.log)"; }; done
+      for k in NVRM NVAccel NVRMFB NVRMAGDC; do echo "$INS" | grep -q "com.nullmoth.$k" || {
+        # Retry on the next two starts; after that the driver is turned back on anyway. The boot guard switches it
+        # off again by itself if it cannot bring the display up, so a failed collection build no longer keeps a Mac
+        # parked forever with no way to see why.
+        tries=$(cat "$ST/update-tries" 2>/dev/null || echo 0); tries=$((tries + 1)); echo "$tries" > "$ST/update-tries"
+        echo "com.nullmoth.$k missing from the new kernel collection (try $tries), see $ST/osupdate-kmutil.log" > "$ST/update-blocked"
+        if [ "$tries" -lt 3 ]; then cp -p "$BKC" "$C"; stop "com.nullmoth.$k is not in the new kernel collection - the driver stays parked for now, another try at the next start (log: $ST/osupdate-kmutil.log)"; fi
+        note "com.nullmoth.$k still missing after $tries tries - turning the driver back on; the boot guard turns it off again if it cannot start"; break; }; done
       echo "$MAJ" > "$ST/os-major"; ok "macOS $MAJ kernel collection built with all four NullMoth kexts"
     else
       cp -p "$BKC" "$C"; stop "this driver has no kexts for macOS $MAJ - it stays parked; install a driver that supports macOS $MAJ"
@@ -1557,7 +1564,7 @@ PL
     bi=$(bidx); [ -n "$bi" ] && plutil -replace Kernel.Block.$bi.Enabled -bool true "$C"
     args_set del -nvoff
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
-    rm -f "$PEND" /Library/LaunchDaemons/com.nullmoth.osupdate.plist
+    rm -f "$PEND" "$ST/update-tries" "$ST/update-blocked" /Library/LaunchDaemons/com.nullmoth.osupdate.plist
     ok "driver settings restored for macOS $MAJ"
     cleanup; echo "RESULT ok"
     [ "$UPD" = finish ] && { sleep 2; /sbin/shutdown -r now; }
