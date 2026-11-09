@@ -12,9 +12,15 @@ The GPU side is not here: the Vulkan driver advertises a single queue priority (
 raised through the Vulkan API without a change in the driver's channel scheduling.
 
   nullmoth-gamemode-policy.py status                 what would be treated as a game right now
+  nullmoth-gamemode-policy.py observe                (as the logged-in user) print the foreground app and the full-screen windows as JSON
   nullmoth-gamemode-policy.py apply <pid>            (root) raise the game, demote the background jobs, write the record
   nullmoth-gamemode-policy.py restore                (root) undo from the record
-  nullmoth-gamemode-policy.py watch [seconds]        (root) apply and restore as the foreground app changes
+  nullmoth-gamemode-policy.py watch [seconds]        (root) Game Mode on while a game is in front AND full screen, off when it is not
+
+The trigger: the foreground app is a game (games category, or it opts in to Game Mode) and one of its windows covers a whole
+display. A window server session belongs to the logged-in user, so `watch` (root, from a LaunchDaemon) asks `observe` to run
+inside that user's session with `launchctl asuser`. Whatever it changed is undone when the game leaves full screen or the
+foreground, when the game quits, and when the daemon is stopped.
 
 Off unless the user runs it: nothing starts it. Exit status: 0 done, 1 nothing to do, 2 bad usage or not root.
 """
@@ -172,12 +178,183 @@ def bundle_info(path):
         return None
 
 
+def covers(window_bounds, display_bounds, slack=2.0):
+    """True when a window rectangle (x, y, w, h) covers a whole display rectangle, within a couple of points."""
+    wx, wy, ww, wh = window_bounds
+    dx, dy, dw, dh = display_bounds
+    return wx <= dx + slack and wy <= dy + slack and wx + ww >= dx + dw - slack and wy + wh >= dy + dh - slack
+
+
+def fullscreen_pids(windows, displays):
+    """Pids that own a normal-layer window covering a whole display. windows: [{"pid", "layer", "bounds": (x, y, w, h)}]."""
+    out = set()
+    for w in windows:
+        if w.get("layer") == 0 and any(covers(w["bounds"], d) for d in displays):
+            out.add(w["pid"])
+    return out
+
+
+def desired_game(front, info, fullscreen):
+    """The pid of the game that should have Game Mode now, or None: the foreground app is a game and is full screen."""
+    if front and is_game(info) and front[0] in fullscreen:
+        return front[0]
+    return None
+
+
+class Watcher:
+    """Turns a stream of observations into apply and restore calls. step(game_pid) with the pid that should have Game Mode, or
+    None. A change of game restores the old one first; a game that has quit counts as gone."""
+
+    def __init__(self, do_apply, do_restore, alive=None):
+        self.active = None
+        self.do_apply, self.do_restore = do_apply, do_restore
+        self.alive = alive or (lambda pid: True)
+
+    def step(self, game):
+        if self.active is not None and not self.alive(self.active):
+            self.do_restore()
+            self.active = None
+        if game != self.active:
+            if self.active is not None:
+                self.do_restore()
+                self.active = None
+            if game is not None:
+                self.do_apply(game)
+                self.active = game
+        return self.active
+
+    def stop(self):
+        if self.active is not None:
+            self.do_restore()
+            self.active = None
+
+
+def _core_graphics_windows():
+    """(windows, displays) from CoreGraphics, through ctypes. Must run inside the user's window server session."""
+    import ctypes
+
+    class CGRect(ctypes.Structure):
+        _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double), ("w", ctypes.c_double), ("h", ctypes.c_double)]
+
+    cf = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+    cg = ctypes.CDLL("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
+    cf.CFArrayGetCount.restype = ctypes.c_long
+    cf.CFArrayGetCount.argtypes = [ctypes.c_void_p]
+    cf.CFRelease.argtypes = [ctypes.c_void_p]
+    cf.CFArrayGetValueAtIndex.restype = ctypes.c_void_p
+    cf.CFArrayGetValueAtIndex.argtypes = [ctypes.c_void_p, ctypes.c_long]
+    cf.CFDictionaryGetValue.restype = ctypes.c_void_p
+    cf.CFDictionaryGetValue.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    cf.CFStringCreateWithCString.restype = ctypes.c_void_p
+    cf.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
+    cf.CFNumberGetValue.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+    cg.CGWindowListCopyWindowInfo.restype = ctypes.c_void_p
+    cg.CGWindowListCopyWindowInfo.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+    cg.CGRectMakeWithDictionaryRepresentation.argtypes = [ctypes.c_void_p, ctypes.POINTER(CGRect)]
+    cg.CGDisplayBounds.restype = CGRect
+    cg.CGDisplayBounds.argtypes = [ctypes.c_uint32]
+
+    def key(name):
+        return cf.CFStringCreateWithCString(None, name.encode(), 0x08000100)
+
+    def number(ref, kind, ctype):
+        v = ctype()
+        return v.value if ref and cf.CFNumberGetValue(ref, kind, ctypes.byref(v)) else None
+
+    arr = cg.CGWindowListCopyWindowInfo(1 | 16, 0)   # on screen only, no desktop elements
+    windows = []
+    k_pid, k_layer, k_bounds = key("kCGWindowOwnerPID"), key("kCGWindowLayer"), key("kCGWindowBounds")
+    for i in range(cf.CFArrayGetCount(arr) if arr else 0):
+        d = cf.CFArrayGetValueAtIndex(arr, i)
+        pid = number(cf.CFDictionaryGetValue(d, k_pid), 3, ctypes.c_int)           # kCFNumberSInt32Type
+        layer = number(cf.CFDictionaryGetValue(d, k_layer), 3, ctypes.c_int)
+        r = CGRect()
+        bref = cf.CFDictionaryGetValue(d, k_bounds)
+        if pid is None or not bref or not cg.CGRectMakeWithDictionaryRepresentation(bref, ctypes.byref(r)):
+            continue
+        windows.append({"pid": pid, "layer": layer, "bounds": (r.x, r.y, r.w, r.h)})
+    if arr:
+        cf.CFRelease(arr)
+    ids = (ctypes.c_uint32 * 16)()
+    n = ctypes.c_uint32(0)
+    cg.CGGetActiveDisplayList(16, ids, ctypes.byref(n))
+    displays = []
+    for i in range(n.value):
+        r = cg.CGDisplayBounds(ids[i])
+        displays.append((r.x, r.y, r.w, r.h))
+    return windows, displays
+
+
+def observe(runner=run, cg=None):
+    """What the user's session shows now: {"front": [pid, path] or null, "fullscreen": [pids]}."""
+    fm = frontmost(runner)
+    try:
+        windows, displays = (cg or _core_graphics_windows)()
+    except (OSError, AttributeError):
+        windows, displays = [], []
+    return {"front": list(fm) if fm else None, "fullscreen": sorted(fullscreen_pids(windows, displays))}
+
+
+def console_uid():
+    try:
+        return os.stat("/dev/console").st_uid
+    except OSError:
+        return None
+
+
+def observe_as_user(runner=run, uid=None):
+    """Runs `observe` inside the logged-in user's session (root only) and parses it; None when nobody is logged in."""
+    uid = console_uid() if uid is None else uid
+    if not uid:
+        return None
+    r = runner(["/bin/launchctl", "asuser", str(uid), "/usr/bin/python3", os.path.abspath(__file__), "observe"])
+    try:
+        return json.loads(r.stdout)
+    except ValueError:
+        return None
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def watch(every=5.0, observer=None, sleep=time.sleep, rounds=None):
+    """The root loop. observer() returns observe()'s dict or None. rounds limits the loop for tests."""
+    import signal
+    w = Watcher(lambda pid: apply(pid, processes()), restore, alive)
+    signal.signal(signal.SIGTERM, lambda *_: (w.stop(), sys.exit(0)))
+    n = 0
+    try:
+        while rounds is None or n < rounds:
+            obs = (observer or observe_as_user)()
+            game = None
+            if obs and obs.get("front"):
+                front = (obs["front"][0], obs["front"][1])
+                game = desired_game(front, bundle_info(front[1]), set(obs.get("fullscreen", [])))
+            w.step(game)
+            n += 1
+            sleep(every)
+    finally:
+        w.stop()
+
+
 def main(argv):
     cmd = argv[1] if len(argv) > 1 else ""
     if cmd == "status":
-        fm = frontmost()
+        o = observe()
+        fm = o["front"]
         info = bundle_info(fm[1]) if fm else None
-        print("foreground game: " + (fm[1] if fm and is_game(info) else "none"))
+        game = desired_game(tuple(fm) if fm else None, info, set(o["fullscreen"]))
+        print("full-screen game: " + (fm[1] if game else "none"))
+        return 0
+    if cmd == "observe":
+        print(json.dumps(observe()))
         return 0
     if cmd in ("apply", "restore", "watch") and os.getuid() != 0:
         print(f"{cmd} needs root")
@@ -191,19 +368,9 @@ def main(argv):
         print(f"undid {n} change(s)")
         return 0 if n else 1
     if cmd == "watch":
-        every = float(argv[2]) if len(argv) > 2 else 5.0
-        active = None
-        while True:
-            fm = frontmost()
-            game = fm[0] if fm and is_game(bundle_info(fm[1])) else None
-            if game != active:
-                if active is not None:
-                    restore()
-                if game is not None:
-                    apply(game, processes())
-                active = game
-            time.sleep(every)
-    print("usage: nullmoth-gamemode-policy.py status | apply <pid> | restore | watch [seconds]")
+        watch(float(argv[2]) if len(argv) > 2 else 5.0)
+        return 0
+    print("usage: nullmoth-gamemode-policy.py status | observe | apply <pid> | restore | watch [seconds]")
     return 2
 
 
