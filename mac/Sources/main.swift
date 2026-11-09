@@ -545,6 +545,14 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "Hybrid laptop mode needs the checked driver package: download it first."]); break }
             run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pk, "--sha", sha])
+        // Ryzen laptops: the power-limit profile (setup --ryzen-power on|off); the checked driver package rides along so setup can
+        // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
+        case "ryzenpower":
+            let efi = b["efi"] as? String ?? "auto"
+            guard b["on"] as? Bool ?? false else { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "off"]); break }
+            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The Ryzen power profile needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--pkg", pk, "--sha", sha])
         case "settings": if !SettingsPanel.show() { send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The settings list is missing from this copy of the app."]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
