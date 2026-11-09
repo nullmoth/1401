@@ -61,7 +61,7 @@ def acpi_facts(acpi_dir):
             except dsdt_pass1.Unsupported as e:
                 facts["notes"].append(f"DSDT pass 1: {e}")
         found, unread = acpi_shims.find_alib(acpi_dir)
-        facts["alib_ssdts"] = [{"file": f["file"], "oem_table_id": f["oem_table_id"].decode("ascii", "replace").strip()} for f in found]
+        facts["alib_ssdts"] = [{"file": f["file"], "oem_table_id": acpi_shims.table_name(f["oem_table_id"])} for f in found]
         facts["notes"] += [f"ALIB unread: {u}" for u in unread]
         facts["dmar_present"] = any(t["sig"] == "DMAR" for t in facts["tables"])
         facts["ssdt_count"] = sum(1 for t in facts["tables"] if t["sig"] == "SSDT")
