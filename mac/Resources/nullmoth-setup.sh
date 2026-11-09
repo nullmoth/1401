@@ -509,8 +509,12 @@ if [ -n "$COLLECT" ]; then
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/firefox*.ips /Library/Logs/DiagnosticReports/Firefox*.ips /Library/Logs/DiagnosticReports/Retired/firefox*.ips /Library/Logs/DiagnosticReports/Retired/Firefox*.ips
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/plugin-container*.ips /Library/Logs/DiagnosticReports/Retired/plugin-container*.ips
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/Blender*.ips /Library/Logs/DiagnosticReports/Retired/Blender*.ips
-  if want full; then for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
-    mount_efi "$d" || continue; mp=$MOUNT_POINT
+  # disks-efi-scan.txt: one line per candidate partition saying what was found, so a report with no EFI files says why
+  # (no candidate, a partition that would not mount, no EFI/OC folder) instead of arriving with nothing.
+  if want full; then efiscan="$COLLECT/disks-efi-scan.txt"; echo "== EFI partitions considered" > "$efiscan"
+  for d in $(diskutil list | awk '/ EFI | DOS_FAT_32 | Windows_FAT_32 | Microsoft Basic Data /{print $NF}' | grep -E '^disk[0-9]+s[0-9]+$'); do
+    if ! mount_efi "$d"; then echo "$d: did not mount ($(diskutil info "$d" 2>/dev/null | awk -F': *' '/File System Personality/{print $2}'))" >> "$efiscan"; continue; fi
+    mp=$MOUNT_POINT; before=$n
     collect_recent_logs "$d" 3 "$mp"/opencore-*.txt
     collect_recent_logs "$d" 5 "$mp"/panic-*.txt
     # The EFI itself: most machines that fail run their own OpenCore config, and without it every fix was a
@@ -529,7 +533,11 @@ if [ -n "$COLLECT" ]; then
       n=$((n+1))
     done
     [ -d "$mp/EFI/OC" ] && { echo "== $d EFI/OC"; (cd "$mp/EFI/OC" && ls -1 Kexts Drivers ACPI Tools 2>/dev/null; ls -la OpenCore.efi 2>/dev/null); } >> "$COLLECT/$d-efi-files.txt"
-  done; fi
+    if [ -d "$mp/EFI/OC" ]; then echo "$d: OpenCore, $((n - before)) file(s) collected (configs and OpenCore logs)" >> "$efiscan"
+    elif [ -d "$mp/EFI/CLOVER" ]; then echo "$d: Clover (not read)" >> "$efiscan"
+    else echo "$d: mounted, no EFI/OC folder" >> "$efiscan"; fi
+  done
+  [ "$(wc -l < "$efiscan")" -gt 1 ] || echo "no EFI, FAT or Basic Data partition was listed by diskutil" >> "$efiscan"; fi
   for f in "$ST"/*.log "$ST/state"; do [ -f "$f" ] && cp "$f" "$COLLECT/driver-$(basename "$f").txt"; done
   { echo "macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))   model $(sysctl -n hw.model)"
     echo "boot-args: $(nvram boot-args 2>/dev/null | cut -f2-)"; echo "SIP: $(csrutil status 2>/dev/null)"

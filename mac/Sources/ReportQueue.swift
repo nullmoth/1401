@@ -84,7 +84,7 @@ enum ReportQueue {
                 let pending = old ? file : try SavedReports.create(bytes, in: session, name: "pending-" + UUID().uuidString + "-" + name)
                 // driver-wsreset = the flicker capture (1.4), -efi- = the user's own OpenCore config (1.6): neither reached
                 // the server before 1.7 because 12 slots filled with other files first (10-10: 0 of them in any upload)
-                let critical = ["hardware-map", "driver-state", "driver-kernel", "driver-plugin", "crash", "WindowServer", "Firefox", "Blender", "setup-", "collection-errors", "driver-wsreset", "-efi-"].contains { name.contains($0) }
+                let critical = ["hardware-map", "driver-state", "driver-kernel", "driver-plugin", "crash", "WindowServer", "Firefox", "Blender", "setup-", "collection-errors", "driver-wsreset", "-efi-", "display-flicker-sample", "display-trace", "display-kernel", "display-ws"].contains { name.contains($0) }
                 let date = (try? pending.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
                 var original: URL? = old ? nil : file, originalSHA: String? = old ? nil : sourceSHA
                 if old, let metadata = try? read(file.deletingLastPathComponent().appendingPathComponent("queue-index.json"), privateFile: true),
@@ -106,7 +106,12 @@ enum ReportQueue {
     static func select(_ entries: [Entry], limit: Int = 16) -> [Entry] {
         guard limit > 0 else { return [] }
         let old = entries.filter(\.old).sorted { $0.date < $1.date }
-        let fresh = entries.filter { !$0.old }.sorted { $0.critical && !$1.critical }
+        // Critical files first, each group kept in the order the caller gave (sendLogs puts the flicker sample, the
+        // hardware map and the driver state first). Swift's sort is not stable, and a plain "critical first" sort shuffled
+        // that order, so with more than 16 files a recorded flicker sample or the EFI files could miss the upload.
+        let fresh = entries.enumerated().filter { !$0.element.old }
+            .sorted { $0.element.critical != $1.element.critical ? $0.element.critical : $0.offset < $1.offset }
+            .map(\.element)
         var chosen = Array(fresh.prefix((limit + 1) / 2)) + Array(old.prefix(limit / 2))
         var paths = Set(chosen.map(\.pending))
         for entry in fresh + old where chosen.count < limit && paths.insert(entry.pending).inserted { chosen.append(entry) }
