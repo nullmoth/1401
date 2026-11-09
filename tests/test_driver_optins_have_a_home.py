@@ -20,14 +20,14 @@ CONTROL = {
     "nmxnpu": "--gpu-test",
     # the Experimental features pane (setup --experimental); each is off until ticked and needs a restart
     "nmkbl": "--experimental", "nmkblhid": "--experimental", "nvrmtgp": "--experimental", "nvrmgps": "--experimental",
-    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental",
+    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental", "nmhybrid20": "--experimental",
     "NVMTL_GAME_GPU_PRIORITY": "--experimental", "NVK_HWRT_QUERY": "--experimental", "NVK_CURVES": "--experimental",
     "NVMTL_TILE_SHADING": "--experimental", "NVMTL_GPU_ICB": "--experimental",
 }
 # name -> why it has no control in the app. Each is off unless set; none is needed for a machine to work.
 TESTER_ONLY = {
     "nmkblforce": "forces nmkbl on a keyboard the kext does not recognise; a diagnostic for testers",
-    "nmhybrid20": "lets the hybrid panel driver replay a wake on display versions 20 and 30 (Lunar Lake, Panther Lake); written from Linux's xe display code, not run on any hardware, so a tester switch",
+    "nmhybridp2p": "zero-copy scan-out of a frame straight from the NVIDIA GPU's BAR1 (1 = only on a known-good host bridge, 2 = forced); the allowlist is empty and it has never run, so a tester switch",
     "nmhybridtc": "logs Type-C cable events in the hybrid panel driver (display versions 12 and 13); diagnostic output for testers",
     "nmhybriddelay": "wait of 0 to 120 seconds before the hybrid panel driver takes the panel; a refinement of the hybrid pane's mode that testers set by hand when a machine froze without it",
     "nmhybriddmc": "loads Intel's display firmware in the hybrid panel driver through a root helper and pinned downloads; testers only until measured on hardware",
