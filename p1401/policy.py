@@ -539,6 +539,21 @@ def apply(config_path, result, policy):
         change("ethernet-built-in", ", ".join(eth_marked) + " not marked built-in", "built-in = 01",
                "macOS makes only a built-in Ethernet controller en0, which Apple ID sign-in counts accounts by")
 
+    # Coffee Lake-H laptops (i5-9300H, i7-9750H on HM370: two Legion Y7000 and an OMEN, GTX 1650 and 1660 Ti, no
+    # Resizable BAR; driver issues #328, #451) panicked seven times with "vm_page_validate_no_references: page
+    # 0x1000c8000 is referenced", always the same physical page, from different processes, on 2.4 to 2.6. No NVIDIA mapping
+    # was found in any of the logs, and a firmware-side EFI that reserves memory stopped it for two of the reporters. A page
+    # that never moves between machines of one platform is a firmware-owned range that the memory map hands to macOS as
+    # free RAM. OpenCore's ReservedMemory keeps macOS off it: 16 pages around the reported one are marked Reserved.
+    name = str(cpu.get("Processor Name") or "")
+    if cpu.get("Manufacturer") == "Intel" and platform == "Laptop" and re.search(r"\bi[3579]-9\d{3}H[QK]?\b", name):
+        um = cfg.setdefault("UEFI", {}).setdefault("ReservedMemory", [])
+        if not any(isinstance(e, dict) and e.get("Address") == 0x1000C0000 for e in um):
+            um.append({"Address": 0x1000C0000, "Comment": "firmware-owned page 0x1000c8000 (Coffee Lake-H laptops, #328 #451)",
+                       "Enabled": True, "Size": 0x10000, "Type": "Reserved"})
+            change("coffee-lake-h-reserved-page", "", "UEFI > ReservedMemory 0x1000C0000 (64 KB)",
+                   "seven panics on one physical page across Coffee Lake-H laptops: a firmware range macOS must not use")
+
     # SSDT-PLUG-ALT declares 64 Haswell-era Intel processors for XCPM. On a Ryzen it makes macOS count ghost CPUs and the
     # AM5 boards that load it hang right after "CoreAnalyticsHub start completed" (1401 #21: the owner's fix was to turn
     # it off). XCPM power management is Intel-only, so an AMD machine never needs any SSDT-PLUG table.
