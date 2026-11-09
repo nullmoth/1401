@@ -1,0 +1,338 @@
+diff --git a/Sensors/SMCSuperIO/Devices.cpp b/Sensors/SMCSuperIO/Devices.cpp
+index 1bce357..50417ea 100644
+--- a/Sensors/SMCSuperIO/Devices.cpp
++++ b/Sensors/SMCSuperIO/Devices.cpp
+@@ -966,6 +966,60 @@ public:
+ 
+ };
+ 
++class Device_0x8696 final : public GeneratedITEDevice_6 {
++public:
++	static SuperIODevice *createDevice(uint16_t deviceId) {
++		if (deviceId == 0x8696)
++			return new Device_0x8696();
++		return nullptr;
++	}
++
++	uint8_t getLdn() override {
++		return 0x04;
++	}
++
++	const char* getModelName() override {
++		return "ITE IT8696E";
++	}
++
++};
++
++class Device_0x8698 final : public GeneratedITEDevice_6 {
++public:
++	static SuperIODevice *createDevice(uint16_t deviceId) {
++		if (deviceId == 0x8698)
++			return new Device_0x8698();
++		return nullptr;
++	}
++
++	uint8_t getLdn() override {
++		return 0x04;
++	}
++
++	const char* getModelName() override {
++		return "ITE IT8698E";
++	}
++
++};
++
++class Device_0x8695 final : public GeneratedITEDevice_6 {
++public:
++	static SuperIODevice *createDevice(uint16_t deviceId) {
++		if (deviceId == 0x8695)
++			return new Device_0x8695();
++		return nullptr;
++	}
++
++	uint8_t getLdn() override {
++		return 0x04;
++	}
++
++	const char* getModelName() override {
++		return "ITE IT8795E";
++	}
++
++};
++
+ class GeneratedECDevice_7 : public EC::ECDeviceNUC {
+ public:
+ 	uint8_t getTachometerCount() override {
+@@ -3389,6 +3443,8 @@ SuperIODevice *createDeviceITE(uint16_t deviceId) {
+ 	if (device) return device;
+ 	device = Device_0x8628::createDevice(deviceId);
+ 	if (device) return device;
++	device = Device_0x8638::createDevice(deviceId);
++	if (device) return device;
+ 	device = Device_0x8686::createDevice(deviceId);
+ 	if (device) return device;
+ 	device = Device_0x8728::createDevice(deviceId);
+@@ -3411,6 +3467,12 @@ SuperIODevice *createDeviceITE(uint16_t deviceId) {
+ 	if (device) return device;
+ 	device = Device_0x8613::createDevice(deviceId);
+ 	if (device) return device;
++	device = Device_0x8696::createDevice(deviceId);
++	if (device) return device;
++	device = Device_0x8698::createDevice(deviceId);
++	if (device) return device;
++	device = Device_0x8695::createDevice(deviceId);
++	if (device) return device;
+ 	device = Device_0x8987::createDevice(deviceId);
+ 	if (device) return device;
+ 	device = Device_0x8716::createDevice(deviceId);
+diff --git a/Sensors/SMCSuperIO/ITEDevice.cpp b/Sensors/SMCSuperIO/ITEDevice.cpp
+index 6c1e0f2..35ae613 100644
+--- a/Sensors/SMCSuperIO/ITEDevice.cpp
++++ b/Sensors/SMCSuperIO/ITEDevice.cpp
+@@ -52,7 +52,8 @@ namespace ITE {
+ 
+ 			if (_hasExtReg)
+ 			{
+-				if (strcmp(getModelName(), "ITE IT8689E"))
++				// strcmp is 0 on a match: the IT8689E family writes 0x7F, the others keep their saved mode bits
++				if (!strcmp(getModelName(), "ITE IT8689E") || !strcmp(getModelName(), "ITE IT8696E") || !strcmp(getModelName(), "ITE IT8698E"))
+ 					writeByte(FAN_PWM_CTRL_REG[index], 0x7F);
+ 				else
+ 					writeByte(FAN_PWM_CTRL_REG[index], _initialFanPwmControl[index] & 0x7F);
+@@ -379,16 +380,17 @@ namespace ITE {
+ 					   static_cast<ITEDevice *>(detectedDevice)->readByteEC(ITE_EC_GCTRL_BASE + ITE_EC_GCTRL_ECHIPID2),
+ 					   static_cast<ITEDevice *>(detectedDevice)->readByteEC(ITE_EC_GCTRL_BASE + ITE_EC_GCTRL_ECHIPVER));
+ 			} else {
+-				if (strcmp(detectedDevice->getModelName(), "ITE IT8721F") || strcmp(detectedDevice->getModelName(), "ITE IT8728F") || strcmp(detectedDevice->getModelName(), "ITE IT8665E") || strcmp(detectedDevice->getModelName(), "ITE IT8686E") || strcmp(detectedDevice->getModelName(), "ITE IT8688E") || strcmp(detectedDevice->getModelName(), "ITE IT8689E") ||
+-					strcmp(detectedDevice->getModelName(), "ITE IT8795E") || strcmp(detectedDevice->getModelName(), "ITE IT8628E") ||
+-					strcmp(detectedDevice->getModelName(), "ITE IT8638")  ||
+-					strcmp(detectedDevice->getModelName(), "ITE IT8625E") || strcmp(detectedDevice->getModelName(), "ITE IT8620E") ||
+-					strcmp(detectedDevice->getModelName(), "ITE IT8613E") || strcmp(detectedDevice->getModelName(), "ITE IT8792E") ||
+-					strcmp(detectedDevice->getModelName(), "ITE IT8655E") || strcmp(detectedDevice->getModelName(), "ITE IT8631E"))
++				// strcmp is 0 on a match; written as `strcmp(...) ||` this was true for every chip
++				static const char *const extRegModels[] = {"ITE IT8721F", "ITE IT8728F", "ITE IT8665E", "ITE IT8686E", "ITE IT8688E",
++					"ITE IT8689E", "ITE IT8696E", "ITE IT8698E", "ITE IT8795E", "ITE IT8628E", "ITE IT8638", "ITE IT8625E", "ITE IT8620E",
++					"ITE IT8613E", "ITE IT8792E", "ITE IT8655E", "ITE IT8631E"};
++				bool extReg = false;
++				for (auto m : extRegModels) extReg = extReg || !strcmp(detectedDevice->getModelName(), m);
++				if (extReg)
+ 				{
+ 					_hasExtReg = true;
+ 				}
+-				if (strcmp(detectedDevice->getModelName(), "ITE IT8665E") || strcmp(detectedDevice->getModelName(), "ITE IT8625E"))
++				if (!strcmp(detectedDevice->getModelName(), "ITE IT8665E") || !strcmp(detectedDevice->getModelName(), "ITE IT8625E"))
+ 					lilu_os_memcpy(&FAN_PWM_CTRL_REG, &FAN_PWM_CTRL_REG_ALT, ITE_MAX_TACHOMETER_COUNT);
+ 			}
+ 		}
+diff --git a/Sensors/SMCSuperIO/Resources/IT8721F.plist b/Sensors/SMCSuperIO/Resources/IT8721F.plist
+index 8a54e40..9685a07 100644
+--- a/Sensors/SMCSuperIO/Resources/IT8721F.plist
++++ b/Sensors/SMCSuperIO/Resources/IT8721F.plist
+@@ -7,100 +7,118 @@
+ 	<key>CompatibleDevices</key>
+ 	<array>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34593</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8721F</string>
+-			<key>DeviceID</key>
+-			<integer>0x8721</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34598</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8726F</string>
+-			<key>DeviceID</key>
+-			<integer>0x8726</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34336</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8620E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8620</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34344</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8628E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8628</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34360</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8638</string>
+-			<key>DeviceID</key>
+-			<integer>0x8638</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34438</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8686E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8686</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34600</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8728F</string>
+-			<key>DeviceID</key>
+-			<integer>0x8728</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34642</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8752F</string>
+-			<key>DeviceID</key>
+-			<integer>0x8752</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34673</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8771E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8771</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34674</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8772E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8772</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34706</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8792E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8792</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34440</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8688E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8688</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34441</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8689E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8689</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34709</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8795E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8795</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34405</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8665E</string>
+-			<key>DeviceID</key>
+-			<integer>0x8665</integer>
+ 		</dict>
+ 		<dict>
++			<key>DeviceID</key>
++			<integer>34323</integer>
+ 			<key>DisplayName</key>
+ 			<string>ITE IT8613E</string>
++		</dict>
++		<dict>
+ 			<key>DeviceID</key>
+-			<integer>0x8613</integer>
++			<integer>34454</integer>
++			<key>DisplayName</key>
++			<string>ITE IT8696E</string>
++		</dict>
++		<dict>
++			<key>DeviceID</key>
++			<integer>34456</integer>
++			<key>DisplayName</key>
++			<string>ITE IT8698E</string>
++		</dict>
++		<dict>
++			<key>DeviceID</key>
++			<integer>34453</integer>
++			<key>DisplayName</key>
++			<string>ITE IT8795E</string>
+ 		</dict>
+ 	</array>
+ 	<key>Sensors</key>
+diff --git a/VirtualSMC.xcodeproj/project.pbxproj b/VirtualSMC.xcodeproj/project.pbxproj
+index 886c736..9414363 100644
+--- a/VirtualSMC.xcodeproj/project.pbxproj
++++ b/VirtualSMC.xcodeproj/project.pbxproj
+@@ -1369,6 +1369,7 @@
+ /* Begin PBXShellScriptBuildPhase section */
+ 		415A275B26AB762400718BCB /* Post-process Binary */ = {
+ 			isa = PBXShellScriptBuildPhase;
++			alwaysOutOfDate = 1;
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 			);
+@@ -1387,6 +1388,7 @@
+ 		};
+ 		415A296E26AC713900718BCB /* Post-process Binary */ = {
+ 			isa = PBXShellScriptBuildPhase;
++			alwaysOutOfDate = 1;
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 			);
+@@ -1405,6 +1407,7 @@
+ 		};
+ 		ABE8416D2378AA27003B5FEF /* Generate Devices (Run Script) */ = {
+ 			isa = PBXShellScriptBuildPhase;
++			alwaysOutOfDate = 1;
+ 			buildActionMask = 12;
+ 			files = (
+ 			);
+@@ -1424,6 +1427,7 @@
+ 		};
+ 		CEA5F5DB20B8984E008E6E8A /* Copy SDK */ = {
+ 			isa = PBXShellScriptBuildPhase;
++			alwaysOutOfDate = 1;
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 			);
+diff --git a/VirtualSMC/kern_mmio.cpp b/VirtualSMC/kern_mmio.cpp
+index 76512fe..f5d3566 100644
+--- a/VirtualSMC/kern_mmio.cpp
++++ b/VirtualSMC/kern_mmio.cpp
+@@ -34,7 +34,7 @@ void SMCProtocolMMIO::submitData() {
+ 		static_assert(SMC_MMIO_WRITE_COMMAND == SMC_MMIO_READ_RESULT, "Write Command is uncleared");
+ 		
+ 		mmioWrite<SMC_DATA_SIZE, SMC_MMIO_WRITE_DATA_SIZE>(dataSize);
+-		lilu_os_memcpy(mmioPtr<SMC_DATA, 0>(), dataBuffer, SMC_MAX_DATA_SIZE);
++		lilu_os_memcpy((mmioPtr<SMC_DATA, 0>()), dataBuffer, SMC_MAX_DATA_SIZE);
+ 		
+ 		MachInfo::setKernelWriting(false, KernelPatcher::kernelWriteLock);
+ 	}
+@@ -106,7 +106,7 @@ void SMCProtocolMMIO::setInterrupt(SMC_EVENT_CODE code, const void *data, size_t
+ 	if (code == SmcEventLogMessage) {
+ 		if (MachInfo::setKernelWriting(true, KernelPatcher::kernelWriteLock) == KERN_SUCCESS) {
+ 			auto writtenSize = size > SMC_MAX_LOG_SIZE ? SMC_MAX_DATA_SIZE : size;
+-			lilu_os_memcpy(mmioPtr<SMC_LOG, SMC_MMIO_READ_LOG>(), data, writtenSize);
++			lilu_os_memcpy((mmioPtr<SMC_LOG, SMC_MMIO_READ_LOG>()), data, writtenSize);
+ 			if (writtenSize < SMC_MAX_LOG_SIZE)
+ 				bzero(mmioPtr<SMC_LOG, SMC_MMIO_READ_LOG>() + writtenSize, SMC_MAX_LOG_SIZE-writtenSize);
+ 			MachInfo::setKernelWriting(false, KernelPatcher::kernelWriteLock);

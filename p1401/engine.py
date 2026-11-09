@@ -31,6 +31,7 @@ from . import amd_rdna4
 from . import intel_gpu
 from . import ryzen_power
 from . import community
+from . import own_virtualsmc
 from . import community_gpu
 from . import continuity
 from . import downloads
@@ -1125,6 +1126,7 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 # so it can default to the offline (local-image) path for a PC that has no supported network adapter.
                 netsupport.write_marker(out_dir, net_status)
                 netsupport.add_missing_bt_ids(out_dir, cust, h.notices)   # MediaTek BT IDs the kext does not list (#336)
+                own_virtualsmc.replace(out_dir, h.notices)   # VirtualSMC set built from source: more fan chips (own_virtualsmc.py)
                 _keep_identity(out_dir, prior_identity, machine_key, h)
                 _identity_rom_pass(out_dir, prior_identity, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
