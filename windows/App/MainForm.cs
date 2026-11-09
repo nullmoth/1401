@@ -1344,6 +1344,8 @@ namespace A1401
                         configs.Add(safe);
                         var prov = StickProvenance(d.RootDirectory.FullName, cfg);
                         if (prov.Length > 0) provenance.Add(prov);
+                        var board = StickBoard(d.RootDirectory.FullName);
+                        if (board.Length > 0) provenance.Add(board);
                     }
                 }
                 catch (Exception) { }
@@ -1445,6 +1447,26 @@ namespace A1401
                 using (var fs = File.OpenRead(configPath))
                     have = BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
                 return have == want ? "" : "this stick's OpenCore config was changed after 1401 built it";
+            }
+            catch (Exception) { return ""; }
+        }
+
+        // A stick log that ends at EXITBS:START looks the same whether that boot froze or went on, and the upload names
+        // no board, so freezes could only be grouped by CPU (known_machines.json). The board and CPU the stick was built
+        // for come from the stick's own NullMoth/system-profile.json, so the per-board quirk table can be mined.
+        internal static string StickBoard(string root)
+        {
+            try
+            {
+                var profile = Path.Combine(root, "NullMoth", "system-profile.json");
+                if (!File.Exists(profile) || new FileInfo(profile).Length > 1 << 20) return "";
+                var value = new JavaScriptSerializer().DeserializeObject(File.ReadAllText(profile)) as Dictionary<string, object>;
+                if (value == null) return "";
+                Func<string, string> field = k => value.TryGetValue(k, out var v) && v is string s
+                    ? System.Text.RegularExpressions.Regex.Replace(s, @"[\x00-\x1f;]", " ").Trim() : "";
+                var board = field("board"); var cpu = field("cpu");
+                if (board.Length == 0 && cpu.Length == 0) return "";
+                return "stick built for board: " + (board.Length > 0 ? board : "?") + ", cpu: " + (cpu.Length > 0 ? cpu : "?");
             }
             catch (Exception) { return ""; }
         }
