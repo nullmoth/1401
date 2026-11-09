@@ -102,14 +102,18 @@ power_restore() {
   rm -f "$BACKUP"
 }
 
-# Game Mode. macOS's game policy daemon decides at start-up whether this Mac supports four things: Game Mode, model-manager
-# game assertions, dynamic power splitting and sustained execution. On an Intel Mac's build of the daemon the Game Mode
-# answer is a fixed "no" and the other three ask a MobileGestalt device-type list. The daemon also reads one preference,
-# ignoreDeviceRestrictions, and treats every one of the four as supported when it is true. Apple ships that switch; this
-# command only sets it. It CANNOT turn on one check alone, so the three that are Apple-silicon features switch on with Game
-# Mode, and the kernel setting Game Mode relies on (kern.console_mode) does not exist on this kernel: expect the daemon to
-# track game sessions and show Game Mode, not to change scheduling. The daemon's preference domain was read from its
-# code, not tested on a PC; `gamemode status` shows what is stored, and `off` removes the key.
+# Game Mode, as a DIAGNOSTIC. macOS's game policy daemon decides at start-up whether this Mac supports four things: Game
+# Mode, model-manager game assertions, dynamic power splitting and sustained execution. On an Intel Mac's build of the
+# daemon the Game Mode answer is a fixed "no" and the other three ask a MobileGestalt device-type list. The daemon also reads
+# one preference, ignoreDeviceRestrictions, and treats every one of the four as supported when it is true.
+# That preference CANNOT turn on Game Mode alone. Read from the Intel daemon's code: when forced, dynamic power splitting
+# and sustained execution each ask Apple's closed-loop performance controller (CLPCPolicyInterface) for a client, which an
+# Intel kernel does not have; the daemon turns the failure into a thrown Swift error and what its caller does with it was not
+# determined, so a restart loop is possible. Model-manager assertions are a process-state assertion for Apple's model
+# service and have no effect without it. Because the harm could not be ruled out, this stays a command the user types, never
+# something an installer does. The kernel setting Game Mode relies on (kern.console_mode) does not exist on this kernel
+# either, so the working path is nullmoth-gamemode-policy.py. A narrower gate exists in the daemon (one two-byte answer, see
+# tools/gamemode_gate_probe.py) but patching Apple's daemon in memory is not shipped.
 GM_DOMAIN=${NULLMOTH_GM_DOMAIN:-/Library/Preferences/com.apple.gamepolicyd}
 gamemode() {
   case "${1:-}" in
