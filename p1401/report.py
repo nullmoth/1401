@@ -128,6 +128,7 @@ def normalize(report):
         if word:
             bios["Firmware Type"] = word
             notes.append(f"BIOS: firmware type read as {ft!r} (extra text from PowerShell) - taken as {word}")
+    _field_gaps(report, notes)
     # 10-07: a card Windows has no driver for shows up as "Microsoft Basic Display Adapter" with
     # Manufacturer 'Unknown', and the engine's schema rejects the whole report. The PCI vendor in its Device ID still
     # names the maker, so take it from there; a card with no usable ID is dropped if another GPU remains.
@@ -165,6 +166,47 @@ def normalize(report):
                 notes.append(f"{section}: {name!r} (bus {props.get('Bus Type')}) has no Device ID in this report - "
                              "USB audio needs no kext; macOS drives it natively")
     return report, notes
+
+
+# Words that make a chassis a laptop when Windows gave no usable platform type.
+_LAPTOP_WORDS = ("laptop", "notebook", "thinkpad", "ideapad", "legion", "zenbook", "vivobook", "macbook", "xps", "inspiron",
+                 "latitude", "pavilion", "elitebook", "probook", "spectre", "envy", "swift", "aspire", "predator", "nitro",
+                 "rog zephyrus", "rog strix g", "tuf gaming f", "tuf gaming a", "victus", "omen", "loq", "yoga", "surface",
+                 "thin gf", "katana", "stealth", "vector", "raider", "titan gt", "blade")
+
+
+def _field_gaps(report, notes):
+    """Scans from the field that the engine's validator refuses although the EFI does not depend on the missing part
+    (1.x to 2.8 build logs: Network 8 PCs, SD Controller 12, USB Controllers 2, Motherboard Platform 5, CPU maker 6)."""
+    # A PC whose adapters are all disabled or driverless in Windows reports no Network section at all. The engine reads a
+    # missing section as none; the build then says the installer has no network (netsupport) instead of refusing the scan.
+    if not isinstance(report.get("Network"), dict):
+        report["Network"] = {}
+        notes.append("Network: Windows reported no network adapter - treated as none; the installer will need the offline "
+                     "(local image) path, and Ethernet or Wi-Fi can be added later")
+    # A card reader Windows lists only as the generic SD host class has no vendor or device ID to match; macOS has no
+    # driver for it either way, so dropping the entry does not change the EFI.
+    for name, props in list((report.get("SD Controller") or {}).items()):
+        if isinstance(props, dict) and not props.get("Device ID"):
+            del report["SD Controller"][name]
+            notes.append(f"SD Controller: {name!r} has no device ID in this report - left out (macOS has no driver for a "
+                         "generic card reader; a USB card reader works)")
+    # The USB controller's bus is PCI whenever it has a PCI path; a missing Bus Type is a gap in the scan, not a different bus.
+    for name, props in (report.get("USB Controllers") or {}).items():
+        if isinstance(props, dict) and not props.get("Bus Type"):
+            props["Bus Type"] = "PCI"
+    board = report.get("Motherboard")
+    if isinstance(board, dict) and board.get("Platform") not in ("Desktop", "Laptop"):
+        low = str(board.get("Name", "")).lower()
+        guess = "Laptop" if any(w in low for w in _LAPTOP_WORDS) else "Desktop"
+        notes.append(f"Motherboard: the chassis type was read as {board.get('Platform')!r}; taken as {guess} from the board "
+                     "name. If this is wrong, run Check this PC again.")
+        board["Platform"] = guess
+    cpu = report.get("CPU")
+    if isinstance(cpu, dict) and cpu.get("Manufacturer") not in ("Intel", "AMD"):
+        raise RuntimeError(f"This PC's processor reports its maker as {cpu.get('Manufacturer')!r} "
+                           f"({cpu.get('Processor Name', 'unnamed')}). macOS runs only on Intel and AMD processors, and 1401 has "
+                           "no tested setup for other x86 makers (Hygon, Zhaoxin and similar), so it cannot build an EFI for this PC.")
 
 
 def normalized_copy(report_path, dest_dir, raw_hardware=None):

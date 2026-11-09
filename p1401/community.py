@@ -20,6 +20,8 @@ import os
 import plistlib
 import zipfile
 
+from .unsupported import locate
+
 SEQUOIA, TAHOE = 24, 25
 
 DRIVERS = [
@@ -194,26 +196,71 @@ def register():
         kext_data.kext_index_by_name[d["name"]] = len(kext_data.kexts) - 1
 
 
+def _decide(d, report, macos_version, experimental, engine_kexts=()):
+    """-> (driver or None, notice or None) for one table entry against one report."""
+    if not matches(d, report):
+        return None, None
+    if d.get("only_with") and d["only_with"] not in engine_kexts:
+        return None, None
+    if not build_for(d, macos_version):
+        return None, f"{d['what']}: matches this machine but has no build for this macOS version; not added."
+    if d["experimental"] and not experimental:
+        return None, (f"{d['what']}: a community driver exists for this hardware and is NOT in this build. "
+                      "It is unproven on most machines. To try it, turn on \"Include experimental drivers\" "
+                      "and build again.")
+    return d, f"{d['what']}: added" + (" (experimental: keep Ethernet or the previous EFI ready)." if d["experimental"] else ".")
+
+
 def chosen(report, macos_version, experimental, engine_kexts=()):
     """-> (drivers to add, notices). engine_kexts: names the engine already checked, for only_with and conflicts."""
     add, notices = [], []
     for d in DRIVERS:
-        if not matches(d, report):
-            continue
-        if d.get("only_with") and d["only_with"] not in engine_kexts:
-            continue
-        if not build_for(d, macos_version):
-            notices.append(f"{d['what']}: matches this machine but has no build for this macOS version; not added.")
-            continue
-        if d["experimental"] and not experimental:
-            notices.append(f"{d['what']}: a community driver exists for this hardware and is NOT in this build. "
-                           "It is unproven on most machines. To try it, turn on \"Include experimental drivers\" "
-                           "and build again.")
-            continue
-        add.append(d)
-        notices.append(f"{d['what']}: added" + (" (experimental: keep Ethernet or the previous EFI ready)."
-                                                if d["experimental"] else "."))
+        driver, note = _decide(d, report, macos_version, experimental, engine_kexts)
+        if note:
+            notices.append(note)
+        if driver:
+            add.append(driver)
     return add, notices
+
+
+def reclaim(customization, disabled, report, macos_version, experimental):
+    """The engine switches off a device it has no driver for and drops it from the customized report, so the matching
+    below never saw it: a driver in DRIVERS whose IDs the engine does not know was catalogued and never applied
+    (Qualcomm WCN7850 Bluetooth, Realtek RTW88 USB Wi-Fi ids). A device that a driver will now be added for is moved back
+    into the customized report and out of the disabled set, before ACPI patches and kexts are chosen from them.
+
+    -> (customization, disabled, notices, explained device ids). notices cover the drivers that match a switched-off
+    device but are held back (experimental off, no build for this macOS); the added ones are announced by apply_kexts."""
+    if not disabled:
+        return customization, disabled, [], set()
+    cust = {k: (dict(v) if isinstance(v, dict) else v) for k, v in customization.items()}
+    left = dict(disabled)
+    notices, explained = [], set()
+    by_section = {}     # section -> {device name: props}
+    keys = {}           # (section, device name) -> the engine's key in the disabled set
+    for key, props in disabled.items():
+        sec, name = locate(report, key, props if isinstance(props, dict) else None)
+        if sec and isinstance(props, dict):
+            by_section.setdefault(sec, {})[name] = props
+            keys[(sec, name)] = key
+    context = {k: customization.get(k) for k in ("Motherboard", "CPU")}
+    for d in DRIVERS:
+        if not d.get("ids"):
+            continue
+        sections = [d["section"]] if d.get("section") else sorted(by_section)
+        view = dict(context, **{sec: by_section.get(sec, {}) for sec in sections})
+        hit = {(sec, n) for sec in sections for n, p in view[sec].items() if str(p.get("Device ID", "")).upper() in d["ids"]}
+        if not hit:
+            continue
+        driver, note = _decide(d, view, macos_version, experimental)
+        if driver:
+            for sec, name in hit:
+                cust.setdefault(sec, {})[name] = left.pop(keys[(sec, name)])
+        else:
+            if note:
+                notices.append(note)
+            explained |= {str(view[sec][n].get("Device ID", "")).upper() for sec, n in hit}
+    return cust, left, notices, explained
 
 
 def apply_kexts(ocpe, customization, macos_version, notices, experimental=False):
