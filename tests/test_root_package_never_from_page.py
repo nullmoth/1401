@@ -20,12 +20,18 @@ class RootPackages(unittest.TestCase):
                        '"--gpu-boost", "on", "--pkg", pkg.path, "--sha", pkg.sha', 'run(mode: "tahoe", pkg: pkg.path',
                        'run(mode: mode, pkg: pkg.path'):
             self.assertIn(marker, MAIN)
-        self.assertEqual(MAIN.count("rootPackage("), 6)   # the definition and five handlers
+        self.assertEqual(MAIN.count("rootPackage()"), 6)   # the definition and five handlers
+        # the page's pkg field is not read by any root action
+        for handler in ("hybrid", "gpuboost", "ryzenpower", "osupdate"):
+            body = MAIN[MAIN.index(f'case "{handler}"'):]
+            body = body[:body.index("        case ", 20)] if "        case " in body[20:] else body
+            self.assertNotIn('b["pkg"]', body, handler)
 
     def test_the_pin_is_the_apps_compiled_in_sha_and_the_candidates_are_the_apps_own_list(self):
         self.assertIn("pinnedSha: Package.sha256", MAIN)
         self.assertIn("App.findPackages().compactMap", MAIN)
         self.assertIn("hash(path)?.lowercased() == pinnedSha.lowercased()", PIN)
+        self.assertNotIn("requested", PIN)
 
     def test_every_pkg_argument_in_main_is_a_resolved_one(self):
         for m in re.finditer(r'"--pkg", ([^,\]]+)', MAIN):
