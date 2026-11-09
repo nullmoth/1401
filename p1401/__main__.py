@@ -47,7 +47,22 @@ def main(argv=None):
                        help="persistent NVRAM on AMD (emulated): a writable NVRAM store for boards whose firmware NVRAM "
                             "is unsafe to write, so iMessage and the startup-disk choice persist - off by default, "
                             "needs proving on a real AMD board")
+    sp = sub.add_parser("storage-prep", help="Windows: prepare, finish or undo the change that lets Windows survive turning Intel VMD off")
+    sp.add_argument("action", choices=("prepare", "finish", "undo"))
+    sp.add_argument("--state", default="", help="where the values to restore are kept")
     a = ap.parse_args(argv)
+    if a.cmd == "storage-prep":
+        import os  # noqa: PLC0415
+        from . import storage_prep  # noqa: PLC0415
+        state = a.state or os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "NullMoth", "1401", "storage-prep.json")
+        try:
+            log = storage_prep.run(a.action, state)
+        except RuntimeError as e:
+            print(e)
+            return 2
+        for label, ok, msg in log:
+            print(f"{'ok' if ok else 'FAILED'}  {label}" + (f": {msg}" if msg and not ok else ""))
+        return 0 if all(ok for _, ok, _ in log) else 1
     pol = engine.Policy(macos=a.macos, boot_logs=a.boot_log, stopped_at=a.stopped_at[:500], new_identity=a.new_identity,
                         experimental_drivers=a.experimental_drivers, persistent_nvram_amd=a.persistent_nvram_amd,
                         utbmap=a.utbmap, external_target=a.external_target)

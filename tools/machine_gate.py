@@ -8,6 +8,7 @@ Rules, each a named sentence so a failure reads as what is wrong:
   plan-or-named     the builder plans an EFI, or stops with one of the named reasons below, whose message is plain words
   device-explained  every device the builder leaves switched off is named (with its ID) in a note that says what to use instead
   smbios-known-good the Mac model matches one that machines with this CPU reached the desktop on
+  storage-plan      a PC whose drives macOS cannot see gets a plan: the BIOS path and Windows preparation (VMD), or an external drive
   gpu-known-good    a card that most machines reached the desktop on with the NullMoth driver is planned for that driver
 """
 import json
@@ -21,11 +22,11 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 
 # name -> (matches the refusal text, what it means). Every refusal the field has produced is one of these.
 NAMED = {
-    "intel-vmd": (r"Intel VMD controller", "storage hidden behind Intel VMD: needs the firmware switch the guide describes"),
-    "gpu-no-windows-driver": (r"only graphics card Windows reports", "Windows has no driver for the card, so the scan cannot identify it"),
+    "gpu-no-windows-driver": (r"only graphics card Windows reports(?! is '(VMware|Parallels|Red Hat|Citrix|Microsoft Hyper|QEMU))",
+                              "Windows has no driver for the card: install it in Windows and scan again"),
+    "virtual-machine": (r"only graphics card Windows reports is '(VMware|Parallels|Red Hat VirtIO|Citrix|Microsoft Hyper|QEMU)",
+                        "a virtual machine's display adapter: not a PC 1401 builds for"),
     "cpu-maker": (r"processor reports its maker", "not an Intel or AMD processor"),
-    "storage-unsupported": (r"No compatible storage controller|macOS cannot use any internal drive",
-                            "the only internal drive is one macOS is known not to work with"),
     "no-gpu-driver": (r"macOS has no driver for this PC's graphics", "no graphics card macOS or the NullMoth driver can use"),
     "macos-not-offered": (r"This PC is capped at macOS", "the hardware tops out below the macOS the user picked"),
 }
@@ -88,6 +89,21 @@ def gpu_violation(machine, result, known):
     return None
 
 
+def storage_violation(machine, result):
+    notes = notes_of(result)
+    stor = [n for n in notes if n.startswith("Storage:")]
+    plan = result.get("storage_plan") or {}
+    if not stor and not plan:
+        return None
+    if not plan or not plan.get("steps"):
+        return "storage-plan: a storage note without a plan"
+    if plan["kind"] == "vmd-off" and not (plan.get("bios_path") and plan.get("controllers")):
+        return "storage-plan: VMD plan without the BIOS path or the controllers"
+    if not any(("VMD" in b or "macOS on a drive" in b) for b in result.get("bios", [])):
+        return "storage-plan: the plan is not in the build's firmware requirements"
+    return None
+
+
 def evaluate(machine, result, known):
     """-> ('satisfied' | 'named', code) or ('violation', [messages])."""
     if not result["ok"]:
@@ -97,6 +113,9 @@ def evaluate(machine, result, known):
             return "named", code
         return "violation", [f"plan-or-named: stopped without a named, plain reason: {text[:160]!r}"]
     bad = device_violations(machine, result)
+    sv = storage_violation(machine, result)
+    if sv:
+        bad.append(sv)
     for fn in (smbios_violation, gpu_violation):
         v = fn(machine, result, known)
         if v:
