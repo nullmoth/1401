@@ -19,6 +19,8 @@ xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/OSGate.swift 
 "${RUN[@]}" "$T/os_gate_test" || { echo "STOP: the app would install the driver on a macOS it is not built for"; exit 1; }
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/Privileged.swift Sources/BundleHashes.swift tests/privileged/main.swift -o "$T/privileged_test"
 "${RUN[@]}" "$T/privileged_test" || { echo "STOP: the password prompt still reads as a hang while logs are collected"; exit 1; }
+xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/Privileged.swift Sources/BundleHashes.swift Sources/GameMode.swift tests/gamemode/main.swift -o "$T/gamemode_test"
+"${RUN[@]}" "$T/gamemode_test" || { echo "STOP: the Game Mode service command is wrong"; exit 1; }
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/DriverSettings.swift tests/settings/main.swift -o "$T/settings_test"
 "${RUN[@]}" "$T/settings_test" "$PWD/tests/settings" || { echo "STOP: the settings window disagrees with the command-line tool"; exit 1; }
 # the catalogue the window ships must be the one the driver's tool prints (set NULLMOTH_DRIVER to a driver checkout)
@@ -63,6 +65,10 @@ chmod 755 "$APP/Contents/Resources/nullmoth-runtime-check.sh"
 chmod 755 "$APP/Contents/Resources/nullmoth-mac-parity.sh"
 chmod 755 "$APP/Contents/Resources/nullmoth-ipa2mac.py"
 chmod 755 "$APP/Contents/Resources/nullmoth-gamemode-policy.py"
+chmod 755 "$APP/Contents/Resources/nullmoth-gamemode-service.sh"
+# Game Mode's menu-bar indicator (GameModeIndicator/main.swift): a separate per-user program, installed by the service script
+xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework AppKit GameModeIndicator/main.swift -o "$APP/Contents/Resources/nullmoth-gamemode-indicator"
+codesign --force -s - "$APP/Contents/Resources/nullmoth-gamemode-indicator"
 chmod 755 "$APP/Contents/Resources/nullmoth-setup.sh"
 # setup runs the installers only when they are executable ([ -x ]); a source file that lost its mode made every app
 # install stop with "the audited installer is missing from the app" (1.15 review), so the bundle sets it here
@@ -116,7 +122,7 @@ HASHES=$(mktemp -d)/BundleHashes.swift
   echo '    ]'; echo '}'
 } > "$HASHES"
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework WebKit -framework Metal -framework IOKit \
-  Sources/main.swift Sources/RyzenPower.swift Sources/PackagePin.swift Sources/Experimental.swift Sources/GPUBoost.swift Sources/ConfigChoice.swift Sources/TesterLane.swift Sources/ArmApps.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/Mirror.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift Sources/OSGate.swift Sources/DriverSettings.swift Sources/GpuFacts.swift Sources/SettingsPanel.swift "$HASHES" -o "$APP/Contents/MacOS/1401"
+  Sources/main.swift Sources/RyzenPower.swift Sources/PackagePin.swift Sources/Experimental.swift Sources/GPUBoost.swift Sources/ConfigChoice.swift Sources/TesterLane.swift Sources/ArmApps.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/Mirror.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift Sources/OSGate.swift Sources/DriverSettings.swift Sources/GpuFacts.swift Sources/SettingsPanel.swift Sources/GameMode.swift Sources/GameModeUI.swift "$HASHES" -o "$APP/Contents/MacOS/1401"
 # --options runtime,library: library validation, so only code signed by the
 # same identity loads into the bundle. Was a bare ad-hoc signature, which let
 # any dropped-in library load into the process that asks for the password.
