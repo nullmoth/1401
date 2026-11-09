@@ -1,4 +1,6 @@
 # SHA-256 of each RyzenAdj build nullmoth-ryzen-power.sh may install, one per line, lowercase hex, optionally followed by
-# a note. Upstream RyzenAdj (https://github.com/FlyGoat/RyzenAdj, LGPL-3.0) has no macOS port at any tag: it reaches the
-# SMU through WinRing0 on Windows and libpci plus /dev/mem or a kernel module on Linux. Nothing is pinned until NullMoth
-# builds a macOS port (OS layer plus a kernel-side accessor) and records its hash here, with the tag and commit, in NOTICE.md.
+# a note. Nothing else is installed.
+# RyzenAdj v0.19.0, commit ea71739b4a3e1a0a624dfd1c9c268a31cb2a4182 (FlyGoat/RyzenAdj, LGPL-3.0) with NullMoth's macOS OS
+# layer (ryzenadj-macos/osdep_macos.c), built by ryzenadj-macos/build.sh with Xcode on x86_64, macOS 15 target; two builds
+# gave the same bytes. It needs the NMSMN kext and boot argument nmsmn=1; the SMU power table (--info) is unavailable.
+77846bfa1bb575e6dea7bc6fff8bec4a99b6ed44fe7a8212c0d1d225286979fb  ryzenadj v0.19.0 + NullMoth macOS layer
