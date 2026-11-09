@@ -203,6 +203,26 @@ class FixesFromTheReplay(unittest.TestCase):
         self.assertEqual(unsupported._darwin_range({"Compatibility": ("25.99.99", "20.0.0")}), "works with macOS 11 to 26")
         self.assertEqual(unsupported._darwin_range({"Compatibility": (None, None)}), "no macOS version")
 
+    def test_the_linux_probe_gives_intel_cpus_a_codename_a_chipset_and_the_bluetooth_adapter(self):
+        import json
+        import tempfile
+        from p1401 import probe_report
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "acpi", "tables"))
+        open(os.path.join(d, "acpi", "tables", "DSDT.aml"), "wb").write(b"DSDT" + b"\0" * 60)
+        json.dump({"dmi": {"board_vendor": "Gigabyte", "board_name": "H110M-DS2", "chassis_type": "3"}, "firmware": {},
+                   "cpu": {"vendor": "GenuineIntel", "brand": "13th Gen Intel(R) Core(TM) i7-13700KF", "family": 6, "model": 183,
+                           "stepping": 1, "cores": 16, "packages": 1, "features": {}},
+                   "pci": [{"class": "0x060100", "vendor": "0x8086", "device": "0xa143"}],
+                   "usb": {"devices": [{"vid": "8087", "pid": "0a2a", "interfaces": [{"class": "e0", "subclass": "01", "protocol": "01"}]},
+                                       {"vid": "1a2c", "pid": "4882", "interfaces": [{"class": "03", "subclass": "01", "protocol": "01"}]}]},
+                   "audio": []}, open(os.path.join(d, "report.json"), "w"))
+        out = tempfile.mkdtemp()
+        rep = json.load(open(probe_report.convert(d, out)[0]))
+        self.assertEqual(rep["CPU"]["Codename"], "Raptor Lake-S")
+        self.assertEqual(rep["Motherboard"]["Chipset"], "H110")
+        self.assertEqual([b["Device ID"] for b in rep["Bluetooth"].values()], ["8087-0A2A"])
+
     def test_a_scan_with_no_network_section_is_planned_not_rejected(self):
         c = copy.deepcopy(census.BASELINE)
         del c["Network"]
