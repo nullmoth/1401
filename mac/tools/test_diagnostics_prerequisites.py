@@ -2,7 +2,18 @@
 """Read-only native prerequisite qualification; never run as administrator."""
 import json, os, pathlib, subprocess, sys
 assert os.geteuid() != 0
-checker = pathlib.Path(sys.argv[1]).resolve()
+if len(sys.argv) > 1:
+    checker = pathlib.Path(sys.argv[1]).resolve()
+else:
+    # no binary given: build the same checker build.sh builds, for this machine, in a temporary folder
+    import tempfile
+    root = pathlib.Path(__file__).resolve().parents[1] / "DiagnosticsNative"
+    out = pathlib.Path(tempfile.mkdtemp()) / "preflight"
+    srcs = [root / "preflight.m", *sorted((root / "authority").glob("*.m")), *sorted((root / "module").glob("*.[mc]"))]
+    subprocess.run(["xcrun", "clang", "-fobjc-arc", "-O1", "-Wno-deprecated-declarations", *map(str, srcs), "-framework", "Foundation",
+                    "-framework", "Security", "-framework", "IOKit", "-o", str(out)], check=True, timeout=600)
+    subprocess.run(["codesign", "--force", "--options", "runtime,library", "-s", "-", str(out)], check=True, timeout=60)  # as build.sh
+    checker = out
 for args in [[], ["0"], ["1"], ["-1"], ["999999999999999999999"], ["text"], [str(os.getpid()), "extra"]]:
     p = subprocess.run([str(checker), *args], capture_output=True, timeout=10)
     assert p.returncode == 2 and not p.stdout, (args, p.returncode)
