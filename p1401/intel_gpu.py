@@ -23,12 +23,13 @@ NO_DRIVER = "none"          # no Apple driver and no driver 1401 can offer yet; 
 
 INTEL_VENDOR = "8086"
 
-# The IDs WhateverXe 0.6.1 selects a backend for (its docs/device-selection.md). Same order as App.xeIds.
+# The IDs WhateverXe 0.8.0 selects a backend for (its docs/device-selection.md). Same order as App.xeIds.
 WHATEVERXE_IDS = (
-    "9A40", "9A49", "9A60", "9A68", "9A70", "9A78", "46D0", "46D1", "46D2", "46D3", "46D4",
-    "46A3", "46A6", "46A8", "46AA", "46B3", "46C3", "A7A0", "A7A1", "A7A8", "A7A9", "A7AA", "A7AB", "A7AC", "A7AD",
-    "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783", "A788", "A789",
-    "A78A", "A78B",
+    "9A40", "9A49", "9A59", "9A60", "9A68", "9A70", "9A78", "9AC0", "9AC9", "9AD9", "9AF8", "46D0", "46D1", "46D2",
+    "46D3", "46D4", "4626", "4628", "462A", "46A0", "46A1", "46A2", "46A3", "46A6", "46A8", "46AA", "46B0", "46B1",
+    "46B2", "46B3", "46C0", "46C1", "46C2", "46C3", "A720", "A7A0", "A7A8", "A7AA", "A7AB", "A721", "A7A1", "A7A9",
+    "A7AC", "A7AD", "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783",
+    "A788", "A789", "A78A", "A78B",
 )
 
 # Family label per ID group. A WhateverXe ID takes its family from here too; its path comes from WHATEVERXE_IDS.

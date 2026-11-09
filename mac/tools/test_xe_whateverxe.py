@@ -16,9 +16,9 @@ SETUP = pathlib.Path(__file__).resolve().parents[1] / "Resources/nullmoth-setup.
 START, END = 'if [ -n "${XE:-}" ]; then', 'if [ -n "${GPUTEST:-}" ]; then'
 HS, HE = "# Kexts the driver's OpenCore setup needs", "booted_part() {"
 GUID = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
-PINS = {"WhateverXe.kext": "46c8cd684461db7f84a971e7479770c423f73d52d45addfb48242176b9eb04fc",
+PINS = {"WhateverXe.kext": "5b71e14ce10c673f6baba276183f268d7f04766d298cd34f1df0bb96f11c8e4b",
         "AMFIPass-Mod.zip": "71f41de42e355d2a83e6f093ef34a5b24d0a9c9a9085830b2317f1b874f56250",
-        "WhateverXe-Graphics.pkg": "7ac6c7149248c483efbd93555294d587a93d81392421f3af8a4f5b1b5fcc0101"}
+        "WhateverXe-Graphics.pkg": "7f7ce3b924ad421cff0c4f30534598858474b8c9539c4b889a461bc1d5fed02c"}
 PKG = b"pkg\n"
 
 
@@ -67,7 +67,7 @@ def run(mode, kexts, folders=("Lilu.kext",), dev="9A49", ver="15.8.1", bootargs=
     az, asha = zipped(t, "amfi.zip", "AMFIPass.kext")
     b = os.path.join(t, "bin"); os.makedirs(b, exist_ok=True)
     stub(b, "curl", f'out=""; url=""; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; http*) url=$1;; esac; shift; done\n'
-                    f'case "$url" in *WhateverXe-0.6.1*) cp "{wz}" "$out";; *AMFIPass*) cp "{az}" "$out";; '
+                    f'case "$url" in *WhateverXe-0.8.0*) cp "{wz}" "$out";; *AMFIPass*) cp "{az}" "$out";; '
                     f'*.pkg) echo pkg > "$out";; *) exit 22;; esac')
     stub(b, "sysctl", 'echo GenuineIntel')
     d = dev.lower()
@@ -156,7 +156,7 @@ class Xe(unittest.TestCase):
         self.assertNotIn("csr-active-config", out)
 
     def test_second_run_with_whateverxe_loaded_installs_the_graphics_package(self):
-        rc, out, c, t = run("on", list(BASE), folders=("Lilu.kext",), loaded="org.b00t0x.WhateverXe (0.6.1) X")
+        rc, out, c, t = run("on", list(BASE), folders=("Lilu.kext",), loaded="org.b00t0x.WhateverXe (0.8.0) X")
         self.assertEqual(rc, 0, out)
         self.assertTrue(os.path.exists(os.path.join(t, "installed")), out)
         self.assertNotIn(("WhateverXe.kext", True), names(c), "the package step does not touch the config")
