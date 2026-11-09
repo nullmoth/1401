@@ -38,12 +38,21 @@ class WindowsOptions(unittest.TestCase):
     def test_the_usb_map_goes_to_the_build_and_changing_it_invalidates_the_build(self):
         self.assertIn('" --utbmap " + Engine.Q(utbMapDir)', SRC)
         self.assertEqual(len(re.findall(r"utbMapDir = ", SRC)) >= 2, True)
-        self.assertIn("Show(facts, log, osPick, expDrivers, utbPick)", SRC)
+        self.assertIn("var onPage = new List<Control> { facts, log, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick };", SRC)
 
     def test_known_machine_and_usb_map_notices_reach_the_summary(self):
         self.assertIn('"" + rule == "known-machine"', SRC)
         self.assertIn('"" + rule == "usb-map-import"', SRC)
         self.assertIn("Setting known to work on this processor: ", SRC)
+
+    def test_persistent_nvram_external_drive_new_serial_and_own_recovery_image_are_choices(self):
+        self.assertIn('--persistent-nvram-amd', SRC)
+        self.assertIn('--external-target', SRC)
+        self.assertIn('--new-identity', SRC)
+        self.assertIn('args += " --recovery-dir " + Engine.Q(recoveryDir)', SRC)
+        self.assertIn("Show(disks, refresh, armApps, fullInstaller, recoveryPick, bar, log)", SRC)
+        for text in ("emulated NVRAM", "not behind Intel VMD or RAID", "belongs to an organization", "BaseSystem.chunklist"):
+            self.assertIn(text, SRC)
 
 
 if __name__ == "__main__":
