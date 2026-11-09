@@ -20,7 +20,7 @@ import sys
 import time
 from types import SimpleNamespace
 
-from . import bootfix, nullmoth, validate
+from . import bootfix, identity_ready, nullmoth, validate
 
 SMC_PLUGINS = {"SMCProcessor.kext", "SMCSuperIO.kext", "SMCBatteryManager.kext", "SMCLightSensor.kext", "SMCDellSensors.kext",
                "SMCRadeonGPU.kext", "SMCAMDProcessor.kext"}
@@ -92,6 +92,7 @@ def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
         problems.append(f"file check could not run: {type(error).__name__}: {error}")
     # notes, not problems: 1401 also plans older macOS for older PCs (macOS 12 on a MacBookPro13,1), where they do not apply
     notes = smbios_problems(cfg)
+    notes += ["Apple ID: " + t for t in identity_ready.format_findings(identity_ready.check(cfg))]
     order = order_problems(cfg)
     if order:   # the order is a fix, not a problem: drop validate's own wording of it
         problems = [x for x in problems if "before Lilu" not in x]
@@ -106,6 +107,12 @@ def check(root, report=None, boot_logs=(), fix=False, stopped_at=""):
 
     target = cfg if fix else _plist_copy(cfg)
     result = SimpleNamespace(hardware=hw, disabled_devices={})
+    generic = (target.get("PlatformInfo") or {}).get("Generic") or {}
+    rom = identity_ready.rom_bytes(generic.get("ROM"))
+    if rom is not None and len(rom) == 6 and not identity_ready.is_unicast(rom):
+        change("rom-unicast", rom.hex().upper(), identity_ready.unicast_rom(rom).hex().upper(),
+               "a multicast value is not a valid network address; this changes the Mac Apple's services see")
+        generic["ROM"] = identity_ready.unicast_rom(rom)
     nv_args = ((target.get("NVRAM", {}).get("Add", {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {}) or {}).get("boot-args") or "")
     if hw and nullmoth.cards(hw):
         target.setdefault("NVRAM", {}).setdefault("Add", {})
