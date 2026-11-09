@@ -24,7 +24,7 @@ SET_BY_THE_MAC_APP = {
     "--tool": "the app's own recovery tool", "--app": "the app binary", "--verbose": "the verbose-boot switch", "--efi-read": "the EFI check",
     "--knob": "the profile switches", "--profile": "the machine profile", "--usbmap": "the USB map builder", "--backlight": "the backlight switch",
     "--hidpi": "the HiDPI switch", "--xe": "the Intel Xe switch", "--gpu-test": "the AMD / Intel test driver switch",
-    "--hybrid": "the hybrid laptop switch", "--autologin-off": "the automatic login switch",
+    "--hybrid": "the hybrid laptop switch", "--game-mode": "Game Mode: setup's installer-time route to the bundled service script; the Game Mode card in the Tools tab runs the same script directly (GameMode.swift)", "--experimental": "the Experimental features pane", "--autologin-off": "the automatic login switch",
 }
 
 
