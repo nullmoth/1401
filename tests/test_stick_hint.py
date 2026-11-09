@@ -15,8 +15,19 @@ class StickHint(unittest.TestCase):
         for e in cases:
             self.assertEqual(usbwriter.stick_hint(e), usbwriter.STICK_ADVICE, repr(e))
 
+    def test_access_denied_names_windows_security_not_the_stick(self):
+        # Python on Windows raises WinError 5 as PermissionError with errno 13 and winerror 5; build it the same way
+        e = PermissionError(13, "Access is denied", r"X:\com.apple.recovery.boot\BaseSystem.dmg")
+        e.winerror = 5
+        for err in (e, OSError("[WinError 5] Access is denied: 'X:\\com.apple.recovery.boot'")):
+            hint = usbwriter.stick_hint(err)
+            self.assertEqual(hint, usbwriter.ACCESS_ADVICE, repr(err))
+            self.assertIn("Controlled folder access", hint)
+            self.assertNotIn("rear USB port", hint)
+
     def test_negative_control_other_failures_get_no_stick_advice(self):
         for e in [RuntimeError("The scan changed after the EFI was built."), OSError(2, "No such file or directory"),
+                  PermissionError(13, "Permission denied"),
                   ValueError("bad plist")]:
             self.assertEqual(usbwriter.stick_hint(e), "", repr(e))
 
