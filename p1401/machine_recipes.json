@@ -1,0 +1,17 @@
+{
+ "schema": 1,
+ "about": "Settings for a class of machine, written for 1401 from what a verified setup of that machine needs. A recipe applies when the scan's board name contains one of 'boards' and its CPU name contains one of 'cpus' (whole-word, case-insensitive, like known_machines.json). Unlike a known-machine row it can set kernel quirks and the CPUID emulation. status: works = the owner reached the desktop with it; opt-in = applies only when the build asks for it. Every effect is recorded in the build report under the rule 'machine-recipe'.",
+ "recipes": [
+  {
+   "id": "dell-xps-13-plus-9320",
+   "title": "Dell XPS 13 Plus (9320), 12th and 13th-gen hybrid P-series",
+   "boards": ["XPS 13 9320", "XPS 13 Plus"],
+   "cpus": ["i5-1240P", "i5-1340P", "i7-1260P", "i7-1280P", "i7-1360P"],
+   "status": "works",
+   "source": "an owner's published setup for this laptop on macOS 26 (desktop with every P and E core running); the mechanism was re-derived from the kernel's topology code, not copied",
+   "kernel_quirks": {"ProvideCurrentCpuInfo": true},
+   "cpuid1_logical_per_package": 128,
+   "why": "ProvideCurrentCpuInfo reports the 4 performance + 8 efficiency core part with a core count per package of 128 while CPUID leaf 1 reports 64 logical processors, so the kernel computes threads per core as 64 / 128 = 0 and divides by it in cpu_thread_alloc: the machine freezes right after EXITBS with E-cores enabled. Setting the logical-processor field of CPUID leaf 1 (EBX bits 23:16) to 128 makes the two agree."
+  }
+ ]
+}
