@@ -35,6 +35,7 @@ from . import downloads
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
+from . import unsupported
 from . import report as report_mod
 from . import validate as validate_mod
 
@@ -844,6 +845,9 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     panel = None if keep else panel_guard.active_panel_notice(disabled, capture)
     if panel:
         h.notices.append(panel)
+    # a device the engine switched off but a catalogued driver covers is switched back on before ACPI patches and kexts follow it
+    cust, disabled, held, held_ids = community.reclaim(cust, disabled, hw, mv, policy.experimental_drivers)
+    h.notices.extend(held)
     machine_key, prior_identity = prepare()
     needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
     smbios = o.s.select_smbios_model(cust, mv)
@@ -860,6 +864,8 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
     net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
+    # whatever is still switched off now has no driver: say so in plain words, with what to use instead
+    h.notices.extend(unsupported.notes(hw, disabled, held_ids, h.notices))
     # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
     # also removes them from any config that still names them).
     from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
