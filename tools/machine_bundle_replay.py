@@ -95,7 +95,7 @@ def replay_one(bundle, macos="24", hardware=None, build=False):
         except Exception as e:  # noqa: BLE001 - an unreadable bundle is a result
             return {"bundle": name, "ok": False, "stage": "prepare", "error": f"{type(e).__name__}: {e}"[:300]}
         out = os.path.join(work, "efi")
-        cmd = [sys.executable, "-m", "p1401", "build" if build else "plan", report, acpi] + ([out] if build else []) + \
+        cmd = [sys.executable, os.path.join(HERE, "_bundle_build.py"), "build" if build else "plan", report, acpi] + ([out] if build else []) + \
               ["--json", "--macos", macos]
         p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=1800)
         try:
