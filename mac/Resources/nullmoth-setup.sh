@@ -506,6 +506,19 @@ if [ -n "$COLLECT" ]; then
   # WindowServer can fail outside a driver frame. Include the complete recent reports
   # during an explicit Send logs request; automatic crash notifications stay selective.
   collect_recent_logs macos 3 /Library/Logs/DiagnosticReports/WindowServer*.ips /Library/Logs/DiagnosticReports/Retired/WindowServer*.ips
+  # WindowServer watchdog samples ("WindowServer_<date>_<computer>.userspace_watchdog_timeout.spin"): when WindowServer
+  # stops checking in, the watchdog samples its main thread before killing it, and that sample is the only record of
+  # what it waited on. Issue 454's samples named the driver's GSP message wait under a display call, issue 527's the
+  # shader translator at the login window, issue 410 a kernel wait every 0.6 s; none of them reached an upload, because
+  # only .ips was collected. The newest two go under fixed names (the originals carry the computer's name), and only
+  # their first 512 KB: WindowServer's own threads come first, the rest of the file is every other process.
+  ws_spin=0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    ws_spin=$((ws_spin+1))
+    if /usr/bin/head -c 524288 "$f" > "$COLLECT/macos-WindowServer-watchdog-$ws_spin.spin"; then n=$((n+1))
+    else note "could not copy diagnostic log: watchdog sample $ws_spin"; collection_errors=$((collection_errors+1)); fi
+  done < <(ls -t /Library/Logs/DiagnosticReports/WindowServer*.spin /Library/Logs/DiagnosticReports/Retired/WindowServer*.spin 2>/dev/null | head -n 2)
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/firefox*.ips /Library/Logs/DiagnosticReports/Firefox*.ips /Library/Logs/DiagnosticReports/Retired/firefox*.ips /Library/Logs/DiagnosticReports/Retired/Firefox*.ips
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/plugin-container*.ips /Library/Logs/DiagnosticReports/Retired/plugin-container*.ips
   want full && collect_recent_logs macos 1 /Library/Logs/DiagnosticReports/Blender*.ips /Library/Logs/DiagnosticReports/Retired/Blender*.ips
