@@ -3781,6 +3781,510 @@
 },
 {
 "fn": "normalize",
+"id": "multigpu",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "multigpu",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "5",
+"expect": "5"
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "3",
+"expect": "3"
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "4",
+"expect": "4"
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "6",
+"expect": "6"
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "card",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
 "id": "app-profiles",
 "value": "on",
 "expect": "1"

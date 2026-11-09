@@ -209,6 +209,30 @@
    "where": "conf"
   },
   {
+   "effect": "restart",
+   "group": "Performance",
+   "help": "Accelerate every NVIDIA card, one start-up at a time. A process drives one card: the primary, or the one assigned below.",
+   "id": "multigpu",
+   "key": "nvmultigpu",
+   "kind": "bool",
+   "rng": null,
+   "title": "More than one NVIDIA card (experimental)",
+   "values": null,
+   "where": "bootarg"
+  },
+  {
+   "effect": "relaunch the application",
+   "group": "Performance",
+   "help": "With more than one card: 0 is the primary, 1 the second and so on (up to 7), for every application (1) or per application (Game=1,*=0).",
+   "id": "card",
+   "key": "NVMTL_CARD",
+   "kind": "text",
+   "rng": null,
+   "title": "Card for an application",
+   "values": null,
+   "where": "conf"
+  },
+  {
    "effect": "relaunch the application",
    "group": "Performance",
    "help": "On by default; off turns every shipped per-application profile off.",

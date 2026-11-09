@@ -56,6 +56,14 @@ enum DriverSettings {
             if !(r.0 <= n && n <= r.1) && !(zeroOK && n == 0) { throw Bad.refused("\(s.id) takes a number from \(r.0) to \(r.1), or default") }
             return String(n)
         default:
+            if s.id == "card" {
+                for e in (v.contains("=") ? v.components(separatedBy: ",") : [v]) {
+                    let parts = e.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                    let num = parts.count == 2 ? String(parts[1]) : e
+                    if parts.count == 2 && parts[0].isEmpty { throw Bad.refused("card: an entry needs an application name or *") }
+                    guard num.count == 1, let c = num.first, c >= "0" && c <= "7" else { throw Bad.refused("card: \(num) is not a card number from 0 to 7") }
+                }
+            }
             if s.id == "fps-limit" {
                 let entries = v.contains("=") ? v.components(separatedBy: ",") : [v]
                 for e in entries {

@@ -8,7 +8,7 @@ func check(_ ok: Bool, _ what: String) { if ok { print("ok   " + what) } else { 
 let dir = CommandLine.arguments[1]
 let cat = DriverSettings.load(try! Data(contentsOf: URL(fileURLWithPath: dir + "/../../Resources/settings_catalog.json")))!
 let vectors = try! JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: dir + "/vectors.json"))) as! [[String: Any]]
-check(cat.settings.count == 17, "the catalogue holds the 17 settings the command-line tool has")
+check(cat.settings.count == 19, "the catalogue holds the 19 settings the command-line tool has")
 
 var bad: [String] = [], n = 0
 for v in vectors {
