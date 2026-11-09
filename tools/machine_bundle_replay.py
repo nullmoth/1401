@@ -159,3 +159,42 @@ def main(argv):
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
+
+
+def compare_to_stick_logs(results, records, min_seen=3, bad_rate=0.3, good_rate=0.1):
+    """Booter quirks of full builds against what stick logs of the same CPU did with each quirk set.
+
+    results: replay_one(build=True) dicts plus 'cpu' (the processor's brand string); records: tools/mine_known_machines.collect().
+    -> {'matches': n, 'under-observed': n, 'no-evidence': n, 'known-bad': [bundle...], 'fails-often': [bundle...]}. known-bad is a
+    build whose quirk set failed in >= bad_rate of its batches on this CPU while another set passed in >= 1 - good_rate of its own."""
+    import collections
+    import mine_known_machines as K
+    keys = list(K.ABBR.values()) + ["DevirtualiseMmio"]
+
+    def key(q):
+        return tuple((k, bool(q.get(k))) for k in sorted(keys) if k in q)
+
+    by = collections.defaultdict(lambda: collections.defaultdict(lambda: [set(), set()]))
+    for r in records:
+        if r["passed"]:
+            by[r["cpu"]][key(r["quirks"])][0].add(r["batch"])
+        elif r["failed"]:
+            by[r["cpu"]][key(r["quirks"])][1].add(r["batch"])
+    out = {"matches": 0, "under-observed": 0, "no-evidence": 0, "known-bad": [], "fails-often": []}
+    for r in results:
+        if not (r.get("config") and r.get("cpu")):
+            continue
+        stats = by.get(K.cpu_of("OCCPU: Found " + r["cpu"]))
+        if not stats:
+            out["no-evidence"] += 1
+            continue
+        mine = key(r["config"]["booter"])
+        p, f = (len(x) for x in stats.get(mine, [set(), set()]))
+        better = [q for q, v in stats.items() if q != mine and len(v[0]) >= min_seen and len(v[1]) / (len(v[0]) + len(v[1])) < good_rate]
+        if p + f < min_seen:
+            out["under-observed"] += 1
+        elif f / (p + f) >= bad_rate:
+            out["known-bad" if better else "fails-often"].append(r["bundle"])
+        else:
+            out["matches"] += 1
+    return out
