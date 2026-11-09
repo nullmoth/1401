@@ -62,6 +62,15 @@ class Options(unittest.TestCase):
         self.assertIn('"--ryzen-limits", limits', MAC_SRC)
         self.assertIn('"--ryzen-power", "status"', MAC_SRC)
 
+    def test_gpu_boost_has_its_pane_and_the_app_reads_its_status_without_a_password(self):
+        page = (ROOT / "mac/Resources/index.html").read_text()
+        for el in ("boston", "bostoff", "bostrm", "bostat", "bostr"):
+            self.assertIn(f'id="{el}"', page)
+        self.assertIn("--gpu-boost", MAC_SRC)
+        self.assertIn("GPUBoost.describe", MAC_SRC)
+        # no Windows flag exists for it: the daemon is part of the Mac driver package, so the stick writer and the build have nothing to expose
+        self.assertNotIn("gpu-boost", MAIN + USB)
+
     def test_the_mac_app_explains_the_vmd_route_and_names_the_external_drive_checkbox(self):
         page = (ROOT / "mac/Resources/index.html").read_text()
         self.assertIn('id="vmdpane"', page)
