@@ -39,8 +39,14 @@ class Coverage(unittest.TestCase):
         self.assertEqual(cmp.missing(ref, cand), [])
 
     def test_a_disabled_patch_is_not_loaded(self):
-        # load() drops Enabled=False patches, so they cannot cover or need covering
-        self.assertIn("Enabled", cmp.load.__code__.co_names + ("Enabled",))
+        import plistlib
+        import tempfile
+        on, off = patch("21.0.0", "25.99.99", comment="on"), patch("21.0.0", "25.99.99", comment="off")
+        on["Enabled"], off["Enabled"] = True, False
+        with tempfile.NamedTemporaryFile(suffix=".plist") as fh:
+            plistlib.dump({"Kernel": {"Patch": [on, off]}}, fh)
+            fh.flush()
+            self.assertEqual([p["Comment"] for p in cmp.load(fh.name)], ["on"])
 
 
 if __name__ == "__main__":
