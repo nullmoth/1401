@@ -3,16 +3,13 @@
 
 import Foundation
 
-/// The driver package for an action that runs as root. The page may only NAME a package; it never supplies the integrity
-/// check. The path must be one the app itself found (its own candidate list), and the SHA-256 handed to setup is the one
-/// compiled into the app, so setup compares the file to that pin and not to itself. A file that does not hash to the pin
-/// is refused here, before the password prompt.
+/// The driver package for an action that runs as root is chosen HERE, from the packages the app itself found: the first one
+/// that hashes to the SHA-256 compiled into the app. The page's `pkg` field is not read for these actions, and the SHA-256
+/// handed to setup is the compiled-in pin, never a hash taken from the chosen file, so setup compares the file to the pin.
 enum PackagePin {
-    static func resolve(requested: String, candidates: [String], pinnedSha: String, hash: (String) -> String?) -> (path: String, sha: String)? {
-        guard !requested.isEmpty, !pinnedSha.isEmpty else { return nil }
-        let wanted = URL(fileURLWithPath: requested).resolvingSymlinksInPath().path
-        guard let path = candidates.first(where: { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path == wanted }) else { return nil }
-        guard hash(path)?.lowercased() == pinnedSha.lowercased() else { return nil }
-        return (path, pinnedSha)
+    static func choose(candidates: [String], pinnedSha: String, hash: (String) -> String?) -> (path: String, sha: String)? {
+        guard !pinnedSha.isEmpty else { return nil }
+        for path in candidates where hash(path)?.lowercased() == pinnedSha.lowercased() { return (path, pinnedSha) }
+        return nil
     }
 }
