@@ -25,7 +25,7 @@ def corpus():
     if not _CACHE:
         machines = machine_corpus.load()["machines"]
         results = replay.run(machines, MACOS)
-        stops = [m for m in machines if gate.refusal_code(results[m["key"]]["24"]["refused"]) in ("intel-vmd", "storage-unsupported")]
+        stops = [m for m in machines if (results[m["key"]]["24"].get("storage_plan") or {}).get("kind") == "vmd-off"]
         _CACHE.update(machines=machines, known=machine_knowngood.load(), results=results,
                       external=replay.run(stops, ("24",), external_target=True))
     return _CACHE
@@ -55,16 +55,28 @@ class ReplayGate(unittest.TestCase):
         self.assertNotIn(None, seen)
         self.assertLessEqual(seen, set(gate.NAMED))
 
-    def test_with_the_external_drive_switch_every_storage_stop_plans(self):
+    def test_a_pc_behind_intel_vmd_is_planned_with_the_bios_path_and_the_windows_preparation(self):
+        c = corpus()
+        vmd = [m for m in c["machines"] if (c["results"][m["key"]]["24"].get("storage_plan") or {}).get("kind") == "vmd-off"]
+        self.assertGreater(len(vmd), 400)
+        for m in vmd:
+            r = c["results"][m["key"]]["24"]
+            self.assertTrue(r["ok"])
+            self.assertTrue(r["storage_plan"]["bios_path"])
+            self.assertTrue(any(b.startswith("Turn off Intel VMD") for b in r["bios"]))
+
+    def test_with_the_external_drive_switch_every_vmd_pc_is_planned_for_an_external_drive(self):
         c = corpus()
         self.assertGreater(len(c["external"]), 400)
         for key, per in c["external"].items():
             self.assertTrue(per["24"]["ok"], (key, per["24"]["refused"][:120]))
-            self.assertTrue(any(n.startswith("Storage:") for n in per["24"]["notices"]))
+            self.assertEqual(per["24"]["storage_plan"]["kind"], "external-drive")
 
-    def test_the_default_still_refuses_vmd_so_the_switch_is_opt_in(self):
+    def test_the_only_stops_left_are_a_card_windows_cannot_name_a_virtual_machine_and_a_non_intel_amd_cpu(self):
         c = corpus()
-        self.assertTrue(any(gate.refusal_code(c["results"][m["key"]]["24"]["refused"]) == "intel-vmd" for m in c["machines"]))
+        codes = {gate.refusal_code(c["results"][m["key"]]["24"]["refused"] or c["results"][m["key"]]["24"]["crash"])
+                 for m in c["machines"] if not c["results"][m["key"]]["24"]["ok"]}
+        self.assertEqual(codes, {"gpu-no-windows-driver", "virtual-machine", "cpu-maker"})
 
 
 class GateCanFire(unittest.TestCase):
@@ -80,6 +92,13 @@ class GateCanFire(unittest.TestCase):
                 "notices": ["NullMoth driver: NVIDIA GeForce RTX 3060 selected for macOS 15 Sequoia."]}
         base.update(kw)
         return base
+
+    def test_a_storage_note_without_the_bios_path_in_the_requirements_is_a_violation(self):
+        r = self.result(notices=self.result()["notices"] + ["Storage: x (8086-467F) is behind Intel VMD"], bios=[],
+                        storage_plan={"kind": "vmd-off", "steps": ["a"], "bios_path": "F2", "controllers": ["x"]})
+        self.assertEqual(gate.evaluate(self.machine, r, self.known)[0], "violation")
+        r["bios"] = ["Turn off Intel VMD: F2"]
+        self.assertEqual(gate.evaluate(self.machine, r, self.known)[0], "satisfied")
 
     def test_a_good_result_is_satisfied(self):
         self.assertEqual(gate.evaluate(self.machine, self.result(), self.known), ("satisfied", None))
