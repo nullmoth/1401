@@ -34,14 +34,83 @@ TESTER_ONLY = {
     "nmhybridresume": "sleep and wake handling of the hybrid panel driver; a tester switch beside the hybrid pane's mode",
     "NVMTL_HWRT": "per-process switch that turns hardware ray tracing on for the Cyberpunk profile only (plugin/nvmtl_app_profile.h); off by default",
 }
-FAMILY = re.compile(r"^(nmkbl\w*|nmx\w*|nmhybrid\w*|nvrm(?:tgp|gps|nvpcf)|nvfbigpu|nmsmn)$")
+def _group(reason, *names):
+    for n in names:
+        TESTER_ONLY[n] = reason
+
+
+_group("recovery valve: switches one driver feature off when it misbehaves on a machine; support gives it out for that machine and nothing needs it otherwise",
+       "nmdrmoff", "nmgopfboff", "nmintelfboff", "nvaccelnoheadless", "nvrmnoaspm", "nvrmnobootscreen", "nvrmnodpms", "nvrmnoflip",
+       "nvrmnogamma", "nvrmnogo", "nvrmnopm", "nvrmnoshutdown", "nvrmsmallbar", "nvrmkeepbar1", "nvrmmapowner")
+_group("diagnostic output or probe for support: it prints or measures more and changes no behaviour a user would want to choose",
+       "nvfblog", "nvfbtrace", "nvaccelverbose", "nvrmdiag", "nvfbsurvey", "nvfbsample", "nvfbscalerprobe", "nvregdwords", "nvhud", "liludelay")
+_group("tuning value support sets for one machine after a report (timing, caching, probing); the default is right for everyone else",
+       "nvfbbootretry", "nvfbhotplugpoll", "nvfbigpucache", "nvfbkeepfront", "nvfbsmall", "nvhwvbl", "nvmaxbpc", "nvcursor", "nvagdcheads",
+       "nvselector", "nvoffbar", "nvrmfbddc", "nvrmholdcap", "nvrmshutdown", "nmflatskip", "nmgopid", "nmhdavol")
+_group("runtime power management (D3 for the idle GPU) and its resource name: written and opt-in, not yet measured, so a tester switch; "
+       "the idle-power decision for 2.9 needs its measurement before it gets a control",
+       "nvrtd3", "nvrtd3res")
+_group("AMD / Intel test driver (NMXGPU) tuning, hang and recovery values and display options; the test driver's switch is the only control, "
+       "and these refine it for testers",
+       "nmxamd_hang_ms", "nmxamd_native", "nmxamd_recover", "nmxamd_wake", "nmxintel_floor", "nmxintel_native", "nmxi915_guc",
+       "nmxfb_backlight", "nmxfb_hidpi", "nmxfb_gamma", "nmxfb_hdr", "nmxfb_modes", "nmxfb_outputs", "nmxfb_tile", "alcid", "alcverbs", "nmxaudio")
+
+
+STATEMENT = re.compile(r"PE_parse_boot_argn|lilu_get_boot_args|[Bb]oot_?[Aa]rg|\barg[A-Z]\w*\s*\(|\b\w*Arg(?:On|Int|Bool|Val)\w*\s*\(")
+LITERAL = re.compile(r'"(-?[A-Za-z][A-Za-z0-9_-]{1,40})"')
+OLD_SCANNER = re.compile(r'PE_parse_boot_argn\("([A-Za-z0-9_-]+)"')
+
+
+def boot_arg_names(text):
+    """Every boot-argument name a source file reads: each string literal anywhere in a statement that calls PE_parse_boot_argn,
+    lilu_get_boot_args or a boot-arg helper (a name with boot arg in it, or argOn( style), on one line or spread over several."""
+    names = set()
+    for statement in re.split(r"[;{}]", text):
+        if STATEMENT.search(statement):
+            names.update(m.group(1).lstrip("-") for m in LITERAL.finditer(statement))
+    return names
+
+
+def old_names(text):
+    return set(OLD_SCANNER.findall(text))
+
+
+# the exact line shapes the old scanner missed or could miss: a literal that is not first after the call, a call over two
+# lines, a helper that wraps the read, and the lilu form
+SHAPES = """
+{ int fv = 0; const int present = PE_parse_boot_argn("nmflatskip", &fv, sizeof fv); if (present) ALOG("x"); }
+static bool on(void) { return PE_parse_boot_argn(
+        "nvfbwrapped", &v, sizeof v) && v; }
+if (bootArgOn("nvfbhelper")) { }
+lilu_get_boot_args("liludelay", &d, sizeof d);
+if (nvArgOn("nvfbhelper2")) { }
+DBGLOG("nmkblnotanarg", "this is only a log tag");
+"""
+
+
+def tree(env, *defaults):
+    for c in (os.environ.get(env), *defaults):
+        if c and pathlib.Path(c).is_dir():
+            return pathlib.Path(c)
+    return None
 
 
 def driver_tree():
-    for c in (os.environ.get("NULLMOTH_DRIVER"), str(ROOT.parent / "driver-29")):
-        if c and (pathlib.Path(c) / "kexts").is_dir():
-            return pathlib.Path(c)
-    return None
+    t = tree("NULLMOTH_DRIVER", str(ROOT.parent / "driver-29"))
+    return t if t and (t / "kexts").is_dir() else None
+
+
+def nmx_tree():
+    return tree("NULLMOTH_NMX", str(pathlib.Path.home() / "Work/nullmoth/nmx-rel-29-nmx"))
+
+
+def names_in(root, sub=None):
+    out = subprocess.run(["git", "-C", str(root), "ls-files"] + ([sub] if sub else []), capture_output=True, text=True).stdout.split()
+    names = set()
+    for f in out:
+        if f.endswith((".cpp", ".h", ".hpp", ".c", ".m", ".mm", ".cc")):
+            names |= boot_arg_names((root / f).read_text(errors="replace"))
+    return names
 
 
 class OptIns(unittest.TestCase):
@@ -66,17 +135,35 @@ class OptIns(unittest.TestCase):
             self.assertNotIn(name, CONTROL)
             self.assertNotIn(f'"{name}', (ROOT / "mac/Sources/main.swift").read_text(), f"{name} has a control now: move it to CONTROL")
 
-    def test_no_boot_argument_of_these_families_in_the_driver_is_unlisted(self):
-        tree = driver_tree()
-        if tree is None:
+    def test_the_scanner_finds_every_line_shape_and_the_old_one_does_not(self):
+        found = boot_arg_names(SHAPES)
+        self.assertEqual(found, {"nmflatskip", "nvfbwrapped", "nvfbhelper", "liludelay", "nvfbhelper2"})
+        self.assertNotIn("nmkblnotanarg", found)                         # a log tag in a statement with no boot-arg read
+        missed = found - old_names(SHAPES)
+        self.assertTrue({"nvfbwrapped", "nvfbhelper", "liludelay", "nvfbhelper2"} <= missed, missed)
+        # a minus flag is the same name
+        self.assertEqual(boot_arg_names('if (PE_parse_boot_argn("-nvrmnoflip", nb, sizeof(nb))) {}'), {"nvrmnoflip"})
+
+    def _unlisted(self, names):
+        mac = MAC + "".join(p.read_text(errors="replace") for p in (ROOT / "mac/Resources").glob("*.json"))
+        return sorted(n for n in names if n not in CONTROL and n not in TESTER_ONLY
+                      and not re.search(r"(?<![A-Za-z0-9_])" + re.escape(n) + r"(?![A-Za-z0-9_])", mac))
+
+    def test_no_boot_argument_the_driver_reads_is_unlisted(self):
+        tree_ = driver_tree()
+        if tree_ is None:
             self.skipTest("the driver tree (NULLMOTH_DRIVER, or ../driver-29) is needed to list its boot arguments")
-        out = subprocess.run(["git", "-C", str(tree), "grep", "-h", "-o", "-E", r'PE_parse_boot_argn\("[A-Za-z0-9_-]+"', "--", "kexts"],
-                             capture_output=True, text=True).stdout
-        names = {m.group(1) for m in re.finditer(r'"([A-Za-z0-9_-]+)"', out)}
-        names = {n for n in names if FAMILY.match(n)}
-        self.assertGreaterEqual(len(names), 3, "the scan found too few names to trust")
-        unlisted = sorted(n for n in names if n not in CONTROL and n not in TESTER_ONLY)
-        self.assertEqual(unlisted, [], "give each an app control or a tester-only line with its reason")
+        names = names_in(tree_, "kexts")
+        self.assertGreaterEqual(len(names), 60, "the scan found too few names to trust")
+        self.assertEqual(self._unlisted(names), [], "give each an app control or a tester-only line with its reason")
+
+    def test_no_boot_argument_the_nmx_tree_reads_is_unlisted(self):
+        tree_ = nmx_tree()
+        if tree_ is None:
+            self.skipTest("the NMX tree (NULLMOTH_NMX, or ~/Work/nullmoth/nmx-rel-29-nmx) is needed to list its boot arguments")
+        names = names_in(tree_)
+        self.assertGreaterEqual(len(names), 10)
+        self.assertEqual(self._unlisted(names), [], "give each an app control or a tester-only line with its reason")
 
 
 if __name__ == "__main__":
