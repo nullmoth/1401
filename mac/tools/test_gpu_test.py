@@ -28,6 +28,10 @@ arm("the AMD and Intel licences travel with the firmware",
     "LICENSES/LICENSE.amdgpu" in paths and "LICENSES/LICENSE.i915" in paths and "LICENSES/LICENSE.xe" in paths)
 arm("only GPU, NPU and licence files are fetched",
     all(p.startswith(("amdgpu/", "i915/", "xe/", "intel/vpu/", "amdnpu/", "LICENSES/")) and ".." not in p for p in paths))
+# amdgpu/isp_4_1_1.bin (the camera image processor) is under LICENSE.amdisp, which allows redistribution only for products
+# with GFX 11.5.1 and is not in this list; the driver asks for that file as optional, so it is not fetched
+arm("no firmware is fetched whose licence text is missing from the list (the AMD ISP image is left out)",
+    "amdgpu/isp_4_1_1.bin" not in paths)
 arm("the NPU licences travel with the NPU firmware",
     "LICENSES/LICENSE.intel_vpu" in paths and "LICENSES/LICENSE.amdnpu" in paths)
 
