@@ -319,6 +319,6 @@
     "ids": ["excluded-kexts", "tahoe-weg-args", "arrow-lake-ctrsmt", "hybrid-intel-bios", "nullmoth-installer-bar", "sip-minimal",
             "known-machine", "bootlog-note", "amd-nvram-emulated-write", "amd-emulated-nvram-driver", "amd-emulated-logouthook",
             "amd-emulated-openruntime-early", "amd-emulated-legacyschema", "boot-logo", "storage-drive-warning", "legal-comments",
-            "amd-laptop-mmio-ff000000", "amd-ssdt-plug-off", "ethernet-built-in"]
+            "amd-laptop-mmio-ff000000", "amd-ssdt-plug-off", "ethernet-built-in", "vault-optional"]
   }
 }

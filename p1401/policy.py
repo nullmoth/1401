@@ -417,6 +417,14 @@ def apply(config_path, result, policy):
         sec["ExposeSensitiveData"] = esd | 0x1
         change("expose-boot-path", str(esd), str(esd | 0x1), "lets the Mac app confirm which partition OpenCore started from")
 
+    # 1401 ships no vault.plist or vault.sig, so a config that asks for one stops OpenCore at start with "Configuration
+    # requires vault but no vault provided" (1401 #153, a stick written by the app). Optional is the only mode that starts
+    # without them.
+    if sec.get("Vault", "Optional") != "Optional":
+        change("vault-optional", f"Vault={sec.get('Vault')}", "Vault=Optional",
+               "this EFI has no vault.plist or vault.sig, so OpenCore would stop at start")
+        sec["Vault"] = "Optional"
+
     # 10-07: the engine listed SSDT-Disable_Network_GPP7.aml twice in ACPI > Add (two network cards
     # behind the same bridge), and ocvalidate refuses a duplicated entry, so the whole build failed. OpenCore would load
     # the same table twice; the second copy does nothing. Keep the first of each Path (and each kext BundlePath).
