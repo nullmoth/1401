@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --gpu-boost) GPUBOOST=$2; shift;; --experimental) EXPER=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --gpu-boost) GPUBOOST=$2; shift;; --experimental) EXPER=$2; shift;; --game-mode) GAMEMODE=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -968,6 +968,8 @@ if [ $REMOVE = 1 ]; then
     [ "$UN" != "$ST/uninstall.sh" ] && cp "$UN" "$ST/uninstall.sh" 2>/dev/null
     "$UN" "${DRIVER_BACKUP:-}" 2>&1 | sed 's/^/NOTE /'
     rc=${PIPESTATUS[0]}; [ "$rc" = 0 ] || stop "the driver uninstaller failed (exit $rc)"
+    # Game Mode is part of what the app installs: removing the driver removes it too (it restores what it changed)
+    [ -f "$(dirname "$0")/nullmoth-gamemode-service.sh" ] && /bin/bash "$(dirname "$0")/nullmoth-gamemode-service.sh" remove 2>&1 | sed 's/^/NOTE /' || true
     rm -rf "$ST/hybrid" "$ST/kexts/NMIntelFB.kext"   # hybrid laptop mode goes with the driver (its kext and boot argument are removed above)
     ok "driver files removed and the kernel collection rebuilt"
     # With the driver gone the Mac falls back to the Intel iGPU or the firmware framebuffer, but WindowServer still has
@@ -1014,7 +1016,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ -z "${GPUBOOST:-}" ] && [ -z "${EXPER:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ -z "${GPUBOOST:-}" ] && [ -z "${EXPER:-}" ] && [ -z "${GAMEMODE:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 # This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
 # app refuses too, and the kexts refuse to start on any other Darwin).
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
@@ -1062,7 +1064,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}${GPUBOOST:-}${EXPER:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}${GPUBOOST:-}${EXPER:-}${GAMEMODE:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -1462,6 +1464,24 @@ if [ "${AUTOLOGINOFF:-0}" = 1 ]; then
     defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser && rm -f /etc/kcpassword || stop "could not turn automatic login off"
   fi
   rm -f "$AM"; ok "automatic login is off; the stored password file is gone"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${GAMEMODE:-}" ]; then
+  # NullMoth's own Game Mode (a root daemon that raises a full-screen game and demotes background jobs, plus a menu-bar
+  # indicator). Off unless asked. setup runs from the verified private copy of the app's resources (every file of Resources is
+  # hashed, the indicator program included), so the service script and the two files it installs are the ones this build shipped;
+  # the app's own Game Mode card runs the same script, so the two never disagree about state. Nothing here uses a package.
+  GD=$(cd "$(dirname "$0")" && pwd -P); GS=$GD/nullmoth-gamemode-service.sh
+  [ -f "$GS" ] || stop "this build of 1401 has no Game Mode service"
+  case "$GAMEMODE" in
+    on) [ -f "$GD/nullmoth-gamemode-policy.py" ] && [ -f "$GD/nullmoth-gamemode-indicator" ] || stop "this build of 1401 lacks the Game Mode parts"
+        /bin/bash "$GS" install "$GD/nullmoth-gamemode-policy.py" "$GD/nullmoth-gamemode-indicator" || stop "Game Mode could not be installed (see above)"
+        ok "Game Mode on - it acts while a game is in front and full screen; the menu-bar indicator shows when";;
+    off) /bin/bash "$GS" remove || stop "Game Mode could not be removed (see above)"; ok "Game Mode off and removed";;
+    status) /bin/bash "$GS" status 2>&1 | sed 's/^/NOTE /'; ok "Game Mode status shown";;
+    *) stop "--game-mode takes on, off or status";;
+  esac
+  cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${EXPER:-}" ]; then
