@@ -117,6 +117,17 @@ DRIVERS = [
         },
         "what": "ITE 8258 laptop keyboard (LegionITEKbdFix 1.0.0)",
     },
+    {   # AMD processors: applications built on Intel's Math Kernel Library (Blender, NumPy builds, many scientific and
+        # audio tools) pick Intel-only code paths and crash or compute wrongly; this Lilu plugin patches the library in
+        # memory when such an application loads it. GPL-3.0 (carnations-botanica); fetched from its author, never bundled.
+        "name": "IntelMKLFixup", "repo": "carnations-botanica/IntelMKLFixup", "section": None, "cpu_vendor": "AMD",
+        "experimental": True, "requires": ["Lilu"],
+        "builds": {
+            v: ("https://github.com/carnations-botanica/IntelMKLFixup/releases/download/1.0.0/IntelMKLFixup-1.0.0-RELEASE.zip",
+                64189, "f5caf3388ae6ec02c9d2d538bf24b46cf96d0dc269098ff71ec0c7fd0466851a") for v in (SEQUOIA, TAHOE)
+        },
+        "what": "Intel MKL compatibility for AMD processors (IntelMKLFixup 1.0.0)",
+    },
     {   # Arrow Lake (Core Ultra 200HX): real clocks and power limits on Tahoe; does nothing on any other CPU
         "name": "LegionCpuPower", "repo": "watchthelight-labs/LegionCpuPower", "section": None, "codename": "Arrow Lake",
         "experimental": True, "requires": ["Lilu"],
@@ -161,6 +172,8 @@ def matches(driver, report):
     if driver.get("ids") and not (_ids(report, driver.get("section")) & set(driver["ids"])):
         return False
     if driver.get("vendor") and not str((report.get("Motherboard") or {}).get("Name", "")).upper().startswith(driver["vendor"]):
+        return False
+    if driver.get("cpu_vendor") and str((report.get("CPU") or {}).get("Manufacturer", "")).upper() != driver["cpu_vendor"]:
         return False
     if driver.get("codename") and driver["codename"].lower() not in str((report.get("CPU") or {}).get("Codename", "")).lower():
         return False
