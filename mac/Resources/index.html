@@ -143,6 +143,7 @@
 <h1>Something still wrong?</h1>
 <div class="pane card"><p class="sh">Send logs</p>
 <p>1401 sends what it did, the driver's state, crash reports, OpenCore's startup logs and a numeric device map, with names, serial numbers and addresses removed. You get a report ID to post in the NullMoth Discord.</p>
+<p class="small">If the driver could not translate a shader, up to 24 of those shaders (at most 4 MB, from the apps you ran) are attached so the failure can be reproduced. They are sent only when you press the button. To stop the driver keeping them, create the empty file /Library/GPUBundles/nvmtl/no-failed-air.</p>
 <p class="row"><button type="button" class="b go" id="sl">Send logs to NullMoth</button> <button type="button" class="b" id="fl">Record the flicker</button></p>
 <p class="small">Record the flicker: press it while the screen flickers. 1401 records 20 seconds of how the driver puts frames on the display and sends it with your logs.</p>
 <p id="slr"></p></div>
