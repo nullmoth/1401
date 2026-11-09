@@ -565,6 +565,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             }
         // ARM apps (opt-in): translating Apple silicon apps for this Mac (ArmApps.swift)
         case "arm": armAction(b)
+        // Game Mode: our own, on while a game is in front and full screen (GameMode.swift)
+        case "gm": gmAction(b)
         case "swupdate": NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension")!)
         default: break
         }

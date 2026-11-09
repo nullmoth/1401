@@ -13,7 +13,7 @@ import os as _os, pathlib as _pl
 DRV = _pl.Path(_os.environ.get("NULLMOTH_DRIVER") or next((p for p in (_pl.Path(__file__).resolve().parents[3] / n for n in ("driver-29", "driver")) if p.is_dir()), _pl.Path("/nonexistent")))
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SCRIPTS = ["nullmoth-setup.sh", "nullmoth-uninstall.sh", "nullmoth-runtime-check.sh", "nullmoth-mac-parity.sh", "nullmoth-ipa2mac.py", "nullmoth-gamemode-policy.py"]
+SCRIPTS = ["nullmoth-setup.sh", "nullmoth-uninstall.sh", "nullmoth-runtime-check.sh", "nullmoth-mac-parity.sh", "nullmoth-ipa2mac.py", "nullmoth-gamemode-policy.py", "nullmoth-gamemode-service.sh"]
 
 
 class ScriptsExecutable(unittest.TestCase):

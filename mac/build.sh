@@ -53,6 +53,10 @@ chmod 755 "$APP/Contents/Resources/nullmoth-runtime-check.sh"
 chmod 755 "$APP/Contents/Resources/nullmoth-mac-parity.sh"
 chmod 755 "$APP/Contents/Resources/nullmoth-ipa2mac.py"
 chmod 755 "$APP/Contents/Resources/nullmoth-gamemode-policy.py"
+chmod 755 "$APP/Contents/Resources/nullmoth-gamemode-service.sh"
+# Game Mode's menu-bar indicator (GameModeIndicator/main.swift): a separate per-user program, installed by the service script
+xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework AppKit GameModeIndicator/main.swift -o "$APP/Contents/Resources/nullmoth-gamemode-indicator"
+codesign --force -s - "$APP/Contents/Resources/nullmoth-gamemode-indicator"
 chmod 755 "$APP/Contents/Resources/nullmoth-setup.sh"
 # setup runs the installers only when they are executable ([ -x ]); a source file that lost its mode made every app
 # install stop with "the audited installer is missing from the app" (1.15 review), so the bundle sets it here
@@ -106,7 +110,7 @@ HASHES=$(mktemp -d)/BundleHashes.swift
   echo '    ]'; echo '}'
 } > "$HASHES"
 xcrun swiftc -O -target x86_64-apple-macos15.0 -sdk "$SDK" -framework WebKit -framework Metal -framework IOKit \
-  Sources/main.swift Sources/TesterLane.swift Sources/ArmApps.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/Mirror.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift Sources/OSGate.swift Sources/DriverSettings.swift Sources/GpuFacts.swift Sources/SettingsPanel.swift "$HASHES" -o "$APP/Contents/MacOS/1401"
+  Sources/main.swift Sources/TesterLane.swift Sources/ArmApps.swift Sources/ReachedDesktop.swift Sources/profile.swift Sources/redaction.swift Sources/actions.swift Sources/diagnostics.swift Sources/HardwareMap.swift Sources/HardwareMapWorker.swift Sources/NativePeripheralFacts.swift Sources/SavedReports.swift Sources/ReportQueue.swift Sources/Privileged.swift Sources/ReleaseSignature.swift Sources/UpdateChannel.swift Sources/Mirror.swift Sources/EfiRules.swift Sources/EfiCheck.swift Sources/TitleBar.swift Sources/OSGate.swift Sources/DriverSettings.swift Sources/GpuFacts.swift Sources/SettingsPanel.swift Sources/GameMode.swift "$HASHES" -o "$APP/Contents/MacOS/1401"
 # --options runtime,library: library validation, so only code signed by the
 # same identity loads into the bundle. Was a bare ad-hoc signature, which let
 # any dropped-in library load into the process that asks for the password.

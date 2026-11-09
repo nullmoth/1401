@@ -29,6 +29,12 @@ function armBrewText(b) {
   if (b.arm && b.arm.installed && b.arm.ruby && !b.arm.ruby.launcher) t += `<br><span class="warn">The ARM Homebrew's Ruby is not prepared yet: run abrew once in Terminal.</span>`;
   return t;
 }
+function gmEvent(d) {
+  $("gmon").hidden = !!d.installed; $("gmoff").hidden = !d.installed;
+  $("gmon").disabled = false; $("gmoff").disabled = false;
+  $("gmr").innerHTML = d.why ? `<span class="warn">${esc(d.why)}</span>`
+    : d.installed ? (d.running ? "On: it switches itself on when a game is full screen." : "Installed but not running: restart the Mac, or turn it off and on.") : "";
+}
 function armEvent(d) {
   if (d.kind === "status") {
     A.on = !!d.installed; A.running = !!d.translating;
@@ -295,6 +301,8 @@ $("armon").onclick = () => { $("armon").disabled = true; post({ act: "arm", op: 
 $("armoff").onclick = () => post({ act: "arm", op: "off" });
 $("armreqon").onclick = () => { $("armreq").hidden = true; $("armon").disabled = true; post({ act: "arm", op: "on", from: "windows" }); };
 $("armreqno").onclick = (e) => { e.preventDefault(); $("armreq").hidden = true; post({ act: "arm", op: "notNow" }); };
+$("gmon").onclick = () => { $("gmon").disabled = true; $("gmr").textContent = "Waiting for your Mac password..."; post({ act: "gm", op: "on" }); };
+$("gmoff").onclick = () => { $("gmoff").disabled = true; $("gmr").textContent = "Waiting for your Mac password..."; post({ act: "gm", op: "off" }); };
 $("armchk").onclick = () => post({ act: "arm", op: "check" });
 $("armclt").onclick = () => post({ act: "arm", op: "clt" });
 $("armtr").onclick = () => { $("armtr").disabled = true; post({ act: "arm", op: "translate" }); };
@@ -305,6 +313,7 @@ $("armapps").onclick = (e) => {
   if (b) post({ act: "arm", op: b.dataset.op, name: b.dataset.name, path: b.dataset.path });
 };
 post({ act: "arm", op: "status" });
+post({ act: "gm", op: "status" });
 $("teston").onclick = () => post({ act: "tester", on: true });
 $("testoff").onclick = () => post({ act: "tester", on: false });
 $("earlyon").onclick = () => post({ act: "early", on: true });
@@ -408,6 +417,7 @@ NM.on = (m) => {
     return;
   }
   if (m.event === "arm") { armEvent(m.data); return; }
+  if (m.event === "gm") { gmEvent(m.data); return; }
   if (m.event === "tester") {
     $("testr").innerHTML = m.data.ok ? `<span class="good">${m.data.on ? "Joined: a report goes out after each restart." : "Left: nothing runs any more."}</span>`
                                      : `<span class="warn">${esc(m.data.why)}</span>`;
