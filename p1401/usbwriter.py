@@ -555,7 +555,7 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
     checked = validate.validate(efi_build_dir)
     if not checked.get('ok'):
         reasons = checked.get('invariants') or [checked.get('error') or 'The OpenCore configuration did not pass validation.']
-        raise UsbError('The EFI must be rebuilt before erasing the stick: ' + '; '.join(reasons))
+        raise UsbError('The EFI must be rebuilt before erasing the stick: ' + '; '.join(reasons) + gone_hint(reasons))
     if machine_profile is not None:
         from . import machine_handoff
         if machine_handoff.verified(efi_build_dir) != machine_profile:
@@ -973,6 +973,18 @@ ACCESS_ADVICE = (" - Windows refused 1401 permission to write to the USB stick (
                  "protection > Allow an app through Controlled folder access: add 1401), a company policy that blocks "
                  "writing to removable drives, or antivirus software. Allow 1401 there, or pause it for the write, and "
                  "press Next again.")
+
+
+GONE_ADVICE = (" - 1401 wrote these files itself a moment earlier, so something removed them since: almost always antivirus "
+               "quarantining a kext or EFI driver it does not recognise (26 uploads stopped here). Open your antivirus' "
+               "quarantine or protection history, restore the files 1401 wrote, add 1401's folder as an exclusion, then "
+               "press Build again. The stick was not erased.")
+
+
+def gone_hint(reasons):
+    """Advice when the validator found built files missing (F42): the build wrote them, so their absence means removal."""
+    return GONE_ADVICE if any(" missing on disk" in r or "executable missing" in r or "Info.plist missing" in r
+                              for r in reasons) else ""
 
 
 def stick_hint(e):
