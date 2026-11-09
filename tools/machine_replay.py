@@ -116,8 +116,9 @@ def replay(c, macos="", experimental=False, tahoe_audio="voodoohda", external_ta
                        disabled=sorted(str(v.get("Device ID") if isinstance(v, dict) else v) for v in (sel.disabled or {}).values()),
                        disabled_detail=sorted([sec or "?", str(v.get("Device ID") if isinstance(v, dict) else v), name or "?"]
                                               for (sec, name), v in located),
-                       bios=o.check_bios_requirements(rep, sel.cust), net_status=str(sel.net_status),
+                       bios=list(res.bios_requirements), net_status=str(sel.net_status),
                        decisions=[(d.prompt[:60], d.answer) for d in h.decisions],
+                       storage_plan=res.storage_plan,
                        compat=_compat(sel.hw))
     except (engine.EngineExit, engine.MacosNotOffered, engine.UnknownPrompt, engine.EngineLoop) as e:
         out["refused"] = f"{type(e).__name__}: {e}"
