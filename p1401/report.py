@@ -7,6 +7,7 @@ USB audio is class-compliant (macOS drives it without a kext), so it never ends 
 """
 import json
 import os
+import re
 import hashlib
 import copy
 
@@ -61,7 +62,7 @@ def acpi_fingerprints(directory):
 def diagnostic_hardware(report):
     """Keep device identity in failed-build logs without exporting the complete scan."""
     fields = {
-        "CPU": ("Manufacturer", "Processor Name", "Codename", "Core Count", "Thread Count", "CPU Count", "CPU Signature", "CPUID", "Family", "Model", "Stepping", "P-Core Count", "E-Core Count"),
+        "CPU": ("Manufacturer", "Processor Name", "Codename", "Core Count", "Thread Count", "CPU Count", "CPU Signature", "CPUID", "Family", "Model", "Stepping", "P-Core Count", "E-Core Count", "SIMD Features"),
         "Motherboard": ("Name", "Manufacturer", "Chipset", "Platform", "Version"),
         "BIOS": ("Firmware Type", "Version"),
         "GPU": ("Manufacturer", "Device ID", "Subsystem ID", "Device Type", "Codename", "PCI Path", "Resizable BAR", "ACPI Path", "Bus Type"),
@@ -70,8 +71,8 @@ def diagnostic_hardware(report):
         "Monitor": ("Connected GPU", "Connector Type"),
         "Storage Controllers": ("Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
         "Storage Drives": ("Model", "Bus Type", "Media Type", "Size", "System"),
-        "Input": ("Device ID", "Bus Type", "ACPI Path", "PCI Path"),
-        "Sound": ("Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path"),
+        "Input": ("Device ID", "Bus Type", "ACPI Path", "PCI Path", "Device", "Device Type"),   # Device = ACPI id (ELAN0412): picks the touchpad kexts
+        "Sound": ("Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path", "Controller Device ID"),
         "Bluetooth": ("Device ID", "Bus Type", "PCI Path", "ACPI Path"),
         "SD Controller": ("Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
         "Biometric": ("Device ID", "Bus Type"),
@@ -92,8 +93,9 @@ def diagnostic_hardware(report):
         if section in ("CPU", "Motherboard", "BIOS"):
             result[section] = select(value, allowed)
         else:
-            result[section] = [{"name": name[:512] if isinstance(name, str) else "unnamed device", **select(props, allowed)} for name, props in list(value.items())[:256]
-                               if isinstance(props, dict)]
+            result[section] = [{"name": name[:512] if isinstance(name, str) else "unnamed device", **select(props, allowed),
+                                **({"Disk Drive Count": len(props["Disk Drives"])} if isinstance(props.get("Disk Drives"), list) else {})}
+                               for name, props in list(value.items())[:256] if isinstance(props, dict)]
     if result:
         result["not_observed"] = ["USB port-to-connector routing", "BIOS setup options", "GPU BAR/VRAM size", "CPUID leaves",
                                   "fan and RGB wiring"]
@@ -128,6 +130,7 @@ def normalize(report):
         if word:
             bios["Firmware Type"] = word
             notes.append(f"BIOS: firmware type read as {ft!r} (extra text from PowerShell) - taken as {word}")
+    _field_gaps(report, notes)
     # 10-07: a card Windows has no driver for shows up as "Microsoft Basic Display Adapter" with
     # Manufacturer 'Unknown', and the engine's schema rejects the whole report. The PCI vendor in its Device ID still
     # names the maker, so take it from there; a card with no usable ID is dropped if another GPU remains.
@@ -165,6 +168,75 @@ def normalize(report):
                 notes.append(f"{section}: {name!r} (bus {props.get('Bus Type')}) has no Device ID in this report - "
                              "USB audio needs no kext; macOS drives it natively")
     return report, notes
+
+
+# Words that make a chassis a laptop when Windows gave no usable platform type.
+_LAPTOP_WORDS = ("laptop", "notebook", "thinkpad", "ideapad", "legion", "zenbook", "vivobook", "macbook", "xps", "inspiron",
+                 "latitude", "pavilion", "elitebook", "probook", "spectre", "envy", "swift", "aspire", "predator", "nitro",
+                 "rog zephyrus", "rog strix g", "tuf gaming f", "tuf gaming a", "victus", "omen", "loq", "yoga", "surface",
+                 "thin gf", "katana", "stealth", "vector", "raider", "titan gt", "blade")
+
+
+_INTEL_CPU = re.compile(r"\bi[3579]-\d{4,5}([A-Z]{0,3}\d?)\b")
+_AMD_CPU = re.compile(r"Ryzen \d (?:PRO )?\d{4}([A-Z]{0,4}\d{0,2}[A-Z]?)\b")
+
+
+def cpu_class(name):
+    """'Laptop' or 'Desktop' from a processor's model suffix, None when the name does not say."""
+    m = _INTEL_CPU.search(name or "")
+    if m:
+        s = m.group(1)
+        if s in ("", "K", "KF", "KS", "F", "T", "S", "TE") :
+            return "Desktop"
+        return "Laptop" if s.startswith(("H", "P", "U", "G", "Y")) else None
+    m = _AMD_CPU.search(name or "")
+    if m:
+        s = m.group(1)
+        if s in ("X", "XT", "X3D", "", "G", "GE", "F") and not s.startswith("H"):
+            return "Desktop"
+        return "Laptop" if s.startswith(("H", "U")) else None
+    return None
+
+
+def _field_gaps(report, notes):
+    """Scans from the field that the engine's validator refuses although the EFI does not depend on the missing part
+    (1.x to 2.8 build logs: Network 8 PCs, SD Controller 12, USB Controllers 2, Motherboard Platform 5, CPU maker 6)."""
+    # A PC whose adapters are all disabled or driverless in Windows reports no Network section at all. The engine reads a
+    # missing section as none; the build then says the installer has no network (netsupport) instead of refusing the scan.
+    if not isinstance(report.get("Network"), dict):
+        report["Network"] = {}
+        notes.append("Network: Windows reported no network adapter - treated as none; the installer will need the offline "
+                     "(local image) path, and Ethernet or Wi-Fi can be added later")
+    # A card reader Windows lists only as the generic SD host class has no vendor or device ID to match; macOS has no
+    # driver for it either way, so dropping the entry does not change the EFI.
+    for name, props in list((report.get("SD Controller") or {}).items()):
+        if isinstance(props, dict) and not props.get("Device ID"):
+            del report["SD Controller"][name]
+            notes.append(f"SD Controller: {name!r} has no device ID in this report - left out (macOS has no driver for a "
+                         "generic card reader; a USB card reader works)")
+    # The USB controller's bus is PCI whenever it has a PCI path; a missing Bus Type is a gap in the scan, not a different bus.
+    for name, props in (report.get("USB Controllers") or {}).items():
+        if isinstance(props, dict) and not props.get("Bus Type"):
+            props["Bus Type"] = "PCI"
+    board = report.get("Motherboard")
+    kind = cpu_class((report.get("CPU") or {}).get("Processor Name", "")) if isinstance(report.get("CPU"), dict) else None
+    if isinstance(board, dict) and kind and board.get("Platform") in ("Desktop", "Laptop") and board["Platform"] != kind:
+        # Machines with this processor reached the macOS desktop as the other kind (Mac model from the reached-desktop reports):
+        # a desktop part (F, K, X) is not in a laptop and a mobile part (H, HX, U, P) is set up as a laptop, mini PCs included.
+        notes.append(f"Motherboard: the scan says {board['Platform']} but the processor ({report['CPU'].get('Processor Name')}) is a "
+                     f"{kind.lower()} part; set up as a {kind.lower()}.")
+        board["Platform"] = kind
+    if isinstance(board, dict) and board.get("Platform") not in ("Desktop", "Laptop"):
+        low = str(board.get("Name", "")).lower()
+        guess = "Laptop" if any(w in low for w in _LAPTOP_WORDS) else "Desktop"
+        notes.append(f"Motherboard: the chassis type was read as {board.get('Platform')!r}; taken as {guess} from the board "
+                     "name. If this is wrong, run Check this PC again.")
+        board["Platform"] = guess
+    cpu = report.get("CPU")
+    if isinstance(cpu, dict) and cpu.get("Manufacturer") not in ("Intel", "AMD"):
+        raise RuntimeError(f"This PC's processor reports its maker as {cpu.get('Manufacturer')!r} "
+                           f"({cpu.get('Processor Name', 'unnamed')}). macOS runs only on Intel and AMD processors, and 1401 has "
+                           "no tested setup for other x86 makers (Hygon, Zhaoxin and similar), so it cannot build an EFI for this PC.")
 
 
 def normalized_copy(report_path, dest_dir, raw_hardware=None):
