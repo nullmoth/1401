@@ -898,8 +898,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 }
                 let have = self.installedDriverVersion()
                 let appNewer = appz.map { appSha.count == 64 && App.newer($0.0, than: self.appVersion) } ?? false
+                // outside macOS 15 and 26 a driver release is never offered (the app's own update still is)
+                let driverOK = OSGate.driverInstallAllowed(major: OSGate.currentMajor)
                 self.send("upd", ["state": "checked", "latest": pkg.0, "installed": have,
-                                  "newer": have.isEmpty || App.newer(pkg.0, than: have),
+                                  "newer": driverOK && (have.isEmpty || App.newer(pkg.0, than: have)),
                                   "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer,
                                   "channel": early ? "early" : "stable", "prerelease": prerelease])
             }
@@ -916,6 +918,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         task.resume()
     }
     func updateDriver(efi: String) {
+        guard OSGate.driverInstallAllowed(major: OSGate.currentMajor) else {
+            send("upd", ["state": "error", "why": OSGate.refusal(major: OSGate.currentMajor)]); return }
         guard let l = latest else { send("upd", ["state": "error", "why": "check for an update first"]); return }
         // Refused before the choice is offered: Cancel must never drop a download that is already running, and a chosen
         // file must not start a second install while one runs (run() would return without a word).
@@ -978,6 +982,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         send("dl", ["state": "error", "why": "Driver update cancelled. Nothing was changed."])
     }
     func download() {
+        guard OSGate.driverInstallAllowed(major: OSGate.currentMajor) else {
+            send("dl", ["state": "error", "why": OSGate.refusal(major: OSGate.currentMajor)]); return }
         startDownload(name: Package.name, sha: Package.sha256, url: Package.url, efi: nil)
     }
     /// The AMD/Intel driver package on disk, matching its pin: the copy already downloaded, else a fresh download.
@@ -1352,6 +1358,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     func run(mode: String, pkg: String, efi: String, extra: [String], expectedSha: String? = nil) {
         guard ["dry", "install", "remove", "usbmap", "verbose", "tahoe", "tahoecancel"].contains(mode),
               !runningSetup, pendingDownload == nil else { return }
+        // The driver this app carries is for macOS 15 and 26; on 27 it never installs, whatever the page sent (OSGate).
+        if let why = OSGate.refusal(mode: mode, major: OSGate.currentMajor) {
+            send("run", ["state": "end", "mode": mode, "ok": false, "why": why]); return
+        }
         runningSetup = true
         // Ask once, at install time, whether to send a single confirmation when this Mac first reaches its desktop
         // after the install (ReachedDesktop). Nothing today tells us whether an install actually booted through, so a
