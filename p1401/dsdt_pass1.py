@@ -101,7 +101,9 @@ def _exists(ns_set, scope, ns):
     return _resolve(scope, ns) in ns_set
 
 
+_LENIENT = False  # methods_defined(): a Scope whose target is in another table is entered, not reported
 CONTAINERS = {}  # offset of each parsed Scope/Device/... -> (opcode bytes, PkgLength bytes, end)
+METHOD_AT = {}  # path -> offset of the Method opcode
 METHODS = {}  # path -> argument count, filled by the walk (a call is a NameString followed by that many TermArgs)
 
 
@@ -170,7 +172,7 @@ def _walk(d, start, end, scope, ns_set, failing, top):
         if op == 0x10:  # Scope
             n, nl = _pkglen(d, i + 1)
             ns, body = _namestring(d, i + 1 + nl)
-            if not _exists(ns_set, scope, ns):
+            if not _exists(ns_set, scope, ns) and not _LENIENT:
                 failing.append((i, 1 + n))
             else:
                 CONTAINERS[i] = (1, nl, i + 1 + n)
@@ -182,6 +184,7 @@ def _walk(d, start, end, scope, ns_set, failing, top):
                 ns, j = _namestring(d, i + 1 + nl)
                 ns_set.add(_resolve(scope, ns))
                 METHODS[_resolve(scope, ns)] = d[j] & 0x07
+                METHOD_AT[_resolve(scope, ns)] = i
             n, _ = _pkglen(d, i + 1)
             i += 1 + n
         elif op == 0x08:  # Name
@@ -250,6 +253,25 @@ def failing_scopes(dsdt):
     CONTAINERS.clear()
     _walk(d, HEADER, len(d), ROOT, set(PREDEFINED) | {ROOT}, failing, True)
     return failing
+
+
+def methods_defined(table):
+    """{path: (argument count, offset of the Method opcode)} of every Method a table declares, as
+    {(b'_SB_', b'ALIB'): (2, 1234)}. A Scope into
+    an object of another table is entered as if it existed. Raises Unsupported on an opcode the walk does not know."""
+    global _LENIENT
+    d = bytes(table)
+    if len(d) < HEADER or int.from_bytes(d[4:8], "little") != len(d):
+        raise Unsupported("not an ACPI table")
+    METHODS.clear()
+    METHOD_AT.clear()
+    CONTAINERS.clear()
+    _LENIENT = True
+    try:
+        _walk(d, HEADER, len(d), ROOT, set(PREDEFINED) | {ROOT}, [], True)
+    finally:
+        _LENIENT = False
+    return {p: (METHODS[p], METHOD_AT[p]) for p in METHODS}
 
 
 def repair(dsdt):
