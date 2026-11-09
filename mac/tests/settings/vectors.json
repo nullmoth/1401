@@ -1,0 +1,4806 @@
+[
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hdr",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "10bit",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vrr",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "10",
+"expect": "10"
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "6",
+"expect": "6"
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "8",
+"expect": "8"
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "12",
+"expect": "12"
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "bpc",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "rgb",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "ycbcr422",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "ycbcr444",
+"expect": "2"
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "format",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "full",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "limited",
+"expect": "2"
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "range",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": " 60 ",
+"expect": "60"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "5",
+"expect": "5"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "10",
+"expect": "10"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "60",
+"expect": "60"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "3",
+"expect": "3"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "150",
+"expect": "150"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "200",
+"expect": "200"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "4",
+"expect": "4"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "32",
+"expect": "32"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "33",
+"expect": "33"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "6",
+"expect": "6"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "8",
+"expect": "8"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "9",
+"expect": "9"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "12",
+"expect": "12"
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "vibrance",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "dsr",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "hidpi",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "rotscale",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": " 60 ",
+"expect": "60"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "5",
+"expect": "5"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "10",
+"expect": "10"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "60",
+"expect": "60"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "3",
+"expect": "3"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "255",
+"expect": "255"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "150",
+"expect": "150"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "200",
+"expect": "200"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "201",
+"expect": "201"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "4",
+"expect": "4"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "32",
+"expect": "32"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "33",
+"expect": "33"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "6",
+"expect": "6"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "8",
+"expect": "8"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "9",
+"expect": "9"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "12",
+"expect": "12"
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "surround",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "edp-backlight",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": " 60 ",
+"expect": "60"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "10",
+"expect": "10"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "60",
+"expect": "60"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "1000",
+"expect": "1000"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "255",
+"expect": "255"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "256",
+"expect": "256"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "150",
+"expect": "150"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "200",
+"expect": "200"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "201",
+"expect": "201"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "32",
+"expect": "32"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "33",
+"expect": "33"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "Game=60,*=0",
+"expect": "Game=60,*=0"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "*=30",
+"expect": "*=30"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "12",
+"expect": "12"
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "fps-limit",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "5",
+"expect": "5"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "10",
+"expect": "10"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "3",
+"expect": "3"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "4",
+"expect": "4"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "32",
+"expect": "32"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "6",
+"expect": "6"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "8",
+"expect": "8"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "9",
+"expect": "9"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "12",
+"expect": "12"
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "queue-depth",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "on",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "off",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "1000",
+"expect": "1000"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "1001",
+"expect": "1001"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "255",
+"expect": "255"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "256",
+"expect": "256"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "150",
+"expect": "150"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "200",
+"expect": "200"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "201",
+"expect": "201"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "4096",
+"expect": "4096"
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "shader-cache-mb",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "app-profiles",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "on",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "off",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "default",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "auto",
+"expect": null
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "1",
+"expect": "1"
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "0",
+"expect": "0"
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "maybe",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": " 60 ",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "5",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "10",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "1000",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "1001",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "-1",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "3",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "255",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "256",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "150",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "200",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "201",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "4",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "32",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "33",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "4096",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "Game=60,*=0",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "*=30",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "=60",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "Game=abc",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "G=60;rm -rf /",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "60 fps",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "rgb",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "ycbcr422",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "ycbcr444",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "full",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "limited",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "6",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "8",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "9",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "12",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "10bit",
+"error": true
+},
+{
+"fn": "normalize",
+"id": "local-map-sysmem",
+"value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+"error": true
+},
+{
+"fn": "bootargs_set",
+"line": "",
+"key": "nvfbhdr",
+"value": "1",
+"expect": "nvfbhdr=1"
+},
+{
+"fn": "bootargs_get",
+"line": "",
+"key": "nvfbhdr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "",
+"key": "nvfbhdr",
+"value": null,
+"expect": ""
+},
+{
+"fn": "bootargs_get",
+"line": "",
+"key": "nvfbhdr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "",
+"key": "nvfbvrr",
+"value": "0",
+"expect": "nvfbvrr=0"
+},
+{
+"fn": "bootargs_get",
+"line": "",
+"key": "nvfbvrr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "",
+"key": "nvfbbpc",
+"value": "10",
+"expect": "nvfbbpc=10"
+},
+{
+"fn": "bootargs_get",
+"line": "",
+"key": "nvfbbpc",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbhdr",
+"value": "1",
+"expect": "-v keepsyms=1 nvfbhdr=1 debug=0x144"
+},
+{
+"fn": "bootargs_get",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbhdr",
+"expect": "1"
+},
+{
+"fn": "bootargs_set",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbhdr",
+"value": null,
+"expect": "-v keepsyms=1 debug=0x144"
+},
+{
+"fn": "bootargs_get",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbhdr",
+"expect": "1"
+},
+{
+"fn": "bootargs_set",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbvrr",
+"value": "0",
+"expect": "-v keepsyms=1 nvfbhdr=1 debug=0x144 nvfbvrr=0"
+},
+{
+"fn": "bootargs_get",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbvrr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbbpc",
+"value": "10",
+"expect": "-v keepsyms=1 nvfbhdr=1 debug=0x144 nvfbbpc=10"
+},
+{
+"fn": "bootargs_get",
+"line": "-v keepsyms=1 nvfbhdr=1 debug=0x144",
+"key": "nvfbbpc",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbhdr",
+"value": "1",
+"expect": "nvfbhdr=1 x"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbhdr",
+"expect": "1"
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbhdr",
+"value": null,
+"expect": "x"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbhdr",
+"expect": "1"
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbvrr",
+"value": "0",
+"expect": "nvfbhdr=1 x nvfbhdr=0 nvfbvrr=0"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbvrr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbbpc",
+"value": "10",
+"expect": "nvfbhdr=1 x nvfbhdr=0 nvfbbpc=10"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdr=1 x nvfbhdr=0",
+"key": "nvfbbpc",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdrx=1",
+"key": "nvfbhdr",
+"value": "1",
+"expect": "nvfbhdrx=1 nvfbhdr=1"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdrx=1",
+"key": "nvfbhdr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdrx=1",
+"key": "nvfbhdr",
+"value": null,
+"expect": "nvfbhdrx=1"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdrx=1",
+"key": "nvfbhdr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdrx=1",
+"key": "nvfbvrr",
+"value": "0",
+"expect": "nvfbhdrx=1 nvfbvrr=0"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdrx=1",
+"key": "nvfbvrr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbhdrx=1",
+"key": "nvfbbpc",
+"value": "10",
+"expect": "nvfbhdrx=1 nvfbbpc=10"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbhdrx=1",
+"key": "nvfbbpc",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbvrr",
+"key": "nvfbhdr",
+"value": "1",
+"expect": "nvfbvrr nvfbhdr=1"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbvrr",
+"key": "nvfbhdr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbvrr",
+"key": "nvfbhdr",
+"value": null,
+"expect": "nvfbvrr"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbvrr",
+"key": "nvfbhdr",
+"expect": null
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbvrr",
+"key": "nvfbvrr",
+"value": "0",
+"expect": "nvfbvrr=0"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbvrr",
+"key": "nvfbvrr",
+"expect": ""
+},
+{
+"fn": "bootargs_set",
+"line": "nvfbvrr",
+"key": "nvfbbpc",
+"value": "10",
+"expect": "nvfbvrr nvfbbpc=10"
+},
+{
+"fn": "bootargs_get",
+"line": "nvfbvrr",
+"key": "nvfbbpc",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "",
+"key": "NVMTL_FPS_LIMIT",
+"value": "90",
+"expect": "# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=90\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "",
+"key": "NVMTL_FPS_LIMIT",
+"value": null,
+"expect": "\n"
+},
+{
+"fn": "conf_get",
+"text": "",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "",
+"key": "NVK_X",
+"value": null,
+"expect": "\n"
+},
+{
+"fn": "conf_get",
+"text": "",
+"key": "NVK_X",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "",
+"key": "NVMTL_GSUB_INFLIGHT",
+"value": "4",
+"expect": "# --- my settings, kept on update ---\nNVMTL_GSUB_INFLIGHT=4\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "",
+"key": "NVMTL_GSUB_INFLIGHT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": "90",
+"expect": "NVMTL_A=1\nNVK_B=2\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=90\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": null,
+"expect": "NVMTL_A=1\nNVK_B=2\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVK_X",
+"value": null,
+"expect": "NVMTL_A=1\nNVK_B=2\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVK_X",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"value": "4",
+"expect": "NVMTL_A=1\nNVK_B=2\n# --- my settings, kept on update ---\nNVMTL_GSUB_INFLIGHT=4\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\nNVK_B=2\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": "90",
+"expect": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVK_X=1\nNVMTL_FPS_LIMIT=90\n# --- end my settings ---\nNVK_Z=3\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": "60"
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": null,
+"expect": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": "60"
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVK_X",
+"value": null,
+"expect": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\n# --- end my settings ---\nNVK_Z=3\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVK_X",
+"expect": "1"
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"value": "4",
+"expect": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\nNVMTL_GSUB_INFLIGHT=4\n# --- end my settings ---\nNVK_Z=3\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_A=1\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=60\nNVK_X=1\n# --- end my settings ---\nNVK_Z=3\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": "90",
+"expect": "# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=90\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": null,
+"expect": "\n"
+},
+{
+"fn": "conf_get",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVK_X",
+"value": null,
+"expect": "\n"
+},
+{
+"fn": "conf_get",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVK_X",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"value": "4",
+"expect": "# --- my settings, kept on update ---\nNVMTL_GSUB_INFLIGHT=4\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "# --- my settings, kept on update ---\n# --- end my settings ---\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": "90",
+"expect": "NVMTL_FPS_LIMIT=30\n# --- my settings, kept on update ---\nNVMTL_FPS_LIMIT=90\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVMTL_FPS_LIMIT",
+"value": null,
+"expect": "NVMTL_FPS_LIMIT=30\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVMTL_FPS_LIMIT",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVK_X",
+"value": null,
+"expect": "NVMTL_FPS_LIMIT=30\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVK_X",
+"expect": null
+},
+{
+"fn": "conf_set",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"value": "4",
+"expect": "NVMTL_FPS_LIMIT=30\n# --- my settings, kept on update ---\nNVMTL_GSUB_INFLIGHT=4\n# --- end my settings ---\n"
+},
+{
+"fn": "conf_get",
+"text": "NVMTL_FPS_LIMIT=30\n",
+"key": "NVMTL_GSUB_INFLIGHT",
+"expect": null
+}
+]

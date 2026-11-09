@@ -545,6 +545,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "Hybrid laptop mode needs the checked driver package: download it first."]); break }
             run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pk, "--sha", sha])
+        case "settings": if !SettingsPanel.show() { send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The settings list is missing from this copy of the app."]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]

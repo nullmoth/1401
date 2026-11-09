@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Driver settings</title>
+<style>
+:root{--bg:#fff;--fg:#1c1c1e;--mut:#6b6b70;--line:#d9d9de;--card:#f5f5f7;--acc:#5b4bd6;--bad:#c0392b;--ok:#1e8e4e}
+@media (prefers-color-scheme:dark){:root{--bg:#161618;--fg:#f2f2f5;--mut:#9a9aa2;--line:#3a3a40;--card:#1f1f23;--acc:#9a8cff;--bad:#ff7b6b;--ok:#4fd18b}}
+*{box-sizing:border-box}body{margin:0;padding:20px 24px;background:var(--bg);color:var(--fg);font:13px -apple-system,system-ui,sans-serif}
+h1{font-size:18px;margin:0 0 4px}h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:24px 0 8px}
+p.lead{color:var(--mut);margin:0 0 8px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.row{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}.t{font-weight:600}.h{color:var(--mut);grid-column:1/-1}
+.msg{grid-column:1/-1;min-height:1em}.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
+select,input[type=text],input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+button{font:inherit;border:1px solid var(--acc);color:var(--acc);background:transparent;border-radius:6px;padding:4px 12px;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}.gpu{font-family:ui-monospace,Menlo,monospace;font-size:12px}.fact{color:var(--mut)}
+.mask label{margin-right:10px}.warn{color:var(--bad)}
+</style></head><body>
+<h1>Driver settings</h1>
+<p class="lead">Each change is shown to you in full and asked for before anything is written. Display settings are boot arguments and take effect after a restart.</p>
+<div id="warn" class="warn"></div>
+<h2>Your GPUs</h2><div id="gpus"><p class="lead">Reading the hardware...</p></div>
+<div id="groups"></div>
+<script>
+const NMS={on(m){if(m.event==='load')render(m.data);if(m.event==='result')result(m.data)}};
+const post=o=>webkit.messageHandlers.nmset.postMessage(o);
+const $=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+let displays=[];
+function render(d){
+  displays=d.displays||[];
+  if(!d.bootArgsSafe)document.getElementById('warn').textContent='The current boot arguments hold characters this panel will not rewrite, so display settings are read-only here.';
+  const g=document.getElementById('gpus');g.textContent='';
+  if(!d.gpus.length)g.append($('p','lead','No NVIDIA GPU is visible to the system.'));
+  d.gpus.forEach(x=>{const c=$('div','card');c.append($('div','gpu',x.line));
+    const f=Object.entries(x.facts).map(([k,v])=>k.replace('nvrm-','')+': '+v).join('   ');if(f)c.append($('div','gpu fact',f));g.append(c)});
+  const groups={};d.settings.forEach(s=>(groups[s.group]=groups[s.group]||[]).push(s));
+  const host=document.getElementById('groups');host.textContent='';
+  for(const [name,list] of Object.entries(groups)){host.append($('h2',null,name));list.forEach(s=>host.append(row(s,d.bootArgsSafe)))}
+}
+function row(s,safe){
+  const c=$('div','card row');c.id='s-'+s.id;c.append($('div','t',s.title));
+  const ctl=$('div');let get;
+  if(s.id==='surround'){
+    const m=$('span','mask');const boxes=[];
+    for(let i=0;i<8;i++){const l=$('label');const b=document.createElement('input');b.type='checkbox';boxes.push(b);l.append(b,' '+i);m.append(l)}
+    const cur=/^\d+$/.test(s.current)?parseInt(s.current):0;boxes.forEach((b,i)=>b.checked=!!(cur&(1<<i)));
+    ctl.append(m);get=()=>{const v=boxes.reduce((a,b,i)=>a|(b.checked?1<<i:0),0);return v?String(v):'default'};
+  }else if(s.kind==='bool'||s.kind==='enum'){
+    const sel=document.createElement('select');const names=s.kind==='enum'?Object.keys(s.valueMap):[];const opts=['default'].concat(s.kind==='bool'?['on','off']:names);
+    opts.forEach(o=>{const e=document.createElement('option');e.value=o;e.textContent=o;sel.append(e)});
+    const cv=s.current;sel.value=cv==='1'&&s.kind==='bool'?'on':cv==='0'&&s.kind==='bool'?'off':(s.kind==='enum'?(names.find(k=>s.valueMap[k]===cv)||'default'):'default');
+    ctl.append(sel);get=()=>sel.value;
+  }else{
+    const inp=document.createElement('input');inp.type='text';inp.value=s.current==='default'?'':s.current;inp.placeholder='default';inp.size=18;
+    ctl.append(inp);get=()=>inp.value.trim()||'default';
+  }
+  const btn=$('button',null,'Apply');btn.disabled=(s.where==='bootarg'&&!safe);
+  btn.onclick=()=>{c.querySelector('.msg').className='msg';c.querySelector('.msg').textContent='';post({act:'apply',id:s.id,value:get()})};
+  const right=$('div');right.style.display='flex';right.style.gap='8px';right.append(ctl,btn);c.append(right);
+  c.append($('div','h',s.help+(s.where==='bootarg'?' (restart needed)':'')));
+  if(s.id==='surround'&&displays.length)c.append($('div','h','Displays now connected: '+displays.join(', ')+'. Tick the framebuffer numbers that form one display.'));
+  c.append($('div','msg'));return c}
+function result(r){const c=document.getElementById('s-'+r.id);if(!c)return;const m=c.querySelector('.msg');m.className='msg '+(r.ok?'ok':'bad');m.textContent=r.message}
+post({act:'load'});
+</script></body></html>

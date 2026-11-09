@@ -312,6 +312,7 @@ $("earlyoff").onclick = () => post({ act: "early", on: false });
 post({ act: "early" });
 $("efichk").onclick = () => { $("efichk").disabled = true; $("efichkr").textContent = "Reading the EFI..."; $("efiout").textContent = ""; post({ act: "checkEfi" }); };
 $("tccg").onclick = () => { $("tccr").textContent = "Pick the app..."; post({ act: "tccGrant" }); };
+$("settings").onclick = () => post({ act: "settings" });
 $("gpumap").onclick = () => { $("gpumap").disabled = true; $("gpumapr").textContent = "Starting..."; post({ act: "gpumap" }); };
 $("priv").onclick = (e) => { e.preventDefault(); post({ act: "privacy" }); };
 $("logs").onclick = (e) => { e.preventDefault(); post({ act: "logs" }); };
