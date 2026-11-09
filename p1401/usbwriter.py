@@ -1091,6 +1091,20 @@ def cli_write(argv):
         pct = int(done * 100 / total) if total else 0
         if pct != last[0]:
             last[0] = pct; print(f"PROGRESS {pct} downloading macOS recovery from Apple", flush=True)
+    full_pkg = (opt("--full-installer") or [""])[0]
+    if full_pkg:
+        # the full installer rides on a second partition; the first one (OpenCore, drivers, recovery image) stays small.
+        # Checked before anything is erased.
+        from . import fullinstaller  # noqa: PLC0415
+        try:
+            fullinstaller.check_stick(int(disk.get("Size") or 0))
+            fullinstaller.verify_xar(full_pkg)
+        except (fullinstaller.FullInstallerError, OSError) as e:
+            print(f"STOP 1401-FULL-INSTALLER: {e}", flush=True)
+            print("OK your USB stick was not touched: nothing has been erased.", flush=True)
+            return 1
+        global PART_CAP
+        PART_CAP = fullinstaller.FIRST_PARTITION
     print(f"STEP erasing and writing disk {num} ({disk.get('FriendlyName')})", flush=True)
     opt_in = machine_handoff.opt_in(arm_apps="--arm-apps" in argv)
     res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff,
@@ -1104,6 +1118,24 @@ def cli_write(argv):
         d = os.path.join(root, "NullMoth"); os.makedirs(d, exist_ok=True)
         shutil.copyfile(f, os.path.join(d, os.path.basename(f)))
         print(f"OK copied {os.path.basename(f)} to the stick", flush=True)
+    if full_pkg:
+        print("STEP making the second partition for the full macOS installer", flush=True)
+        letter2 = _free_letter()
+        try:
+            _diskpart(fullinstaller.diskpart_script(int(disk["Number"]), letter2, PART_CAP >> 20))
+            for _ in range(40):
+                if os.path.isdir(letter2 + ":\\"):
+                    break
+                time.sleep(1)
+            else:
+                raise fullinstaller.FullInstallerError(f"the second partition did not appear as {letter2}:")
+            fullinstaller.place(letter2 + ":\\", full_pkg, {"title": "macOS", "version": ""},
+                                progress=lambda d, t: print(f"PROGRESS {int(d * 100 / t) if t else 0} copying the full macOS installer to the stick", flush=True))
+        except (fullinstaller.FullInstallerError, UsbError, OSError) as e:
+            print(f"STOP 1401-FULL-INSTALLER: {e}", flush=True)
+            print(f"OK the first partition is a working online installer at {root}; only the full installer is missing", flush=True)
+            return 1
+        print(f"OK the full macOS installer is on the stick ({fullinstaller.LABEL}); see README.txt there", flush=True)
     print(f"OK the stick is ready at {root}" + (" (NVIDIA driver included)" if res.get("nullmoth") else ""), flush=True)
     return 0
 
