@@ -22,6 +22,14 @@ class Diagnose(unittest.TestCase):
         self.assertTrue(r["findings"][0]["rebuild"])
         self.assertIn("Above 4G", r["findings"][0]["steps"][0])
 
+    def test_typed_pkdownloaderror_asks_for_the_installer_log(self):
+        # 1401 #111: "The operation could not be completed. (PKDownloadError, error 8)" during the install
+        r = diagnose.diagnose([HANDOFF], "The operation could not be completed. (PKDownloadError, error 8)")
+        self.assertEqual(ids(r), ["installer-download-failed"])
+        steps = " ".join(r["findings"][0]["steps"])
+        self.assertIn("Installer Log", steps)
+        self.assertIn("Ethernet", steps)
+
     def test_typed_exitbs_on_arrow_lake_says_vtd_off_first(self):
         r = diagnose.diagnose([cpu("Intel(R) Core(TM) Ultra 7 265K") + HANDOFF], "stuck at EXITBS:START")
         self.assertEqual(ids(r), ["froze-at-handoff"])

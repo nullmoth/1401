@@ -1474,19 +1474,37 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // "no OpenCore config"). Opening it here first lets macOS ask the user in 1401's name before setup needs it.
         // Off the main thread and bounded: a stalled stick or a spun-down disk must not freeze the window (1.15 review).
         // Network volumes are skipped: OpenCore never starts from them, and an unreachable share would only add a wait.
+        // Each read's outcome goes into the setup log: 2.7.2 setups still stopped on "not letting 1401 read" (11-02, 11-06)
+        // after this read, and only this line can say whether the app's own read was refused too (permission refused
+        // before, so the System Settings switch is the fix) or allowed while the setup's root shell was refused.
         let preread = DispatchGroup()
+        let prereadLock = NSLock()
+        var prereadLines: [String] = []
         DispatchQueue.global(qos: .userInitiated).async(group: preread) {
             for volume in FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeIsInternalKey, .volumeIsLocalKey], options: [.skipHiddenVolumes]) ?? [] {
                 let values = try? volume.resourceValues(forKeys: [.volumeIsInternalKey, .volumeIsLocalKey])
                 if values?.volumeIsInternal == true || values?.volumeIsLocal == false { continue }
                 for rel in ["EFI/OC/config.plist", "EFI/BOOT/config.plist"] {
                     let file = volume.appendingPathComponent(rel)
-                    guard FileManager.default.fileExists(atPath: file.path), let handle = FileHandle(forReadingAtPath: file.path) else { continue }
-                    _ = handle.readData(ofLength: 1); handle.closeFile()
+                    guard FileManager.default.fileExists(atPath: file.path) else { continue }
+                    let fd = open(file.path, O_RDONLY)
+                    var outcome: String
+                    if fd < 0 { outcome = "refused (errno \(errno))" } else {
+                        var byte: UInt8 = 0
+                        outcome = read(fd, &byte, 1) == 1 ? "read ok" : "read failed (errno \(errno))"
+                        close(fd)
+                    }
+                    prereadLock.lock(); prereadLines.append("NOTE app read of \(file.path): \(outcome)\n"); prereadLock.unlock()
                 }
             }
         }
-        _ = preread.wait(timeout: .now() + 3)
+        let prereadDone = preread.wait(timeout: .now() + 3) == .success
+        prereadLock.lock()
+        var prereadText = prereadLines.joined()
+        prereadLock.unlock()
+        if !prereadDone { prereadText += "NOTE app read of removable volumes not finished within 3 s (a macOS permission question may be open)\n" }
+        if prereadText.isEmpty { prereadText = "NOTE app read: no OpenCore config on a mounted removable volume\n" }
+        try? SavedReports.append(Data(prereadText.utf8), to: log)
         let res = Bundle.main.resourceURL!
         var args: [String]
         switch mode {
