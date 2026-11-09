@@ -37,7 +37,7 @@ class WindowsLayout(unittest.TestCase):
         self.assertIn("guide.Height =", SOURCE)
 
     def test_picker_and_checkbox_follow_the_page_and_the_layout(self):
-        self.assertIn("refresh, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick, recoveryPick, guide", SOURCE)
+        self.assertIn("refresh, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick, recoveryPick, storPrepare, storFinish, storUndo, guide", SOURCE)
         self.assertNotIn("osPick.Bounds = new Rectangle", SOURCE)
         self.assertNotIn("expDrivers.Bounds = new Rectangle", SOURCE)
         self.assertIn("osPick.SetBounds(", SOURCE)

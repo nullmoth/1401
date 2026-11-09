@@ -16,7 +16,7 @@ MAC_SRC = "".join(p.read_text() for p in (ROOT / "mac/Sources").glob("*.swift"))
 SET_BY_THE_WINDOW = {
     "--macos": "the Sequoia / Tahoe picker", "--json": "the window always asks for the result as JSON",
     "--boot-log": "the newest startup log on the stick, found by the window", "--stopped-at": "the line the user typed after a stop",
-    "--echo": "engine debugging output",
+    "--echo": "engine debugging output", "--state": "storage-prep keeps its record at the default path the window also reads",
 }
 SET_BY_THE_MAC_APP = {
     "--dry": "the preview run before an install", "--remove": "the Remove button", "--update": "the Tahoe preparation buttons",
