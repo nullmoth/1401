@@ -76,6 +76,16 @@ def _darwin(v):
         return None
 
 
+def _darwin_range(props):
+    """'macOS Darwin lowest to highest' for a device's engine compatibility, in words a person can read."""
+    comp = props.get("Compatibility")
+    if not isinstance(comp, (list, tuple)) or len(comp) < 2 or comp[0] is None:
+        return "no macOS version"
+    names = {"17": "macOS 10.13", "18": "10.14", "19": "10.15", "20": "11", "21": "12", "22": "13", "23": "14", "24": "15", "25": "26"}
+    lo, hi = str(comp[-1]).split(".")[0], str(comp[0]).split(".")[0]
+    return f"works with macOS {names.get(lo, lo)} to {names.get(hi, hi)}"
+
+
 def has_driver(props, macos):
     """True when the engine's own compatibility range for this device contains the chosen macOS (the device is then switched
     off only because another device of its kind was picked), False when macOS has no driver for it on this version."""

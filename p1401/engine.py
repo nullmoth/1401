@@ -945,6 +945,11 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     o.c.hardware_report = _wifi_prepass(hw, policy, h, o)
     mv = o.select_macos_version(native, oclp_versions, o.c.get_suggested_macos_version())
     cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
+    if not cust.get("GPU"):
+        # the engine reads the first GPU later and fails with an AttributeError (65 field build logs); say what is wrong instead
+        cards = "; ".join(f"{n} ({unsupported._darwin_range(p)})" for n, p in (hw.get("GPU") or {}).items()) or "none listed"
+        raise RuntimeError("No graphics card in this PC works with the macOS version chosen (" + cards + "). Pick the other macOS "
+                           "version in 1401, or add a card macOS or the NullMoth driver supports.")
     from . import panel_guard
     capture = load_capture()
     keep = panel_guard.intel_panel_keys(disabled, capture)
