@@ -84,7 +84,7 @@ _APUS = {
     0x15C8: ("Phoenix 2 (RDNA 3 iGPU)", APU_RDNA),
     0x150E: ("Strix Point (RDNA 3.5 iGPU)", APU_RDNA),
     0x1586: ("Strix Halo (RDNA 3.5 iGPU)", APU_RDNA),
-    0x1900: ("Strix Halo (RDNA 3.5 iGPU)", APU_RDNA),
+    0x1900: ("Phoenix / Hawk Point (RDNA 3 iGPU)", APU_RDNA),
 }
 
 # The community RDNA 4 projects, named so the notice can point users at them. Both are source-only (no release asset to

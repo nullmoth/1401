@@ -576,10 +576,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let words = Set(listing.split(whereSeparator: { $0.isWhitespace }).map(String.init))
         return expected.intersection(words).count
     }
-    // the Intel GPUs WhateverXe 0.6.1 selects a backend for (its docs/device-selection.md); setup checks the same list
-    static let xeIds: Set<String> = ["9A40", "9A49", "9A60", "9A68", "9A70", "9A78", "46D0", "46D1", "46D2", "46D3", "46D4",
-        "46A3", "46A6", "46A8", "46AA", "46B3", "46C3", "A7A0", "A7A1", "A7A8", "A7A9", "A7AA", "A7AB", "A7AC", "A7AD",
-        "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783", "A788", "A789", "A78A", "A78B"]
+    // the Intel GPUs WhateverXe 0.8.0 selects a backend for (its docs/device-selection.md); setup checks the same list
+    static let xeIds: Set<String> = ["9A40", "9A49", "9A59", "9A60", "9A68", "9A70", "9A78", "9AC0", "9AC9", "9AD9", "9AF8", "46D0", "46D1", "46D2",
+        "46D3", "46D4", "4626", "4628", "462A", "46A0", "46A1", "46A2", "46A3", "46A6", "46A8", "46AA", "46B0", "46B1",
+        "46B2", "46B3", "46C0", "46C1", "46C2", "46C3", "A720", "A7A0", "A7A8", "A7AA", "A7AB", "A721", "A7A1", "A7A9",
+        "A7AC", "A7AD", "4680", "4682", "4688", "468A", "468B", "4690", "4692", "4693", "A780", "A781", "A782", "A783",
+        "A788", "A789", "A78A", "A78B"]
     static func scanMac(_ table: [String: Any]) -> [String: Any] {
         let ids = table["ids"] as? [String: String] ?? [:], tested = table["tested"] as? [String] ?? []
         let gpus: [[String: Any]] = pciDisplays().map { g in

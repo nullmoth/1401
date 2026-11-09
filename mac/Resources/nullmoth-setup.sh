@@ -126,7 +126,7 @@ kurl() { case $1 in
   AMFIPass.kext) echo "https://github.com/dortania/OpenCore-Legacy-Patcher/raw/main/payloads/Kexts/Acidanthera/AMFIPass-v1.4.1-RELEASE.zip 07b266145906db41f4b13a7938fbb173ea28888cc1fa65f84417f8820adc961e";;
   USBToolBox.kext) echo "https://github.com/USBToolBox/kext/releases/download/1.2.0/USBToolBox-1.2.0-RELEASE.zip c315a3a5acfd496dd97d0d19b4fbd1d487103d2fd541c5651583d4c9cebcfe07";;
   RestrictEvents.kext) echo "https://github.com/dortania/build-repo/releases/download/RestrictEvents-9265e78/RestrictEvents-1.1.7-RELEASE.zip e5a8c15adeba9251be2709899214fe7fd847f6d38fca6c09adb65e9b2af64f0a";;
-  WhateverXe.kext) echo "https://github.com/b00t0x/WhateverXe/releases/download/0.6.1/WhateverXe-0.6.1-RELEASE.zip 46c8cd684461db7f84a971e7479770c423f73d52d45addfb48242176b9eb04fc";;
+  WhateverXe.kext) echo "https://github.com/b00t0x/WhateverXe/releases/download/0.8.0/WhateverXe-0.8.0-RELEASE.zip 5b71e14ce10c673f6baba276183f268d7f04766d298cd34f1df0bb96f11c8e4b";;
 esac; }
 # Downloads $1 into $KT/$1.x (checked against its SHA-256) before anything is changed; stops on any failure. $2 = where it goes.
 fetch_kext() {
@@ -1272,13 +1272,13 @@ if [ -n "${XE:-}" ]; then
   # installed only after a start with WhateverXe loaded. So "on" runs twice: the first adds the kexts to OpenCore and
   # asks for a restart, the second installs the graphics package. "Off" undoes exactly what "on" recorded.
   case "$XE" in on|off) ;; *) stop "--xe takes on or off";; esac
-  XS=$ST/xe-state; KX="$(dirname "$C")/Kexts"; XG=b4d3889206a609e29e991a833d8d91c2d110a661
-  XPKG_URL=https://github.com/b00t0x/WhateverXe-Graphics/releases/download/v0.3.2/WhateverXe-Graphics-0.3.2.pkg
-  XPKG_SHA=7ac6c7149248c483efbd93555294d587a93d81392421f3af8a4f5b1b5fcc0101
+  XS=$ST/xe-state; KX="$(dirname "$C")/Kexts"; XG=88d64a340e6f0d52e3f32a136c920d190ac43c53
+  XPKG_URL=https://github.com/b00t0x/WhateverXe-Graphics/releases/download/v0.4.1/WhateverXe-Graphics-0.4.1.pkg
+  XPKG_SHA=7f7ce3b924ad421cff0c4f30534598858474b8c9539c4b889a461bc1d5fed02c
   XAMFI_URL=https://github.com/b00t0x/WhateverXe-Graphics/raw/$XG/extras/AMFIPass-v1.4.1-Mod-RELEASE.zip
   XAMFI_SHA=71f41de42e355d2a83e6f093ef34a5b24d0a9c9a9085830b2317f1b874f56250
   XUNI_URL=https://raw.githubusercontent.com/b00t0x/WhateverXe-Graphics/$XG/uninstall.sh
-  XUNI_SHA=aad40b6bd2a25b72584f7343a06bb532feab33b3611ac70b1a22731946acbc8b
+  XUNI_SHA=7fe12e97ea090a39fcae4ca1ed6be3871c1516125ce9c02913afb0a7431ff1d4
   kix() { local i=0 p; while p=$(get Kernel.Add.$i.BundlePath); do [ "$p" = "$1" ] && { echo $i; return; }; i=$((i+1)); done; }
   upstream() {  # $1 url, $2 sha256, $3 file: the author's GitHub only, never a mirror
     [ -n "$KT" ] || KT=$(mktemp -d) || stop "could not create a download folder"
@@ -1289,14 +1289,14 @@ if [ -n "${XE:-}" ]; then
   ent() { printf '{"Arch":"x86_64","BundlePath":"%s","Comment":"%s","Enabled":true,"ExecutablePath":"Contents/MacOS/%s","MaxKernel":"","MinKernel":"","PlistPath":"Contents/Info.plist"}' "$1" "$2" "${1%.kext}"; }
   if [ "$XE" = on ]; then
     [ "$(sysctl -n machdep.cpu.vendor 2>/dev/null)" = GenuineIntel ] || stop "Intel Xe graphics needs an Intel processor"
-    # the processor GPU at 00:02.0 (class 03): the IDs WhateverXe 0.6.1 selects a backend for (docs/device-selection.md)
+    # the processor GPU at 00:02.0 (class 03): the IDs WhateverXe 0.8.0 selects a backend for (docs/device-selection.md)
     XID=$(ioreg -r -c IOPCIDevice -l -w0 | LC_ALL=C awk -F'<|>' '/\+-o /{if (c=="03" && v=="8086") print d; c=""; v=""; d=""}
       /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=toupper(substr($2,3,2) substr($2,1,2))} /"class-code" =/{c=substr($2,5,2)}
       END{if (c=="03" && v=="8086") print d}' | head -1)
     [ -n "$XID" ] || stop "macOS does not see the Intel GPU (it may be switched off in OpenCore with disable-gpu or -wegnoigpu)"
-    case " 9A40 9A49 9A60 9A68 9A70 9A78 46D0 46D1 46D2 46D3 46D4 46A3 46A6 46A8 46AA 46B3 46C3 A7A0 A7A1 A7A8 A7A9 A7AA A7AB A7AC A7AD 4680 4682 4688 468A 468B 4690 4692 4693 A780 A781 A782 A783 A788 A789 A78A A78B " in
+    case " 9A40 9A49 9A59 9A60 9A68 9A70 9A78 9AC0 9AC9 9AD9 9AF8 46D0 46D1 46D2 46D3 46D4 4626 4628 462A 46A0 46A1 46A2 46A3 46A6 46A8 46AA 46B0 46B1 46B2 46B3 46C0 46C1 46C2 46C3 A720 A7A0 A7A8 A7AA A7AB A721 A7A1 A7A9 A7AC A7AD 4680 4682 4688 468A 468B 4690 4692 4693 A780 A781 A782 A783 A788 A789 A78A A78B " in
       *" $XID "*) ;; *) stop "this Intel GPU (8086:$XID) is not one WhateverXe supports (Tiger Lake, Alder Lake and Raptor Lake Xe graphics)";; esac
-    # WhateverXe 0.6.1 runs on Sequoia 15.8 and later and on Tahoe 26.7 and later
+    # WhateverXe 0.8.0 runs on Sequoia 15.8 and later and on Tahoe 26.7 and later
     XV=$(sw_vers -productVersion); XM=${XV%%.*}; XN=${XV#*.}; XN=${XN%%.*}
     { [ "$XM" = 15 ] && [ "$XN" -ge 8 ]; } || { [ "$XM" = 26 ] && [ "$XN" -ge 7 ]; } || stop "WhateverXe needs macOS 15.8 or later, or 26.7 or later (this Mac has $XV)"
     # one Intel GPU driver at a time: the AMD/Intel test driver (NMXGPU) takes the same GPU

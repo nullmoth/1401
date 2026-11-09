@@ -3,6 +3,12 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.9
+- Mac app: Intel Xe graphics now uses WhateverXe 0.8.0 and WhateverXe Graphics v0.4.1 (thanks b00t0x). New in the supported list: Tiger Lake `9A59 9AC0 9AC9 9AD9 9AF8`, Alder Lake `4626 4628 462A 46A0-46A2 46B0-46B2 46C0-46C2`, Raptor Lake-U `A720 A721`. Requirements are unchanged.
+- 1401 for Windows: AMD processors can get IntelMKLFixup (thanks carnations-botanica) so applications built on Intel's Math Kernel Library run. It is an experimental driver: it is added only when "Include experimental drivers" is on.
+- 1401 for Windows: the build notice now names community graphics projects that target a GPU in the scan (Radeon 680M beside an NVIDIA card, Meteor Lake and Arrow Lake, Radeon 780M/760M/740M), with author, licence and state. Nothing is downloaded for them. `docs/COMMUNITY-DRIVERS.md` lists every community Intel Xe and AMD graphics project we read, the licence text of each, and what we do with it.
+- Radeon `1002:1900` is Phoenix / Hawk Point graphics, not Strix Halo; the notice names it correctly.
+
 ## 2.8.1
 - Updates no longer fail when GitHub's downloads are down. If a GitHub download fails, the Mac app (driver updates and its own updates) and 1401 for Windows (the driver package on the stick) fetch the same file from nullmothsystems.com instead. Every file from either place is checked against the release's SHA-256 list and the NullMoth release signature, so a file that differs by one byte is refused. If GitHub's release list itself does not answer, the Mac app reads the release from the site the same way.
 

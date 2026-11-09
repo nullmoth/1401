@@ -122,7 +122,7 @@
   "b00t0x/WhateverXe": {
    "license": "BSD-3-Clause",
    "class": "permissive",
-   "evidence": "LICENSE in the repo; the Mac app fetches release 0.6.1 from its author, pinned by sha256 (nullmoth-setup.sh)"
+   "evidence": "LICENSE in the repo; the Mac app fetches release 0.8.0 from its author, pinned by sha256 (nullmoth-setup.sh)"
   },
   "Baio1977/RealtekCardReader": {
    "license": "BSD-3-Clause",
@@ -136,6 +136,11 @@
    "license": "none",
    "class": "none",
    "grandfathered": true
+  },
+  "carnations-botanica/IntelMKLFixup": {
+   "license": "GPL-3.0",
+   "class": "copyleft",
+   "evidence": "LICENSE in the repo (GPL-3.0); release 1.0.0 is fetched from its author, pinned by sha256 (p1401/community.py); source is its tag archive"
   },
   "CaseySJ/Aquantia-macOS-Patches": {
    "license": "none",
