@@ -30,7 +30,9 @@ from . import amd_rdna4
 from . import intel_gpu
 from . import community
 from . import community_gpu
+from . import continuity
 from . import downloads
+from . import identity_ready
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
@@ -198,6 +200,10 @@ class Policy:
     persistent_nvram_amd: bool = False
     # A USB port map the user made (a UTBMap.kext folder): used instead of UTBDefault.kext (p1401/utbmap.py).
     utbmap: str = ""
+    # The primary network adapter's address as the installed macOS reports it (`ifconfig en0 | grep ether`). When set,
+    # the build writes it as the ROM, which is what a real Mac does and what OpenCore's iServices guide advises. Off
+    # by default: changing the ROM of an existing build changes the Mac Apple's services see.
+    rom_mac: str = ""
 
 
 @dataclass
@@ -655,6 +661,62 @@ def _identity_to_keep(out_dir, machine_key, policy, h):
     return _prior_identity(out_dir, machine_key)
 
 
+def _identity_rom_pass(out_dir, prior, h):
+    """ROM rules on the config just written. A user-supplied adapter address becomes the ROM. A fresh identity whose
+    random ROM has the multicast bit set (half of them: the upstream builder draws six random bytes) gets the bit
+    cleared, since a multicast value is not a valid network address. A kept identity is never touched."""
+    import plistlib  # noqa: PLC0415
+    path = os.path.join(out_dir, "EFI", "OC", "config.plist")
+    with open(path, "rb") as f:
+        cfg = plistlib.load(f)
+    generic = cfg["PlatformInfo"]["Generic"]
+    rom = identity_ready.rom_bytes(generic.get("ROM"))
+    want = None
+    if h.policy.rom_mac:
+        want = identity_ready.rom_from_mac(h.policy.rom_mac)
+        if want is None:
+            h.notices.append("SMBIOS: the adapter address given for the ROM is not a valid unicast address; the generated ROM is kept.")
+        else:
+            h.notices.append("SMBIOS: the ROM is this PC's own network address, as a real Mac's is.")
+    elif rom is not None and len(rom) == 6 and not identity_ready.is_unicast(rom) and not (prior and prior.get("ROM") == rom):
+        want = identity_ready.unicast_rom(rom)
+    if want is None or want == rom:
+        return
+    generic["ROM"] = want
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        plistlib.dump(cfg, f)
+    os.replace(tmp, path)
+
+
+def _has_pci_ethernet(hw):
+    """True/False from the scan, None when the scan or the engine's Ethernet table is not available."""
+    try:
+        ids = policy_mod._ethernet_ids()
+    except Exception:  # noqa: BLE001 - a readiness note must never stop a build
+        return None
+    net = (hw or {}).get("Network")
+    if not isinstance(net, dict):
+        return None
+    return any(isinstance(d, dict) and d.get("Device ID") in ids and str(d.get("Bus Type", "PCI")).startswith("PCI")
+               for d in net.values())
+
+
+def _identity_and_continuity_notices(out_dir, hw, kexts, model, h):
+    """What Apple's services and Continuity features will do on this build, said before the user installs."""
+    import plistlib  # noqa: PLC0415
+    try:
+        with open(os.path.join(out_dir, "EFI", "OC", "config.plist"), "rb") as f:
+            cfg = plistlib.load(f)
+        for text in identity_ready.format_findings(identity_ready.check(cfg, _has_pci_ethernet(hw))):
+            h.notices.append("Apple ID: " + text)
+    except (OSError, ValueError, KeyError, TypeError, plistlib.InvalidFileException) as error:
+        h.notices.append(f"Apple ID readiness could not be checked ({type(error).__name__}).")
+    line = continuity.notice(kexts, model)
+    if line:
+        h.notices.append(line)
+
+
 def _keep_identity(out_dir, prior, machine_key, h):
     """Puts the previous build's identity into the new config when the Mac model is unchanged, and records the PC."""
     import plistlib  # noqa: PLC0415
@@ -955,8 +1017,10 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 netsupport.write_marker(out_dir, net_status)
                 netsupport.add_missing_bt_ids(out_dir, cust, h.notices)   # MediaTek BT IDs the kext does not list (#336)
                 _keep_identity(out_dir, prior_identity, machine_key, h)
+                _identity_rom_pass(out_dir, prior_identity, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
+                _identity_and_continuity_notices(out_dir, hw, res.kexts, smbios, h)
                 community.apply_efi_drivers(os.path.join(out_dir, "EFI", "OC", "config.plist"), cust, mv, h.notices,
                                             lambda url: downloads.make_request(o.o.fetcher, url).read(),
                                             experimental=policy.experimental_drivers)
