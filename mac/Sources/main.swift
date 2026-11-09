@@ -501,7 +501,13 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "updateApp": updateApp()
         case "run":
             guard let mode = AppActions.directRunMode(b["mode"]) else { return }
-            run(mode: mode, pkg: b["pkg"] as? String ?? "", efi: b["efi"] as? String ?? "auto", extra: [])
+            // a package the page names is used only when it is one the app lists and it hashes to the pinned SHA-256
+            let named = b["pkg"] as? String ?? ""
+            if !named.isEmpty, mode != "remove" {
+                guard let pkg = rootPackage(named) else {
+                    send("run", ["state": "end", "mode": mode, "ok": false, "why": "That is not the checked driver package this app lists, so it was not used."]); return }
+                run(mode: mode, pkg: pkg.path, efi: b["efi"] as? String ?? "auto", extra: [], expectedSha: pkg.sha)
+            } else { run(mode: mode, pkg: "", efi: b["efi"] as? String ?? "auto", extra: []) }
         case "restart": NSAppleScript(source: "tell application \"System Events\" to restart")?.executeAndReturnError(nil)
         case "privacy": NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Security")!)
         case "logs": try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true); NSWorkspace.shared.open(logs)
@@ -548,9 +554,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
             guard ["off", "copy", "import"].contains(level) else { break }
             if level == "off" { run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", "off"]); break }
-            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+            guard let pkg = rootPackage(b["pkg"]) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "Hybrid laptop mode needs the checked driver package: download it first."]); break }
-            run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pk, "--sha", sha])
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pkg.path, "--sha", pkg.sha])
         // Ryzen laptops: the power-limit profile (setup --ryzen-power on|off); the checked driver package rides along so setup can
         // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
         // GPU boost (setup --gpu-boost on|off|remove): on takes the daemon from the checked package; status is read here, no password
@@ -559,9 +565,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             if op == "status" { send("boostStatus", ["text": GPUBoost.describe(installed: GPUBoost.installed(), setting: GPUBoost.setting())]); break }
             guard ["on", "off", "remove"].contains(op) else { break }
             if op != "on" { run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", op]); break }
-            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+            guard let pkg = rootPackage(b["pkg"]) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "GPU boost needs the checked driver package: download it first."]); break }
-            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", "on", "--pkg", pk, "--sha", sha])
+            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", "on", "--pkg", pkg.path, "--sha", pkg.sha])
         case "ryzenpower":
             let efi = b["efi"] as? String ?? "auto"
             if b["status"] as? Bool ?? false { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "status"]); break }
@@ -571,9 +577,9 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             let lim = RyzenPower.limits(stapm: n("stapm"), slow: n("slow"), fast: n("fast"), temp: n("temp"))
             guard let limits = lim.limits else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": lim.why ?? "The limits were not accepted."]); break }
-            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+            guard let pkg = rootPackage(b["pkg"]) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The Ryzen power profile needs the checked driver package: download it first."]); break }
-            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--ryzen-limits", limits, "--pkg", pk, "--sha", sha])
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--ryzen-limits", limits, "--pkg", pkg.path, "--sha", pkg.sha])
         case "settings": if !SettingsPanel.show() { send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The settings list is missing from this copy of the app."]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
@@ -589,8 +595,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         case "osupdate":
             if b["cancel"] as? Bool ?? false {
                 run(mode: "tahoecancel", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--update", "cancel"])
-            } else if let pk = b["pkg"] as? String, !pk.isEmpty {
-                run(mode: "tahoe", pkg: pk, efi: b["efi"] as? String ?? "auto", extra: ["--update", "prepare"])
+            } else if let pkg = rootPackage(b["pkg"]) {
+                run(mode: "tahoe", pkg: pkg.path, efi: b["efi"] as? String ?? "auto", extra: ["--update", "prepare"], expectedSha: pkg.sha)
+            } else if let p = b["pkg"] as? String, !p.isEmpty {
+                send("run", ["state": "end", "mode": "tahoe", "ok": false, "why": "That is not the checked driver package this app lists, so it was not used."])
             }
         // ARM apps (opt-in): translating Apple silicon apps for this Mac (ArmApps.swift)
         case "arm": armAction(b)
@@ -1005,6 +1013,12 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             guard u32(s, "vendor-id").map({ $0 & 0xffff }) == 0x8086, let cls = u32(s, "class-code") else { return false }
             return cls >> 8 == 0x0104 || cls >> 8 == 0x0108 && (u32(s, "device-id").map { [0x467F, 0x9A0B, 0xA77F, 0x7D0B, 0xB60B, 0x09AB].contains($0 & 0xffff) } ?? false)
         }
+    }
+    /// The package for a root action, from what the page NAMED: only one of the packages this app itself lists, only if it
+    /// hashes to the SHA-256 compiled into the app (PackagePin). The page never supplies the hash setup compares against.
+    func rootPackage(_ requested: Any?) -> (path: String, sha: String)? {
+        guard let r = requested as? String else { return nil }
+        return PackagePin.resolve(requested: r, candidates: App.findPackages().compactMap { $0["path"] }, pinnedSha: Package.sha256, hash: { sha256(URL(fileURLWithPath: $0)) })
     }
     func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {
         let panel = NSOpenPanel()
