@@ -146,3 +146,11 @@ element('efi').appendChild = (o) => { optsSeen.push(o); };
 element('cfgpick').onclick();
 assert.equal(sent.at(-1).act, 'pickconfig');
 console.log('Config file picker passed.');
+
+// Intel VMD / RAID: the Mac app explains the external-drive route and the Windows-only steps; nothing to press.
+element('vmdpane').hidden = true;
+const v = machine(26); v.vmdOrRaid = true; event('scan', v);
+assert.equal(element('vmdpane').hidden, false);
+event('scan', machine(26));
+assert.equal(element('vmdpane').hidden, true);
+console.log('VMD / RAID explanation passed.');

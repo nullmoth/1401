@@ -461,6 +461,7 @@ NM.on = (m) => {
     const o = document.createElement("option"); o.value = "config:" + m.data.path; o.textContent = "config file: " + m.data.path;
     $("efi").appendChild(o); $("efi").value = o.value; return;
   }
+  if (m.event === "scan" && $("vmdpane")) $("vmdpane").hidden = !m.data.vmdOrRaid;
   if (m.event === "tccStatus") { $("tccr").innerHTML = m.data.text ? `<span class="${m.data.ok ? "good" : "warn"}">${esc(m.data.text)}</span>` : ""; return; }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
   if (m.event === "logsDone") {

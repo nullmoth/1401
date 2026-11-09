@@ -38,7 +38,7 @@ class WindowsOptions(unittest.TestCase):
     def test_the_usb_map_goes_to_the_build_and_changing_it_invalidates_the_build(self):
         self.assertIn('" --utbmap " + Engine.Q(utbMapDir)', SRC)
         self.assertEqual(len(re.findall(r"utbMapDir = ", SRC)) >= 2, True)
-        self.assertIn("Show(facts, log, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick)", SRC)
+        self.assertIn("var onPage = new List<Control> { facts, log, osPick, expDrivers, persistNvram, externalTarget, newIdentity, utbPick };", SRC)
 
     def test_known_machine_and_usb_map_notices_reach_the_summary(self):
         self.assertIn('"" + rule == "known-machine"', SRC)
