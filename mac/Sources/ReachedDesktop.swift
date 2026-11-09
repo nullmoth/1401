@@ -94,6 +94,7 @@ enum ReachedDesktop {
         s += "display PCI: \(gpus.isEmpty ? "(none reported)" : gpus.joined(separator: "; "))\n"
         s += "Metal device: \(metal.map { "yes (\($0.name))" } ?? "no")\n"
         s += "NVIDIA driver loaded (com.nullmoth): \(loaded ? "yes" : "no")\n"
+        s += metalPluginLine(ioreg: sh("/usr/sbin/ioreg", ["-r", "-c", "NVAccel", "-d", "1", "-l", "-w0"])) + "\n"
         s += "1401 Mac \(app)\n"
         s += "OpenCore: \(oc)\n"
         s += "display modes: \(displayModes())\n"
@@ -273,6 +274,16 @@ enum ReachedDesktop {
         }
         let h = heads.trimmingCharacters(in: .whitespacesAndNewlines), g = starts.trimmingCharacters(in: .whitespacesAndNewlines)
         return "macOS 27 display: autogo \(autogo), heads \(h.isEmpty ? "unknown" : h), nv-starts \(g.isEmpty ? "(unset)" : g)"
+    }
+
+    /// Whether the NVIDIA accelerator offers its Metal plugin at report time. On a laptop whose panel is on the other GPU
+    /// the accelerator withholds MetalPluginName until its headless check puts it back; with the name there and still no
+    /// Metal device, macOS refused the plugin itself. ~220 hybrid laptops reported "Metal device: no" with the driver
+    /// loaded and nothing that split those two cases (W2.3).
+    static func metalPluginLine(ioreg: String) -> String {
+        guard ioreg.contains("<class NVAccel,") else { return "NVIDIA Metal plugin offered: no accelerator" }
+        let named = ioreg.split(separator: "\n").contains { $0.contains("\"MetalPluginName\" = ") }
+        return "NVIDIA Metal plugin offered: " + (named ? "yes (MetalPluginName set)" : "no (MetalPluginName withheld)")
     }
 
     static func bootGuardLine() -> String {
