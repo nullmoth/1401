@@ -117,6 +117,25 @@ WRITE_HELP = {  # what the user can do, per Windows error from the raw write
 }
 
 
+def failure_line(err, off, length, disk_size, sector=None, offline=None, via_volume=None):
+    """One line that says where a raw write failed (Windows error, byte offset as a share of the disk, size, and what the
+    caller knows), for the stop message and the write log. SD cards in USB readers (SDXC, 1401 #18, error 5) differ from
+    sticks in exactly these facts: a reader that reports 512-byte sectors on a card with 4096-byte allocation units, a
+    write protect switch, or a write at the very end of the disk. 'sector' and 'offline' are None when not known."""
+    where = "start" if off == 0 else "end" if disk_size and off + length >= disk_size - (2 << 20) else "middle"
+    pct = f"{100.0 * off / disk_size:.2f}%" if disk_size else "?"
+    aligned = (off % sector == 0 and length % sector == 0) if sector else None
+    return (f"raw write failed: Windows error {err}, {length} bytes at offset {off} ({where} of the disk, {pct}), disk {disk_size} bytes, "
+            f"sector {sector if sector else 'unknown'}, aligned {aligned if aligned is not None else 'unknown'}, "
+            f"offline {offline if offline is not None else 'unknown'}, through volume {via_volume if via_volume is not None else 'unknown'}")
+
+
+def _sector_size(k, h):
+    """Bytes per sector from IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, or None."""
+    ok, out, _ = _ioctl(k, h, 0x000700A0, b"", 64)   # IOCTL_DISK_GET_DRIVE_GEOMETRY_EX: DISK_GEOMETRY.BytesPerSector at byte 20
+    return struct.unpack_from("<I", out, 20)[0] if ok and len(out) >= 24 else None
+
+
 def _write_at(k, h, off, data):
     """Writes data at byte offset off. 0 = written, else the Windows error (the seek is checked: a failed seek used to
     send the write to the wrong place)."""
@@ -175,7 +194,9 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
                     d = offline
                     err = _write_at(k, d, off, zero)
             if err:
-                raise DiskError(f"could not write to the stick (Windows error {err}). " + WRITE_HELP.get(err, WRITE_HELP[0]))
+                line = failure_line(err, off, len(zero), size, _sector_size(k, d), offline is not None, len(held))
+                say(line)
+                raise DiskError(f"could not write to the stick (Windows error {err}). " + WRITE_HELP.get(err, WRITE_HELP[0]) + " [" + line + "]")
         sig = struct.unpack("<I", os.urandom(4))[0] or 1
         ok, _, err = _ioctl(k, d, IOCTL_DISK_CREATE_DISK, struct.pack("<II16x", 0, sig))
         if not ok:

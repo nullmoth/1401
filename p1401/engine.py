@@ -229,6 +229,8 @@ class BuildResult:
     # measured CPU topology + NVIDIA compute facts (p1401/hwcapture.py); collected on success and failure alike
     capture: dict = field(default_factory=dict)
     acpi_diagnostics: list = field(default_factory=list)
+    # facts a boot-stop report needs that the logs lack (p1401/stop_fingerprint.py)
+    stop_fingerprint: dict = field(default_factory=dict)
     acpi_fingerprints: list = field(default_factory=list)
     policy_changes: list = field(default_factory=list)
     validation: dict = field(default_factory=dict)
@@ -971,6 +973,11 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 if policy.utbmap:
                     from . import utbmap  # noqa: PLC0415
                     res.policy_changes += utbmap.apply(out_dir, policy.utbmap)
+                try:
+                    from . import bootfix, stop_fingerprint  # noqa: PLC0415
+                    res.stop_fingerprint = stop_fingerprint.record(os.path.abspath(acpi_dir), bootfix.read_logs(policy.boot_logs), res.hardware)
+                except Exception as e:  # noqa: BLE001 - a diagnostic never stops a build
+                    res.stop_fingerprint = {"error": type(e).__name__}
                 res.policy_changes += policy_mod.legal_comments(os.path.join(out_dir, "EFI", "OC", "config.plist"))
                 # A fresh build left an OpenCore.efi that was not the verified release's (NM-YZZJY5WJ): the boot files
                 # are written back from the verified zip before the check, and a file that STILL differs is being
