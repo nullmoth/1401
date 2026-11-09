@@ -29,6 +29,7 @@ from . import amd_gpu
 from . import amd_rdna4
 from . import intel_gpu
 from . import community
+from . import community_gpu
 from . import downloads
 from . import netsupport
 from . import nullmoth
@@ -786,6 +787,8 @@ def _nullmoth_gpu_pass(checker, h):
         # Per-Intel-Xe-GPU notice: no Apple driver from Tiger Lake on, so the user sees before building that it runs on
         # basic display and, for the IDs WhateverXe covers, that the Mac app offers it as an opt-in test afterwards.
         h.notices.extend(intel_gpu.notes(checker.hardware_report, nvidia=bool(hit)))
+        # Community graphics projects that target a GPU in this scan (named, never installed: community_gpu.py).
+        h.notices.extend(community_gpu.notes(checker.hardware_report))
         if not hit:
             basic = nullmoth.basic_display(checker.hardware_report) if exited else None
             if not basic:
