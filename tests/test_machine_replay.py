@@ -223,6 +223,22 @@ class FixesFromTheReplay(unittest.TestCase):
         self.assertEqual(rep["Motherboard"]["Chipset"], "H110")
         self.assertEqual([b["Device ID"] for b in rep["Bluetooth"].values()], ["8087-0A2A"])
 
+    def test_a_cpus_own_graphics_is_integrated_with_the_cpu_codename_even_when_it_is_the_boot_display(self):
+        import json
+        import tempfile
+        from p1401 import probe_report
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "acpi", "tables"))
+        open(os.path.join(d, "acpi", "tables", "DSDT.aml"), "wb").write(b"DSDT" + b"\0" * 60)
+        json.dump({"dmi": {"board_name": "B760M", "chassis_type": "3"}, "firmware": {},
+                   "cpu": {"vendor": "GenuineIntel", "brand": "13th Gen Intel(R) Core(TM) i7-13700KF", "family": 6, "model": 183,
+                           "stepping": 1, "cores": 16, "packages": 1, "features": {}},
+                   "pci": [{"class": "0x030000", "vendor": "0x8086", "device": "0xa780", "boot_vga": "1", "device_name": "Raptor Lake-S UHD"}],
+                   "usb": {"devices": []}, "audio": []}, open(os.path.join(d, "report.json"), "w"))
+        rep = json.load(open(probe_report.convert(d, tempfile.mkdtemp())[0]))
+        gpu = next(iter(rep["GPU"].values()))
+        self.assertEqual((gpu["Device Type"], gpu["Codename"]), ("Integrated GPU", "Raptor Lake-S"))
+
     def test_a_scan_with_no_network_section_is_planned_not_rejected(self):
         c = copy.deepcopy(census.BASELINE)
         del c["Network"]
