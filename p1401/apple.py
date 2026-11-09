@@ -395,7 +395,11 @@ def _gave_up(e, resumes, stalled, got, total, seconds, trail):
             f"and Apple, or Apple's own download server: 1401 cannot tell which from here, so try the "
             f"cheaper fix first. Turn off web/HTTP scanning in your antivirus and press Next again; if it "
             f"stops here again, try a phone hotspot or a VPN; if it still stops, Apple is likely busy - "
-            f"wait an hour and press Next again. The USB stick was erased and is not a working installer "
+            f"wait an hour and press Next again. If no network here gets through, download the recovery "
+            f"image on any other computer (macrecovery from OpenCorePkg makes BaseSystem.dmg and "
+            f"BaseSystem.chunklist), copy that folder to this PC and choose \"Use a macOS recovery image I "
+            f"downloaded\": 1401 checks every part of it against Apple's signed chunklist, so it needs no "
+            f"download here. The USB stick was erased and is not a working installer "
             f"yet, so leave it plugged in and press Next rather than reusing it elsewhere. Nothing else on "
             f"this PC was changed. Last connections: {'; '.join(trail)}")
 

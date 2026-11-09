@@ -21,6 +21,7 @@ import io
 import os
 import tempfile
 import unittest
+from pathlib import Path
 import urllib.error
 from unittest.mock import patch
 
@@ -314,6 +315,16 @@ class GaveUpAfterResumes(unittest.TestCase):
         # the stick IS erased by the time the image is being fetched: say so rather than implying it is fine
         self.assertIn("was erased and is not a working installer", m)
         self.assertIn("Nothing else on this PC was changed", m)
+
+    def test_it_names_the_route_that_needs_no_download_here(self):
+        # 105 uploads stopped here; the Windows app has a button for an image fetched elsewhere, and the stop must name it
+        # exactly as the button reads (windows/App/MainForm.cs) and come after the network routes
+        m = self.message()
+        self.assertIn('"Use a macOS recovery image I downloaded"', m)
+        self.assertIn("BaseSystem.dmg and BaseSystem.chunklist", m)
+        self.assertLess(m.index("wait an hour"), m.index("recovery image I downloaded"))
+        form = (Path(__file__).resolve().parents[1] / "windows/App/MainForm.cs").read_text(encoding="utf-8")
+        self.assertIn('"Use a macOS recovery image I downloaded (', form)
 
     def test_NEGATIVE_CONTROL_the_thresholds_were_not_quietly_loosened(self):
         # All 100 give-ups stopped at 20, but all 100 are FAILURES and so cannot show how often 20 would
