@@ -4,28 +4,29 @@
 # A Ryzen laptop under macOS runs at the firmware's default limits, which are tuned for Windows' power plans and run hot
 # and loud on a battery. This installs a small LaunchDaemon that calls RyzenAdj (https://github.com/FlyGoat/RyzenAdj, LGPL)
 # with limits you choose. RyzenAdj is not shipped here: give your own build with --ryzenadj and its SHA-256 with --sha256
-# (or list the hash in ryzenadj.sha256 beside this script). The job runs as root every 30 s, so the build is never run
+# (it must be listed in ryzenadj.sha256 beside this script; no other build is installed). The job runs as root every 30 s, so the build is never run
 # from where you put it: it must be a regular file reached through no symlink, its SHA-256 must match, and a verified copy
 # is installed as /Library/PrivilegedHelperTools/ryzenadj (root:wheel, 755) in directories only root can write. The job
 # runs that copy and nothing else.
 #
-#   nullmoth-ryzen-power.sh install --ryzenadj PATH --sha256 HEX [--stapm W] [--slow W] [--fast W] [--temp C]
+#   nullmoth-ryzen-power.sh install --ryzenadj PATH [--sha256 HEX] [--stapm W] [--slow W] [--fast W] [--temp C]
 #   nullmoth-ryzen-power.sh remove
 #   nullmoth-ryzen-power.sh status
 #
 # Watts are whole numbers from 5 to 65 (sustained limit <= slow limit <= fast limit); the temperature limit is 50-100 C.
 # The defaults are a quiet battery profile: 13 W sustained, 14 W slow, 15 W fast, 70 C.
-# NM_ROOT=<dir> puts every file under <dir> instead of / and skips the root and CPU checks; NM_TRUST_UID=<uid> then names
-# the owner that counts as root. Both are for the tests.
+# Test mode: NM_ROOT=<dir> (every file under <dir>, no root or CPU check) and NM_TRUST_UID=<uid> (the owner that counts as
+# root) are honoured ONLY when the file .nullmoth-test-harness exists beside this script. The package never ships that file,
+# so in a shipped copy both variables are ignored: a root-run install cannot be redirected or relaxed by its environment.
 set -u
 LABEL=com.nullmoth.ryzen-power
-ROOT=${NM_ROOT:-}
+HERE=$(cd "$(dirname "$0")" && pwd -P)
+ROOT=; ROOT_UID=0
+if [ -f "$HERE/.nullmoth-test-harness" ]; then ROOT=${NM_ROOT:-}; ROOT_UID=${NM_TRUST_UID:-0}; fi
 PLIST=$ROOT/Library/LaunchDaemons/$LABEL.plist
 STAPM=13 SLOW=14 FAST=15 TEMP=70 RYZENADJ= SHA=
-HERE=$(cd "$(dirname "$0")" && pwd -P)
 DEST_DIR=$ROOT/Library/PrivilegedHelperTools
 DEST=$DEST_DIR/ryzenadj
-ROOT_UID=${NM_TRUST_UID:-0}
 
 die() { echo "nullmoth-ryzen-power: $*" >&2; exit 1; }
 num() { case "$2" in ''|*[!0-9]*) die "$1 needs a whole number, got '$2'";; esac; }
@@ -66,13 +67,13 @@ case $cmd in
     [ "$STAPM" -le "$SLOW" ] && [ "$SLOW" -le "$FAST" ] || die "limits must satisfy stapm <= slow <= fast ($STAPM, $SLOW, $FAST)"
     case $RYZENADJ in /*) ;; *) die "--ryzenadj needs an absolute path";; esac
     plain_file "$RYZENADJ" || die "$RYZENADJ must be a regular file reached through no symlink"
-    case $SHA in [0-9a-fA-F]*) [ ${#SHA} -eq 64 ] || die "--sha256 needs 64 hex digits";; *) die "--sha256 needs the SHA-256 of the RyzenAdj build";; esac
-    case $SHA in *[!0-9a-fA-F]*) die "--sha256 needs 64 hex digits";; esac
-    SHA=$(printf %s "$SHA" | tr 'A-F' 'a-f')
-    if ! grep -qi "^$SHA\$" "$HERE/ryzenadj.sha256" 2>/dev/null; then
-      echo "note: $SHA is not on the pinned list; installing the build you vouched for" >&2
-    fi
-    [ "$(sha_of "$RYZENADJ")" = "$SHA" ] || die "$RYZENADJ does not match the SHA-256 given; nothing installed"
+    # only a build whose SHA-256 is listed in ryzenadj.sha256 (one hash per line, '#' comments) is installed
+    PINNED=$(grep -E '^[0-9a-fA-F]{64}([[:space:]]|$)' "$HERE/ryzenadj.sha256" 2>/dev/null | cut -c1-64 | tr 'A-F' 'a-f')
+    [ -n "$PINNED" ] || die "no RyzenAdj build is pinned for this release (ryzenadj.sha256 lists none); nothing installed"
+    ACTUAL=$(sha_of "$RYZENADJ")
+    if [ -n "$SHA" ] && [ "$(printf %s "$SHA" | tr 'A-F' 'a-f')" != "$ACTUAL" ]; then die "$RYZENADJ does not match the --sha256 given; nothing installed"; fi
+    printf '%s\n' "$PINNED" | grep -qx "$ACTUAL" || die "$RYZENADJ ($ACTUAL) is not a pinned build; nothing installed"
+    SHA=$ACTUAL
     mkdir -p "$DEST_DIR" || die "cannot create $DEST_DIR"
     trusted_chain "$DEST_DIR" || die "$DEST_DIR or a parent directory is not owned by root or is writable by others; nothing installed"
     [ ! -L "$DEST" ] || die "$DEST is a symlink; nothing installed"
