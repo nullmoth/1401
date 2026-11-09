@@ -216,6 +216,12 @@
    "license": "GPL-2.0",
    "class": "copyleft"
   },
+  "laobamac/SimpleBCM": {
+   "license": "none",
+   "class": "none",
+   "refused": true,
+   "evidence": "NOTICE.md: 'Copyright 2026 laobamac. All rights reserved.' with no licence grant, and the package embeds Apple's IO80211FamilyLegacy and AirPort drivers; checked 11-08 for OpCore Simplify 32fdc876. policy.EXCLUDED_KEXTS removes it from every build"
+  },
   "laobamac/SimpleHDA": {
    "license": "none",
    "class": "none",

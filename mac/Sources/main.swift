@@ -113,6 +113,11 @@ func pciDisplays() -> [[String: Any]] {
                                                subsystemDevice: u32(s, "subsystem-id"),
                                                path: located ? String(cString: path) : "")
         identity["model"] = str(s, "model") ?? ""
+        // the facts the NVIDIA kext publishes on the card (BAR window, Resizable BAR, Above 4G, link power); absent when it is not running
+        var facts: [String: Any] = [:]
+        for k in ["nvrm-bar1-mb", "nvrm-bar1-firmware-mb", "nvrm-rebar-max-mb"] { if let v = u32(s, k) { facts[k] = Int(v) } }
+        for k in ["nvrm-rebar", "nvrm-above-4g", "nvrm-aspm"] { if let v = str(s, k) { facts[k] = v } }
+        if !facts.isEmpty { identity["nvrm"] = facts }
         return identity
     }
 }
@@ -530,6 +535,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             send("early", ["on": UpdateChannel.isOn])
         // Intel Xe graphics through WhateverXe (setup --xe): setup downloads WhateverXe and its author's parts itself
         case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
+        // hybrid laptops: the Intel panel driver (NMIntelFB) and the nmhybrid boot argument (setup --hybrid off|copy|import).
+        // The checked driver package rides along so setup can take the kext from it (it verifies the SHA-256 again).
+        case "autologinoff": run(mode: "verbose", pkg: "", efi: "auto", extra: ["--autologin-off"])
+        case "hybrid":
+            let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
+            guard ["off", "copy", "import"].contains(level) else { break }
+            if level == "off" { run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", "off"]); break }
+            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "Hybrid laptop mode needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pk, "--sha", sha])
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
@@ -604,7 +619,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "autologinByApp": FileManager.default.fileExists(atPath: "/private/var/db/.nullmoth-autologin"), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
@@ -815,6 +830,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let v = plist?["CFBundleShortVersionString"] as? String ?? ""
         return v.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil ? v : ""
     }
+    /// The macOS major the driver was last set up for (written by setup), or nil when there is no record.
+    static func recordedDriverOsMajor() -> Int? {
+        guard let s = try? String(contentsOfFile: "/Library/NullMoth/os-major", encoding: .utf8) else { return nil }
+        return Int(s.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
     func installedDriverVersion() -> String { App.recordedDriverVersion() }
     func checkUpdate() {
         // early updates first ask the site's channels file which pre-release (if any) is offered; everyone else, and
@@ -898,8 +918,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 }
                 let have = self.installedDriverVersion()
                 let appNewer = appz.map { appSha.count == 64 && App.newer($0.0, than: self.appVersion) } ?? false
+                // outside macOS 15 and 26 a driver release is never offered (the app's own update still is)
+                let driverOK = OSGate.driverInstallAllowed(major: OSGate.currentMajor)
                 self.send("upd", ["state": "checked", "latest": pkg.0, "installed": have,
-                                  "newer": have.isEmpty || App.newer(pkg.0, than: have),
+                                  "newer": driverOK && (have.isEmpty || App.newer(pkg.0, than: have)),
                                   "app": appz?.0 ?? "", "appHave": self.appVersion, "appNewer": appNewer,
                                   "channel": early ? "early" : "stable", "prerelease": prerelease])
             }
@@ -916,6 +938,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         task.resume()
     }
     func updateDriver(efi: String) {
+        guard OSGate.driverInstallAllowed(major: OSGate.currentMajor) else {
+            send("upd", ["state": "error", "why": OSGate.refusal(major: OSGate.currentMajor)]); return }
         guard let l = latest else { send("upd", ["state": "error", "why": "check for an update first"]); return }
         // Refused before the choice is offered: Cancel must never drop a download that is already running, and a chosen
         // file must not start a second install while one runs (run() would return without a word).
@@ -978,6 +1002,8 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         send("dl", ["state": "error", "why": "Driver update cancelled. Nothing was changed."])
     }
     func download() {
+        guard OSGate.driverInstallAllowed(major: OSGate.currentMajor) else {
+            send("dl", ["state": "error", "why": OSGate.refusal(major: OSGate.currentMajor)]); return }
         startDownload(name: Package.name, sha: Package.sha256, url: Package.url, efi: nil)
     }
     /// The AMD/Intel driver package on disk, matching its pin: the copy already downloaded, else a fresh download.
@@ -1218,7 +1244,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 NSApp.activate(ignoringOtherApps: true)
             }
             // off the main thread: the app stays responsive while the logs are collected (Privileged.swift)
-            let run = Privileged.run(cmd, timeout: 15 * 60)
+            // the password prompt is over once root has started the collector: say so, or the page keeps saying "Waiting
+            // for your Mac password" through the whole collection and it looks stuck
+            let run = Privileged.run(cmd, timeout: 15 * 60, started: {
+                DispatchQueue.main.async { self.send("logsStatus", ["text": "Collecting logs. This takes a few minutes; 1401 keeps working."]) }
+            })
             if run.cancelled {
                 DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Not sent: the password prompt was cancelled."]) }
                 return
@@ -1352,6 +1382,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
     func run(mode: String, pkg: String, efi: String, extra: [String], expectedSha: String? = nil) {
         guard ["dry", "install", "remove", "usbmap", "verbose", "tahoe", "tahoecancel"].contains(mode),
               !runningSetup, pendingDownload == nil else { return }
+        // The driver this app carries is for macOS 15 and 26; on 27 it never installs, whatever the page sent (OSGate).
+        if let why = OSGate.refusal(mode: mode, major: OSGate.currentMajor) {
+            send("run", ["state": "end", "mode": mode, "ok": false, "why": why]); return
+        }
         runningSetup = true
         // Ask once, at install time, whether to send a single confirmation when this Mac first reaches its desktop
         // after the install (ReachedDesktop). Nothing today tells us whether an install actually booted through, so a

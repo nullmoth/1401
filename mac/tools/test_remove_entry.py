@@ -6,7 +6,7 @@ import os, plistlib, re, subprocess, sys, tempfile, unittest
 from pathlib import Path
 import os as _os, pathlib as _pl
 # the NVIDIA driver checkout these app/driver contract tests read (NULLMOTH_DRIVER, else the sibling driver/)
-DRV = _pl.Path(_os.environ.get("NULLMOTH_DRIVER") or _pl.Path(__file__).resolve().parents[3] / "driver")
+DRV = _pl.Path(_os.environ.get("NULLMOTH_DRIVER") or next((p for p in (_pl.Path(__file__).resolve().parents[3] / n for n in ("driver-29", "driver")) if p.is_dir()), _pl.Path("/nonexistent")))
 
 ROOT = Path(__file__).resolve().parents[1]
 BOOT = '7C436110-AB2A-4BBB-A880-FE41995C9F82'
