@@ -38,7 +38,7 @@ identity() {
   case "$serial" in
     "") bad "no serial number is reported: iCloud, iMessage and the App Store cannot sign in" ;;
     A0000000009|A000000000000000Z|W00000000001|W00000000000) bad "the serial number $serial is a placeholder shared by every PC that has it" ;;
-    *) if [[ "$serial" =~ ^[A-Z0-9]{11,12}$ ]]; then ok "serial number $serial has an Apple serial's shape"; else bad "the serial number $serial is not the shape of an Apple serial"; fi ;;
+    *) if [[ "$serial" =~ ^[A-Z0-9]{10,12}$ ]]; then ok "serial number $serial has an Apple serial's shape"; else bad "the serial number $serial is not the shape of an Apple serial (10 to 12 letters and digits)"; fi ;;
   esac
   mac=$(ifconfig en0 2>/dev/null | awk '/ether/{print $2; exit}')
   if [ -z "$mac" ]; then
