@@ -106,7 +106,10 @@ class KeepIdentity(unittest.TestCase):
 
     def test_build_reads_the_identity_before_the_wipe_and_restores_it_after_the_engine(self):
         src = inspect.getsource(engine.build)
-        self.assertLess(src.index("_identity_to_keep(out_dir"), src.index("_prepare_out(out_dir)"))
+        prep = inspect.getsource(engine._prepare_for_build)   # the pre-build step the shared selection runs
+        self.assertLess(prep.index("_identity_to_keep(out_dir"), prep.index("_prepare_out(out_dir)"))
+        self.assertIn("_prepare_for_build(out_dir", inspect.getsource(engine.build))
+        self.assertLess(src.index("_select("), src.index("o.build_opencore_efi("))
         self.assertLess(src.index("o.build_opencore_efi("), src.index("_keep_identity(out_dir"))
         self.assertLess(src.index("_keep_identity(out_dir"), src.index("policy_mod.apply("))
 

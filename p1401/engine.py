@@ -23,6 +23,7 @@ import re
 import shutil
 import sys
 import tempfile
+import types
 from dataclasses import dataclass, field
 
 from . import amd_gpu
@@ -36,6 +37,7 @@ from . import identity_ready
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
+from . import unsupported
 from . import report as report_mod
 from . import validate as validate_mod
 
@@ -113,6 +115,10 @@ STOP_LEADS = (
                   "encryption recovery key and follow the exact system vendor's storage migration procedure. Changing "
                   "mode without preparing Windows can prevent it from booting or make RAID/Optane data inaccessible. "
                   "If no safe migration is documented, stop. After migration and a normal Windows boot, run Check this PC again."),
+    ("No compatible storage controller", "macOS cannot use any internal drive in this PC: every storage controller it found is "
+                                         "on the list of drives macOS is known not to work with. Add a drive macOS can use "
+                                         "(a SATA SSD, or an NVMe SSD from another maker) and run Check this PC again. The "
+                                         "drives it rejected are named below."),
     ("without a supported GPU", "macOS has no driver for this PC's graphics, so 1401 cannot build for it. Supported: most AMD "
                                 "Radeon desktop cards up to RX 6000, Intel UHD/Iris integrated graphics up to 10th gen, and "
                                 "NVIDIA GeForce RTX cards through the NullMoth driver."),
@@ -204,6 +210,10 @@ class Policy:
     # the build writes it as the ROM, which is what a real Mac does and what OpenCore's iServices guide advises. Off
     # by default: changing the ROM of an existing build changes the Mac Apple's services see.
     rom_mac: str = ""
+    # Build although every internal drive is behind Intel VMD or on the list of drives macOS cannot use. macOS goes on another
+    # drive (a USB SSD, or a drive macOS can see); the internal ones stay as they are. Off by default: the stick-to-first-boot
+    # path for an external target has not been run on a VMD machine, so it is opt-in until a tester confirms it.
+    external_target: bool = False
 
 
 @dataclass
@@ -342,7 +352,9 @@ class Headless:
             # "The engine had just printed: ...".)
             why = "\n".join(n for n in self.notices[-3:] + [ctx] if n).strip() or "(it printed nothing)"
             raise RuntimeError("OpenCore-Simplify could not read this PC's ACPI tables. It said:\n" + why[-3000:])
-        if self._repeat >= 3:
+        # A bare "Press Enter" is never rejected, and the engine asks it once per notice (an AMD card plus an Intel iGPU with
+        # an Xe root patch asks three in a row); only a question can be asked again because the answer was refused.
+        if self._repeat >= (50 if p.startswith("Press Enter") else 3):
             raise EngineLoop(f"engine re-asked {p!r} {self._repeat}x - our answer was rejected.\n{ctx}")
         for pat, ans in PROMPT_RULES:
             if re.search(pat, p):
@@ -877,6 +889,102 @@ def _nullmoth_gpu_pass(checker, h):
     checker.check_gpu_compatibility = wrapped
 
 
+def _prepare_for_build(out_dir, res, policy, h):
+    machine_key = _machine_key(res.raw_hardware)
+    prior_identity = _identity_to_keep(out_dir, machine_key, policy, h)
+    _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
+    return machine_key, prior_identity
+
+
+def _set_aside_storage(report, h):
+    """external_target: storage controllers macOS cannot use (Intel VMD, drives on its unsupported list) stop counting as
+    places to install, so the engine's "no compatible storage" and VMD stops do not apply. They are named in a note."""
+    from Scripts.datasets import pci_data  # noqa: PLC0415 - importable once the engine is loaded
+    for name, props in (report.get("Storage Controllers") or {}).items():
+        did, sub = props.get("Device ID"), props.get("Subsystem ID", "0" * 8)
+        bad = did in pci_data.IntelVMDIDs or sub in (pci_data.UnsupportedNVMeSSDIDs.get(did) or ())
+        if bad and props.get("Disk Drives"):
+            props["Disk Drives"] = []
+            h.notices.append(f"Storage: {name} ({did}) is " + ("behind Intel VMD" if did in pci_data.IntelVMDIDs else
+                             "a drive macOS cannot use") + ", so macOS cannot be installed on it. Install macOS on a drive that is not "
+                             "behind VMD, such as a USB SSD; the internal drive and Windows are left as they are.")
+
+
+def _select(o, h, policy, res, report, load_capture, prepare):
+    """Everything the builder decides from the hardware report alone: compatibility, macOS version, SMBIOS, kexts, disabled
+    devices, notices. build() runs it before the EFI is written; tools/machine_replay.py runs the same code over every PC
+    the field has sent, so a rule changed here is changed for both. load_capture() returns the scan receipt;
+    prepare() runs the output-folder checks at the point the build did them and returns (machine key, prior identity)."""
+    _nullmoth_gpu_pass(o.c, h)
+    if policy.external_target:
+        _set_aside_storage(report, h)
+    hw, native, oclp_versions, _ = o.c.check_compatibility(report)
+    res.hardware = hw
+    # The suggestion is read after the Wi-Fi pre-pass: a card it disables must not hold the version down.
+    o.c.hardware_report = _wifi_prepass(hw, policy, h, o)
+    mv = o.select_macos_version(native, oclp_versions, o.c.get_suggested_macos_version())
+    cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
+    from . import panel_guard
+    capture = load_capture()
+    keep = panel_guard.intel_panel_keys(disabled, capture)
+    for k in keep:   # the panel's own GPU stays on (no disable-gpu), so the built-in screen has a display in macOS
+        h.notices.append(panel_guard.KEEP_NOTE.format(dev=disabled[k].get("Device ID")))
+        disabled = {kk: vv for kk, vv in disabled.items() if kk != k}
+    panel = None if keep else panel_guard.active_panel_notice(disabled, capture)
+    if panel:
+        h.notices.append(panel)
+    # a device the engine switched off but a catalogued driver covers is switched back on before ACPI patches and kexts follow it
+    cust, disabled, held, held_ids = community.reclaim(cust, disabled, hw, mv, policy.experimental_drivers)
+    h.notices.extend(held)
+    machine_key, prior_identity = prepare()
+    needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
+    smbios = o.s.select_smbios_model(cust, mv)
+    # macOS 26 dropped iMacPro1,1, which the engine picks for a discrete-GPU desktop on macOS 15; that PC then stops
+    # at Apple's "not supported on this platform" (Mac-7BA5B2D9E42DDD94, 1.9 stick log 10-10) the day it takes
+    # macOS 26. MacPro7,1 runs both and is what the engine picks for 26 itself; its options (RestrictEvents) follow.
+    if smbios == "iMacPro1,1":
+        smbios = "MacPro7,1"
+        h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
+    o.ac.select_acpi_patches(cust, disabled)
+    needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
+    _tahoe_audio_keep_choice(o.k.kexts, h.policy.tahoe_audio)
+    netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
+    amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
+    community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
+    net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
+    # whatever is still switched off now has no driver: say so in plain words, with what to use instead
+    h.notices.extend(unsupported.notes(hw, disabled, cust, mv, held_ids, h.notices))
+    # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
+    # also removes them from any config that still names them).
+    from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
+    for k in o.k.kexts:
+        if k.checked and f"{k.name}.kext" in EXCLUDED_KEXTS:
+            k.checked = False
+            h.notices.append(f"{k.name} is not used by 1401 (its licence); "
+                             + ("that GPU runs with basic display until NullMoth's own driver covers it."
+                                if k.name in ("NootedRed", "NootRX") else "macOS runs without it."))
+            # ForgedInvariant was the TSC sync for (ASUS) laptops; on Intel, acidanthera's CpuTscSync (BSD-3)
+            # does that job. AMD CPUs keep the AMD Vanilla patches' own TSC handling.
+            if k.name == "ForgedInvariant" and "AMD" not in str(hw.get("CPU", {}).get("Manufacturer", "")):
+                for t in o.k.kexts:
+                    if t.name == "CpuTscSync":
+                        t.checked = True
+                        h.notices.append("TSC sync: CpuTscSync in place of ForgedInvariant.")
+    _nullmoth_amfipass(o, hw, mv, h)
+    o.s.smbios_specific_options(cust, smbios, mv, o.ac.patches, o.k)
+    res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
+    res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
+    res.kexts = [k.name for k in o.k.kexts if k.checked]
+    # itlwm (not AirportItlwm) does not join Wi-Fi through macOS's own menu: users had working
+    # Bluetooth and no Wi-Fi until someone told them to install HeliPort, itlwm's companion app (10-08).
+    if "itlwm" in res.kexts and "AirportItlwm" not in res.kexts:
+        h.notices.append("Wi-Fi: this Intel card uses itlwm. In macOS, Wi-Fi is joined with the HeliPort app "
+                         "(github.com/OpenIntelWireless/HeliPort/releases), not the menu bar; install it after setup.")
+    res.bios_requirements = o.check_bios_requirements(report, cust)
+    return types.SimpleNamespace(cust=cust, disabled=disabled, smbios=smbios, mv=mv, needs_oclp=needs_oclp,
+                                 net_status=net_status, machine_key=machine_key, prior_identity=prior_identity, hw=hw)
+
+
 def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True):
     """Report.json + ACPI dump -> OpenCore EFI in out_dir. download=False stops after planning (no network)."""
     policy = policy or Policy()
@@ -939,67 +1047,12 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 o.ac.read_acpi_tables(os.path.abspath(acpi_dir))
             if not o.ac.ensure_dsdt():
                 raise RuntimeError(f"no usable DSDT in {acpi_dir} - the ACPI dump is required")
-            _nullmoth_gpu_pass(o.c, h)
-            hw, native, oclp_versions, _ = o.c.check_compatibility(report)
-            res.hardware = hw
-            # The suggestion is read after the Wi-Fi pre-pass: a card it disables must not hold the version down.
-            o.c.hardware_report = _wifi_prepass(hw, policy, h, o)
-            mv = o.select_macos_version(native, oclp_versions, o.c.get_suggested_macos_version())
-            cust, disabled, needs_oclp = o.h.hardware_customization(hw, mv)
-            from . import panel_guard, scan_evidence
-            capture = scan_evidence.load_for_report(report_path, res.raw_hardware, expected_report_sha256=res.report_sha256)
-            keep = panel_guard.intel_panel_keys(disabled, capture)
-            for k in keep:   # the panel's own GPU stays on (no disable-gpu), so the built-in screen has a display in macOS
-                h.notices.append(panel_guard.KEEP_NOTE.format(dev=disabled[k].get("Device ID")))
-                disabled = {kk: vv for kk, vv in disabled.items() if kk != k}
-            panel = None if keep else panel_guard.active_panel_notice(disabled, capture)
-            if panel:
-                h.notices.append(panel)
-            machine_key = _machine_key(res.raw_hardware)
-            prior_identity = _identity_to_keep(out_dir, machine_key, policy, h)
-            _prepare_out(out_dir)  # Preserve prior EFI on an output-safety refusal.
-            needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
-            smbios = o.s.select_smbios_model(cust, mv)
-            # macOS 26 dropped iMacPro1,1, which the engine picks for a discrete-GPU desktop on macOS 15; that PC then stops
-            # at Apple's "not supported on this platform" (Mac-7BA5B2D9E42DDD94, 1.9 stick log 10-10) the day it takes
-            # macOS 26. MacPro7,1 runs both and is what the engine picks for 26 itself; its options (RestrictEvents) follow.
-            if smbios == "iMacPro1,1":
-                smbios = "MacPro7,1"
-                h.notices.append("SMBIOS: MacPro7,1 - it runs macOS 15 and macOS 26 (iMacPro1,1 does not run macOS 26).")
-            o.ac.select_acpi_patches(cust, disabled)
-            needs_oclp = o.k.select_required_kexts(cust, mv, needs_oclp, o.ac.patches)
-            _tahoe_audio_keep_choice(o.k.kexts, h.policy.tahoe_audio)
-            netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
-            amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
-            community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
-            net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
-            # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
-            # also removes them from any config that still names them).
-            from .policy import EXCLUDED_KEXTS  # noqa: PLC0415
-            for k in o.k.kexts:
-                if k.checked and f"{k.name}.kext" in EXCLUDED_KEXTS:
-                    k.checked = False
-                    h.notices.append(f"{k.name} is not used by 1401 (its licence); "
-                                     + ("that GPU runs with basic display until NullMoth's own driver covers it."
-                                        if k.name in ("NootedRed", "NootRX") else "macOS runs without it."))
-                    # ForgedInvariant was the TSC sync for (ASUS) laptops; on Intel, acidanthera's CpuTscSync (BSD-3)
-                    # does that job. AMD CPUs keep the AMD Vanilla patches' own TSC handling.
-                    if k.name == "ForgedInvariant" and "AMD" not in str(hw.get("CPU", {}).get("Manufacturer", "")):
-                        for t in o.k.kexts:
-                            if t.name == "CpuTscSync":
-                                t.checked = True
-                                h.notices.append("TSC sync: CpuTscSync in place of ForgedInvariant.")
-            _nullmoth_amfipass(o, hw, mv, h)
-            o.s.smbios_specific_options(cust, smbios, mv, o.ac.patches, o.k)
-            res.macos_version, res.smbios, res.needs_oclp = mv, smbios, bool(needs_oclp)
-            res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
-            res.kexts = [k.name for k in o.k.kexts if k.checked]
-            # itlwm (not AirportItlwm) does not join Wi-Fi through macOS's own menu: users had working
-            # Bluetooth and no Wi-Fi until someone told them to install HeliPort, itlwm's companion app (10-08).
-            if "itlwm" in res.kexts and "AirportItlwm" not in res.kexts:
-                h.notices.append("Wi-Fi: this Intel card uses itlwm. In macOS, Wi-Fi is joined with the HeliPort app "
-                                 "(github.com/OpenIntelWireless/HeliPort/releases), not the menu bar; install it after setup.")
-            res.bios_requirements = o.check_bios_requirements(report, cust)
+            from . import scan_evidence
+            sel = _select(o, h, policy, res, report,
+                          lambda: scan_evidence.load_for_report(report_path, res.raw_hardware, expected_report_sha256=res.report_sha256),
+                          lambda: _prepare_for_build(out_dir, res, policy, h))
+            cust, disabled, smbios, mv, needs_oclp = sel.cust, sel.disabled, sel.smbios, sel.mv, sel.needs_oclp
+            net_status, machine_key, prior_identity, hw = sel.net_status, sel.machine_key, sel.prior_identity, sel.hw
             if download:
                 if not o.o.gather_bootloader_kexts(o.k.kexts, mv):
                     raise RuntimeError('Dependency gathering stopped before the EFI was ready. '
