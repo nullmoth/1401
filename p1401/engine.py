@@ -1056,6 +1056,12 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not os.path.isdir(acpi_dir) or not os.listdir(acpi_dir):
                 raise RuntimeError("Check this PC did not save the ACPI tables. Run Check this PC again (as administrator).")
             res.acpi_fingerprints = report_mod.acpi_fingerprints(acpi_dir)
+            # next to the scan: the DSDT and SSDTs for Send logs, so a failed build can be replayed with its real firmware tables
+            try:
+                from . import acpi_bundle  # noqa: PLC0415
+                acpi_bundle.build(acpi_dir, os.path.join(os.path.dirname(os.path.abspath(report_path)), "acpi-bundle.zip"))
+            except Exception as e:  # noqa: BLE001 - a diagnostic never stops a build
+                h.notices.append(f"The ACPI bundle for Send logs could not be made: {type(e).__name__}")
             rpath, norm_notes = report_mod.normalized_copy(os.path.abspath(report_path), scratch, raw_hardware=res.raw_hardware)
             h.notices += norm_notes
             o = mod.OCPE()
