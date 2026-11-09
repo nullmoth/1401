@@ -27,6 +27,8 @@ CONTROL = {
 # name -> why it has no control in the app. Each is off unless set; none is needed for a machine to work.
 TESTER_ONLY = {
     "nmkblforce": "forces nmkbl on a keyboard the kext does not recognise; a diagnostic for testers",
+    "nmhybrid20": "lets the hybrid panel driver replay a wake on display versions 20 and 30 (Lunar Lake, Panther Lake); written from Linux's xe display code, not run on any hardware, so a tester switch",
+    "nmhybridtc": "logs Type-C cable events in the hybrid panel driver (display versions 12 and 13); diagnostic output for testers",
     "nmhybriddelay": "wait of 0 to 120 seconds before the hybrid panel driver takes the panel; a refinement of the hybrid pane's mode that testers set by hand when a machine froze without it",
     "nmhybriddmc": "loads Intel's display firmware in the hybrid panel driver through a root helper and pinned downloads; testers only until measured on hardware",
     "nmhybridresume": "sleep and wake handling of the hybrid panel driver; a tester switch beside the hybrid pane's mode",

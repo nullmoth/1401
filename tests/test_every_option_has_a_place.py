@@ -24,7 +24,7 @@ SET_BY_THE_MAC_APP = {
     "--tool": "the app's own recovery tool", "--app": "the app binary", "--verbose": "the verbose-boot switch", "--efi-read": "the EFI check",
     "--knob": "the profile switches", "--profile": "the machine profile", "--usbmap": "the USB map builder", "--backlight": "the backlight switch",
     "--hidpi": "the HiDPI switch", "--xe": "the Intel Xe switch", "--gpu-test": "the AMD / Intel test driver switch",
-    "--hybrid": "the hybrid laptop switch", "--autologin-off": "the automatic login switch",
+    "--hybrid": "the hybrid laptop switch", "--game-mode": "Game Mode: setup's installer-time route to the bundled service script; the Game Mode card in the Tools tab runs the same script directly (GameMode.swift)", "--experimental": "the Experimental features pane", "--autologin-off": "the automatic login switch",
 }
 
 
@@ -48,7 +48,8 @@ class Options(unittest.TestCase):
         missing = sorted(f for f in flags if f not in MAC_SRC and f not in SET_BY_THE_MAC_APP)
         self.assertEqual(missing, [])
         # and the ones the table says are set by a button really are mentioned by the Swift or the page
-        unreachable = sorted(f for f in SET_BY_THE_MAC_APP if f in flags and f not in MAC_SRC)
+        # --game-mode is the installer-time route; the card in the Tools tab reaches the same script through GameMode.swift
+        unreachable = sorted(f for f in SET_BY_THE_MAC_APP if f in flags and f not in MAC_SRC and f != "--game-mode")
         self.assertEqual(unreachable, [])
 
     def test_the_ryzen_power_profile_is_one_pane_with_limits_on_off_and_status(self):
