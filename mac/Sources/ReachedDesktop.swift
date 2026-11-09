@@ -100,6 +100,7 @@ enum ReachedDesktop {
         for line in installedComponents() { s += line + "\n" }
         for line in loadedKextLines() { s += line + "\n" }
         s += "boot guard: " + bootGuardLine() + "\n"
+        s += nvrmStateLine() + "\n"
         if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 { s += macos27DisplayLine() + "\n" }
         for line in featureLines() { s += line + "\n" }
         s += audioHardwareLine() + "\n"
@@ -273,6 +274,40 @@ enum ReachedDesktop {
         }
         let h = heads.trimmingCharacters(in: .whitespacesAndNewlines), g = starts.trimmingCharacters(in: .whitespacesAndNewlines)
         return "macOS 27 display: autogo \(autogo), heads \(h.isEmpty ? "unknown" : h), nv-starts \(g.isEmpty ? "(unset)" : g)"
+    }
+
+    /// Every macOS: how far NVRM's start got when the note was written. 170 first-login notes on 2.3-2.7 showed the card as
+    /// "10DE:xxxx" with no name; the name is what NVRM publishes as "model" once it has matched and started, and a
+    /// healthy RTX 2060 names itself while the failing ones did not, so the note alone could not say whether NVRM never
+    /// claimed the card, was still holding the boot for its settle, or had started and published nothing. These four
+    /// registry facts decide it: the card claimed ("nvrm-claimed" on the PCI device), NVRM's auto-go and boot hold
+    /// states, and whether a model string was published.
+    static func nvrmStateLine() -> String {
+        return nvrmStateLine(nvrm: sh("/usr/sbin/ioreg", ["-r", "-c", "NVRM", "-lw0"]),
+                             pci: sh("/usr/sbin/ioreg", ["-r", "-c", "IOPCIDevice", "-lw0"]))
+    }
+    static func nvrmStateLine(nvrm: String, pci: String) -> String {
+        func value(_ text: String, _ key: String) -> String? {
+            for line in text.split(separator: "\n") where line.contains("\"\(key)\" = ") {
+                var v = line.components(separatedBy: "\"\(key)\" = ")[1].trimmingCharacters(in: .whitespaces)
+                if v.hasPrefix("\""), let end = v.dropFirst().firstIndex(of: "\"") { v = String(v[v.index(after: v.startIndex)..<end]) }
+                return v
+            }
+            return nil
+        }
+        // Only NVIDIA display-class devices: "nvrm-claimed" and "model" are read from the entries that carry vendor 0x10de.
+        var claimed = 0, named = 0, cards = 0
+        for entry in pci.components(separatedBy: "+-o ").dropFirst() where entry.contains("\"vendor-id\" = <de100000>")
+            && (entry.contains("\"class-code\" = <00000300>") || entry.contains("\"class-code\" = <00800300>") || entry.contains("\"class-code\" = <00020300>")) {
+            cards += 1
+            if value(entry, "nvrm-claimed") == "Yes" { claimed += 1 }
+            if value(entry, "model") != nil { named += 1 }
+        }
+        let present = nvrm.contains("<class NVRM,")
+        let autogo = present ? (value(nvrm, "nvrm-autogo") ?? "not reported") : "-"
+        let hold = present ? (value(nvrm, "nvrm-boot-hold") ?? "not reported") : "-"
+        return "NVRM state: \(present ? "started" : "not in the registry"), NVIDIA cards \(cards), claimed \(claimed), "
+            + "model published \(named), autogo \(autogo), boot hold \(hold)"
     }
 
     static func bootGuardLine() -> String {

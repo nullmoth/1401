@@ -33,6 +33,10 @@ arm("the installed app dispatches the reached-desktop report",
     'argv.contains("--reached-desktop")' in main and "ReachedDesktop.report()" in main)
 
 reportf = src.split("static func report()", 1)[1].split("static func advance(", 1)[0]
+summf = src.split("static func summary()", 1)[1].split("static func featureLines()", 1)[0]
+arm("every summary carries the NVRM state line, on every macOS (not only 27)",
+    "s += nvrmStateLine() + \"\\n\"" in summf
+    and summf.index("s += nvrmStateLine()") < summf.index("if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27"))
 arm("the report does nothing without consent or once already sent",
     '(s["consent"] as? Bool) == true' in reportf and '(s["sent"] as? Bool) != true' in reportf)
 arm("the summary waits until the driver's 60 s headless check is due (uptime 150 s), so a muxless laptop is not "
@@ -245,6 +249,55 @@ print("n_none=" + ReachedDesktop.audioDriverLines(ioreg: "", log: "").replacingO
 print("n_park=" + ReachedDesktop.audioDriverLines(ioreg: nReg, log: nLog).replacingOccurrences(of: "\n", with: "|"))
 print("e_uploads=\(uploads.count)")
 print("e_upload_files=" + (uploads.last ?? []).joined(separator: "|"))
+// NVRM state line: a started NVRM that named its card, one claimed but still holding the boot with no name, a card NVRM
+// never claimed, and an Intel GPU beside it that must not be counted.
+let pciNamed = """
++-o GFX0@0  <class IOPCIDevice, id 0x1, registered>
+    {
+      "vendor-id" = <de100000>
+      "class-code" = <00000300>
+      "nvrm-claimed" = Yes
+      "model" = <"NVIDIA GeForce RTX 2060">
+    }
++-o IGPU@2  <class IOPCIDevice, id 0x2, registered>
+    {
+      "vendor-id" = <86800000>
+      "class-code" = <00000300>
+      "model" = <"Intel UHD Graphics 630">
+    }
+"""
+let pciUnnamed = """
++-o GFX0@0  <class IOPCIDevice, id 0x1, registered>
+    {
+      "vendor-id" = <de100000>
+      "class-code" = <00000300>
+      "nvrm-claimed" = Yes
+    }
+"""
+let pciUnclaimed = """
++-o GFX0@0  <class IOPCIDevice, id 0x1, registered>
+    {
+      "vendor-id" = <de100000>
+      "class-code" = <00020300>
+    }
+"""
+let nvrmUp = """
++-o NVRM  <class NVRM, id 0x3, registered, matched, active, busy 0>
+    {
+      "nvrm-autogo" = "up"
+      "nvrm-boot-hold" = "RELEASED (display armed)"
+    }
+"""
+let nvrmHolding = """
++-o NVRM  <class NVRM, id 0x3, registered, matched, active, busy 1>
+    {
+      "nvrm-autogo" = "scheduled"
+      "nvrm-boot-hold" = "holding"
+    }
+"""
+print("s_up=" + ReachedDesktop.nvrmStateLine(nvrm: nvrmUp, pci: pciNamed))
+print("s_hold=" + ReachedDesktop.nvrmStateLine(nvrm: nvrmHolding, pci: pciUnnamed))
+print("s_none=" + ReachedDesktop.nvrmStateLine(nvrm: "", pci: pciUnclaimed))
 '''
 
 try:
@@ -258,6 +311,15 @@ try:
                              env={"HOME": str(d), "PATH": "/usr/bin:/bin"})
         vals = dict(line.split("=", 1) for line in out.stdout.splitlines() if "=" in line)
         arm("(a) no consent: no login item is written", vals.get("a_agent") == "false", out.stdout + out.stderr)
+        arm("NVRM state: a started NVRM that named its card says so, and the Intel GPU beside it is not counted",
+            vals.get("s_up") == "NVRM state: started, NVIDIA cards 1, claimed 1, model published 1, autogo up, "
+            "boot hold RELEASED (display armed)", vals.get("s_up", ""))
+        arm("NVRM state: a claimed card still in the boot hold shows no model and the hold",
+            vals.get("s_hold") == "NVRM state: started, NVIDIA cards 1, claimed 1, model published 0, autogo scheduled, "
+            "boot hold holding", vals.get("s_hold", ""))
+        arm("NVRM state: a 3D-class card NVRM never claimed reads as not in the registry, claimed 0",
+            vals.get("s_none") == "NVRM state: not in the registry, NVIDIA cards 1, claimed 0, model published 0, autogo -, "
+            "boot hold -", vals.get("s_none", ""))
         arm("(a) no consent: no state is written", vals.get("a_state") == "false")
         arm("(b) consent: the login item is written", vals.get("b_armerr") == "" and vals.get("b_agent") == "true",
             vals.get("b_armerr", ""))
