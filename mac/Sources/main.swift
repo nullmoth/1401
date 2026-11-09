@@ -553,6 +553,15 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pk, "--sha", sha])
         // Ryzen laptops: the power-limit profile (setup --ryzen-power on|off); the checked driver package rides along so setup can
         // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
+        // GPU boost (setup --gpu-boost on|off|remove): on takes the daemon from the checked package; status is read here, no password
+        case "gpuboost":
+            let op = b["op"] as? String ?? "status"
+            if op == "status" { send("boostStatus", ["text": GPUBoost.describe(installed: GPUBoost.installed(), setting: GPUBoost.setting())]); break }
+            guard ["on", "off", "remove"].contains(op) else { break }
+            if op != "on" { run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", op]); break }
+            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "GPU boost needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--gpu-boost", "on", "--pkg", pk, "--sha", sha])
         case "ryzenpower":
             let efi = b["efi"] as? String ?? "auto"
             if b["status"] as? Bool ?? false { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "status"]); break }
