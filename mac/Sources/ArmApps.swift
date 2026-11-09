@@ -266,7 +266,18 @@ enum ArmApps {
     /// {"arm": {"installed", ...}, "intel": {"installed", ...}} from nm-arm brew status, or why there is none.
     static func brewStatus() -> [String: Any] {
         let r = runCLI(["brew", "status"], seconds: 30)
+        return brewStatusResult(json: r.json, why: r.why)
+    }
+
+    static func brewStatusResult(json: Any?, why: String?) -> [String: Any] {
+        let r = (json: json, why: why)
         if let j = r.json as? [String: Any] { return j }
+        // An engine from before Homebrew support answers the unknown command with a usage error (exit 2) and no JSON.
+        // The app and the translator update separately (app 2.7.2 beside engine 2.7.0), so say that instead of the code.
+        if let why = r.why, why.hasSuffix("brew exited 2") || why.contains("brew exited 2:") {
+            return ["why": "The installed ARM translator is older than this app and has no Homebrew setup. Turn ARM apps off and on again to install the matching translator.",
+                    "outdated": true]
+        }
         return ["why": r.why ?? "nm-arm brew status returned nothing"]
     }
 

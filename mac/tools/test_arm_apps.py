@@ -225,6 +225,10 @@ case "cpu":
     print(ArmApps.cpuGate(features: a[2]) ?? "OK")
 case "brewroot":
     print(ArmApps.brewRootCommand(user: a[2], arm: a[3] == "1", intel: a[4] == "1") ?? "NIL")
+case "brewstatus":
+    // a[2]: the JSON nm-arm printed ("" = none); a[3]: runCLI's reason ("" = none)
+    let s = ArmApps.brewStatusResult(json: a[2].isEmpty ? nil : try? JSONSerialization.jsonObject(with: Data(a[2].utf8)), why: a[3].isEmpty ? nil : a[3])
+    print((s["why"] as? String) ?? "OK", s["outdated"] as? Bool ?? false, s["arm"] != nil)
 case "brewargs":
     print((ArmApps.brewSetupArguments(pick: a[2], primary: a[3]) ?? ["NIL"]).joined(separator: " "))
 default: break
@@ -308,6 +312,15 @@ with tempfile.TemporaryDirectory() as d:
     arm("negative control: a list that is neither the object nor an array is refused", run("list", '{"x":1}') == "NIL")
     out = cli(json.dumps({"ok": False, "why": "L7 is not in the manifest"}), "2", "remove", "L7")
     arm("a refused remove shows nm-arm's own reason", out == "could not remove L7: L7 is not in the manifest", out)
+    out = run("brewstatus", "", "nm-arm brew exited 2")
+    arm("an engine without 'brew' (usage error, no JSON) is called older than the app, not shown as an exit code",
+        out.startswith("The installed ARM translator is older than this app") and out.endswith("true false"), out)
+    out = run("brewstatus", json.dumps({"arm": {"installed": False}, "intel": {"installed": False}}), "")
+    arm("a current engine's brew status passes through untouched", out == "OK false true", out)
+    out = run("brewstatus", "", "nm-arm brew exited 1: Traceback")
+    arm("negative control: any other failure keeps its own text and is not called outdated", out == "nm-arm brew exited 1: Traceback false false", out)
+    out = run("brewstatus", "", "")
+    arm("negative control: no answer at all says so", out == "nm-arm brew status returned nothing false false", out)
     out = cli(json.dumps({"ok": True, "removed": ["L6"]}), "0", "remove", "L6")
     arm("a successful remove reports nothing wrong", out == "OK", out)
 
