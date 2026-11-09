@@ -141,7 +141,11 @@ def normalize(report):
         if word:
             bios["Firmware Type"] = word
             notes.append(f"BIOS: firmware type read as {ft!r} (extra text from PowerShell) - taken as {word}")
+    _clean_text(report, notes)
     _field_gaps(report, notes)
+    if isinstance(report.get('GPU'), dict) and not report['GPU']:
+        raise RuntimeError('The scan lists no graphics adapter at all, so there is nothing to plan a display for. Run Check this PC again; '
+                           'if it still lists none, send the log from the failed run.')
     # 10-07: a card Windows has no driver for shows up as "Microsoft Basic Display Adapter" with
     # Manufacturer 'Unknown', and the engine's schema rejects the whole report. The PCI vendor in its Device ID still
     # names the maker, so take it from there; a card with no usable ID is dropped if another GPU remains.
@@ -216,6 +220,29 @@ def cpu_class(name):
             return "Desktop"
         return "Laptop" if s.startswith(("H", "U")) else None
     return None
+
+
+def _clean_text(value, notes, path="", changed=None):
+    """Control and unprintable characters out of every scan string. A processor name read from an engineering sample or a damaged
+    brand string carries NULs and binary after the readable part ('AMD Custom APU 0932' + NUL + junk); a plist refuses such a
+    string, so the build stopped at its last step. The readable part before the first bad character is kept."""
+    top = changed is None
+    changed = [] if top else changed
+    if isinstance(value, dict):
+        for k in list(value):
+            v = value[k]
+            if isinstance(v, str):
+                if not v.isprintable():
+                    cut = next((i for i, ch in enumerate(v) if not ch.isprintable()), len(v))
+                    value[k] = (v[:cut] if cut >= 4 else "".join(ch for ch in v if ch.isprintable())).strip()
+                    changed.append(path + "/" + str(k))
+            else:
+                _clean_text(v, notes, path + "/" + str(k), changed)
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            _clean_text(v, notes, f"{path}[{i}]", changed)
+    if top and changed:
+        notes.append(f"Scan text: unreadable characters were removed from {len(changed)} value(s), e.g. {changed[0]}; the readable part is used.")
 
 
 def _field_gaps(report, notes):
