@@ -148,5 +148,19 @@ class FixesFromTheReplay(unittest.TestCase):
         self.assertEqual(rep["Motherboard"]["Platform"], "Laptop")
 
 
+class ScanKeepsWhatTheResolverReads(unittest.TestCase):
+    def test_input_sound_storage_and_cpu_fields_the_engine_reads_survive_into_the_failed_build_log(self):
+        from p1401.report import diagnostic_hardware
+        d = diagnostic_hardware({"CPU": {"Manufacturer": "Intel", "SIMD Features": "SSE4.2, AVX2"}, "Input": {"x": {
+            "Bus Type": "ACPI", "Device": "ELAN0412", "Device Type": "I2C HID Device"}}, "Sound": {"s": {
+            "Bus Type": "INTELAUDIO", "Controller Device ID": "8086-7A50"}}, "Storage Controllers": {"n": {
+            "Bus Type": "PCI", "Device ID": "144D-A80A", "Disk Drives": ["Samsung SSD 980"]}}})
+        self.assertEqual(d["Input"][0]["Device"], "ELAN0412")
+        self.assertEqual(d["Sound"][0]["Controller Device ID"], "8086-7A50")
+        self.assertEqual(d["Storage Controllers"][0]["Disk Drive Count"], 1)
+        self.assertNotIn("Samsung", str(d["Storage Controllers"]))     # the drive's model stays private
+        self.assertEqual(d["CPU"]["SIMD Features"], "SSE4.2, AVX2")
+
+
 if __name__ == "__main__":
     unittest.main()

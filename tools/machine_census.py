@@ -126,6 +126,40 @@ def cpu_table(machines, replays):
     return t
 
 
+def status(res):
+    if not res["ok"]:
+        return "stops the build"
+    if res["kexts_added"]:
+        return "kext: " + ", ".join(res["kexts_added"])
+    if res["disabled"]:
+        return "no driver (switched off, noted)"
+    return "native or none needed"
+
+
+def markdown(machines, table):
+    total = sum(m["machines"] for m in machines)
+    out = [f"# Field machine census\n\n{len(machines)} distinct PCs ({total} reporting machines) from Check this PC receipts and "
+           "build logs, 2026-10-22 to 2026-11-07. Device IDs only. Each device's resolution is measured by replaying a baseline PC "
+           "with and without it through the real builder (tools/machine_census.py), for macOS 15; macOS 26 differs only where noted.\n"]
+    cpus = collections.Counter()
+    for m in machines:
+        c = m["hardware"]["CPU"]
+        cpus[(c.get("Manufacturer"), c.get("Codename"))] += m["machines"]
+    out.append("## CPU\n\n" + ", ".join(f"{a} {b} {n}" for (a, b), n in cpus.most_common(30)) + ", ...\n")
+    for cls, rows in table.items():
+        by = collections.Counter()
+        for r in rows:
+            by[status(r["resolution"]["24"]).split(":")[0]] += r["machines"]
+        out.append(f"## {cls}\n\n{len(rows)} distinct devices. PCs by outcome: " + ", ".join(f"{k} {v}" for k, v in by.most_common()) + ".\n")
+        gaps = [r for r in rows if not r["resolution"]["24"]["ok"] or (r["resolution"]["24"]["disabled"] and not r["resolution"]["24"]["kexts_added"])]
+        if gaps:
+            out.append("| devices with no driver or that stop the build | PCs | device ID | outcome |\n|---|---|---|---|")
+            for r in gaps[:25]:
+                out.append(f"| {(r['name'] or '')[:60]} | {r['machines']} | {r['key']} | {status(r['resolution']['24'])} |")
+            out.append("")
+    return "\n".join(out) + "\n"
+
+
 def main(argv):
     out = md = None
     it = iter(argv)
@@ -139,6 +173,9 @@ def main(argv):
     if out:
         with open(out, "w") as f:
             json.dump(table, f, indent=1, sort_keys=True, ensure_ascii=False)
+    if md:
+        with open(md, "w") as f:
+            f.write(markdown(machines, table))
     gaps = 0
     for cls, rows in table.items():
         for r in rows:

@@ -27,9 +27,9 @@ KEEP = {  # per section, the properties that matter to a resolver; everything el
     "GPU": ("name", "Manufacturer", "Device ID", "Subsystem ID", "Device Type", "Codename", "PCI Path", "ACPI Path", "Resizable BAR"),
     "Network": ("name", "Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
     "USB Controllers": ("name", "Device ID", "Subsystem ID", "PCI Path", "ACPI Path", "Bus Type"),
-    "Storage Controllers": ("name", "Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
-    "Input": ("name", "Device ID", "Bus Type", "ACPI Path", "PCI Path"),
-    "Sound": ("name", "Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path"),
+    "Storage Controllers": ("name", "Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path", "Disk Drive Count"),
+    "Input": ("name", "Device ID", "Bus Type", "ACPI Path", "PCI Path", "Device", "Device Type"),
+    "Sound": ("name", "Device ID", "Subsystem ID", "Bus Type", "Codec ID", "PCI Path", "ACPI Path", "Controller Device ID"),
     "Bluetooth": ("name", "Device ID", "Bus Type", "PCI Path", "ACPI Path"),
     "SD Controller": ("name", "Device ID", "Subsystem ID", "Bus Type", "PCI Path", "ACPI Path"),
     "Biometric": ("name", "Device ID", "Bus Type"),
@@ -37,7 +37,7 @@ KEEP = {  # per section, the properties that matter to a resolver; everything el
     "Storage Drives": ("Bus Type", "Media Type"),
 }
 CPU_KEYS = ("Manufacturer", "Processor Name", "Codename", "Core Count", "Thread Count", "CPU Count", "CPU Signature", "CPUID",
-            "Family", "Model", "Stepping", "P-Core Count", "E-Core Count")
+            "Family", "Model", "Stepping", "P-Core Count", "E-Core Count", "SIMD Features")
 BOARD_KEYS = ("Name", "Manufacturer", "Chipset", "Platform", "Version")
 
 
