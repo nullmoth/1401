@@ -18,26 +18,19 @@ CONTROL = {
     "nmxamd": "--gpu-test",              # the AMD / Intel test driver switch writes nmxamd / nmxintel
     "nmxintel": "--gpu-test",
     "nmxnpu": "--gpu-test",
+    # the Experimental features pane (setup --experimental); each is off until ticked and needs a restart
+    "nmkbl": "--experimental", "nmkblhid": "--experimental", "nvrmtgp": "--experimental", "nvrmgps": "--experimental",
+    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental",
+    "NVMTL_GAME_GPU_PRIORITY": "--experimental", "NVK_HWRT_QUERY": "--experimental", "NVK_CURVES": "--experimental",
+    "NVMTL_TILE_SHADING": "--experimental", "NVMTL_GPU_ICB": "--experimental",
 }
 # name -> why it has no control in the app. Each is off unless set; none is needed for a machine to work.
 TESTER_ONLY = {
-    "nmkbl": "keyboard backlight kext (NMKbdBacklight), opt-in; set by hand in the OpenCore config by testers until it has an installer path",
-    "nmkblhid": "variant of nmkbl that serves the HID route; set with nmkbl by testers",
     "nmkblforce": "forces nmkbl on a keyboard the kext does not recognise; a diagnostic for testers",
-    "nvrmtgp": "notebook power budget (Dynamic Boost TGP step): the GPU runs at the platform limit on mains power; opt-in, tested offline only, so a tester switch",
-    "nvrmgps": "notebook power budget through the platform's GPS _DSM; part of the nvrmtgp tester set",
-    "nvrmnvpcf": "Dynamic Boost's CPU/GPU split through NVPCF; part of the nvrmtgp tester set",
-    "nvfbigpu": "framebuffer proxy head for a panel on the integrated GPU (BIOS Hybrid), a second route beside the NMIntelFB hybrid pane; tester-only until measured on hardware",
     "nmhybriddelay": "wait of 0 to 120 seconds before the hybrid panel driver takes the panel; a refinement of the hybrid pane's mode that testers set by hand when a machine froze without it",
     "nmhybriddmc": "loads Intel's display firmware in the hybrid panel driver through a root helper and pinned downloads; testers only until measured on hardware",
     "nmhybridresume": "sleep and wake handling of the hybrid panel driver; a tester switch beside the hybrid pane's mode",
-    "nmxvt": "AV1/VP9 decode through Vulkan video on AMD/Intel (also NMXVT=1 in the environment); tester switch of the AMD/Intel test driver",
-    "NVMTL_GAME_GPU_PRIORITY": "per-process environment switch that raises a game's GPU channel group; for testers and the app profile, off otherwise",
-    "NVK_HWRT_QUERY": "per-process environment switch for hardware ray queries (own BVH builder); off by default, tested offline, a tester/developer switch",
     "NVMTL_HWRT": "per-process switch that turns hardware ray tracing on for the Cyberpunk profile only (plugin/nvmtl_app_profile.h); off by default",
-    "NVK_CURVES": "per-process switch for curve primitives in ray queries (software traversal); off by default, a developer switch",
-    "NVMTL_TILE_SHADING": "per-process switch for Metal tile shading; off by default, a developer switch",
-    "NVMTL_GPU_ICB": "per-process switch for GPU-encoded indirect command buffers; off by default, a developer switch",
 }
 FAMILY = re.compile(r"^(nmkbl\w*|nmx\w*|nmhybrid\w*|nvrm(?:tgp|gps|nvpcf)|nvfbigpu|nmsmn)$")
 
@@ -54,6 +47,16 @@ class OptIns(unittest.TestCase):
         for name, marker in CONTROL.items():
             self.assertIn(marker, MAC, f"{name}: the app has no {marker}")
             self.assertTrue(name == "nmsmn" or name in (ROOT / "mac/Resources/nullmoth-setup.sh").read_text() or name.startswith("nmx") or name == "nmhybrid", name)
+        # the pane's items are exactly the ones above, in the page, in Swift and in setup
+        page = (ROOT / "mac/Resources/index.html").read_text()
+        ids = re.findall(r'class="expitem" id="exp-(\w+)"', page)
+        self.assertEqual(sorted(ids), sorted(re.findall(r'"(\w+)"', re.search(r"static let ids: \[String\] = \[([^\]]*)\]", (ROOT / "mac/Sources/Experimental.swift").read_text()).group(1))))
+        setup = (ROOT / "mac/Resources/nullmoth-setup.sh").read_text()
+        for i in ids:
+            self.assertRegex(setup, rf"\b{i}\)")
+        blk = setup[setup.index('if [ -n "${EXPER:-}" ]; then'):setup.index('if [ -n "${GPUBOOST:-}" ]; then')]
+        self.assertNotIn("FETCH_COPY", page + blk)
+        self.assertNotIn("fetchcopy", (page + blk).replace("fetch-copy switch", "").lower())
 
     def test_every_tester_only_switch_names_its_reason(self):
         for name, why in TESTER_ONLY.items():

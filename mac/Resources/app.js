@@ -290,6 +290,7 @@ $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("hybcopy").onclick = () => post({ act: "hybrid", level: "copy", pkg: S.pkg || "", efi: efi() });
 $("hybimport").onclick = () => post({ act: "hybrid", level: "import", pkg: S.pkg || "", efi: efi() });
 $("hyboff").onclick = () => post({ act: "hybrid", level: "off", efi: efi() });
+$("expapply").onclick = () => post({ act: "experimental", items: Array.from(document.querySelectorAll(".expitem")).filter((c) => c.checked).map((c) => c.dataset.id), efi: efi() });
 $("boston").onclick = () => post({ act: "gpuboost", op: "on", pkg: S.pkg || "", efi: efi() });
 $("bostoff").onclick = () => post({ act: "gpuboost", op: "off", efi: efi() });
 $("bostrm").onclick = () => post({ act: "gpuboost", op: "remove", efi: efi() });
@@ -467,6 +468,7 @@ NM.on = (m) => {
     const o = document.createElement("option"); o.value = "config:" + m.data.path; o.textContent = "config file: " + m.data.path;
     $("efi").appendChild(o); $("efi").value = o.value; return;
   }
+  if (m.event === "scan" && Array.isArray(m.data.experimentalOn)) for (const c of document.querySelectorAll(".expitem")) c.checked = m.data.experimentalOn.includes(c.dataset.id);
   if (m.event === "scan" && $("vmdpane")) $("vmdpane").hidden = !m.data.vmdOrRaid;
   if (m.event === "boostStatus") { $("bostr").textContent = m.data.text; return; }
   if (m.event === "tccStatus") { $("tccr").innerHTML = m.data.text ? `<span class="${m.data.ok ? "good" : "warn"}">${esc(m.data.text)}</span>` : ""; return; }
