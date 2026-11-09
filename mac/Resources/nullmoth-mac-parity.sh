@@ -5,6 +5,7 @@
 #   nullmoth-mac-parity.sh power check     the sleep settings in effect and what the profile would change
 #   nullmoth-mac-parity.sh power apply     (root) write the profile, after saving the previous values
 #   nullmoth-mac-parity.sh power restore   (root) put the saved values back
+#   nullmoth-mac-parity.sh gamemode status|on|off   Game Mode's device check: on/off need root; see the notes at gamemode()
 #
 # identity and power check change nothing. power apply is never run by the installer; it is a switch the user turns on.
 # Exit status: 0 nothing to report, 1 something to report, 2 bad usage or not root.
@@ -101,9 +102,33 @@ power_restore() {
   rm -f "$BACKUP"
 }
 
+# Game Mode. macOS's game policy daemon decides at start-up whether this Mac supports four things: Game Mode, model-manager
+# game assertions, dynamic power splitting and sustained execution. On an Intel Mac's build of the daemon the Game Mode
+# answer is a fixed "no" and the other three ask a MobileGestalt device-type list. The daemon also reads one preference,
+# ignoreDeviceRestrictions, and treats every one of the four as supported when it is true. Apple ships that switch; this
+# command only sets it. It CANNOT turn on one check alone, so the three that are Apple-silicon features switch on with Game
+# Mode, and the kernel setting Game Mode relies on (kern.console_mode) does not exist on this kernel: expect the daemon to
+# track game sessions and show Game Mode, not to change scheduling. The daemon's preference domain was read from its
+# code, not tested on a PC; `gamemode status` shows what is stored, and `off` removes the key.
+GM_DOMAIN=${NULLMOTH_GM_DOMAIN:-/Library/Preferences/com.apple.gamepolicyd}
+gamemode() {
+  case "${1:-}" in
+    status)
+      v=$(defaults read "$GM_DOMAIN" ignoreDeviceRestrictions 2>/dev/null)
+      if [ "$v" = 1 ]; then say "on      ignoreDeviceRestrictions is set in $GM_DOMAIN"; else say "off     ignoreDeviceRestrictions is not set in $GM_DOMAIN"; problems=1; fi ;;
+    on|off)
+      [ "$(id -u)" = 0 ] || { say "gamemode $1 needs root"; exit 2; }
+      if [ "$1" = on ]; then defaults write "$GM_DOMAIN" ignoreDeviceRestrictions -bool true; else defaults delete "$GM_DOMAIN" ignoreDeviceRestrictions 2>/dev/null; fi
+      killall gamepolicyd 2>/dev/null   # launchd starts it again and it reads the preference
+      say "gamemode $1: the daemon was restarted" ;;
+    *) say "usage: $0 gamemode status|on|off"; exit 2 ;;
+  esac
+}
+
 case "${1:-}" in
   identity) identity ;;
+  gamemode) gamemode "${2:-}" ;;
   power) case "${2:-}" in check) power_check ;; apply) power_apply ;; restore) power_restore ;; *) say "usage: $0 power check|apply|restore"; exit 2 ;; esac ;;
-  *) say "usage: $0 identity | power check|apply|restore"; exit 2 ;;
+  *) say "usage: $0 identity | power check|apply|restore | gamemode status|on|off"; exit 2 ;;
 esac
 exit "$problems"
