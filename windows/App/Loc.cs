@@ -166,6 +166,14 @@ namespace A1401
               "{0}失败。\r\n\r\n1401 正在把这份日志发送到 nullmothsystems.com，以便定位并修复该问题。" +
               "日志包含本次扫描的硬件清单、有限的设备/CPU 观测结果，以及检测或构建过程的输出。Windows 的能力并不代表 macOS 一定支持。你的 Windows 用户名和计算机名会先被移除。" +
               "本机的其他任何内容都不会被发送。\r\n\r\n点\"确定\"立即发送，或点\"取消\"只保留在本机。" },
+            { "The {0} failed.\r\n\r\n1401 is sending this log to nullmothsystems.com so the bug can be found and fixed. " +
+              "It holds this scan's hardware list, bounded device/CPU observations and what the check or build printed, and this PC's ACPI firmware tables " +
+              "(the DSDT and SSDTs, which describe how the board connects its devices; licence-key and logo tables are left out). Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
+              "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.",
+              "{0}失败。\r\n\r\n1401 正在把这份日志发送到 nullmothsystems.com，以便定位并修复该问题。" +
+              "日志包含本次扫描的硬件清单、有限的设备/CPU 观测结果、检测或构建过程的输出，以及本机的 ACPI 固件表" +
+              "（DSDT 和 SSDT，描述主板如何连接各个设备；许可证密钥表和徽标表不会包含在内）。Windows 的能力并不代表 macOS 一定支持。你的 Windows 用户名和计算机名会先被移除。" +
+              "本机的其他任何内容都不会被发送。\r\n\r\n点\"确定\"立即发送，或点\"取消\"只保留在本机。" },
             { "1401 - sending the log", "1401 - 正在发送日志" },
             { "The log was not sent. It stays in ", "日志未发送，仍保留在 " },
             { ".", "。" },
