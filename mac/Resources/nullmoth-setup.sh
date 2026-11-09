@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -543,6 +543,10 @@ if [ -n "$COLLECT" ]; then
       [ ! -f "$f" ] || shasum -a 256 "$f"
     done
     echo; echo "== processor"; sysctl machdep.cpu.vendor machdep.cpu.brand_string machdep.cpu.family machdep.cpu.model machdep.cpu.stepping 2>&1
+    echo; echo "== BAR window, Resizable BAR, Above 4G and link power (published on the card by the driver)"
+    ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | grep -E '"nvrm-(bar1-mb|bar1-firmware-mb|rebar|rebar-max-mb|above-4g|aspm)"' || echo "(not published: the driver is not running, or it is older than 2.9)"
+    echo; echo "== hybrid laptop mode"; cat "$ST/hybrid" 2>/dev/null || echo "(off)"; nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -E '^nmhybrid=' || true
+    kmutil showloaded --list-only 2>/dev/null | grep -i NMIntelFB || echo "(NMIntelFB not loaded)"
     echo; echo "== NVRM"; ioreg -r -n NVRM -d 1 -l 2>/dev/null | grep -E '"nvrm-'
     echo; echo "== system profile and per-system rules"; cat "$ST/system-profile.json" 2>/dev/null || echo "(none recorded)"
     sed -n '/^# --- 1401 per-system rules ---$/,/^# --- end 1401 per-system rules ---$/p' /Library/GPUBundles/nvmtl/nvrm610.conf 2>/dev/null
@@ -879,7 +883,7 @@ if [ $REMOVE = 1 ]; then
       done
       args=$(get NVRAM.Add.$B.boot-args); new=""
       for a in $args; do
-        case "$a" in nvfb=*|nvaccel=*|nvfbheads=*|-nvkmsnosmooth|-nvoff) continue;; esac
+        case "$a" in nvfb=*|nvaccel=*|nvfbheads=*|-nvkmsnosmooth|-nvoff|nmhybrid=*) continue;; esac
         # AMFI settings may belong to another driver or an earlier system setup.
         # Remove shared settings only when the install record owns the token.
         case " $ADDED_ARGS " in *" $a "*) ;; *) new="$new $a";; esac
@@ -920,6 +924,7 @@ if [ $REMOVE = 1 ]; then
     [ "$UN" != "$ST/uninstall.sh" ] && cp "$UN" "$ST/uninstall.sh" 2>/dev/null
     "$UN" "${DRIVER_BACKUP:-}" 2>&1 | sed 's/^/NOTE /'
     rc=${PIPESTATUS[0]}; [ "$rc" = 0 ] || stop "the driver uninstaller failed (exit $rc)"
+    rm -rf "$ST/hybrid" "$ST/kexts/NMIntelFB.kext"   # hybrid laptop mode goes with the driver (its kext and boot argument are removed above)
     ok "driver files removed and the kernel collection rebuilt"
     # With the driver gone the Mac falls back to the Intel iGPU or the firmware framebuffer, but WindowServer still has
     # the resolution, refresh rate and arrangement it saved while the NVIDIA card drove the screen; re-applying a mode
@@ -965,7 +970,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 # This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
 # app refuses too, and the kexts refuse to start on any other Darwin).
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
@@ -1007,7 +1012,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -1395,6 +1400,67 @@ CSR_NEW=$want"; echo "CHANGE csr-active-config $(printf '0x%04X' $cur) -> $(prin
     rm -f "$XS"; ok "WhateverXe taken out of OpenCore (backup: $BKO)"
   fi
   ok "Intel Xe graphics off - restart to finish"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${HYBRID:-}" ]; then
+  # Hybrid laptops (the built-in panel is wired to the Intel GPU): NMIntelFB is the panel's framebuffer, optional, and it
+  # declines to start unless the boot argument nmhybrid is 1 (copy changed pixels into the panel) or 2 (scan out in
+  # place). On: the kext goes into /Library/Extensions, the auxiliary kernel collection is rebuilt and checked to contain
+  # it, and nmhybrid is written to the config and NVRAM. Off undoes each step; the kext is out of the collection when the
+  # switch is off, so nothing here runs on a Mac that never turned it on.
+  case "$HYBRID" in copy) HV=1;; import) HV=2;; off) HV=0;; *) stop "--hybrid takes copy, import or off";; esac
+  EXT=/Library/Extensions; HK=$EXT/NMIntelFB.kext; HREC=$ST/hybrid
+  KMAJ=$(sw_vers -productVersion); KMAJ=${KMAJ%%.*}
+  [ -f "$STATE" ] || [ "$HV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn hybrid laptop mode on"
+  BKC="$C.nullmoth-hybrid-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  ha() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  hauxkc() {
+    K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
+    kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
+      -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
+      -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/hybrid-kmutil.log" 2>&1; }
+  if [ "$HV" != 0 ]; then
+    HSRC=/Library/NullMoth/kexts/NMIntelFB.kext
+    # the package the app checked rides along; its copy is taken from a root-owned folder and its SHA256SUMS verified
+    if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
+      step "Taking the Intel panel driver from the driver package"
+      PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+      cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+      PK=$PKGDIR/$(basename "$PKG")
+      [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+      tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+      PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+      [ -d "$PR/Library/NullMoth/kexts/NMIntelFB.kext" ] || stop "this driver package does not carry the Intel panel driver (NMIntelFB); update the driver first"
+      mkdir -p /Library/NullMoth/kexts && rm -rf "$HSRC" && ditto "$PR/Library/NullMoth/kexts/NMIntelFB.kext" "$HSRC" || stop "could not copy the Intel panel driver"
+    fi
+    [ -d "$HSRC" ] || stop "the Intel panel driver (NMIntelFB) is not on this Mac: update the NVIDIA driver to a package that carries it"
+    [ "$(plutil -extract CFBundleIdentifier raw -o - "$HSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.NMIntelFB ] || stop "$HSRC is not the NullMoth Intel panel driver"
+    [ -f "$HSRC/Contents/MacOS/NMIntelFB" ] || stop "the Intel panel driver has no executable"
+    step "Installing the Intel panel driver"
+    rm -rf "$HK" && ditto "$HSRC" "$HK" && chown -R root:wheel "$HK" && chmod -R go-w "$HK" || stop "could not install NMIntelFB"
+    hauxkc
+    kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.NMIntelFB \
+      || { rm -rf "$HK"; hauxkc; cp -p "$BKC" "$C"; stop "the kernel collection did not take NMIntelFB (log: $ST/hybrid-kmutil.log) - it is removed again"; }
+    ok "NMIntelFB is in the kernel collection"
+    ha del nmhybrid=1; ha del nmhybrid=2; ha add nmhybrid=$HV
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    printf 'LEVEL=%s\n' "$HV" > "$HREC.tmp" && mv "$HREC.tmp" "$HREC"
+    ok "hybrid laptop mode $HYBRID (nmhybrid=$HV) - restart to start it; if the screen is dark, pick the \"Start once without NVIDIA driver\" entry or turn this off"
+  else
+    step "Turning hybrid laptop mode off"
+    ha del nmhybrid=1; ha del nmhybrid=2
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    if [ -d "$HK" ]; then rm -rf "$HK"; hauxkc || note "the kernel collection rebuild reported an error (log: $ST/hybrid-kmutil.log)"; fi
+    rm -f "$HREC"
+    ok "hybrid laptop mode off - restart to finish"
+  fi
+  cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${GPUTEST:-}" ]; then

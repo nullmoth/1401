@@ -113,6 +113,11 @@ func pciDisplays() -> [[String: Any]] {
                                                subsystemDevice: u32(s, "subsystem-id"),
                                                path: located ? String(cString: path) : "")
         identity["model"] = str(s, "model") ?? ""
+        // the facts the NVIDIA kext publishes on the card (BAR window, Resizable BAR, Above 4G, link power); absent when it is not running
+        var facts: [String: Any] = [:]
+        for k in ["nvrm-bar1-mb", "nvrm-bar1-firmware-mb", "nvrm-rebar-max-mb"] { if let v = u32(s, k) { facts[k] = Int(v) } }
+        for k in ["nvrm-rebar", "nvrm-above-4g", "nvrm-aspm"] { if let v = str(s, k) { facts[k] = v } }
+        if !facts.isEmpty { identity["nvrm"] = facts }
         return identity
     }
 }
@@ -530,6 +535,15 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             send("early", ["on": UpdateChannel.isOn])
         // Intel Xe graphics through WhateverXe (setup --xe): setup downloads WhateverXe and its author's parts itself
         case "xe": run(mode: "verbose", pkg: "", efi: b["efi"] as? String ?? "auto", extra: ["--xe", (b["on"] as? Bool ?? false) ? "on" : "off"])
+        // hybrid laptops: the Intel panel driver (NMIntelFB) and the nmhybrid boot argument (setup --hybrid off|copy|import).
+        // The checked driver package rides along so setup can take the kext from it (it verifies the SHA-256 again).
+        case "hybrid":
+            let level = b["level"] as? String ?? "off", efi = b["efi"] as? String ?? "auto"
+            guard ["off", "copy", "import"].contains(level) else { break }
+            if level == "off" { run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", "off"]); break }
+            guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "Hybrid laptop mode needs the checked driver package: download it first."]); break }
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--hybrid", level, "--pkg", pk, "--sha", sha])
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
             let extra = ["--gpu-test", on ? "on" : "off", "--tool", Bundle.main.resourceURL!.appendingPathComponent("NullMothSafe.efi").path]
