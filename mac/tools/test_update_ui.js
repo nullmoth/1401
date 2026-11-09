@@ -97,3 +97,17 @@ event('scan', fresh());
 assert.equal(element('go').disabled, false);
 assert.equal(element('go').textContent, 'Install the driver');
 console.log('Install button names the step that comes first, and reads plainly once it is ready.');
+
+// A macOS update that skipped "Prepare this Mac for Tahoe" leaves the driver parked (1401 #484): the page says the macOS
+// changed, instead of "installed but not running, restart".
+const updated = machine(26); updated.files = true; updated.kexts = 0; updated.metal = []; updated.driverOsMajor = 15;
+event('scan', updated);
+assert(element('verdict').innerHTML.includes('updated from 15 to 26'), element('verdict').innerHTML);
+assert(!element('verdict').innerHTML.includes('installed but not running'));
+const same = machine(26); same.files = true; same.kexts = 0; same.metal = []; same.driverOsMajor = 26;
+event('scan', same);
+assert(element('verdict').innerHTML.includes('installed but not running'));
+const unknown = machine(26); unknown.files = true; unknown.kexts = 0; unknown.metal = [];
+event('scan', unknown);
+assert(element('verdict').innerHTML.includes('installed but not running'));
+console.log('A macOS update after the driver was set up is named; a Mac with no record or the same macOS keeps the old advice.');

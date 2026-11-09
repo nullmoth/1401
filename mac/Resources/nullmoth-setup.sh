@@ -2123,6 +2123,10 @@ fi
 # the version the app compares with the newest release ("Update driver"); world-readable, the app runs as the user
 DV=$(basename "$PKG" | sed -n 's/^nullmoth-nvidia-\([0-9][0-9.]*\)\.tar\.gz$/\1/p')
 [ -n "$DV" ] && { echo "$DV" > "$ST/driver-version.tmp" && chmod 644 "$ST/driver-version.tmp" && mv "$ST/driver-version.tmp" "$ST/driver-version"; }
+# the macOS this install was set up for: after a macOS update that skipped "Prepare for Tahoe" the driver is parked by
+# the new system, and the app compares this with the running macOS to say so (os-major is also written by update finish)
+OSM=$(sw_vers -productVersion 2>/dev/null); OSM=${OSM%%.*}
+case "$OSM" in ''|*[!0-9]*) ;; *) echo "$OSM" > "$ST/os-major.tmp" && chmod 644 "$ST/os-major.tmp" && mv "$ST/os-major.tmp" "$ST/os-major";; esac
 ok "install record written to $STATE"
 cp "$0" "$ST/nullmoth-setup.sh" && chmod 755 "$ST/nullmoth-setup.sh"
 cat > "$ST/nullmoth-recover.sh" <<'RS'

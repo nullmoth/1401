@@ -604,7 +604,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         }
         return ["macos": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", "major": os.majorVersion, "minor": os.minorVersion, "arch": arch,
                 "gpus": gpus, "opencore": oc, "kexts": kexts, "files": files, "metal": metal.names, "metalSource": metal.source,
-                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "safemode": safe,
+                "packages": findPackages(), "version": Package.version, "installedDriverVersion": recordedDriverVersion(), "driverOsMajor": recordedDriverOsMajor().map { $0 as Any } ?? NSNull(), "safemode": safe,
                 "record": fm.fileExists(atPath: "/Library/NullMoth/state"), "crashes": driverCrashes().map(\.lastPathComponent),
                 "translated": sysctl("sysctl.proc_translated") == "1", "gpuHiding": hiding, "hiddenNvidia": hiddenNvidia,
                 "hwModel": sysctl("hw.model"), "itlwmNeedsHeliPort": itlwmNeedsHeliPort,
@@ -814,6 +814,11 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         let plist = NSDictionary(contentsOfFile: "/Library/Extensions/NVRM.kext/Contents/Info.plist")
         let v = plist?["CFBundleShortVersionString"] as? String ?? ""
         return v.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil ? v : ""
+    }
+    /// The macOS major the driver was last set up for (written by setup), or nil when there is no record.
+    static func recordedDriverOsMajor() -> Int? {
+        guard let s = try? String(contentsOfFile: "/Library/NullMoth/os-major", encoding: .utf8) else { return nil }
+        return Int(s.trimmingCharacters(in: .whitespacesAndNewlines))
     }
     func installedDriverVersion() -> String { App.recordedDriverVersion() }
     func checkUpdate() {
