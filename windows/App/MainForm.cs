@@ -39,6 +39,8 @@ namespace A1401
         // the full macOS installer on a second partition (p1401/fullinstaller.py), and the user's own USB port map (p1401/utbmap.py)
         readonly CheckBox fullInstaller = new CheckBox();
         readonly Button utbPick = new Button();
+        // build options of the engine that a user may choose (p1401 build --persistent-nvram-amd / --external-target)
+        readonly CheckBox persistNvram = new CheckBox(), externalTarget = new CheckBox();
         string utbMapDir = "";
         readonly Button refresh = new Button();
         readonly WebBrowser guide = new WebBrowser();
@@ -153,6 +155,15 @@ namespace A1401
             fullInstaller.Text = Loc.T("Also put Apple's full macOS installer on the stick (about 18 GB; needs a stick of 32 GB or more). Use it when the installer cannot download macOS inside Recovery: Recovery's memory disk is only about 5 GB.");
             fullInstaller.AutoSize = true; fullInstaller.Checked = false;
             fullInstaller.BackColor = Color.Transparent; fullInstaller.ForeColor = Theme.Text; fullInstaller.Font = Theme.Picker;
+            persistNvram.Text = Loc.T("AMD boards: keep iMessage and the startup-disk choice across restarts (emulated NVRAM). Off by default; not yet proven on a real AMD board.");
+            externalTarget.Text = Loc.T("Install macOS on a drive macOS can see (a USB SSD, or an SSD that is not behind Intel VMD or RAID). Turn this on when the PC's own drives are hidden from macOS and the build stops for that reason.");
+            foreach (var cb in new[] { persistNvram, externalTarget })
+            {
+                cb.AutoSize = true; cb.Checked = false;
+                cb.BackColor = Color.Transparent; cb.ForeColor = Theme.Text; cb.Font = Theme.Picker;
+                // either choice changes the startup files, so a finished build is no longer the right one
+                cb.CheckedChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
+            }
             utbPick.Text = Loc.T("Use my own USB port map (UTBMap.kext)...");
             utbPick.AutoSize = true; utbPick.BackColor = Theme.Panel; utbPick.ForeColor = Theme.Text; utbPick.Font = Theme.Picker; utbPick.FlatStyle = FlatStyle.Flat;
             utbPick.Click += (s, e) =>
@@ -200,7 +211,7 @@ namespace A1401
                 if (busy || firmwareGuideFile == null || !File.Exists(firmwareGuideFile)) return;
                 prerequisiteReturnPage = page; showingPrerequisites = true; Go(3);
             };
-            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, utbPick, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps, fullInstaller });
+            body.Controls.AddRange(new Control[] { title, note, facts, bar, log, disks, refresh, osPick, expDrivers, persistNvram, externalTarget, utbPick, guide, ocLink, logLink, coffeeLink, creditsLink, drvLink, appLink, doctorLink, firmwareLink, armApps, fullInstaller });
 
             Controls.Add(body); Controls.Add(nav); Controls.Add(foot); Controls.Add(head);
             // The stars drift: ten frames a second repaint the glass panels and the see-through text on them, never the
@@ -379,6 +390,14 @@ namespace A1401
                 cursor = expDrivers.Bottom + 12;
             }
 
+            foreach (var opt in new[] { persistNvram, externalTarget })
+                if (opt.Visible)
+                {
+                    opt.AutoSize = false;
+                    opt.SetBounds(left, cursor, width, Math.Max(24, opt.GetPreferredSize(new Size(width, 0)).Height));
+                    cursor = opt.Bottom + 8;
+                }
+
             if (utbPick.Visible)
             {
                 utbPick.SetBounds(left, cursor, Math.Min(width, Math.Max(300, utbPick.PreferredSize.Width)), Math.Max(30, utbPick.PreferredSize.Height));
@@ -494,7 +513,7 @@ namespace A1401
 
         void Show(params Control[] on)
         {
-            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, utbPick, guide, ocLink, logLink, armApps, fullInstaller }) c.Visible = on.Contains(c);
+            foreach (Control c in new Control[] { facts, bar, log, disks, refresh, osPick, expDrivers, persistNvram, externalTarget, utbPick, guide, ocLink, logLink, armApps, fullInstaller }) c.Visible = on.Contains(c);
             drvLink.Visible = logLink.Visible;
             appLink.Visible = logLink.Visible;
             coffeeLink.Visible = logLink.Visible;
@@ -547,7 +566,7 @@ namespace A1401
                     next.Text = Loc.T(scanned ? "Continue >" : "Check this PC"); Show(facts, log); next.Enabled = true; break;
                 case 2:
                     note.Text = Loc.T(built ? summary.Split(new[] { "\r\n" }, StringSplitOptions.None)[0] : "Pick macOS 15 Sequoia or macOS 26 Tahoe below. 1401 builds the startup files (OpenCore EFI) for that version and checks them with OpenCore's own validator. Downloads OpenCore and drivers.");
-                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick, expDrivers, utbPick); next.Enabled = scanned;
+                    next.Text = Loc.T(built ? "Continue >" : "Build"); Show(facts, log, osPick, expDrivers, persistNvram, externalTarget, utbPick); next.Enabled = scanned;
                     if (built) { log.Text = summary; log.SelectionStart = 0; log.ScrollToCaret(); }
                     break;
                 case 3:
@@ -719,7 +738,7 @@ namespace A1401
                 var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
                 try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say(Loc.T("Using the last startup log on the stick to adjust this build."));
-                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + (expDrivers.Checked ? " --experimental-drivers" : "") + (utbMapDir.Length > 0 ? " --utbmap " + Engine.Q(utbMapDir) : "") + bootLogs, l => { lines.Add(l); });
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + (expDrivers.Checked ? " --experimental-drivers" : "") + (utbMapDir.Length > 0 ? " --utbmap " + Engine.Q(utbMapDir) : "") + (persistNvram.Checked ? " --persistent-nvram-amd" : "") + (externalTarget.Checked ? " --external-target" : "") + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
