@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --gpu-boost) GPUBOOST=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -796,6 +796,50 @@ if [ -n "$COLLECT" ]; then
     # set by the driver's boot-guard job when WindowServer kept dying on the NVIDIA display and the driver was turned
     # off for the next boot; the value is the number of WindowServer reports it counted
     nvram 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-ws-loop 2>&1; } >> "$COLLECT/driver-state.txt"
+  # The AIR of functions the driver's translator refused (plugin: failed-air folders). It is the user's own shaders, so it
+  # travels only here, with Send logs, and is bounded: at most 24 files and 4 MB in all, plain names, no links.
+  # failed-air begin
+  FA_FILES=0; FA_BYTES=0
+  # Opens without following a link, checks the OPENED descriptor (a regular file owned by root, the account that reads it
+  # or the console user) and copies at most 512 KiB from it: nothing is trusted from an earlier stat of the path.
+  fa_read() {  # <file> <owner uid>...
+    /usr/bin/perl -e '
+      use Fcntl; my ($f, @ok) = @ARGV;
+      sysopen(my $h, $f, O_RDONLY | O_NOFOLLOW) or exit 1;
+      my @s = stat($h) or exit 1;
+      exit 1 unless -f $h && $s[7] > 0 && $s[7] <= 524288 && grep { $_ == $s[4] } (0, $<, @ok);
+      my ($buf, $n, $left) = ("", 0, 524288);
+      binmode STDOUT;
+      while ($left > 0 && ($n = sysread($h, $buf, $left < 65536 ? $left : 65536))) { print $buf; $left -= $n; }
+      exit 0;' "$@"
+  }
+  collect_failed_air() {  # <destination> <reader or empty> <console uid or empty> <folder>...
+    local dest=$1 reader=$2 cuid=$3 dir f base got
+    shift 3
+    for dir in "$@"; do
+      [ -d "$dir" ] && [ ! -L "$dir" ] || continue
+      for f in "$dir"/*.ll; do
+        [ "$FA_FILES" -lt 24 ] || break 2
+        base=$(basename "$f" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' '_')
+        if [ -n "$reader" ]; then sudo -u "$reader" /bin/bash -c "$(declare -f fa_read); fa_read \"\$@\"" _ "$f" $cuid > "$dest/failed-air-$base" 2>/dev/null
+        else fa_read "$f" $cuid > "$dest/failed-air-$base" 2>/dev/null; fi
+        got=$(stat -f %z "$dest/failed-air-$base" 2>/dev/null || echo 0)
+        if [ "$got" -le 0 ] || [ $((FA_BYTES + got)) -gt 4194304 ]; then rm -f "$dest/failed-air-$base"; continue; fi
+        FA_FILES=$((FA_FILES + 1)); FA_BYTES=$((FA_BYTES + got))
+      done
+    done
+    echo "failed-air: $FA_FILES file(s), $FA_BYTES bytes" >> "$dest/driver-state.txt"
+  }
+  # failed-air end
+  fa_user_cache=""
+  if [ "$(id -u)" = 0 ]; then
+    [ -n "$console_user" ] && [ "$console_user" != root ] && [ "$console_user" != loginwindow ] && fa_user_cache=$(sudo -u "$console_user" getconf DARWIN_USER_CACHE_DIR 2>/dev/null)
+    collect_failed_air "$COLLECT" nobody "" /Library/GPUBundles/nvmtl/failed-air
+    [ -n "$fa_user_cache" ] && collect_failed_air "$COLLECT" "$console_user" "$(id -u "$console_user" 2>/dev/null)" "${fa_user_cache%/}/nvmtl/failed-air"
+  else
+    fa_user_cache=$(getconf DARWIN_USER_CACHE_DIR 2>/dev/null)
+    collect_failed_air "$COLLECT" "" "" /Library/GPUBundles/nvmtl/failed-air "${fa_user_cache%/}/nvmtl/failed-air"
+  fi
   # -h: act on a symbolic link itself, never on what it points at. Without it
   # root followed any link planted in the collection directory and made the
   # target world readable. The directory comes from --collect-logs, so it is
@@ -970,12 +1014,18 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ -z "${GPUBOOST:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 # This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
 # app refuses too, and the kexts refuse to start on any other Darwin).
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
 step "Checking the driver package"
 [ -f "$PKG" ] || stop "package not found: $PKG"
+# NVIDIA's driver package (the source of the GPU firmware) sits beside the driver package when 1401 put it on the stick
+# or the app downloaded it. The driver's install.sh passes it to package/fw_fetch.sh, which copies it and checks its
+# SHA-256 before reading anything from it; without the file the installer downloads it, and with no internet it stops
+# before changing anything.
+FWRUN_SRC="$(dirname "$PKG")/NVIDIA-Linux-x86_64-620.70.06.run"
+if [ -f "$FWRUN_SRC" ] && [ ! -L "$FWRUN_SRC" ]; then export NULLMOTH_FW_RUN="$FWRUN_SRC"; ok "found NVIDIA's driver package beside the driver package (GPU firmware source)"; else unset NULLMOTH_FW_RUN; fi
 # the app's copy is writable by the user: hash and unpack a root-owned copy, so it cannot be swapped after the check
 PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
 if ! cperr=$(cp "$PKG" "$PKGDIR/" 2>&1); then
@@ -1012,7 +1062,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}${GPUBOOST:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -1414,6 +1464,126 @@ if [ "${AUTOLOGINOFF:-0}" = 1 ]; then
   rm -f "$AM"; ok "automatic login is off; the stored password file is gone"; cleanup; echo "RESULT ok"; exit 0
 fi
 
+if [ -n "${GPUBOOST:-}" ]; then
+  # The opt-in GPU boost daemon (nvmtl-boost): one resource-manager client that holds the "boost to maximum" request while
+  # /Library/NullMoth/gpuboost says gpuboost=1. The package's own boost_daemon.sh does the work; it is run as root only after
+  # the package's SHA256SUMS has been verified AND names boost_daemon.sh and the daemon binary (the script writes the job's plist
+  # itself, naming only its own root-owned path), and a verified copy is kept in
+  # $ST (root-owned) for the later off and remove. Status needs no password: the app reads the files itself.
+  BD=$ST/boost_daemon.sh
+  case "$GPUBOOST" in on|off|remove) ;; *) stop "--gpu-boost takes on, off or remove";; esac
+  own_ok() { [ "$(stat -f %u "$1" 2>/dev/null)" = 0 ] && case "$(stat -f %Lp "$1" 2>/dev/null)" in *[2367]?|*[2367]) false;; *) true;; esac; }
+  if [ "$GPUBOOST" = on ]; then
+    [ -f "$STATE" ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn GPU boost on"
+    [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ] || stop "GPU boost needs the checked driver package: download it first"
+    step "Taking the boost daemon from the driver package"
+    PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+    cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+    PK=$PKGDIR/$(basename "$PKG")
+    [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+    tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+    PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+    for f in boost_daemon.sh Library/NullMoth/boost/nvmtl-boost; do
+      grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$PR/SHA256SUMS" || stop "this driver package does not list $f in its SHA256SUMS, so GPU boost is not installed; update the driver first"
+    done
+    mkdir -p "$ST" && cp "$PR/boost_daemon.sh" "$BD.new" && chown root:wheel "$BD.new" && chmod 755 "$BD.new" && mv -f "$BD.new" "$BD" || stop "could not keep the checked boost script"
+    /bin/bash "$BD" install "$PR" || stop "the boost daemon could not be installed (see above)"
+    /bin/bash "$BD" set on || stop "the boost daemon could not be switched on"
+    ok "GPU boost on - the daemon follows within two seconds; turn it off here at any time"
+  else
+    [ -f "$BD" ] || { ok "GPU boost was not turned on from this app - nothing to change"; cleanup; echo "RESULT ok"; exit 0; }
+    own_ok "$BD" && own_ok "$ST" || stop "the kept boost script is not owned by root alone - it is not run"
+    if [ "$GPUBOOST" = off ]; then /bin/bash "$BD" set off || stop "the boost setting could not be changed"; ok "GPU boost off"
+    else /bin/bash "$BD" remove && rm -f "$BD" || stop "the boost daemon could not be removed"; ok "GPU boost removed"; fi
+  fi
+  cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${RYZEN:-}" ]; then
+  # Ryzen laptops: a quieter power-limit profile (RyzenAdj, NullMoth's macOS build), optional and off until asked. It needs
+  # the NMSMN kext (inert unless the boot argument nmsmn is 1) and a root job. On: the kext goes into /Library/Extensions,
+  # the auxiliary kernel collection is rebuilt and checked to contain it, nmsmn=1 is written to the config and NVRAM, and
+  # the job is installed from the RyzenAdj build the package carries (nullmoth-ryzen-power.sh installs only a build whose
+  # SHA-256 is pinned). A failure at any step puts the earlier ones back. Off undoes each step; nothing runs on a Mac that
+  # never turned it on. --ryzen-limits S:L:F:T sets the sustained, slow and fast limits in watts and the temperature limit.
+  EXT=/Library/Extensions; RK=$EXT/NMSMN.kext; RREC=$ST/ryzen-power
+  RPW="$(dirname "$0")/nullmoth-ryzen-power.sh"
+  if [ "$RYZEN" = status ]; then
+    # what is in place now, changing nothing: the record, the kext, the boot argument and the job's own status
+    echo "NOTE record: $(cat "$RREC" 2>/dev/null | tr '\n' ' ' || true)$([ -f "$RREC" ] || echo none)"
+    echo "NOTE NMSMN kext installed: $([ -d "$RK" ] && echo yes || echo no); loaded: $(kmutil showloaded --list-only 2>/dev/null | grep -q com.nullmoth.NMSMN && echo yes || echo no)"
+    echo "NOTE boot argument nmsmn=1 in NVRAM: $(nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -qx 'nmsmn=1' && echo yes || echo no)"
+    bash "$RPW" status 2>&1 | sed 's/^/NOTE job: /'
+    ok "Ryzen power profile status shown"; cleanup; echo "RESULT ok"; exit 0
+  fi
+  case "$RYZEN" in on) RV=1;; off) RV=0;; *) stop "--ryzen-power takes on, off or status";; esac
+  [ -f "$STATE" ] || [ "$RV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn the Ryzen power profile on"
+  BKC="$C.nullmoth-ryzen-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  ra() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  rauxkc() {
+    K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
+    kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
+      -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
+      -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/ryzen-kmutil.log" 2>&1; }
+  rback() { rm -rf "$RK"; rauxkc || true; ra del nmsmn=1; cp -p "$BKC" "$C"; }
+  if [ "$RV" = 1 ]; then
+    case "$(sysctl -n machdep.cpu.brand_string 2>/dev/null)" in *AMD*Ryzen*) ;; *) stop "this Mac does not have a Ryzen processor";; esac
+    RLIM=(); if [ -n "${RYZENLIM:-}" ]; then
+      IFS=: read -r RS RL RF RT <<EOF
+$RYZENLIM
+EOF
+      case "$RS$RL$RF$RT" in ''|*[!0-9]*) stop "--ryzen-limits takes four whole numbers: sustained:slow:fast:temperature";; esac
+      RLIM=(--stapm "$RS" --slow "$RL" --fast "$RF" --temp "$RT")
+    fi
+    PR=""
+    if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
+      step "Taking the Ryzen power parts from the driver package"
+      PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+      cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+      PK=$PKGDIR/$(basename "$PKG")
+      [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+      tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+      PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+    fi
+    RSRC=/Library/NullMoth/kexts/NMSMN.kext; RBIN=/Library/NullMoth/ryzenadj/ryzenadj
+    if [ -n "$PR" ]; then
+      [ -d "$PR/Library/NullMoth/kexts/NMSMN.kext" ] && [ -f "$PR/Library/NullMoth/ryzenadj/ryzenadj" ] || stop "this driver package does not carry the Ryzen power parts; update the driver first"
+      mkdir -p /Library/NullMoth/kexts /Library/NullMoth/ryzenadj && rm -rf "$RSRC" && ditto "$PR/Library/NullMoth/kexts/NMSMN.kext" "$RSRC" \
+        && cp "$PR/Library/NullMoth/ryzenadj/ryzenadj" "$RBIN" || stop "could not copy the Ryzen power parts"
+    fi
+    [ -d "$RSRC" ] && [ -f "$RBIN" ] || stop "the Ryzen power parts are not on this Mac: update the NVIDIA driver to a package that carries them"
+    [ "$(plutil -extract CFBundleIdentifier raw -o - "$RSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.NMSMN ] || stop "$RSRC is not the NullMoth Ryzen power kext"
+    [ -f "$RSRC/Contents/MacOS/NMSMN" ] || stop "the Ryzen power kext has no executable"
+    step "Installing the Ryzen power kext"
+    rm -rf "$RK" && ditto "$RSRC" "$RK" && chown -R root:wheel "$RK" && chmod -R go-w "$RK" || stop "could not install NMSMN"
+    rauxkc
+    kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.NMSMN \
+      || { rback; stop "the kernel collection did not take NMSMN (log: $ST/ryzen-kmutil.log) - it is removed again"; }
+    ok "NMSMN is in the kernel collection"
+    ra del nmsmn=1; ra add nmsmn=1
+    plutil -lint "$C" >/dev/null || { rback; stop "editing the config failed - the original is restored"; }
+    step "Installing the power-limit job"
+    bash "$RPW" install --ryzenadj "$RBIN" "${RLIM[@]}" || { bash "$RPW" remove >/dev/null 2>&1; rback; stop "the power-limit job was refused (see above) - everything is put back"; }
+    printf 'ON=1\n' > "$RREC.tmp" && mv "$RREC.tmp" "$RREC"
+    ok "Ryzen power profile on - restart to start it; turn it off here to undo it"
+  else
+    step "Turning the Ryzen power profile off"
+    bash "$RPW" remove >/dev/null 2>&1 || note "the power-limit job could not be removed (run nullmoth-ryzen-power.sh remove as root)"
+    ra del nmsmn=1
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    if [ -d "$RK" ]; then rm -rf "$RK"; rauxkc || note "the kernel collection rebuild reported an error (log: $ST/ryzen-kmutil.log)"; fi
+    rm -f "$RREC"
+    ok "Ryzen power profile off - restart to finish"
+  fi
+  cleanup; echo "RESULT ok"; exit 0
+fi
+
 if [ -n "${HYBRID:-}" ]; then
   # Hybrid laptops (the built-in panel is wired to the Intel GPU): NMIntelFB is the panel's framebuffer, optional, and it
   # declines to start unless the boot argument nmhybrid is 1 (copy changed pixels into the panel) or 2 (scan out in
@@ -1421,7 +1591,7 @@ if [ -n "${HYBRID:-}" ]; then
   # it, and nmhybrid is written to the config and NVRAM. Off undoes each step; the kext is out of the collection when the
   # switch is off, so nothing here runs on a Mac that never turned it on.
   case "$HYBRID" in copy) HV=1;; import) HV=2;; off) HV=0;; *) stop "--hybrid takes copy, import or off";; esac
-  EXT=/Library/Extensions; HK=$EXT/NMIntelFB.kext; HREC=$ST/hybrid
+  EXT=/Library/Extensions; HK=$EXT/NMIntelFB.kext; HKG=$EXT/NMGopFB.kext; HREC=$ST/hybrid
   KMAJ=$(sw_vers -productVersion); KMAJ=${KMAJ%%.*}
   [ -f "$STATE" ] || [ "$HV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn hybrid laptop mode on"
   BKC="$C.nullmoth-hybrid-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
@@ -1437,29 +1607,59 @@ if [ -n "${HYBRID:-}" ]; then
     kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
       -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
       -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/hybrid-kmutil.log" 2>&1; }
+  # Which panel driver this Mac needs. NMIntelFB takes an Intel GPU's panel. NMGopFB takes the panel of an AMD integrated GPU
+  # macOS has no driver for (the IDs of kexts/NMGopFB/nm_gopfb.h: Van Gogh, Mendocino, Rembrandt, Raphael, Granite Ridge,
+  # Phoenix and Hawk Point, Strix Point, Strix Halo, and the discrete RDNA 3 and 4 ranges). A Mac with neither, or where
+  # nothing can be read, keeps the NMIntelFB behaviour this switch always had.
+  hy_displays() {  # vendor+device (8 hex digits, upper case) of every display-class PCI function
+    ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | LC_ALL=C awk -F'<|>' 'function out(){if (c=="03" && v!="") print toupper(v d)}
+      /\+-o /{out(); c=""; v=""; d=""} /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=substr($2,3,2) substr($2,1,2)}
+      /"class-code" =/{c=substr($2,5,2)} END{out()}'; }
+  hy_amd_gop() {  # true when the 4 hex digit AMD device ID is one NMGopFB takes
+    local n=$((16#$1))
+    case "$1" in 163F|1506|1681|164E|13C0|15BF|15C8|1900|150E|1586) return 0;; esac
+    { [ $n -ge $((16#7448)) ] && [ $n -le $((16#745F)) ]; } || { [ $n -ge $((16#7470)) ] && [ $n -le $((16#749F)) ]; } \
+      || { [ $n -ge $((16#7550)) ] && [ $n -le $((16#756F)) ]; } || { [ $n -ge $((16#7590)) ] && [ $n -le $((16#75AF)) ]; }; }
+  HGOP=0; HINTEL=0
+  for d in $(hy_displays); do
+    case $d in 1002????) hy_amd_gop "${d#1002}" && HGOP=1;; 8086????) HINTEL=1;; esac
+  done
+  HNEED="NMIntelFB"; [ $HGOP = 1 ] && { [ $HINTEL = 1 ] && HNEED="NMIntelFB NMGopFB" || HNEED="NMGopFB"; }
   if [ "$HV" != 0 ]; then
-    HSRC=/Library/NullMoth/kexts/NMIntelFB.kext
     # the package the app checked rides along; its copy is taken from a root-owned folder and its SHA256SUMS verified
+    PR=""
     if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
-      step "Taking the Intel panel driver from the driver package"
+      step "Taking the panel driver from the driver package"
       PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
       cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
       PK=$PKGDIR/$(basename "$PKG")
       [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
       tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
       PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
-      [ -d "$PR/Library/NullMoth/kexts/NMIntelFB.kext" ] || stop "this driver package does not carry the Intel panel driver (NMIntelFB); update the driver first"
-      mkdir -p /Library/NullMoth/kexts && rm -rf "$HSRC" && ditto "$PR/Library/NullMoth/kexts/NMIntelFB.kext" "$HSRC" || stop "could not copy the Intel panel driver"
     fi
-    [ -d "$HSRC" ] || stop "the Intel panel driver (NMIntelFB) is not on this Mac: update the NVIDIA driver to a package that carries it"
-    [ "$(plutil -extract CFBundleIdentifier raw -o - "$HSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.NMIntelFB ] || stop "$HSRC is not the NullMoth Intel panel driver"
-    [ -f "$HSRC/Contents/MacOS/NMIntelFB" ] || stop "the Intel panel driver has no executable"
-    step "Installing the Intel panel driver"
-    rm -rf "$HK" && ditto "$HSRC" "$HK" && chown -R root:wheel "$HK" && chmod -R go-w "$HK" || stop "could not install NMIntelFB"
+    # every driver is checked before anything is installed, so a package that lacks one changes nothing
+    for HN in $HNEED; do
+      case $HN in NMIntelFB) HL="Intel panel driver (NMIntelFB)";; *) HL="AMD panel driver (NMGopFB)";; esac
+      HSRC=/Library/NullMoth/kexts/$HN.kext
+      if [ -n "$PR" ]; then
+        [ -d "$PR/Library/NullMoth/kexts/$HN.kext" ] || stop "this driver package does not carry the ${HL}; update the driver first"
+        mkdir -p /Library/NullMoth/kexts && rm -rf "$HSRC" && ditto "$PR/Library/NullMoth/kexts/$HN.kext" "$HSRC" || stop "could not copy the ${HL}"
+      fi
+      [ -d "$HSRC" ] || stop "the ${HL} is not on this Mac: update the NVIDIA driver to a package that carries it"
+      [ "$(plutil -extract CFBundleIdentifier raw -o - "$HSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.$HN ] || stop "$HSRC is not the NullMoth ${HL}"
+      [ -f "$HSRC/Contents/MacOS/$HN" ] || stop "the ${HL} has no executable"
+    done
+    for HN in $HNEED; do
+      HSRC=/Library/NullMoth/kexts/$HN.kext; HK=$EXT/$HN.kext
+      step "Installing the panel driver $HN"
+      rm -rf "$HK" && ditto "$HSRC" "$HK" && chown -R root:wheel "$HK" && chmod -R go-w "$HK" || stop "could not install $HN"
+    done
     hauxkc
-    kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.NMIntelFB \
-      || { rm -rf "$HK"; hauxkc; cp -p "$BKC" "$C"; stop "the kernel collection did not take NMIntelFB (log: $ST/hybrid-kmutil.log) - it is removed again"; }
-    ok "NMIntelFB is in the kernel collection"
+    for HN in $HNEED; do
+      kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.$HN \
+        || { for HM in $HNEED; do rm -rf "$EXT/$HM.kext"; done; hauxkc; cp -p "$BKC" "$C"; stop "the kernel collection did not take $HN (log: $ST/hybrid-kmutil.log) - it is removed again"; }
+      ok "$HN is in the kernel collection"
+    done
     ha del nmhybrid=1; ha del nmhybrid=2; ha add nmhybrid=$HV
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
     printf 'LEVEL=%s\n' "$HV" > "$HREC.tmp" && mv "$HREC.tmp" "$HREC"
@@ -1468,7 +1668,7 @@ if [ -n "${HYBRID:-}" ]; then
     step "Turning hybrid laptop mode off"
     ha del nmhybrid=1; ha del nmhybrid=2
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
-    if [ -d "$HK" ]; then rm -rf "$HK"; hauxkc || note "the kernel collection rebuild reported an error (log: $ST/hybrid-kmutil.log)"; fi
+    if [ -d "$HK" ] || [ -d "$HKG" ]; then rm -rf "$HK" "$HKG"; hauxkc || note "the kernel collection rebuild reported an error (log: $ST/hybrid-kmutil.log)"; fi
     rm -f "$HREC"
     ok "hybrid laptop mode off - restart to finish"
   fi
