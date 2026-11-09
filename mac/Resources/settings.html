@@ -25,7 +25,7 @@ const post=o=>webkit.messageHandlers.nmset.postMessage(o);
 const $=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
 let displays=[];
 function render(d){
-  displays=d.displays||[];
+  displays=d.displays||[];window.NMS_GPUS=d.gpus.length;
   if(!d.bootArgsSafe)document.getElementById('warn').textContent='The current boot arguments hold characters this panel will not rewrite, so display settings are read-only here.';
   const g=document.getElementById('gpus');g.textContent='';
   if(!d.gpus.length)g.append($('p','lead','No NVIDIA GPU is visible to the system.'));
@@ -43,6 +43,24 @@ function row(s,safe){
     for(let i=0;i<8;i++){const l=$('label');const b=document.createElement('input');b.type='checkbox';boxes.push(b);l.append(b,' '+i);m.append(l)}
     const cur=/^\d+$/.test(s.current)?parseInt(s.current):0;boxes.forEach((b,i)=>b.checked=!!(cur&(1<<i)));
     ctl.append(m);get=()=>{const v=boxes.reduce((a,b,i)=>a|(b.checked?1<<i:0),0);return v?String(v):'default'};
+  }else if(s.id==='card'){
+    const box=$('div');const n=Math.max(1,Math.min(8,(window.NMS_GPUS||1)));
+    const sel=(v)=>{const e=document.createElement('select');for(let i=0;i<8;i++){const o=document.createElement('option');o.value=String(i);o.textContent=i===0?'0 (primary)':String(i);e.append(o)}e.value=v;return e};
+    const parsed={def:null,apps:[]};
+    if(s.current!=='default'){if(/^[0-7]$/.test(s.current))parsed.def=s.current;else s.current.split(',').forEach(t=>{const [k,v]=t.split('=');if(k==='*')parsed.def=v;else if(k&&v)parsed.apps.push([k,v])})}
+    const defRow=$('div');const defSel=sel(parsed.def===null?'0':parsed.def);const defOn=document.createElement('input');defOn.type='checkbox';defOn.checked=parsed.def!==null;
+    defRow.append(defOn,' every other application on card ',defSel);box.append(defRow);
+    const list=$('div');box.append(list);
+    const addRow=(name,card)=>{const r=$('div');const t=document.createElement('input');t.type='text';t.placeholder='executable name';t.value=name;t.size=16;const c=sel(card);const x=$('button',null,'Remove');x.onclick=()=>r.remove();r.append(t,' on card ',c,' ',x);list.append(r)};
+    parsed.apps.forEach(([k,v])=>addRow(k,v));
+    const add=$('button',null,'Add an application');add.onclick=()=>addRow('','1');box.append(add);
+    box.append($('div','h','This Mac shows '+n+' NVIDIA card'+(n===1?'':'s')+'. Cards beyond the first need the "More than one NVIDIA card" setting and a restart.'));
+    ctl.append(box);
+    get=()=>{const parts=[];list.querySelectorAll('div').forEach(r=>{const name=r.querySelector('input').value.trim();if(name)parts.push(name+'='+r.querySelector('select').value)});
+      if(defOn.checked)parts.push('*='+defSel.value);
+      if(!parts.length)return 'default';
+      if(parts.length===1&&defOn.checked)return defSel.value;
+      return parts.join(',')};
   }else if(s.kind==='bool'||s.kind==='enum'){
     const sel=document.createElement('select');const names=s.kind==='enum'?Object.keys(s.valueMap):[];const opts=['default'].concat(s.kind==='bool'?['on','off']:names);
     opts.forEach(o=>{const e=document.createElement('option');e.value=o;e.textContent=o;sel.append(e)});
