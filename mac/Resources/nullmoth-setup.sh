@@ -1467,7 +1467,8 @@ fi
 if [ -n "${GPUBOOST:-}" ]; then
   # The opt-in GPU boost daemon (nvmtl-boost): one resource-manager client that holds the "boost to maximum" request while
   # /Library/NullMoth/gpuboost says gpuboost=1. The package's own boost_daemon.sh does the work; it is run as root only after
-  # the package's SHA256SUMS has been verified AND names boost_daemon.sh and both daemon files, and a verified copy is kept in
+  # the package's SHA256SUMS has been verified AND names boost_daemon.sh and the daemon binary (the script writes the job's plist
+  # itself, naming only its own root-owned path), and a verified copy is kept in
   # $ST (root-owned) for the later off and remove. Status needs no password: the app reads the files itself.
   BD=$ST/boost_daemon.sh
   case "$GPUBOOST" in on|off|remove) ;; *) stop "--gpu-boost takes on, off or remove";; esac
@@ -1482,7 +1483,7 @@ if [ -n "${GPUBOOST:-}" ]; then
     [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
     tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
     PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
-    for f in boost_daemon.sh Library/NullMoth/boost/nvmtl-boost Library/NullMoth/boost/com.nullmoth.nvmtl-boost.plist; do
+    for f in boost_daemon.sh Library/NullMoth/boost/nvmtl-boost; do
       grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$PR/SHA256SUMS" || stop "this driver package does not list $f in its SHA256SUMS, so GPU boost is not installed; update the driver first"
     done
     mkdir -p "$ST" && cp "$PR/boost_daemon.sh" "$BD.new" && chown root:wheel "$BD.new" && chmod 755 "$BD.new" && mv -f "$BD.new" "$BD" || stop "could not keep the checked boost script"
