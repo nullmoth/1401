@@ -94,6 +94,45 @@ def _known_machines():
         return []  # a missing or broken table never stops a build; it only means no machine-specific settings
 
 
+def _machine_recipes():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "machine_recipes.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh).get("recipes", [])
+    except (OSError, ValueError):
+        return []  # like the known-machine table: a missing file only means no recipes
+
+
+def set_cpuid1_logical_per_package(cfg, count):
+    """Makes CPUID leaf 1 report 'count' logical processors per package (EBX bits 23:16) through OpenCore's Cpuid1Data
+    and Cpuid1Mask, leaving every other bit of an existing CPU spoof as it was. Returns True when the config changed."""
+    if not 0 < count < 256:
+        raise ValueError(f"logical processors per package out of range: {count}")
+    emu = cfg.setdefault("Kernel", {}).setdefault("Emulate", {})
+    data, mask = bytearray(emu.get("Cpuid1Data") or b""), bytearray(emu.get("Cpuid1Mask") or b"")
+    data.extend(b"\0" * (16 - len(data)))
+    mask.extend(b"\0" * (16 - len(mask)))
+    if len(data) != 16 or len(mask) != 16:
+        return False  # a malformed value is left for the user to look at, never rewritten
+    if data[6] == count and mask[6] == 0xFF:
+        return False
+    data[6], mask[6] = count, 0xFF
+    emu["Cpuid1Data"], emu["Cpuid1Mask"] = bytes(data), bytes(mask)
+    return True
+
+
+def _apply_recipe(cfg, recipe, change):
+    note = f"{recipe['title']} ({recipe['status']}): {recipe['source']}"
+    kq = cfg.setdefault("Kernel", {}).setdefault("Quirks", {})
+    for k, v in recipe.get("kernel_quirks", {}).items():
+        if kq.get(k) != v:
+            change("machine-recipe", f"{k}={kq.get(k)}", f"{k}={v}", note)
+            kq[k] = v
+    n = recipe.get("cpuid1_logical_per_package")
+    if n and set_cpuid1_logical_per_package(cfg, n):
+        change("machine-recipe", "CPUID leaf 1 logical processors per package unchanged", f"{n}", recipe["why"])
+
+
 # Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11), and SimpleBCM (all rights
 # reserved, no licence grant; it embeds Apple driver components, p1401/licenses.json). Never shipped by 1401: rule 0.
 EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext", "SimpleBCM.kext")
@@ -642,6 +681,13 @@ def apply(config_path, result, policy):
                     change("known-machine", f"{k}={q.get(k)}", f"{k}={v}",
                            f"{known['board']} + {known['cpu']} ({known['status']}): {known['source']}")
                     q[k] = v
+            break
+
+    # 4c. Machine recipes (machine_recipes.json): settings for a class of machine that need more than a booter quirk,
+    # such as kernel quirks and the CPUID the kernel sees. Applied after the known-machine table, before a failed boot's log.
+    for recipe in _machine_recipes():
+        if any(_word_in(b, mb) for b in recipe["boards"]) and any(_word_in(c, cpu_name) for c in recipe["cpus"]):
+            _apply_recipe(cfg, recipe, change)
             break
 
     # 5. A failed boot's own log (the stick's opencore-*.txt), when the app passed one: see bootfix.py.
