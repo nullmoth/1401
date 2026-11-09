@@ -968,11 +968,22 @@ STICK_ADVICE = (" - the USB stick stopped accepting writes. That is the stick or
                 "known brand), and press Next again.")
 
 
+ACCESS_ADVICE = (" - Windows refused 1401 permission to write to the USB stick (Access is denied). That is Windows security, "
+                 "not the stick: Controlled folder access (Windows Security > Virus & threat protection > Ransomware "
+                 "protection > Allow an app through Controlled folder access: add 1401), a company policy that blocks "
+                 "writing to removable drives, or antivirus software. Allow 1401 there, or pause it for the write, and "
+                 "press Next again.")
+
+
 def stick_hint(e):
     """Advice for a write that died because the stick did. 1.9.0 logs (10-10): format.com "Invalid media or Track 0 bad",
     EINVAL copying the driver package after a full download, PermissionError/OSError mid-image ("the stick's file could
     not be reopened"), and the disk vanishing all reached users as bare errors with nothing to do about them."""
     s = str(e)
+    # WinError 5 "Access is denied" (errno 13 in Python, so the errno test below never saw it): 15 uploads stopped here bare,
+    # writing com.apple.recovery.boot on the stick. The stick takes other writes; something refused this program.
+    if getattr(e, "winerror", None) == 5 or "[WinError 5]" in s:
+        return ACCESS_ADVICE
     # WinError 433 "a device which does not exist" / 1167 "the device is not connected": the stick dropped off the bus
     # mid-copy (1.15 write logs 10-14). "read back different" = the bytes on the stick are not the bytes written.
     if isinstance(e, OSError) and getattr(e, "errno", None) in (5, 22) or "could not be reopened" in s \
