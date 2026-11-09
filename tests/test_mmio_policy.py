@@ -9,6 +9,7 @@ import unittest
 import zipfile
 
 from p1401 import engine, policy, validate
+from tests.ocvalidate_run import run_validator
 
 
 class MmioPolicy(unittest.TestCase):
@@ -25,21 +26,18 @@ class MmioPolicy(unittest.TestCase):
     def exercise(self, manufacturer, chipset, enabled):
         with tempfile.TemporaryDirectory() as directory:
             config = pathlib.Path(directory) / 'config.plist'
-            executable = pathlib.Path(directory) / 'ocvalidate'
-            executable.write_bytes(self.validator)
-            executable.chmod(0o755)
             cfg = plistlib.loads(self.sample)
             cfg['Booter']['Quirks']['DevirtualiseMmio'] = enabled
             cfg['Booter']['MmioWhitelist'] = [{'Address': 4275159040, 'Comment': 'MMIO regression', 'Enabled': True}]
             config.write_bytes(plistlib.dumps(cfg))
-            before = subprocess.run([str(executable), str(config)], capture_output=True, text=True, timeout=30)
+            before = run_validator(self.validator, str(config), 30)
             if not enabled:
                 self.assertNotEqual(before.returncode, 0)
                 self.assertIn('MmioWhitelist', before.stdout)
             result = engine.BuildResult(ok=True, out_dir=directory, macos_version='24.6.0', hardware={
                 'CPU': {'Manufacturer': manufacturer}, 'Motherboard': {'Chipset': chipset}, 'GPU': {}})
             changes = policy.apply(str(config), result, engine.Policy())
-            after = subprocess.run([str(executable), str(config)], capture_output=True, text=True, timeout=30)
+            after = run_validator(self.validator, str(config), 30)
             self.assertEqual(after.returncode, 0, after.stdout + after.stderr)
             fixed = plistlib.loads(config.read_bytes())
             self.assertEqual(fixed['Booter']['MmioWhitelist'][0]['Enabled'], enabled and chipset == 'TRX40')

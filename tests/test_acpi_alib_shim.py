@@ -9,6 +9,7 @@ import unittest
 import zipfile
 
 from p1401 import acpi_shims, dsdt_pass1 as d, validate
+from tests.ocvalidate_run import run_validator
 
 
 def pkg(op, body):
@@ -108,14 +109,11 @@ class AlibShimValidates(unittest.TestCase):
         sample["ACPI"]["Add"] = []
         sample["ACPI"]["Patch"] = []
         t = tempfile.mkdtemp()
-        exe = os.path.join(t, "ocvalidate")
-        open(exe, "wb").write(tool)
-        os.chmod(exe, 0o755)
         cfg = os.path.join(t, "config.plist")
         sample["ACPI"]["Add"] += acpi["Add"]
         sample["ACPI"]["Patch"] += acpi["Patch"]
         open(cfg, "wb").write(plistlib.dumps(sample))
-        before = subprocess.run([exe, cfg], capture_output=True, text=True, timeout=30)
+        before = run_validator(tool, cfg, 30)
         # the sample alone has issues unrelated to ACPI; only ACPI lines count
         acpi_lines = [l for l in (before.stdout + before.stderr).splitlines() if "ACPI" in l]
         self.assertEqual(acpi_lines, [], acpi_lines)
