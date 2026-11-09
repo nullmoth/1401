@@ -47,10 +47,17 @@ def main(argv=None):
                        help="persistent NVRAM on AMD (emulated): a writable NVRAM store for boards whose firmware NVRAM "
                             "is unsafe to write, so iMessage and the startup-disk choice persist - off by default, "
                             "needs proving on a real AMD board")
+    ab = sub.add_parser("acpi-bundle", help="zip the DSDT and SSDTs of an ACPI folder for Send logs (size-capped, nothing personal)")
+    ab.add_argument("acpi")
+    ab.add_argument("out")
     sp = sub.add_parser("storage-prep", help="Windows: prepare, finish or undo the change that lets Windows survive turning Intel VMD off")
     sp.add_argument("action", choices=("prepare", "finish", "undo"))
     sp.add_argument("--state", default="", help="where the values to restore are kept")
     a = ap.parse_args(argv)
+    if a.cmd == "acpi-bundle":
+        from . import acpi_bundle  # noqa: PLC0415
+        print(json.dumps(acpi_bundle.build(a.acpi, a.out)))
+        return 0
     if a.cmd == "storage-prep":
         import os  # noqa: PLC0415
         from . import storage_prep  # noqa: PLC0415

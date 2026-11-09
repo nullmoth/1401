@@ -32,6 +32,11 @@ def _namepath(path):
     return b"\\\x2f" + bytes([len(path)]) + b"".join(path)
 
 
+def table_name(oem_table_id):
+    """An OEM table id as plain text: the field is 8 bytes padded with spaces or NULs, and a NUL in a plist string is refused."""
+    return "".join(ch if ch.isprintable() else " " for ch in oem_table_id.decode("ascii", "replace")).strip()
+
+
 def _table(body, oem_table_id):
     d = bytearray(b"SSDT" + (36 + len(body)).to_bytes(4, "little") + b"\x02\x00" + OEM + oem_table_id[:8].ljust(8, b" ") +
                   (1).to_bytes(4, "little") + b"INTL" + (0x20230628).to_bytes(4, "little")) + body
@@ -115,7 +120,7 @@ def apply(acpi_dir, out_dir):
         replace = find[:-4] + b"XLIB"
         have = any(p.get("Find") == find and p.get("OemTableId") == f["oem_table_id"] for p in patches)
         if not have:
-            patches.append({"Base": "", "BaseSkip": 0, "Comment": f"ALIB to XLIB in {f['oem_table_id'].decode('ascii', 'replace').strip()}",
+            patches.append({"Base": "", "BaseSkip": 0, "Comment": f"ALIB to XLIB in {table_name(f['oem_table_id'])}",
                             "Count": 0, "Enabled": True, "Find": find, "Limit": 0, "Mask": b"", "OemTableId": f["oem_table_id"],
                             "Replace": replace, "ReplaceMask": b"", "Skip": 0, "TableLength": 0, "TableSignature": b"SSDT"})
     tmp = cfgp + ".tmp"

@@ -17,6 +17,17 @@ DROPPABLE = {
 }
 
 
+# PCI vendor -> (what it is, why 1401 cannot build for it). Read from the adapter's own ID, not its Windows name.
+_VM = "That is a virtual machine's display adapter, not a graphics card. 1401 builds macOS for real PCs; run Check this PC on the physical computer."
+NOT_A_PC_GPU = {
+    "15AD": ("VMware's virtual display", _VM), "1AE0": ("Google's virtual display", _VM), "1234": ("QEMU's virtual display", _VM),
+    "1AF4": ("a VirtIO virtual display", _VM), "1B36": ("QEMU's virtual display", _VM), "80EE": ("VirtualBox's virtual display", _VM),
+    "5853": ("Xen's virtual display", _VM), "1AB8": ("Parallels' virtual display", _VM), "1414": ("Microsoft's virtual display (Hyper-V)", _VM),
+    "1D17": ("a Zhaoxin graphics chip", "macOS has no driver for it and 1401 has nothing to test it with."),
+    "1EC8": ("an Innosilicon graphics chip", "macOS has no driver for it."),
+    "1A03": ("an ASPEED management-controller display (server board remote graphics)", "It is not a graphics card macOS can use; "
+                                                                                   "a PC needs a Radeon, GeForce or Intel GPU as well."),
+}
 PCI_VENDORS = {"10DE": "NVIDIA", "1002": "AMD", "8086": "Intel"}
 # makers as their cards' names spell them, for a card Windows reports with neither a maker nor a PCI ID
 NAME_VENDORS = (("NVIDIA", ("nvidia", "geforce", "quadro", "tesla", "titan ")), ("AMD", ("radeon", "amd ", "ati ", "firepro")),
@@ -138,7 +149,16 @@ def normalize(report):
     for name, props in list(gpus.items()):
         if not isinstance(props, dict) or props.get("Manufacturer") in PCI_VENDORS.values():
             continue
-        vendor = PCI_VENDORS.get((props.get("Device ID") or "")[:4].upper())
+        vid = (props.get("Device ID") or "")[:4].upper()
+        if vid in NOT_A_PC_GPU:
+            # the PCI ID names the adapter even when Windows shows only "Microsoft Basic Display Adapter"
+            what, why = NOT_A_PC_GPU[vid]
+            if len(gpus) > 1:
+                del gpus[name]
+                notes.append(f"GPU: {name!r} is {what} (PCI ID {props.get('Device ID')}) - left out; the other graphics card is used")
+                continue
+            raise RuntimeError(f"The only graphics adapter in this PC is {what} (PCI ID {props.get('Device ID')}). {why}")
+        vendor = PCI_VENDORS.get(vid)
         if not vendor and vendor_from_name(name):
             # 1.10 builds 10-10 (5 times, one AMD PC): "The only graphics card Windows reports is 'NVIDIA GeForce GT 730',
             # with no maker or PCI ID" - the name says who made it. Without an ID it is not a card the driver can claim,
@@ -233,10 +253,22 @@ def _field_gaps(report, notes):
                      "name. If this is wrong, run Check this PC again.")
         board["Platform"] = guess
     cpu = report.get("CPU")
-    if isinstance(cpu, dict) and cpu.get("Manufacturer") not in ("Intel", "AMD"):
-        raise RuntimeError(f"This PC's processor reports its maker as {cpu.get('Manufacturer')!r} "
-                           f"({cpu.get('Processor Name', 'unnamed')}). macOS runs only on Intel and AMD processors, and 1401 has "
-                           "no tested setup for other x86 makers (Hygon, Zhaoxin and similar), so it cannot build an EFI for this PC.")
+    if isinstance(cpu, dict) and cpu.get("Manufacturer") == "HygonGenuine" and "C86" in str(cpu.get("Processor Name", "")):
+        # Hygon Dhyana (C86-3G and kin) is the Zen 1 core under another CPUID vendor and family 18h. The AMD kernel patch set is keyed
+        # on the core, and the builder's Zen 1 setup is the only one that can fit; it has not been run on a Hygon PC.
+        cpu["Manufacturer"] = "AMD"
+        if cpu.get("Codename") in (None, "", "Unknown"):
+            cpu["Codename"] = "Summit Ridge"
+        notes.append(f"CPU: {cpu.get('Processor Name')} is a Hygon Dhyana, the AMD Zen 1 core under another CPUID vendor. It is set up as a "
+                     "Ryzen 1000 (Zen 1) PC with the AMD kernel patches. That setup has not been run on a Hygon PC, so treat the "
+                     "first start as a test and send the startup log if it stops.")
+    elif isinstance(cpu, dict) and cpu.get("Manufacturer") not in ("Intel", "AMD"):
+        who = ("a Zhaoxin KaiXian (CentaurHauls, the VIA lineage)" if cpu.get("Manufacturer") == "CentaurHauls"
+               else f"a processor whose maker reads {cpu.get('Manufacturer')!r}")
+        raise RuntimeError(f"This PC has {who}: {cpu.get('Processor Name', 'unnamed')}. macOS runs only on Intel and AMD processors. "
+                           "Neither the Intel nor the AMD kernel patch set recognises this processor's CPUID vendor, we know of no "
+                           "published macOS start on it, and 1401 has no PC like it to test on, so it cannot build an EFI that would "
+                           "get past the first CPU check.")
 
 
 def normalized_copy(report_path, dest_dir, raw_hardware=None):
