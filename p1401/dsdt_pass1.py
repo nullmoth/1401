@@ -7,10 +7,14 @@ the same firmware loads fine on Windows and Linux. Measured 10-10 with acpiexec 
 of all three Arrow Lake H laptops users sent (HONOR 225H, ASUS GU605CW 285H, Lenovo 255H) fail to load this way, at
 \\_SB_.PC00.HDAS, a Device the firmware creates inside a top-level If.
 
-Repair: every top-level Scope() whose target does not exist yet in pass 1 is wrapped in If (One). Pass 1 then skips it
-like the firmware's own top-level Ifs, and it runs as module-level code once the namespace is complete; If (One) is
-always true, so it still runs against the same target. Nothing else in the table changes, only its length and checksum.
-A table with an opcode this parser does not know, or with such a Scope nested inside another object, is left unchanged.
+Repair: every Scope() whose target does not exist yet in pass 1 is wrapped in If (CondRefOf (<target>)). Pass 1 skips
+it like the firmware's own top-level Ifs, and it runs as module-level code once the namespace is complete. The guard
+matters when the target is created inside an If that is false on macOS (a device the firmware adds only for a Windows
+_OSI answer, for example): a bare Scope then raises AE_NOT_FOUND at module level, while the guarded one is skipped and
+the rest of the table loads. When the target does exist by then, the guard is true and the Scope runs against it as
+before. Nothing else in the table changes, only its length and checksum.
+A table with an opcode this parser does not know is left unchanged. Zero bytes between objects (firmware padding) are
+ZeroOp, which creates nothing, and are stepped over.
 """
 import os
 
@@ -160,6 +164,9 @@ def _walk(d, start, end, scope, ns_set, failing, top):
     i = start
     while i < end:
         op = d[i]
+        if op == 0x00:  # ZeroOp: firmware padding inside a body (one table has 120 of them); creates nothing
+            i += 1
+            continue
         if op == 0x10:  # Scope
             n, nl = _pkglen(d, i + 1)
             ns, body = _namestring(d, i + 1 + nl)
@@ -246,7 +253,7 @@ def failing_scopes(dsdt):
 
 
 def repair(dsdt):
-    """Returns (new_table, count) with every failing Scope wrapped in If (One); (original, 0) when none. A Scope nested in
+    """Returns (new_table, count) with every failing Scope wrapped in If (CondRefOf (target)); (original, 0) when none. A Scope nested in
     a Device (or another Scope) makes its parents longer, so every enclosing PkgLength is encoded again."""
     src = bytes(dsdt)
     spots = failing_scopes(src)
@@ -263,7 +270,10 @@ def repair(dsdt):
                 continue  # inside an item already emitted
             out += src[i:o]
             if o in fail:
-                body = b"\x01" + src[o:o + fail[o]]  # predicate One, then the original Scope
+                n, nl = _pkglen(src, o + 1)
+                _, name_end = _namestring(src, o + 1 + nl)
+                # predicate CondRefOf (<the Scope's own target>, NullName), then the original Scope
+                body = b"\x5b\x12" + src[o + 1 + nl:name_end] + b"\x00" + src[o:o + fail[o]]
                 out += b"\xa0" + _encode_pkglen(len(body)) + body
                 i = o + fail[o]
             else:
@@ -307,5 +317,5 @@ def apply(acpi_dir, out_dir):
         plistlib.dump(cfg, f)
     os.replace(tmp, cfgp)
     return [{"rule": "dsdt-pass1", "before": f"{n} Scope(s) macOS cannot resolve - the whole DSDT is discarded",
-             "after": "DSDT.aml with those Scopes in If (One)",
+             "after": "DSDT.aml with those Scopes guarded by If (CondRefOf (target))",
              "why": "macOS's ACPICA (20160930) needs a Scope target to exist in pass 1; deferred Scopes run once it does"}]
