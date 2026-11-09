@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --gpu-boost) GPUBOOST=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --gpu-boost) GPUBOOST=$2; shift;; --experimental) EXPER=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -1014,7 +1014,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ -z "${GPUBOOST:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ -z "${GPUBOOST:-}" ] && [ -z "${EXPER:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 # This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
 # app refuses too, and the kexts refuse to start on any other Darwin).
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
@@ -1062,7 +1062,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}${GPUBOOST:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}${GPUBOOST:-}${EXPER:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -1462,6 +1462,67 @@ if [ "${AUTOLOGINOFF:-0}" = 1 ]; then
     defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser && rm -f /etc/kcpassword || stop "could not turn automatic login off"
   fi
   rm -f "$AM"; ok "automatic login is off; the stored password file is gone"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${EXPER:-}" ]; then
+  # "Experimental features": switches for work that is written and tested offline but not yet measured on hardware. Each is off
+  # unless chosen. --experimental takes the WHOLE list of features that should be on, as comma-separated ids ("none" for no
+  # feature); setup turns on what is new and takes out what was dropped. Boot-argument features use the NVRAM path (config and
+  # NVRAM together); the others are KEY=1 lines in one marked block of the driver's knob file. Only the ids below exist: nothing
+  # else is ever written (the fetch-copy switch, which affects WindowServer, is deliberately not among them). The record
+  # $ST/experimental names what was turned on and which boot arguments were added by it, so turning a feature off removes exactly
+  # that and never an argument the user had set themselves. No package is involved, so there is nothing to pin.
+  XREC=$ST/experimental; XCONF=/Library/GPUBundles/nvmtl/nvrm610.conf
+  xargs_of() { case "$1" in kbl) echo nmkbl=1;; kblhid) echo nmkblhid=1;; tgp) echo "nvrmtgp=1 nvrmgps=1 nvrmnvpcf=1";; igpuproxy) echo nvfbigpu=1;; xvt) echo nmxvt=1;; esac; }
+  xenv_of() { case "$1" in gameprio) echo NVMTL_GAME_GPU_PRIORITY=1;; hwrt) echo NVK_HWRT_QUERY=1;; curves) echo NVK_CURVES=1;; tile) echo NVMTL_TILE_SHADING=1;; icb) echo NVMTL_GPU_ICB=1;; esac; }
+  XWANT=","; if [ "$EXPER" != none ]; then
+    for id in $(echo "$EXPER" | tr ',' ' '); do
+      [ -n "$(xargs_of "$id")$(xenv_of "$id")" ] || stop "unknown experimental feature '$id' - nothing changed"
+      XWANT="$XWANT$id,"
+    done
+  fi
+  case "$XWANT" in *,kblhid,*) case "$XWANT" in *,kbl,*) ;; *) stop "the keyboard backlight HID route needs the keyboard backlight switched on too - nothing changed";; esac;; esac
+  BKC="$C.nullmoth-experimental-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  xa() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  XHAD=","; XADDED=""
+  if [ -f "$XREC" ]; then while IFS= read -r l; do case "$l" in ON=*) XHAD="$XHAD${l#ON=},";; ARG=*) XADDED="$XADDED ${l#ARG=}";; esac; done < "$XREC"; fi
+  XNEWADDED=""
+  for id in kbl kblhid tgp igpuproxy xvt; do
+    case "$XWANT" in *,$id,*) w=1;; *) w=0;; esac; case "$XHAD" in *,$id,*) h=1;; *) h=0;; esac
+    if [ $w = 1 ] && [ $h = 0 ]; then
+      for a in $(xargs_of $id); do
+        if nvram boot-args 2>/dev/null | tr ' \t' '\n\n' | grep -qx -- "$a" || get NVRAM.Add.$B.boot-args | tr ' ' '\n' | grep -qx -- "$a"; then note "$a was already set by you; it is left as it is when this feature is turned off"
+        else xa add "$a"; XNEWADDED="$XNEWADDED $id:$a"; fi
+      done
+      echo "CHANGE experimental: $id on"
+    elif [ $w = 0 ] && [ $h = 1 ]; then
+      for ia in $XADDED; do [ "${ia%%:*}" = "$id" ] && xa del "${ia#*:}"; done
+      XADDED=$(for ia in $XADDED; do [ "${ia%%:*}" = "$id" ] || printf ' %s' "$ia"; done)
+      echo "CHANGE experimental: $id off"
+    fi
+  done
+  XADDED="$XADDED$XNEWADDED"
+  plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+  # the marked block in the knob file: rebuilt from the wanted features, written beside the file and moved over it
+  XENVL=""; for id in gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) XENVL="$XENVL $(xenv_of $id)";; esac; done
+  if [ -f "$XCONF" ] || [ -n "$XENVL" ]; then
+    [ -f "$XCONF" ] || { cp -p "$BKC" "$C"; stop "the driver's knob file is missing - install the NVIDIA driver first; nothing changed"; }
+    XTMP=$XCONF.nullmoth-new
+    { sed '/^# --- 1401 experimental ---$/,/^# --- end 1401 experimental ---$/d' "$XCONF"
+      if [ -n "$XENVL" ]; then echo "# --- 1401 experimental ---"; for kv in $XENVL; do echo "$kv"; done; echo "# --- end 1401 experimental ---"; fi; } > "$XTMP" \
+      && chmod "$(stat -f %Lp "$XCONF")" "$XTMP" && chown "$(stat -f %u:%g "$XCONF")" "$XTMP" && mv -f "$XTMP" "$XCONF" || { rm -f "$XTMP"; cp -p "$BKC" "$C"; stop "could not update the driver's knob file - nothing changed"; }
+  fi
+  { for id in kbl kblhid tgp igpuproxy xvt gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) echo "ON=$id";; esac; done
+    for ia in $XADDED; do echo "ARG=$ia"; done; } > "$XREC.tmp" && mv -f "$XREC.tmp" "$XREC"
+  [ "$XWANT" = "," ] && rm -f "$XREC"
+  ok "experimental features updated - restart for them to take effect"
+  cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${GPUBOOST:-}" ]; then

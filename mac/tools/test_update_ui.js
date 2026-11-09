@@ -163,3 +163,15 @@ element('bostat').onclick(); assert.equal(sent.at(-1).op, 'status');
 event('boostStatus', {text: 'On: the daemon holds the GPU at its maximum boost.'});
 assert(element('bostr').textContent.startsWith('On:'));
 console.log('GPU boost controls passed.');
+
+// Experimental features: Apply sends exactly the ticked ids; the scan fills the ticks from the record.
+const boxes = ['kbl', 'tgp', 'icb'].map((i) => { const b = {dataset: {id: i}, checked: false}; return b; });
+const savedQuery = sandbox.document.querySelectorAll;
+sandbox.document.querySelectorAll = (q) => q === '.expitem' ? boxes : [];
+boxes[0].checked = true; boxes[2].checked = true;
+element('expapply').onclick();
+assert.deepEqual({act: sent.at(-1).act, items: sent.at(-1).items}, {act: 'experimental', items: ['kbl', 'icb']});
+const ex = machine(26); ex.experimentalOn = ['tgp']; event('scan', ex);
+assert.deepEqual(boxes.map((b) => b.checked), [false, true, false]);
+sandbox.document.querySelectorAll = savedQuery;
+console.log('Experimental features pane passed.');
