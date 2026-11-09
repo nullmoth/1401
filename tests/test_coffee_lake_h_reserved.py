@@ -2,6 +2,7 @@
 generated EFI, for that platform only, and OpenCore's validator accepts the entry."""
 import os, platform as plat, plistlib, subprocess, tempfile, unittest, zipfile
 from p1401 import engine, policy, validate
+from tests.ocvalidate_run import run_validator
 
 
 def build(cpu, kind="Laptop", vendor="Intel"):
@@ -36,9 +37,9 @@ class Reserved(unittest.TestCase):
             sample = plistlib.loads(a.read("Docs/Sample.plist"))
             tool = a.read("Utilities/ocvalidate/" + {"Windows": "ocvalidate.exe", "Linux": "ocvalidate.linux"}.get(plat.system(), "ocvalidate"))
         sample["UEFI"]["ReservedMemory"] = build("Intel(R) Core(TM) i7-9750H")[0]["UEFI"]["ReservedMemory"]
-        d = tempfile.mkdtemp(); exe = os.path.join(d, "ov"); open(exe, "wb").write(tool); os.chmod(exe, 0o755)
+        d = tempfile.mkdtemp()
         c = os.path.join(d, "c.plist"); open(c, "wb").write(plistlib.dumps(sample))
-        r = subprocess.run([exe, c], capture_output=True, text=True)
+        r = run_validator(tool, c)
         self.assertEqual([l for l in (r.stdout + r.stderr).splitlines() if "ReservedMemory" in l], [])
 
 
