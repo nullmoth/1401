@@ -100,6 +100,7 @@ enum ReachedDesktop {
         for line in installedComponents() { s += line + "\n" }
         for line in loadedKextLines() { s += line + "\n" }
         s += "boot guard: " + bootGuardLine() + "\n"
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 { s += macos27DisplayLine() + "\n" }
         for line in featureLines() { s += line + "\n" }
         s += audioHardwareLine() + "\n"
         s += audioDriverLines()
@@ -253,6 +254,27 @@ enum ReachedDesktop {
 
     /// The boot guard's counters and the boot arguments, so a "driver loaded: no" says whether the driver switched
     /// itself off after starts that never lit a display, or was never asked to load (-nvoff, nv_disable).
+    /// macOS 27 only: whether NVRM's display bring-up came up ("up") or failed ("go(2) failed", which leaves the screen
+    /// on the boot console about one start in three), how many heads NVAccel published, and the start guard, which on 27
+    /// lives under NullMoth's own NVRAM namespace.
+    static func macos27DisplayLine() -> String {
+        let nv = sh("/usr/sbin/nvram", ["7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-nv-starts"])
+        return macos27DisplayLine(ioreg: sh("/usr/sbin/ioreg", ["-c", "NVRM", "-lw0"]),
+                                  heads: sysctl("debug.nvaccel_heads_published"),
+                                  starts: nv.split(separator: "\t").dropFirst().joined(separator: "\t"))
+    }
+    static func macos27DisplayLine(ioreg: String, heads: String, starts: String) -> String {
+        var autogo = "absent (NVRM not in the registry)"
+        if ioreg.contains("<class NVRM,") { autogo = "not reported" }
+        for line in ioreg.split(separator: "\n") where line.contains("\"nvrm-autogo\" = \"") {
+            let parts = line.components(separatedBy: "\"nvrm-autogo\" = \"")
+            if parts.count > 1, let value = parts[1].split(separator: "\"", omittingEmptySubsequences: false).first { autogo = String(value) }
+            break
+        }
+        let h = heads.trimmingCharacters(in: .whitespacesAndNewlines), g = starts.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "macOS 27 display: autogo \(autogo), heads \(h.isEmpty ? "unknown" : h), nv-starts \(g.isEmpty ? "(unset)" : g)"
+    }
+
     static func bootGuardLine() -> String {
         func nv(_ name: String) -> String {
             let out = sh("/usr/sbin/nvram", [name])
@@ -368,6 +390,7 @@ enum ReachedDesktop {
                 signs.append("parked by -nvoff")
             }
             if line.hasPrefix("Metal device: no") { signs.append("no Metal device") }
+            if line.hasPrefix("macOS 27 display: autogo go(2) failed") { signs.append("display go(2) failed") }
             if line.hasPrefix("NVIDIA driver loaded (com.nullmoth): no") { signs.append("driver not loaded") }
             // the kernel still runs an older driver than the one on disk: a GTX 1650 SUPER reported the new app version
             // while an old NVRM ran with no framebuffer driver loaded at all, and its first-login report sent no logs
@@ -384,7 +407,9 @@ enum ReachedDesktop {
     /// The files Send logs collects for the driver, as the first-login report attaches them when the driver did not
     /// come up. Everything else the full collection gathers (EFI partitions, panics, display and NPU logs) needs root
     /// and is not part of this report.
-    static let driverFiles = ["driver-state.txt", "driver-kernel-log.txt", "driver-plugin-log.txt", "driver-crash-window.txt"]
+    static let driverFiles = ["driver-state.txt", "driver-kernel-log.txt", "driver-plugin-log.txt", "driver-crash-window.txt",
+                              // written only on macOS 27 and later (the collector's read-only bring-up state and logs)
+                              "macos27-state.txt", "macos27-bringup-logs.txt"]
     /// The collector, replaceable by a test: runs the driver scope of the collection into dir and returns its warnings.
     static var driverCollector: (URL) -> [String] = { dir in collectDriverLogs(into: dir) }
 
