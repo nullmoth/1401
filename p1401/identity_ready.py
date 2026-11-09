@@ -20,7 +20,8 @@ PLACEHOLDER_SERIALS = {"A" + "0" * 10 + "9", "A" + "0" * 15 + "Z"}
 SAMPLE_SERIALS = {"W00000000001", "W00000000000", "M0000000000001", "M00000000000000000", "CCCCCCCCCCCC"}
 SAMPLE_ROMS = {bytes.fromhex("112233445566"), bytes(6), bytes([0xFF] * 6)}
 
-SERIAL_LENGTHS = (11, 12)       # 11 for 2009-2010 style serials, 12 for every Mac the installers accept today
+SERIAL_LENGTHS = (11, 12)       # 11 for 2009-2010 style serials, 12 for every Intel Mac the installers accept today
+                                # (Apple-silicon Macs use 10; 1401 only presents Intel models)
 MLB_LENGTHS = (13, 17)          # 13 for older boards, 17 for current ones
 ALNUM = re.compile(r"^[A-Z0-9]+$")
 
