@@ -69,6 +69,30 @@ class Identity(unittest.TestCase):
         self.assertIn("no en0", out)
 
 
+class GameMode(unittest.TestCase):
+    def run_gm(self, *args, stored=None):
+        f = Fake()
+        body = ('if [ "$1" = read ]; then ' + ('echo 1' if stored else 'exit 1') + '; else echo "$@" >> "' + os.path.join(f.dir, "defaults.log") + '"; fi')
+        p = os.path.join(f.dir, "defaults")
+        with open(p, "w") as fh:
+            fh.write("#!/bin/bash\n" + body + "\n")
+        os.chmod(p, os.stat(p).st_mode | stat.S_IXUSR)
+        return f, f.run("gamemode", *args)
+
+    def test_status_reports_whether_the_preference_is_stored(self):
+        self.assertEqual(self.run_gm("status", stored=True)[1][0], 0)
+        code, out = self.run_gm("status", stored=False)[1]
+        self.assertEqual(code, 1)
+        self.assertIn("off", out)
+
+    def test_on_and_off_need_root_and_a_bad_word_is_refused(self):
+        if os.getuid() != 0:
+            code, out = self.run_gm("on")[1]
+            self.assertEqual(code, 2)
+            self.assertIn("needs root", out)
+        self.assertEqual(self.run_gm("sideways")[1][0], 2)
+
+
 class Power(unittest.TestCase):
     def test_check_lists_what_the_profile_changes_and_writes_nothing(self):
         f = Fake()
