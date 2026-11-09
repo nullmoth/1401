@@ -33,6 +33,14 @@ PACKAGE = {"name": "nullmoth-nvidia-2.8.1.tar.gz",
            "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.8.1/nullmoth-nvidia-2.8.1.tar.gz",
            "sha256": "1aa25a7f0ae28a27e77e1a761420cef9655af8b2b8effc1433142d1071795df8"}
 
+# NVIDIA's own Linux driver package. The GPU firmware the driver needs is inside it, and the NullMoth package no longer
+# carries that firmware (NVIDIA's licence): the Mac installer (package/fw_fetch.sh) reads it from this file. The stick
+# carries a copy, checked against this SHA-256, so an install with no internet still works. Keep the name, URL and
+# SHA-256 equal to the driver's package/fw_fetch.sh (mac/tools/test_firmware_run.py checks it).
+FIRMWARE_RUN = {"name": "NVIDIA-Linux-x86_64-620.70.06.run",
+                "url": "https://download.nvidia.com/XFree86/Linux-x86_64/620.70.06/NVIDIA-Linux-x86_64-620.70.06.run",
+                "sha256": "29118e3abd08c07559bcca3d9c76238d039490af0362a2e5bcfcbe7204afd4b1"}
+
 # When GitHub's download servers fail (11-08: every github.com release download returned 504 for hours while the API
 # answered), the same file is fetched from the site's static copy of the release. The SHA-256 above is pinned in this
 # build, so a mirror file that differs by one byte is refused exactly as a GitHub one would be.
@@ -259,6 +267,54 @@ def stage(usb_root, cache_dir, fetch=None):
                  "After macOS finishes installing, the 1401 Mac companion installs this package.\n"
                  "By hand: tar -xzf " + PACKAGE["name"] + " && cd pkgroot && sudo ./install.sh\n")
     return dst
+
+
+def stage_firmware(usb_root, cache_dir, fetch=None):
+    """Puts NVIDIA's driver package (the source of the GPU firmware) on the stick next to the driver package, so the Mac
+    installer needs no internet. Checked against its SHA-256 after the download and again after the copy. Returns the
+    path on the stick, or None with a plain message when it could not be done: the Mac installer then downloads it
+    itself, and without internet it stops before changing anything. A wrong file is never written to the stick."""
+    import hashlib  # noqa: PLC0415
+    import shutil  # noqa: PLC0415
+
+    def sha(p):
+        h = hashlib.sha256()
+        with open(p, "rb") as fh:
+            for b in iter(lambda: fh.read(1 << 20), b""):
+                h.update(b)
+        return h.hexdigest()
+
+    src = os.path.join(cache_dir, FIRMWARE_RUN["name"])
+    try:
+        if not os.path.exists(src) or sha(src) != FIRMWARE_RUN["sha256"]:
+            if fetch is None:
+                raise RuntimeError(f"{FIRMWARE_RUN['name']} is not in {cache_dir}")
+            if os.path.exists(src + ".part"):
+                os.remove(src + ".part")
+            fetch(FIRMWARE_RUN["url"], src + ".part")
+            if sha(src + ".part") != FIRMWARE_RUN["sha256"]:
+                os.remove(src + ".part")
+                raise RuntimeError("the download does not match NVIDIA's published SHA-256")
+            os.replace(src + ".part", src)
+        d = os.path.join(usb_root, "NullMoth")
+        os.makedirs(d, exist_ok=True)
+        dst = os.path.join(d, FIRMWARE_RUN["name"])
+        for attempt in range(2):
+            shutil.copyfile(src, dst + ".part")
+            if sha(dst + ".part") == FIRMWARE_RUN["sha256"]:
+                break
+            os.remove(dst + ".part")
+            if attempt:
+                raise RuntimeError("the file read back different from the stick after two copies")
+        os.replace(dst + ".part", dst)
+        return dst
+    except (OSError, RuntimeError) as e:
+        for leftover in (src + ".part",):
+            if os.path.exists(leftover):
+                os.remove(leftover)
+        print("NOTE: could not put NVIDIA's driver package (the GPU firmware source) on the stick: " + str(e)[:200] + ". "
+              "The Mac installer will download it (about 550 MB) and needs internet for that step.", flush=True)
+        return None
 
 
 def system_profile(report):
