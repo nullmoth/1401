@@ -22,11 +22,11 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 
 # name -> (matches the refusal text, what it means). Every refusal the field has produced is one of these.
 NAMED = {
-    "gpu-no-windows-driver": (r"only graphics card Windows reports(?! is '(VMware|Parallels|Red Hat|Citrix|Microsoft Hyper|QEMU))",
+    "gpu-no-windows-driver": (r"only graphics card Windows reports",
                               "Windows has no driver for the card: install it in Windows and scan again"),
-    "virtual-machine": (r"only graphics card Windows reports is '(VMware|Parallels|Red Hat VirtIO|Citrix|Microsoft Hyper|QEMU)",
-                        "a virtual machine's display adapter: not a PC 1401 builds for"),
-    "cpu-maker": (r"processor reports its maker", "not an Intel or AMD processor"),
+    "virtual-machine": (r"virtual machine's display adapter", "a virtual machine's display adapter: not a PC 1401 builds for"),
+    "gpu-not-usable": (r"only graphics adapter in this PC is (?!.*virtual)", "a graphics chip macOS has no driver for"),
+    "cpu-maker": (r"macOS runs only on Intel and AMD processors", "a processor macOS has no kernel support for (Zhaoxin)"),
     "no-gpu-driver": (r"macOS has no driver for this PC's graphics", "no graphics card macOS or the NullMoth driver can use"),
     "macos-not-offered": (r"This PC is capped at macOS", "the hardware tops out below the macOS the user picked"),
 }
