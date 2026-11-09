@@ -555,10 +555,16 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         // take the NMSMN kext and the RyzenAdj build from it (it verifies the SHA-256 again). Off needs no package.
         case "ryzenpower":
             let efi = b["efi"] as? String ?? "auto"
+            if b["status"] as? Bool ?? false { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "status"]); break }
             guard b["on"] as? Bool ?? false else { run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "off"]); break }
+            // the four limits from the page, checked here as well as in setup; setup only ever installs the pinned RyzenAdj build the package carries
+            let n = { (k: String) in (b[k] as? NSNumber)?.intValue ?? -1 }
+            let lim = RyzenPower.limits(stapm: n("stapm"), slow: n("slow"), fast: n("fast"), temp: n("temp"))
+            guard let limits = lim.limits else {
+                send("run", ["state": "end", "mode": "verbose", "ok": false, "why": lim.why ?? "The limits were not accepted."]); break }
             guard let pk = b["pkg"] as? String, !pk.isEmpty, let sha = sha256(URL(fileURLWithPath: pk)) else {
                 send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The Ryzen power profile needs the checked driver package: download it first."]); break }
-            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--pkg", pk, "--sha", sha])
+            run(mode: "verbose", pkg: "", efi: efi, extra: ["--ryzen-power", "on", "--ryzen-limits", limits, "--pkg", pk, "--sha", sha])
         case "settings": if !SettingsPanel.show() { send("run", ["state": "end", "mode": "verbose", "ok": false, "why": "The settings list is missing from this copy of the app."]) }
         case "gputest":
             let on = b["on"] as? Bool ?? false, efi = b["efi"] as? String ?? "auto"
@@ -989,27 +995,6 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
             defer { IOObjectRelease(s) }
             guard u32(s, "vendor-id").map({ $0 & 0xffff }) == 0x8086, let cls = u32(s, "class-code") else { return false }
             return cls >> 8 == 0x0104 || cls >> 8 == 0x0108 && (u32(s, "device-id").map { [0x467F, 0x9A0B, 0xA77F, 0x7D0B, 0xB60B, 0x09AB].contains($0 & 0xffff) } ?? false)
-        }
-    }
-    func ryzenAction(_ b: [String: Any]) {
-        let op = b["op"] as? String ?? "status"
-        var path: String? = nil
-        if op == "install" {
-            let panel = NSOpenPanel()
-            panel.title = "Choose your RyzenAdj build"
-            panel.message = "Only a build whose SHA-256 is listed in this app is installed."
-            panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
-            guard panel.runModal() == .OK, let url = panel.url else { send("ryzen", ["ok": false, "text": "Nothing chosen."]); return }
-            path = url.path
-        }
-        let n = { (k: String) in (b[k] as? NSNumber)?.intValue ?? -1 }
-        let a = RyzenPower.arguments(op: op, stapm: n("stapm"), slow: n("slow"), fast: n("fast"), temp: n("temp"), ryzenadj: path)
-        guard let args = a.args else { send("ryzen", ["ok": false, "text": a.why ?? "Not started."]); return }
-        DispatchQueue.global(qos: .userInitiated).async {
-            let script = Bundle.main.resourceURL!.appendingPathComponent("nullmoth-ryzen-power.sh").path
-            let r = Privileged.run(Privileged.bundleScript(script, args), timeout: 120, admin: op != "status")
-            let text = redact(r.error ?? String(r.output.suffix(600)).trimmingCharacters(in: .whitespacesAndNewlines))
-            DispatchQueue.main.async { self.send("ryzen", ["ok": r.error == nil && !r.cancelled, "text": text]) }
         }
     }
     func selectLocalDriverFile(name: String, sha: String, efi: String?, sig: String?) {

@@ -51,12 +51,16 @@ class Options(unittest.TestCase):
         unreachable = sorted(f for f in SET_BY_THE_MAC_APP if f in flags and f not in MAC_SRC)
         self.assertEqual(unreachable, [])
 
-    def test_the_ryzen_power_profile_has_its_controls_in_page_and_app(self):
+    def test_the_ryzen_power_profile_is_one_pane_with_limits_on_off_and_status(self):
         page = (ROOT / "mac/Resources/index.html").read_text()
-        for el in ("ryinstall", "ryremove", "rystatus", "ryst", "rysl", "ryfa", "rytm"):
+        for el in ("ryzon", "ryzoff", "ryzstat", "ryst", "rysl", "ryfa", "rytm"):
             self.assertIn(f'id="{el}"', page)
-        self.assertIn('case "ryzen": ryzenAction(b)', MAC_SRC)
-        self.assertIn("nullmoth-ryzen-power.sh", MAC_SRC)
+        for gone in ("ryinstall", "ryremove", "rystatus"):
+            self.assertNotIn(f'id="{gone}"', page)       # the second pane (a user-chosen RyzenAdj) is gone
+        self.assertNotIn('case "ryzen":', MAC_SRC)
+        self.assertEqual(page.count("Ryzen laptop power profile"), 1)
+        self.assertIn('"--ryzen-limits", limits', MAC_SRC)
+        self.assertIn('"--ryzen-power", "status"', MAC_SRC)
 
     def test_the_mac_app_explains_the_vmd_route_and_names_the_external_drive_checkbox(self):
         page = (ROOT / "mac/Resources/index.html").read_text()
