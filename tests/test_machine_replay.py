@@ -176,6 +176,13 @@ class FixesFromTheReplay(unittest.TestCase):
         self.assertIn("VMware", str(c.exception))
         self.assertIn("virtual machine", str(c.exception))
 
+    def test_an_ssdt_oem_table_id_padded_with_nul_bytes_gives_a_comment_the_plist_accepts(self):
+        import plistlib
+        from p1401 import acpi_shims
+        name = acpi_shims.table_name(b"Artic\x00\x00\x00")
+        self.assertEqual(name, "Artic")
+        plistlib.dumps({"Comment": f"ALIB to XLIB in {name}"})      # a NUL in the string raises ValueError
+
     def test_a_scan_with_no_network_section_is_planned_not_rejected(self):
         c = copy.deepcopy(census.BASELINE)
         del c["Network"]
