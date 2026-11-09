@@ -266,6 +266,7 @@ const NM = {
 };
 window.NM = NM;
 
+$("cfgpick").onclick = () => post({ act: "pickconfig" });
 const efi = () => ($("efirow").hidden ? "auto" : $("efi").value);
 $("efi").onchange = () => {
   S.previewed = false;
@@ -295,6 +296,14 @@ $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("hybcopy").onclick = () => post({ act: "hybrid", level: "copy", pkg: S.pkg || "", efi: efi() });
 $("hybimport").onclick = () => post({ act: "hybrid", level: "import", pkg: S.pkg || "", efi: efi() });
 $("hyboff").onclick = () => post({ act: "hybrid", level: "off", efi: efi() });
+$("boston").onclick = () => post({ act: "gpuboost", op: "on", pkg: S.pkg || "", efi: efi() });
+$("bostoff").onclick = () => post({ act: "gpuboost", op: "off", efi: efi() });
+$("bostrm").onclick = () => post({ act: "gpuboost", op: "remove", efi: efi() });
+$("bostat").onclick = () => post({ act: "gpuboost", op: "status" });
+const ryNum = (id) => Number($(id).value);
+$("ryzon").onclick = () => post({ act: "ryzenpower", on: true, stapm: ryNum("ryst"), slow: ryNum("rysl"), fast: ryNum("ryfa"), temp: ryNum("rytm"), pkg: S.pkg || "", efi: efi() });
+$("ryzstat").onclick = () => post({ act: "ryzenpower", status: true, efi: efi() });
+$("ryzoff").onclick = () => post({ act: "ryzenpower", on: false, efi: efi() });
 $("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });
 $("xeoff").onclick = () => post({ act: "xe", on: false, efi: efi() });
 $("armon").onclick = () => { $("armon").disabled = true; post({ act: "arm", op: "on" }); };
@@ -464,6 +473,12 @@ NM.on = (m) => {
                                                               : `<span class="warn">${esc(m.data.why || "The EFI could not be mounted.")}</span>`;
     return;
   }
+  if (m.event === "configPicked") {
+    const o = document.createElement("option"); o.value = "config:" + m.data.path; o.textContent = "config file: " + m.data.path;
+    $("efi").appendChild(o); $("efi").value = o.value; return;
+  }
+  if (m.event === "scan" && $("vmdpane")) $("vmdpane").hidden = !m.data.vmdOrRaid;
+  if (m.event === "boostStatus") { $("bostr").textContent = m.data.text; return; }
   if (m.event === "tccStatus") { $("tccr").innerHTML = m.data.text ? `<span class="${m.data.ok ? "good" : "warn"}">${esc(m.data.text)}</span>` : ""; return; }
   if (m.event === "gpumapStatus") { $("gpumapr").textContent = m.data.text; if (m.data.done) $("gpumap").disabled = false; return; }
   if (m.event === "logsDone") {

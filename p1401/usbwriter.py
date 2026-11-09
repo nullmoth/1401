@@ -771,6 +771,7 @@ def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile
         cache = os.path.join(efi_build_dir, ".cache")
         os.makedirs(cache, exist_ok=True)
         driver = nullmoth.stage(root, cache, fetch=_fetch)
+        nullmoth.stage_firmware(root, cache, fetch=_fetch)
     if machine_profile is not None:
         machine_handoff.copy_to_installer(machine_profile, root, opt_in)
     copy_finish_setup(root)

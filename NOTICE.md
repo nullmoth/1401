@@ -64,8 +64,20 @@ keeps the author's notice and licence. The full list (32 projects, licence and v
 | Project | License | What NullMoth takes |
 |---|---|---|
 | PrimeBridge, by myvoow (https://github.com/myvoow/PrimeBridge) | MIT, Copyright (c) 2026 myvoow. Its author allowed NullMoth to use and link it (stated to the NullMoth maintainers, November 2026) | The method of showing an NVIDIA-rendered desktop on the internal screen of a laptop whose panel belongs to an AMD integrated GPU: copy each frame into the firmware framebuffer, and write straight into it once the iGPU's memory window has been verified. Any code taken from `PrimeBridge-source/` keeps the MIT notice above. Its `NVRMFB-patch/` is NullMoth's own PolyForm code and is not reused. |
+| Hackintosh-XPS13Plus-IrisXe-Tahoe, by JulioNectar | Thou Shalt Not Profit License 1.0 | Not included and not hosted. For a Dell XPS 13 Plus the build notice gives the author's archive of one commit, pinned by SHA-256, for the user to fetch from the author's GitHub. |
 | WTLIntelGfx (XeGfx), by watchthelight | BSD-2-Clause for the shim, tools and docs; the parts forked from NullMoth stay PolyForm Noncommercial | Reviewed patches for the AMD / Intel test driver (Meteor Lake and Arrow Lake bring-up). |
 | nullarc by luuumi-dev, ArrowWhatever by Mountainatic, IrisXe-macos-driver by zep245, vibe-nullmoth-xe3-qemu by ericek111, Meteor-Lake-Xe-LPG-Metal-Graphics by VedCloud, RedNavi by Helemen7 | Per project (`docs/COMMUNITY-DRIVERS.md`) | Read for findings on Radeon 780M, Arrow Lake, Tiger Lake, Panther Lake and Navi 32 bring-up. A patch is merged only where its licence allows it and the author is credited in the commit. |
+
+### Written again in NullMoth's own code
+
+Where a community project showed what a machine needs, 1401 carries its own implementation, with its own tests. Nothing
+below was copied; the project is named as the source of the finding.
+
+| Project | What it showed | Where it is in 1401 |
+|---|---|---|
+| Hackintosh-XPS13Plus-IrisXe-Tahoe, by JulioNectar | A 4 performance + 8 efficiency core Raptor Lake-P laptop freezes right after EXITBS with the efficiency cores on, because the kernel divides the logical-processor count by a core count that is 128 under ProvideCurrentCpuInfo; CPUID leaf 1 reporting 128 fixes it | `p1401/machine_recipes.json` and `policy.py` (`set_cpuid1_logical_per_package`), `tests/test_machine_recipes.py` |
+| AMDHelper, by LuneFlu | A Ryzen laptop is helped by a power-limit profile applied at start and refreshed | `mac/Resources/nullmoth-ryzen-power.sh`, `tests/test_ryzen_power.py`. The profile calls RyzenAdj (FlyGoat/RyzenAdj, LGPL-3.0), tag v0.19.0, commit ea71739b4a3e1a0a624dfd1c9c268a31cb2a4182. Upstream has no macOS port, so NullMoth wrote the OS layer (`mac/Resources/ryzenadj-macos/osdep_macos.c`, LGPL-3.0, combined with the unmodified tag; this folder plus the tag is the complete source) and the NMSMN kext it talks to (driver tree, opt-in with nmsmn=1). The pinned build's SHA-256 is in `mac/Resources/ryzenadj.sha256`: 97ade67325c435c158ae0825cb4442d2718f098d2201721fa71c3f19fddbb9f3 (signed ad hoc with the entitlement com.nullmoth.ryzenadj, which the kext requires of its caller; the kext lets only a root process named ryzenadj with that entitlement connect, allows only the SMU mailbox registers, and runs the power-table exchange with the SMU itself and reads the table only inside firmware-reserved memory) |
+| AMD_Vanilla, by AMD-OSX | The kernel patches AMD processors need | The build already uses the maintained fork's list, which covers it; `tools/compare_amd_kernel_patches.py` shows that (two of its patches are stale for macOS 26) |
 
 ### The download mirror
 
