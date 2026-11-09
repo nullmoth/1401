@@ -1888,6 +1888,10 @@ fi
 # replace a working firmware configuration with one tested on a different board.
 bar=$(get UEFI.Quirks.ResizeGpuBars); abar=$(get Booter.Quirks.ResizeAppleGpuBars)
 note "preserving this OpenCore config's GPU BAR and kernel-placement settings"
+# Only one thing is changed: a resize above 8 GB (ResizeGpuBars 14 and up). A card whose BAR1 is 16 GB stops at "PCI
+# configuration" before any kext loads (1401 #23, #105, #155); 13 = 8 GB is the size the driver is proven with. -1 (leave
+# the firmware's size) and anything at or below 13 stay as the user's EFI has them.
+case "$bar" in ''|*[!0-9]*) ;; *) if [ "$bar" -gt 13 ]; then EDITS+=("UEFI.Quirks.ResizeGpuBars|-integer|13"); echo "CHANGE UEFI -> Quirks: ResizeGpuBars $bar to 13 (a window above 8 GB stops the boot at PCI configuration)"; fi;; esac
 # The installer runs on the firmware framebuffer (IONDRVSupport); once the driver is in, that framebuffer would take
 # display index 0 from NVRMFB, so the installed system excludes it (as on the tested RTX 5060 setup).
 NEEDBLOCK=0; bi=$(bidx)
