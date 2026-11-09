@@ -11,6 +11,12 @@ says what became of it:
   its patches are reviewed for the AMD/Intel test driver (NMXGPU) and merged with the author's credit where the licence
   allows. PolyForm-Noncommercial forks of our tree stay under that licence, which is the licence of the tree they go
   back into.
+- OPTIONAL: a licence that is free to use but obliges anyone who distributes it (Thou Shalt Not Profit). 1401 never
+  copies it into NullMoth code or hosts it; the build notice gives the author's archive pinned by commit, size and SHA-256
+  for the user to fetch.
+- NAMED: a useful driver with no licence (all rights reserved). 1401 names it in the build notice with a link to the
+  author's page for matching hardware, and downloads or redistributes nothing. docs/COMMUNITY-LICENCE-REQUEST.md asks the
+  authors for MIT or PolyForm Noncommercial.
 - EXCLUDED: not used. The reason is one of: no licence, a licence that forbids redistribution or commercial use of the
   part we would need, assistant-written code, not a GPU driver for real hardware, or a fork identical to an upstream we
   already use.
@@ -23,8 +29,9 @@ disagree or when a pinned commit is not a full hash.
 """
 from . import intel_gpu
 
-INTEGRATED, DRIVER_IDEA, PORT_REVIEW, EXCLUDED = "integrated", "driver-idea", "port-review", "excluded"
-VERDICTS = (INTEGRATED, DRIVER_IDEA, PORT_REVIEW, EXCLUDED)
+INTEGRATED, DRIVER_IDEA, PORT_REVIEW, OPTIONAL, NAMED, EXCLUDED = ("integrated", "driver-idea", "port-review", "optional-download",
+                                                                   "named-only", "excluded")
+VERDICTS = (INTEGRATED, DRIVER_IDEA, PORT_REVIEW, OPTIONAL, NAMED, EXCLUDED)
 
 
 def _p(repo, commit, date, licence, verdict, what, why):
@@ -64,15 +71,15 @@ PROJECTS = (
        "derived from our tree; the licence excludes every file derived from a third-party component, which is most of it; assistant-aided"),
     _p("vedprajapatiunitedkingdom-wq/CoreUltraGraphics", "05b19dc81db6aedcf4058525981f7326f57c04e2", "2026-10-17", "none", EXCLUDED,
        "earlier Meteor Lake attempt by the same author", "no licence file"),
-    _p("kitsuneislife/nmx-intel", "b4bb3a0c653248ce125ce7d36b920d216e53c16f", "2026-10-30", "none", PORT_REVIEW,
+    _p("kitsuneislife/nmx-intel", "b4bb3a0c653248ce125ce7d36b920d216e53c16f", "2026-10-30", "none", NAMED,
        "NMIntelFB patches so a Raptor Lake laptop panel shows frames composited on an NVIDIA GPU",
-       "no licence and assistant-written (190 commits): read for the idea only; our own NMIntelFB already has copy and import paths"),
+       "no licence (all rights reserved) and assistant-written (190 commits): named in the build notice for Raptor Lake-P laptops with an NVIDIA card, nothing downloaded; our own NMIntelFB already has copy and import paths"),
     _p("zep245/IrisXe-macos-driver", "c71dffcdfc0fa7b23e694b1066dfa6d6d0ea6b28", "2026-11-06", "PolyForm-NC (fork of our tree)",
        PORT_REVIEW, "Tiger Lake Iris Xe through i915 + ANV: display, Metal, H.264/AV1 decode, HiDPI; fork of our tree",
        "tester-grade, one laptop; overlaps WhateverXe on Tiger Lake. Its video-decode and PSR work is reviewed for NMXGPU"),
-    _p("ericek111/vibe-nullmoth-xe3-qemu", "7246d386e94a2f5e8fe4f8a17099d11514b0ae40", "2026-10-18", "none", PORT_REVIEW,
+    _p("ericek111/vibe-nullmoth-xe3-qemu", "7246d386e94a2f5e8fe4f8a17099d11514b0ae40", "2026-10-18", "none", NAMED,
        "98 patches making NMXGPU drive a Panther Lake SR-IOV virtual function in a QEMU guest (Metal, GL, Vulkan)",
-       "no licence: patches are not used until the author grants one; the series list is the review checklist for NMXGPU"),
+       "no licence (all rights reserved): named in the build notice for Panther Lake, nothing downloaded; patches are not merged until the author grants a licence"),
     _p("luuumi-dev/nullarc", "8aba872560a3c9b7dc7a0ddebfad001c6dddf315", "2026-11-09", "MIT or GPL-2.0 (own code); PolyForm-NC (derived from our tree)",
        PORT_REVIEW, "Metal on Radeon 780M/760M/740M (Phoenix, Hawk Point) with a 120 Hz display kext and RADV",
        "alpha, one machine, assistant-aided (83 commits); its Phoenix bring-up and RADV patches are reviewed for NMXGPU"),
@@ -82,10 +89,10 @@ PROJECTS = (
        "RX 7800 XT (Navi 32) display driver on its own DCN 3.2 kext; developer prototype",
        "assistant-aided (263 commits), not installable; read for the DCN bring-up order that NMXGPU's RDNA 3 path needs"),
     _p("JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe", "24450b476d7ca025b83c85d7b8362caf3234d2f2", "2026-11-03",
-       "Thou Shalt Not Profit License 1.0", EXCLUDED, "Iris Xe on one Dell laptop through NootedGreen plus the XCPM power fix",
-       "assistant-written (75 commits); the licence forces our distribution under it and bars profit; WhateverXe already credits it for the ideas"),
+       "Thou Shalt Not Profit License 1.0", OPTIONAL, "Iris Xe on one Dell laptop through NootedGreen plus the XCPM power fix (EFI, build and install scripts)",
+       "assistant-written (75 commits) and free to use, but a distributor must license copies under it: never merged into NullMoth code, never hosted; the build notice gives the author's archive pinned by commit and SHA-256 for a Dell XPS 13 Plus"),
     _p("pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS", "f8a98b7344241db69dc9cdd850ccbf65e62bf5c0", "2026-11-04", "none",
-       EXCLUDED, "stand-alone Raptor Lake-U (A7AC) kext", "no licence; assistant-written (README names its coding tool); prebuilt objects in the tree"),
+       NAMED, "stand-alone Raptor Lake-U (A7AC) kext", "no licence (all rights reserved) and assistant-written (README names its coding tool): named in the build notice for A7AC, nothing downloaded"),
     _p("wallali77666-cyber/iris-xe-macos-driver", "9bf31c915e84293e3545bc1d090595799a3234f8", "2026-10-18", "none", EXCLUDED,
        "Tiger Lake scaffold modelled on our tree", "no licence; stubs only (phase D, acceleration, is 'research')"),
     _p("pawan295/AppleIntelTGLDriver.kext", "0da9a50d19502b6b57c31bc07879194b9bb4c24e", "2026-07-30", "none", EXCLUDED,
@@ -101,11 +108,11 @@ PROJECTS = (
        "fork of WhateverXe", "a mirror of upstream (head by b00t0x), no changes of its own"),
     _p("elezorn/whateverxe-tigerlakeh", "db438fdf4d5fe903f5dfbc65537ed3884e2ea980", "2026-11-08", "BSD-3-Clause", EXCLUDED,
        "fork of WhateverXe for Tiger Lake-H", "the same commit as upstream WhateverXe 0.8.0"),
-    _p("watchthelight-labs/NvGfx", "04f011e4c671eeda34db87e13bac138e90cffc68", "2026-10-31", "PolyForm-NC", EXCLUDED,
-       "fork of our NVIDIA driver (the base of XeGfx)", "a fork of our own tree; nothing to take that we do not have"),
-    _p("emirercan3459/nullmoth-nvidia-audio", "558dc644996fdeb05ff4f80b4e112527d384b9fe", "2026-10-19", "none", EXCLUDED,
+    _p("watchthelight-labs/NvGfx", "04f011e4c671eeda34db87e13bac138e90cffc68", "2026-10-31", "PolyForm-NC", PORT_REVIEW,
+       "fork of our NVIDIA driver (the base of XeGfx)", "PolyForm Noncommercial is our own licence, so its patches can go back into NMXGPU and NVRM; reviewed there"),
+    _p("emirercan3459/nullmoth-nvidia-audio", "558dc644996fdeb05ff4f80b4e112527d384b9fe", "2026-10-19", "none", NAMED,
        "multi-port HDMI/DP audio and volume for NVIDIA GPUs (NMHDA Lilu plugin)",
-       "no licence; assistant-written by its own statement; NMXAudio is the supported audio path"),
+       "no licence (all rights reserved) and assistant-written by its own statement; not named in a build notice because it applies to every NVIDIA card and NMXAudio is the supported audio path"),
     _p("tqmane/reims-vgpu", "8f316b5f21908ddeb1e454ce50356ed6e1d2f6cf", "2026-11-01", "GPL-2.0-or-later OR LGPL-3.0-or-later", EXCLUDED,
        "virtual GPU for macOS guests in QEMU", "not a driver for real hardware; 1,641 assistant-aided commits"),
     _p("acidanthera/WhateverGreen", "093e76fec5655001f38b367dd22459c756ee89fa", "2026-09-27", "BSD-3-Clause", EXCLUDED,
@@ -126,6 +133,24 @@ PRIMEBRIDGE_IDS = ("1002-1681",)
 # engine classifies separately and that nullarc does not describe as supported hardware, so it is left out here).
 NULLARC_IDS = ("1002-1900", "1002-15BF", "1002-15C8")
 
+# Dell XPS 13 Plus (9320), the machine the XPS13Plus project is built on: its Raptor Lake-P GPU and the board name.
+XPS13PLUS_IDS = ("8086-A7A0",)
+XPS13PLUS_BOARDS = ("xps 13 9320", "xps 13 plus")
+# Raptor Lake-P Iris Xe with an NVIDIA card: the one GPU nmx-intel documents (a7a8). Raptor Lake-U A7AC: MyIntelGPU.
+NMXINTEL_IDS = ("8086-A7A8",)
+MYINTELGPU_IDS = ("8086-A7AC",)
+PANTHER_LAKE_IDS = ("8086-B080", "8086-B081", "8086-B082", "8086-B083", "8086-B08F", "8086-B090", "8086-B0A0", "8086-B0B0")
+
+# The author's archive of the commit read, for the user to fetch. 1401 never downloads or hosts it. Verify with
+# shasum -a 256 before use. Thou Shalt Not Profit License 1.0: free to use; whoever distributes copies must license them under it.
+OPTIONAL_DOWNLOADS = {
+    "JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe": {
+        "url": "https://github.com/JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe/archive/24450b476d7ca025b83c85d7b8362caf3234d2f2.tar.gz",
+        "size": 48295678, "sha256": "472bca121f24cb67ec89fd6f14618ca07aa7048cd338a91b284c82bbad7bb64c",
+        "licence": "Thou Shalt Not Profit License 1.0",
+    },
+}
+
 _NOTES = {
     "xegfx": ("Graphics: {name} ({family}) - a developer-stage community driver for this GPU exists: XeGfx (WTLIntelGfx by "
               "watchthelight, BSD-2 for its core, PolyForm Noncommercial for the parts forked from NullMoth). Its author reports "
@@ -136,6 +161,21 @@ _NOTES = {
                     "to this exact GPU (1002:1681); its own release works with NullMoth 2.6.3 only and is not part of this build. "
                     "NullMoth 2.9 has the same method built in: turn on Hybrid laptop mode in the Mac app after installing "
                     "(it adds the AMD panel driver NMGopFB), or use an external monitor on the NVIDIA card."),
+    "xps13plus": ("Graphics: {name} on a Dell XPS 13 Plus - the community project Hackintosh-XPS13Plus-IrisXe-Tahoe (JulioNectar) "
+                  "reports Iris Xe acceleration on this laptop on macOS Tahoe 26.7.1, plus a CPU power fix. Its licence (Thou Shalt Not "
+                  "Profit License 1.0) lets you use it free; NullMoth does not include or host it. Fetch it yourself from its author: "
+                  "{url} (size {size} bytes, SHA-256 {sha256}; check it with shasum -a 256 first). It builds and installs its own "
+                  "EFI: keep your current one."),
+    "nmxintel": ("Graphics: {name} - a community project, nmx-intel (kitsuneislife), shows an NVIDIA-rendered desktop on this kind of "
+                 "Raptor Lake laptop panel; tested by its author on one laptop. It has no licence, so NullMoth cannot include or "
+                 "download it: https://github.com/kitsuneislife/nmx-intel. NullMoth's own Hybrid laptop mode (Mac app) covers the "
+                 "same job."),
+    "myintelgpu": ("Graphics: {name} - a community project (pongpan-bk) writes a kernel driver for this Raptor Lake-U GPU. It has no "
+                   "licence, so NullMoth cannot include or download it: "
+                   "https://github.com/pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS. Unreviewed by NullMoth."),
+    "xe3": ("Graphics: {name} (Panther Lake, Xe3) - a community project (ericek111) drives this GPU with NullMoth's AMD / Intel test "
+            "driver in a virtual machine. It has no licence, so NullMoth cannot include or download it: "
+            "https://github.com/ericek111/vibe-nullmoth-xe3-qemu."),
     "nullarc": ("Graphics: {name} ({family}) - a community project, nullarc (luuumi-dev), reports Metal on this family of AMD "
                 "Phoenix and Hawk Point graphics on macOS Tahoe, tested by its author on one machine, alpha, with parts "
                 "licensed PolyForm Noncommercial. It is not part of this build and NullMoth has not tested it."),
@@ -168,6 +208,18 @@ def options(report):
         if did in PRIMEBRIDGE_IDS and has_nvidia:
             out.append({"project": "myvoow/PrimeBridge", "action": "pointer", "gpu": name,
                         "text": _NOTES["primebridge"].format(name=name)})
+        board = str(((report or {}).get("Motherboard") or {}).get("Name", "")).lower()
+        if did in XPS13PLUS_IDS and any(b in board for b in XPS13PLUS_BOARDS):
+            d = OPTIONAL_DOWNLOADS["JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe"]
+            out.append({"project": "JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe", "action": "pointer", "gpu": name,
+                        "text": _NOTES["xps13plus"].format(name=name, **d)})
+        if did in NMXINTEL_IDS and has_nvidia:
+            out.append({"project": "kitsuneislife/nmx-intel", "action": "pointer", "gpu": name, "text": _NOTES["nmxintel"].format(name=name)})
+        if did in MYINTELGPU_IDS:
+            out.append({"project": "pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS", "action": "pointer", "gpu": name,
+                        "text": _NOTES["myintelgpu"].format(name=name)})
+        if did in PANTHER_LAKE_IDS:
+            out.append({"project": "ericek111/vibe-nullmoth-xe3-qemu", "action": "pointer", "gpu": name, "text": _NOTES["xe3"].format(name=name)})
         if did in NULLARC_IDS:
             out.append({"project": "luuumi-dev/nullarc", "action": "pointer", "gpu": name,
                         "text": _NOTES["nullarc"].format(name=name, family="Phoenix / Hawk Point, RDNA 3")})

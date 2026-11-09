@@ -41,11 +41,41 @@ class Selection(unittest.TestCase):
             self.assertEqual(len(community_gpu.notes(machine(did))), 1, did)
 
     def test_xe_lp_gpus_stay_with_whateverxe_and_get_no_pointer(self):
-        # Tiger Lake 9A49, Alder Lake-P 46A6, Alder Lake-U 46B3, Raptor Lake-P A7A0, Raptor Lake-U A7AC, Alder Lake-HX 4688
-        for did in ("8086-9A49", "8086-46A6", "8086-46B3", "8086-A7A0", "8086-A7AC", "8086-4688"):
+        # Tiger Lake 9A49, Alder Lake-P 46A6, Alder Lake-U 46B3, Raptor Lake-P A7A0 (not a Dell XPS 13 Plus), Alder Lake-HX 4688
+        for did in ("8086-9A49", "8086-46A6", "8086-46B3", "8086-A7A0", "8086-4688"):
             opts = community_gpu.options(machine(did))
             self.assertEqual([(o["project"], o["action"]) for o in opts], [("b00t0x/WhateverXe", "mac-app")], did)
             self.assertEqual(community_gpu.notes(machine(did)), [], did)
+
+    def test_a_dell_xps_13_plus_gets_the_pinned_archive_of_the_licence_restricted_project_as_a_notice(self):
+        r = machine("8086-A7A0"); r["Motherboard"] = {"Name": "Dell Inc. 0X1234 XPS 13 9320"}
+        self.assertEqual(projects(r), ["JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe", "b00t0x/WhateverXe"])
+        (n,) = community_gpu.notes(r)
+        d = community_gpu.OPTIONAL_DOWNLOADS["JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe"]
+        self.assertIn(d["sha256"], n)
+        self.assertIn("24450b476d7ca025b83c85d7b8362caf3234d2f2", n)
+        self.assertIn("does not include or host", n)
+        self.assertRegex(d["sha256"], r"^[0-9a-f]{64}$")
+
+    def test_the_same_gpu_in_another_laptop_does_not_get_the_xps_notice(self):
+        r = machine("8086-A7A0"); r["Motherboard"] = {"Name": "LENOVO 83F0"}
+        self.assertEqual(community_gpu.notes(r), [])
+
+    def test_unlicensed_projects_are_named_with_a_link_and_never_downloaded(self):
+        cases = {("8086-A7A8", "10DE-2582"): "nmx-intel", ("8086-A7AC",): "First-Custom-iGPU-Driver", ("8086-B080",): "vibe-nullmoth-xe3-qemu"}
+        for ids, word in cases.items():
+            (n,) = community_gpu.notes(machine(*ids))
+            self.assertIn(word, n)
+            self.assertIn("https://github.com/", n)
+            self.assertIn("cannot include or download it", n)
+        self.assertEqual(community_gpu.notes(machine("8086-A7A8")), [])      # nmx-intel needs the NVIDIA card too
+
+    def test_only_the_licence_restricted_project_has_a_pinned_download(self):
+        self.assertEqual(list(community_gpu.OPTIONAL_DOWNLOADS), ["JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe"])
+        for p in community_gpu.PROJECTS:
+            if p["verdict"] == community_gpu.NAMED:
+                self.assertIn("none", p["licence"].lower(), p["repo"])
+                self.assertNotIn(p["repo"], community_gpu.OPTIONAL_DOWNLOADS)
 
     def test_the_whateverxe_ids_added_by_0_8_0_are_recognised(self):
         # single-channel Alder Lake-H (4626), Tiger Lake-H45 (9AC0) and Raptor Lake-U (A721) were not in the 0.6.1 list
