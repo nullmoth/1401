@@ -87,6 +87,19 @@ def _chipset(pci, board_name, amd):
     return m.group(1) if m else "Unknown"
 
 
+def _gpu_type(d, vendor):
+    """Integrated or discrete, from the adapter itself. The probe used to call a CPU's own graphics 'discrete' whenever it was the
+    boot display (a desktop without a graphics card), which changes the SMBIOS model, the ACPI patches and the kexts."""
+    name = d.get("device_name") or ""
+    if vendor == "Intel":
+        return "Discrete GPU" if (_id(d.get("device")).startswith(("56", "E2")) or "Arc" in name) else "Integrated GPU"
+    if vendor == "AMD":
+        integrated = any(w in name for w in ("Radeon Graphics", "Granite Ridge", "Raphael", "Phoenix", "Rembrandt", "Barcelo", "Cezanne",
+                                             "Renoir", "Lucienne", "Picasso", "Raven", "Vega 8", "Vega 10", "Vega 11"))
+        return "Integrated GPU" if integrated else "Discrete GPU"
+    return "Discrete GPU"
+
+
 def _codename(cpu):
     if cpu.get("vendor") == "GenuineIntel":
         return _intel_codename(cpu)
@@ -111,15 +124,9 @@ def convert(probe_dir, out_dir):
     for d in by_class("0x03"):
         vendor = {"0x10de": "NVIDIA", "0x1002": "AMD", "0x8086": "Intel"}.get(d.get("vendor"), "Unknown")
         e = _pci_entry(d)
-        e.update({"Manufacturer": vendor, "Codename": "Unknown",
-                  # the CPU's own graphics sits on the root complex's internal bus; a card has its own slot
-                  "Device Type": "Integrated GPU" if (vendor in ("AMD", "Intel") and d.get("boot_vga") != "1"
-                                                      and (vendor == "Intel" or "Radeon" in (d.get("device_name") or "")
-                                                           or "Granite Ridge" in (d.get("device_name") or "")
-                                                           or "Raphael" in (d.get("device_name") or "")))
-                  else "Discrete GPU"})
-        if vendor == "AMD" and e["Device Type"] == "Integrated GPU":
-            e["Codename"] = _codename(cpu)
+        e.update({"Manufacturer": vendor, "Codename": "Unknown", "Device Type": _gpu_type(d, vendor)})
+        if vendor in ("AMD", "Intel") and e["Device Type"] == "Integrated GPU":
+            e["Codename"] = _codename(cpu)      # a CPU's own graphics carries the CPU's codename in the Windows scan
         # A BAR of 4 GB or more is only possible with Resizable BAR on (a card without it exposes 256 MB).
         big = [b for b in d.get("bars") or [] if b.get("prefetch") and (b.get("size") or 0) >= (4 << 30)]
         e["Resizable BAR"] = "Enabled" if big else "Disabled"
