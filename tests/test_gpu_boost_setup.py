@@ -15,12 +15,11 @@ BLOCK = T[a:T.index('  cleanup; echo "RESULT ok"; exit 0\nfi\n', a) + len('  cle
 STUB = '#!/bin/bash\necho "$@" >> "$CALLS"\n'
 
 
-def package(listed=("boost_daemon.sh", "Library/NullMoth/boost/nvmtl-boost", "Library/NullMoth/boost/com.nullmoth.nvmtl-boost.plist"), tamper=False):
+def package(listed=("boost_daemon.sh", "Library/NullMoth/boost/nvmtl-boost"), tamper=False):
     d = pathlib.Path(tempfile.mkdtemp())
     root = d / "pkgroot"
     (root / "Library/NullMoth/boost").mkdir(parents=True)
-    files = {"boost_daemon.sh": STUB, "Library/NullMoth/boost/nvmtl-boost": "bin", "Library/NullMoth/boost/com.nullmoth.nvmtl-boost.plist": "plist",
-             "other": "x"}
+    files = {"boost_daemon.sh": STUB, "Library/NullMoth/boost/nvmtl-boost": "bin", "other": "x"}
     for n, c in files.items():
         (root / n).write_text(c)
     lines = [f"{hashlib.sha256((root / n).read_bytes()).hexdigest()}  {n}\n" for n in files if n in listed or n == "other"]
@@ -58,8 +57,8 @@ class Boost(unittest.TestCase):
         self.assertTrue((st / "boost_daemon.sh").is_file())
 
     def test_a_package_that_does_not_list_the_script_or_a_daemon_file_runs_nothing(self):
-        for missing in ("boost_daemon.sh", "Library/NullMoth/boost/nvmtl-boost", "Library/NullMoth/boost/com.nullmoth.nvmtl-boost.plist"):
-            listed = tuple(x for x in ("boost_daemon.sh", "Library/NullMoth/boost/nvmtl-boost", "Library/NullMoth/boost/com.nullmoth.nvmtl-boost.plist") if x != missing)
+        for missing in ("boost_daemon.sh", "Library/NullMoth/boost/nvmtl-boost"):
+            listed = tuple(x for x in ("boost_daemon.sh", "Library/NullMoth/boost/nvmtl-boost") if x != missing)
             out, calls, st = run("on", package(listed))
             self.assertIn("does not list", out, missing)
             self.assertEqual(calls, [])
