@@ -472,6 +472,37 @@ def apply(config_path, result, policy):
         quirks["DisableVariableWrite"] = True
         change("amd-zen4-variable-write", before, "DisableVariableWrite=True",
                f"{cpu.get('Processor Name') or 'Zen 4/5 Ryzen'}: the installer froze about 19 minutes in while writing NVRAM")
+    # AMD laptops with firmware devirtualised: boot.efi/the kernel took a type-14 fault at CR2 0xFF00004C on a Ryzen 9
+    # 8945HX laptop (1401 #147). The address is inside the 0xFF000000 region the firmware maps; adding that
+    # region to Booter > MmioWhitelist removed the panic (the log reads "MMIO devirt 0xFF000000 skip 1"). Only
+    # meaningful with DevirtualiseMmio on, so it is added here and the inert-entry step below still turns it off again
+    # whenever a later step switches the quirk off.
+    if cpu.get("Manufacturer") == "AMD" and platform == "Laptop" and quirks.get("DevirtualiseMmio") is True:
+        bt = cfg.setdefault("Booter", {})
+        wl = [w for w in bt.get("MmioWhitelist", []) if isinstance(w, dict)]
+        mine = next((w for w in wl if w.get("Address") == 0xFF000000), None)
+        if mine is None:
+            wl.append({"Address": 0xFF000000, "Comment": "Keep the 0xFF000000 region at its address (AMD laptops)", "Enabled": True})
+            bt["MmioWhitelist"] = wl
+            change("amd-laptop-mmio-ff000000", "0xFF000000 devirtualised", "0xFF000000 in MmioWhitelist",
+                   "an AMD laptop took a type-14 fault at 0xFF00004C with that region devirtualised; whitelisting it removed the fault")
+        elif not mine.get("Enabled"):
+            mine["Enabled"] = True
+            change("amd-laptop-mmio-ff000000", "0xFF000000 entry off", "0xFF000000 entry on",
+                   "an AMD laptop took a type-14 fault at 0xFF00004C with that region devirtualised; whitelisting it removed the fault")
+
+    # SSDT-PLUG-ALT declares 64 Haswell-era Intel processors for XCPM. On a Ryzen it makes macOS count ghost CPUs and the
+    # AM5 boards that load it hang right after "CoreAnalyticsHub start completed" (1401 #21: the owner's fix was to turn
+    # it off). XCPM power management is Intel-only, so an AMD machine never needs any SSDT-PLUG table.
+    if cpu.get("Manufacturer") == "AMD":
+        plug = [e for e in cfg.get("ACPI", {}).get("Add", []) if isinstance(e, dict) and e.get("Enabled")
+                and os.path.basename(str(e.get("Path") or "")).upper().startswith("SSDT-PLUG")]
+        for e in plug:
+            e["Enabled"] = False
+        if plug:
+            change("amd-ssdt-plug-off", ", ".join(str(e["Path"]) for e in plug), "Enabled=False",
+                   "the Intel processor-declaration table gives an AMD machine ghost CPUs and hangs AM5 boards")
+
     # Whitelist entries are inert whenever DevirtualiseMmio is off. This includes configurations whose quirk was
     # already off before the policy pass; ocvalidate rejects enabled entries in either case.
     if quirks.get("DevirtualiseMmio") is False:

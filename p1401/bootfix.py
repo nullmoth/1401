@@ -73,7 +73,9 @@ def findings(texts):
     seen = set()
     for t in texts:
         out["startimage_aborted"] |= "StartImage failed - Aborted" in t
-        out["stop16"] |= bool(re.search(r"EB\.MM\.AKM|Couldn't allocate runtime area|STOP 0x16", t))
+        # AKMR (capital R) is the ramdisk placement of the install's second stage, not the runtime-area failure
+        out["ramdisk_stop"] = out.get("ramdisk_stop", False) or bool(re.search(r"EB\.MM\.AKMR(?![A-Za-z0-9])|STOP 0x15", t))
+        out["stop16"] |= bool(re.search(r"EB\.MM\.AKM(?!R(?![A-Za-z0-9]))|Couldn't allocate runtime area|STOP 0x16", t))
         out["secureboot_dmg"] |= "Cannot use Secure Boot with Any DmgLoading" in t
         # UEFI Secure Boot (the BIOS setting) refuses every driver OpenCore loads: nine logs since 1.11 end at
         # "OC: Driver HfsPlus.efi at 0 cannot be loaded - Access Denied!" and the PC hangs there
@@ -120,7 +122,24 @@ def apply(cfg, result, texts, change, stopped_at=""):
     #   off, failed                          -> both on (the next log lists the board's MMIO regions)
     #   on, regions below 4 GiB not skipped  -> whitelist those (the large 64-bit regions stay devirtualised)
     #   on, all of them already whitelisted  -> back to the default, and say so: nothing left to try from the log.
-    failed = f["stop16"] or f["startimage_aborted"]
+    # The install's second stage ("macOS Install Data") loads an 818 MB root image as a ramdisk. boot.efi stops with
+    # STOP 0x15 (EB.MM.AKMR Err(0xE)) when it cannot place that image in the kernel area OpenCore sized for slide 80
+    # (runtime pages plus 200 MB; 4 AMD laptop sticks, 1401 BUGS). OpenCore's relocation block is used when no slide
+    # fits or when slide=0 is forced (Configuration, Booter > Quirks > AllowRelocationBlock), so the next build asks
+    # for it. Not measured on hardware yet: it moves only a stick whose own log shows this stop.
+    if f.get("ramdisk_stop"):
+        before = (f"AllowRelocationBlock={quirks.get('AllowRelocationBlock')}, "
+                  f"boot-args {cfg.get('NVRAM', {}).get('Add', {}).get(BOOT_GUID, {}).get('boot-args', '')!r}")
+        quirks["ProvideCustomSlide"] = True
+        quirks["AvoidRuntimeDefrag"] = True
+        quirks["AllowRelocationBlock"] = True
+        nv = cfg.setdefault("NVRAM", {}).setdefault("Add", {}).setdefault(BOOT_GUID, {})
+        args = (nv.get("boot-args") or "").split()
+        if "slide=0" not in args:
+            nv["boot-args"] = " ".join([a for a in args if not a.startswith("slide=")] + ["slide=0"])
+        change("bootlog-ramdisk-relocation", before, "AllowRelocationBlock=True, slide=0",
+               "the stick's last boot stopped placing the install's root image (STOP 0x15, EB.MM.AKMR) at OpenCore's slide")
+    failed = (f["stop16"] or f["startimage_aborted"]) and not f.get("ramdisk_stop")
     if cpu == "AMD" and failed:
         before = f"DevirtualiseMmio={quirks.get('DevirtualiseMmio')}, SetupVirtualMap={quirks.get('SetupVirtualMap')}"
         # OpenCore sizes the kernel's area as every runtime page plus 200 MB (OcAfterBootCompatLib/CustomSlide.c,
