@@ -88,8 +88,9 @@ def _known_machines():
         return []  # a missing or broken table never stops a build; it only means no machine-specific settings
 
 
-# Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11). Never shipped by 1401: rule 0.
-EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext")
+# Kexts under the ChefKiss licence (GitHub reports a custom licence for all four, 10-11), and SimpleBCM (all rights
+# reserved, no licence grant; it embeds Apple driver components, p1401/licenses.json). Never shipped by 1401: rule 0.
+EXCLUDED_KEXTS = ("NootedRed.kext", "NootRX.kext", "SMCRadeonSensors.kext", "ForgedInvariant.kext", "SimpleBCM.kext")
 
 # Emulated NVRAM is set up exactly as OpenCore's Configuration doc (section 11.11, "Managing macOS updates when using
 # emulated NVRAM") requires. The three GUIDs are OpenCore's own permissive LegacySchema: with <string>*</string> every
