@@ -8,7 +8,7 @@ Two bundle shapes are read:
 The engine runs in plan mode (no downloads except the ACPI disassembler it fetches on first use) in its own process, because
 it keeps module-level state. The result says whether the DSDT was read and what the builder decided.
 
-    python3 tools/machine_bundle_replay.py <bundle.zip|folder> [--hardware scan-evidence.json] [--macos 24|25]
+    python3 tools/machine_bundle_replay.py <bundle.zip|folder> [--hardware scan-evidence.json] [--macos 24|25] [--build]
     python3 tools/machine_bundle_replay.py --many <folder of bundles> [--jobs N] [--json out.json]
 """
 import json
@@ -72,26 +72,47 @@ def prepare(bundle, work, hardware=None):
     raise ValueError("no DSDT in this bundle, or an acpi-bundle without --hardware")
 
 
-def replay_one(bundle, macos="24", hardware=None):
-    """Run the builder in plan mode over one bundle in a fresh process. -> dict."""
+def config_facts(plist_path):
+    """What the built config.plist decided: the settings a failing boot is traced to."""
+    import plistlib
+    with open(plist_path, "rb") as f:
+        c = plistlib.load(f)
+    nvram = (c.get("NVRAM", {}).get("Add", {}) or {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {})
+    return {"booter": dict(c.get("Booter", {}).get("Quirks", {})), "kernel_quirks": dict(c.get("Kernel", {}).get("Quirks", {})),
+            "uefi_quirks": dict(c.get("UEFI", {}).get("Quirks", {})),
+            "boot_args": nvram.get("boot-args", ""), "acpi": [a.get("Path") for a in c.get("ACPI", {}).get("Add", []) if a.get("Enabled")],
+            "kexts": [k.get("BundlePath") for k in c.get("Kernel", {}).get("Add", []) if k.get("Enabled")],
+            "smbios": (c.get("PlatformInfo", {}).get("Generic", {}) or {}).get("SystemProductName")}
+
+
+def replay_one(bundle, macos="24", hardware=None, build=False):
+    """Run the builder over one bundle in a fresh process: plan mode, or a full build with the config's settings read back."""
     work = tempfile.mkdtemp(prefix="1401-bundle-")
+    name = os.path.basename(bundle)
     try:
         try:
             report, acpi = prepare(bundle, work, hardware)
         except Exception as e:  # noqa: BLE001 - an unreadable bundle is a result
-            return {"bundle": os.path.basename(bundle), "ok": False, "stage": "prepare", "error": f"{type(e).__name__}: {e}"[:300]}
-        p = subprocess.run([sys.executable, "-m", "p1401", "plan", report, acpi, "--json", "--macos", macos], cwd=REPO,
-                           capture_output=True, text=True, timeout=900)
+            return {"bundle": name, "ok": False, "stage": "prepare", "error": f"{type(e).__name__}: {e}"[:300]}
+        out = os.path.join(work, "efi")
+        cmd = [sys.executable, "-m", "p1401", "build" if build else "plan", report, acpi] + ([out] if build else []) + \
+              ["--json", "--macos", macos]
+        p = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True, timeout=1800)
         try:
             d = json.loads(p.stdout[p.stdout.index("{"):])
         except ValueError:
-            return {"bundle": os.path.basename(bundle), "ok": False, "stage": "engine", "error": (p.stderr or p.stdout)[-300:]}
-        diag = d.get("acpi_diagnostics") or []
-        return {"bundle": os.path.basename(bundle), "ok": d.get("ok"), "stage": "plan", "macos": d.get("macos_version"),
-                "smbios": d.get("smbios"), "kexts": d.get("kexts"), "error": (d.get("error") or "")[:300],
-                "dsdt_read": not any("no usable DSDT" in (d.get("error") or "") for _ in [0]),
-                "acpi_diagnostics": [{k: x.get(k) for k in ("tool", "exit_code")} for x in diag][:4],
-                "storage_plan": (d.get("storage_plan") or {}).get("kind")}
+            return {"bundle": name, "ok": False, "stage": "engine", "error": (p.stderr or p.stdout)[-300:]}
+        result = {"bundle": name, "ok": d.get("ok"), "stage": "build" if build else "plan", "macos": d.get("macos_version"),
+                  "smbios": d.get("smbios"), "kexts": d.get("kexts"), "error": (d.get("error") or "")[:300],
+                  "acpi_diagnostics": [{k: x.get(k) for k in ("tool", "exit_code")} for x in d.get("acpi_diagnostics") or []][:4],
+                  "storage_plan": (d.get("storage_plan") or {}).get("kind"), "validation_ok": (d.get("validation") or {}).get("ok"),
+                  "config": None}
+        if build and d.get("ok"):
+            try:
+                result["config"] = config_facts(os.path.join(out, "EFI", "OC", "config.plist"))
+            except (OSError, ValueError) as e:
+                result["config"] = {"error": str(e)[:100]}
+        return result
     finally:
         shutil.rmtree(work, ignore_errors=True)
 
@@ -100,7 +121,7 @@ def main(argv):
     if not argv:
         print(__doc__)
         return 2
-    macos, hardware, many, out, jobs = "24", None, None, None, 4
+    macos, hardware, many, out, jobs, build = "24", None, None, None, 4, False
     it = iter(argv)
     paths = []
     for a in it:
@@ -108,6 +129,8 @@ def main(argv):
             macos = next(it)
         elif a == "--hardware":
             hardware = next(it)
+        elif a == "--build":
+            build = True
         elif a == "--many":
             many = next(it)
         elif a == "--json":
@@ -120,9 +143,9 @@ def main(argv):
         paths = [os.path.join(many, n) for n in sorted(os.listdir(many))]
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(jobs) as ex:
-            results = list(ex.map(lambda p: replay_one(p, macos), paths))
+            results = list(ex.map(lambda p: replay_one(p, macos, None, build), paths))
     else:
-        results = [replay_one(p, macos, hardware) for p in paths]
+        results = [replay_one(p, macos, hardware, build) for p in paths]
     if out:
         with open(out, "w") as f:
             json.dump(results, f, indent=1)
