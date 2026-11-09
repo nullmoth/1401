@@ -102,6 +102,9 @@
 <p>For Tiger Lake, Alder Lake and Raptor Lake Intel graphics on macOS 15.8 or 26.7 and later. It uses <a href="https://github.com/b00t0x/WhateverXe">WhateverXe</a> by b00t0x: 1401 adds it to OpenCore, you restart, then press <b>Turn it on</b> again to install its graphics package. Those parts come straight from the author's GitHub, each checked. WhateverGreen is turned off while it is on; <b>Turn it off</b> puts everything back.</p>
 <p>If the screen stays dark after the restart, choose <b>1401: Start once without NVIDIA driver</b> in the boot picker: that start also leaves WhateverXe off. Then turn it off here.</p>
 <p class="row"><button type="button" class="b" id="xeon">Turn it on</button> <button type="button" class="b" id="xeoff">Turn it off</button></p></div>
+<div class="pane card" id="gmcard"><p class="sh">Game Mode</p>
+<p>While a game is in front and full screen, this gives it the processor first, holds back background indexing and other apps' use of the graphics card, and puts everything back when you leave the game. A game controller shows in the menu bar while it is on. It stays off until you turn it on, and turning it off removes it.</p>
+<p class="row"><button type="button" class="b" id="gmon">Turn on</button> <button type="button" class="b" id="gmoff" hidden>Turn off</button> <span id="gmr" class="small"></span></p></div>
 <div class="pane card"><p class="sh">Microphone and camera</p>
 <p>With the driver installed, macOS does not ask before an app uses the microphone or camera, so apps such as Discord get silence and never appear under Privacy &amp; Security. Pick the app here to allow it the microphone, camera and screen recording.</p>
 <p class="row"><button type="button" class="b" id="tccg">Allow an app...</button> <span id="tccr"></span></p></div>
