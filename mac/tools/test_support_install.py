@@ -74,9 +74,11 @@ class Install(unittest.TestCase):
         for b in ['NVMTLDriver.bundle','NVIDIAShared.bundle','nvmtl']:
             p=self.payload/'Library/GPUBundles'/b;p.mkdir(parents=True);(p/'fixture').write_text('new-'+b)
         (self.payload/'Library/GPUBundles/nvmtl-allow.txt').write_text('new-allow')
+        codecs=self.payload/'Library/GPUBundles/NVMTLDriver.bundle/Contents/MacOS/libnvencvt.dylib';codecs.parent.mkdir(parents=True)  # the package refuses to install without its video codecs
         load=struct.pack('<6I',0x32,24,1,0x000f0500,0x000f0500,0)
         runtime=self.payload/'Library/GPUBundles/nvmtl/libvulkan_nouveau.dylib'
         runtime.write_bytes(struct.pack('<8I',0xfeedfacf,0x01000007,3,6,1,len(load),0,0)+load)
+        codecs.write_bytes(struct.pack('<8I',0xfeedfacf,0x01000007,3,6,1,len(load),0,0)+load)
         for folder in [self.root,self.payload]:
             (folder/'nullmoth-runtime-check').write_bytes(self.guard.read_bytes())
             (folder/'nullmoth-runtime-check').chmod(0o755)
