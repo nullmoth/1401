@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --pkg) PKG=$2; shift;; --sha) SHA=$2; shift;; --config) CFG=$2; shift;; --efi) EFI=$2; shift;;
   --tool) TOOL=$2; shift;; --usbmap) USBMAP=$2; shift;; --app) APPBIN=$2; shift;; --dry) DRY=1;; --remove) REMOVE=1;; --verbose) VERB=$2; shift;; --update) UPD=$2; shift;; --collect-logs) COLLECT=$2; shift;;
   --efi-read) EFIREAD=$2; shift;;
-  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
+  --knob) KNOBS+=("$2"); shift;; --profile) PROFILE=$2; shift;; --gpu-test) GPUTEST=$2; shift;; --backlight) BACKLIGHT=$2; shift;; --hidpi) HIDPI=$2; shift;; --xe) XE=$2; shift;; --hybrid) HYBRID=$2; shift;; --ryzen-power) RYZEN=$2; shift;; --ryzen-limits) RYZENLIM=$2; shift;; --autologin-off) AUTOLOGINOFF=1;;
   *) echo "STOP unknown option $1"; echo "RESULT stop"; exit 2;; esac; shift; done
 step() { echo "STEP $*"; }; ok() { echo "OK $*"; }; note() { echo "NOTE $*"; }
 KT=""
@@ -1014,7 +1014,7 @@ fi
 INSTALL_THEN_PREPARE=0; [ "$UPD" = prepare ] && [ -n "$PKG" ] && INSTALL_THEN_PREPARE=1
 # the app's test-driver switch runs setup without a package; 1.14 sent it through the package check
 # ("STOP package not found:", 4 uploads in the first hour of 1.14), so the switch did not work
-if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
+if [ -z "$USBMAP" ] && [ -z "$VERB" ] && [ -z "$EFIREAD" ] && [ -z "${GPUTEST:-}" ] && [ -z "${BACKLIGHT:-}" ] && [ -z "${HIDPI:-}" ] && [ -z "${HYBRID:-}" ] && [ -z "${RYZEN:-}" ] && [ "${AUTOLOGINOFF:-0}" = 0 ] && { [ -z "$UPD" ] || [ $INSTALL_THEN_PREPARE = 1 ]; }; then
 # This driver is built for macOS 15 and 26 only and never installs anywhere else, whatever the app's page allowed (the
 # app refuses too, and the kexts refuse to start on any other Darwin).
 driver_os_ok "$(sw_vers -productVersion 2>/dev/null)" || stop "the driver is built for macOS 15 and 26; this Mac runs macOS $(sw_vers -productVersion 2>/dev/null). Nothing was changed"
@@ -1062,7 +1062,7 @@ fi
 if [ $NATIVE = 1 ]; then
   step "Setting up a Mac Pro (2019) started by Apple's firmware"
   note "experimental: this Mac has no OpenCore, so the driver's settings go in this Mac's own NVRAM boot-args"
-  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
+  [ -z "$UPD$USBMAP$VERB$EFIREAD${GPUTEST:-}${BACKLIGHT:-}${HIDPI:-}${XE:-}${HYBRID:-}${RYZEN:-}$([ "${AUTOLOGINOFF:-0}" = 1 ] && echo x)" ] || \
     stop "that option changes an OpenCore config, and this Mac Pro starts without one; macOS 26 runs on it as it is. Nothing was changed"
   # Apple's firmware loads only Apple-signed kernel extensions while SIP is on, and NVRAM boot-args cannot be set.
   csrutil status 2>/dev/null | grep -q 'status: disabled\.' || \
@@ -1462,6 +1462,83 @@ if [ "${AUTOLOGINOFF:-0}" = 1 ]; then
     defaults delete /Library/Preferences/com.apple.loginwindow autoLoginUser && rm -f /etc/kcpassword || stop "could not turn automatic login off"
   fi
   rm -f "$AM"; ok "automatic login is off; the stored password file is gone"; cleanup; echo "RESULT ok"; exit 0
+fi
+
+if [ -n "${RYZEN:-}" ]; then
+  # Ryzen laptops: a quieter power-limit profile (RyzenAdj, NullMoth's macOS build), optional and off until asked. It needs
+  # the NMSMN kext (inert unless the boot argument nmsmn is 1) and a root job. On: the kext goes into /Library/Extensions,
+  # the auxiliary kernel collection is rebuilt and checked to contain it, nmsmn=1 is written to the config and NVRAM, and
+  # the job is installed from the RyzenAdj build the package carries (nullmoth-ryzen-power.sh installs only a build whose
+  # SHA-256 is pinned). A failure at any step puts the earlier ones back. Off undoes each step; nothing runs on a Mac that
+  # never turned it on. --ryzen-limits S:L:F:T sets the sustained, slow and fast limits in watts and the temperature limit.
+  case "$RYZEN" in on) RV=1;; off) RV=0;; *) stop "--ryzen-power takes on or off";; esac
+  EXT=/Library/Extensions; RK=$EXT/NMSMN.kext; RREC=$ST/ryzen-power
+  RPW="$(dirname "$0")/nullmoth-ryzen-power.sh"
+  [ -f "$STATE" ] || [ "$RV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn the Ryzen power profile on"
+  BKC="$C.nullmoth-ryzen-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+  ra() {  # $1 = add|del, $2 = boot argument; the config and NVRAM together
+    local a new="" nv=""
+    for a in $(get NVRAM.Add.$B.boot-args); do [ "$a" = "$2" ] || new="$new $a"; done
+    [ "$1" = add ] && new="$new $2"; new=${new# }
+    if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
+    for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
+    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  rauxkc() {
+    K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
+    kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
+      -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
+      -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/ryzen-kmutil.log" 2>&1; }
+  rback() { rm -rf "$RK"; rauxkc || true; ra del nmsmn=1; cp -p "$BKC" "$C"; }
+  if [ "$RV" = 1 ]; then
+    case "$(sysctl -n machdep.cpu.brand_string 2>/dev/null)" in *AMD*Ryzen*) ;; *) stop "this Mac does not have a Ryzen processor";; esac
+    RLIM=(); if [ -n "${RYZENLIM:-}" ]; then
+      IFS=: read -r RS RL RF RT <<EOF
+$RYZENLIM
+EOF
+      case "$RS$RL$RF$RT" in ''|*[!0-9]*) stop "--ryzen-limits takes four whole numbers: sustained:slow:fast:temperature";; esac
+      RLIM=(--stapm "$RS" --slow "$RL" --fast "$RF" --temp "$RT")
+    fi
+    PR=""
+    if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
+      step "Taking the Ryzen power parts from the driver package"
+      PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
+      cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
+      PK=$PKGDIR/$(basename "$PKG")
+      [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
+      tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
+      PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
+    fi
+    RSRC=/Library/NullMoth/kexts/NMSMN.kext; RBIN=/Library/NullMoth/ryzenadj/ryzenadj
+    if [ -n "$PR" ]; then
+      [ -d "$PR/Library/NullMoth/kexts/NMSMN.kext" ] && [ -f "$PR/Library/NullMoth/ryzenadj/ryzenadj" ] || stop "this driver package does not carry the Ryzen power parts; update the driver first"
+      mkdir -p /Library/NullMoth/kexts /Library/NullMoth/ryzenadj && rm -rf "$RSRC" && ditto "$PR/Library/NullMoth/kexts/NMSMN.kext" "$RSRC" \
+        && cp "$PR/Library/NullMoth/ryzenadj/ryzenadj" "$RBIN" || stop "could not copy the Ryzen power parts"
+    fi
+    [ -d "$RSRC" ] && [ -f "$RBIN" ] || stop "the Ryzen power parts are not on this Mac: update the NVIDIA driver to a package that carries them"
+    [ "$(plutil -extract CFBundleIdentifier raw -o - "$RSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.NMSMN ] || stop "$RSRC is not the NullMoth Ryzen power kext"
+    [ -f "$RSRC/Contents/MacOS/NMSMN" ] || stop "the Ryzen power kext has no executable"
+    step "Installing the Ryzen power kext"
+    rm -rf "$RK" && ditto "$RSRC" "$RK" && chown -R root:wheel "$RK" && chmod -R go-w "$RK" || stop "could not install NMSMN"
+    rauxkc
+    kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.NMSMN \
+      || { rback; stop "the kernel collection did not take NMSMN (log: $ST/ryzen-kmutil.log) - it is removed again"; }
+    ok "NMSMN is in the kernel collection"
+    ra del nmsmn=1; ra add nmsmn=1
+    plutil -lint "$C" >/dev/null || { rback; stop "editing the config failed - the original is restored"; }
+    step "Installing the power-limit job"
+    bash "$RPW" install --ryzenadj "$RBIN" "${RLIM[@]}" || { bash "$RPW" remove >/dev/null 2>&1; rback; stop "the power-limit job was refused (see above) - everything is put back"; }
+    printf 'ON=1\n' > "$RREC.tmp" && mv "$RREC.tmp" "$RREC"
+    ok "Ryzen power profile on - restart to start it; turn it off here to undo it"
+  else
+    step "Turning the Ryzen power profile off"
+    bash "$RPW" remove >/dev/null 2>&1 || note "the power-limit job could not be removed (run nullmoth-ryzen-power.sh remove as root)"
+    ra del nmsmn=1
+    plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
+    if [ -d "$RK" ]; then rm -rf "$RK"; rauxkc || note "the kernel collection rebuild reported an error (log: $ST/ryzen-kmutil.log)"; fi
+    rm -f "$RREC"
+    ok "Ryzen power profile off - restart to finish"
+  fi
+  cleanup; echo "RESULT ok"; exit 0
 fi
 
 if [ -n "${HYBRID:-}" ]; then

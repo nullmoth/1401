@@ -4,4 +4,4 @@
 # layer (ryzenadj-macos/osdep_macos.c), built by ryzenadj-macos/build.sh with Xcode on x86_64, macOS 15 target, signed ad hoc
 # with the entitlement the NMSMN kext requires of its caller; two builds gave the same bytes. It needs the NMSMN kext and
 # boot argument nmsmn=1.
-b00650d4d2f1e3c7f512af3ff452b0d6f362f03e0ce1fb0fcb7bc377f6f609d0  ryzenadj v0.19.0 + NullMoth macOS layer, entitled
+97ade67325c435c158ae0825cb4442d2718f098d2201721fa71c3f19fddbb9f3  ryzenadj v0.19.0 + NullMoth macOS layer, entitled

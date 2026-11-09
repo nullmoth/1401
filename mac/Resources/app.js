@@ -289,6 +289,8 @@ $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("hybcopy").onclick = () => post({ act: "hybrid", level: "copy", pkg: S.pkg || "", efi: efi() });
 $("hybimport").onclick = () => post({ act: "hybrid", level: "import", pkg: S.pkg || "", efi: efi() });
 $("hyboff").onclick = () => post({ act: "hybrid", level: "off", efi: efi() });
+$("ryzon").onclick = () => post({ act: "ryzenpower", on: true, pkg: S.pkg || "", efi: efi() });
+$("ryzoff").onclick = () => post({ act: "ryzenpower", on: false, efi: efi() });
 $("xeon").onclick = () => post({ act: "xe", on: true, efi: efi() });
 $("xeoff").onclick = () => post({ act: "xe", on: false, efi: efi() });
 $("armon").onclick = () => { $("armon").disabled = true; post({ act: "arm", op: "on" }); };
