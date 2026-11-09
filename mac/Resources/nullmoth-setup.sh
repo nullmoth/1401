@@ -1421,7 +1421,7 @@ if [ -n "${HYBRID:-}" ]; then
   # it, and nmhybrid is written to the config and NVRAM. Off undoes each step; the kext is out of the collection when the
   # switch is off, so nothing here runs on a Mac that never turned it on.
   case "$HYBRID" in copy) HV=1;; import) HV=2;; off) HV=0;; *) stop "--hybrid takes copy, import or off";; esac
-  EXT=/Library/Extensions; HK=$EXT/NMIntelFB.kext; HREC=$ST/hybrid
+  EXT=/Library/Extensions; HK=$EXT/NMIntelFB.kext; HKG=$EXT/NMGopFB.kext; HREC=$ST/hybrid
   KMAJ=$(sw_vers -productVersion); KMAJ=${KMAJ%%.*}
   [ -f "$STATE" ] || [ "$HV" = 0 ] || stop "the NVIDIA driver is not installed on this Mac; install it first, then turn hybrid laptop mode on"
   BKC="$C.nullmoth-hybrid-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
@@ -1437,29 +1437,59 @@ if [ -n "${HYBRID:-}" ]; then
     kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
       -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository "$EXT" \
       -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z > "$ST/hybrid-kmutil.log" 2>&1; }
+  # Which panel driver this Mac needs. NMIntelFB takes an Intel GPU's panel. NMGopFB takes the panel of an AMD integrated GPU
+  # macOS has no driver for (the IDs of kexts/NMGopFB/nm_gopfb.h: Van Gogh, Mendocino, Rembrandt, Raphael, Granite Ridge,
+  # Phoenix and Hawk Point, Strix Point, Strix Halo, and the discrete RDNA 3 and 4 ranges). A Mac with neither, or where
+  # nothing can be read, keeps the NMIntelFB behaviour this switch always had.
+  hy_displays() {  # vendor+device (8 hex digits, upper case) of every display-class PCI function
+    ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | LC_ALL=C awk -F'<|>' 'function out(){if (c=="03" && v!="") print toupper(v d)}
+      /\+-o /{out(); c=""; v=""; d=""} /"vendor-id" =/{v=substr($2,3,2) substr($2,1,2)} /"device-id" =/{d=substr($2,3,2) substr($2,1,2)}
+      /"class-code" =/{c=substr($2,5,2)} END{out()}'; }
+  hy_amd_gop() {  # true when the 4 hex digit AMD device ID is one NMGopFB takes
+    local n=$((16#$1))
+    case "$1" in 163F|1506|1681|164E|13C0|15BF|15C8|1900|150E|1586) return 0;; esac
+    { [ $n -ge $((16#7448)) ] && [ $n -le $((16#745F)) ]; } || { [ $n -ge $((16#7470)) ] && [ $n -le $((16#749F)) ]; } \
+      || { [ $n -ge $((16#7550)) ] && [ $n -le $((16#756F)) ]; } || { [ $n -ge $((16#7590)) ] && [ $n -le $((16#75AF)) ]; }; }
+  HGOP=0; HINTEL=0
+  for d in $(hy_displays); do
+    case $d in 1002????) hy_amd_gop "${d#1002}" && HGOP=1;; 8086????) HINTEL=1;; esac
+  done
+  HNEED="NMIntelFB"; [ $HGOP = 1 ] && { [ $HINTEL = 1 ] && HNEED="NMIntelFB NMGopFB" || HNEED="NMGopFB"; }
   if [ "$HV" != 0 ]; then
-    HSRC=/Library/NullMoth/kexts/NMIntelFB.kext
     # the package the app checked rides along; its copy is taken from a root-owned folder and its SHA256SUMS verified
+    PR=""
     if [ -n "$PKG" ] && [ -n "$SHA" ] && [ -f "$PKG" ]; then
-      step "Taking the Intel panel driver from the driver package"
+      step "Taking the panel driver from the driver package"
       PKGDIR=$(mktemp -d /var/tmp/nullmoth-pkg.XXXX) || stop "could not make a folder to check the package in"
       cp "$PKG" "$PKGDIR/" || stop "could not copy the package for checking"
       PK=$PKGDIR/$(basename "$PKG")
       [ "$(shasum -a 256 "$PK" | awk '{print $1}')" = "$SHA" ] || stop "package checksum does not match - download it again"
       tar -xzf "$PK" -C "$PKGDIR" || stop "could not unpack the package"
       PR="$PKGDIR/pkgroot"; (cd "$PR" && shasum -a 256 --strict -c SHA256SUMS --quiet) || stop "the package's files do not match its SHA256SUMS"
-      [ -d "$PR/Library/NullMoth/kexts/NMIntelFB.kext" ] || stop "this driver package does not carry the Intel panel driver (NMIntelFB); update the driver first"
-      mkdir -p /Library/NullMoth/kexts && rm -rf "$HSRC" && ditto "$PR/Library/NullMoth/kexts/NMIntelFB.kext" "$HSRC" || stop "could not copy the Intel panel driver"
     fi
-    [ -d "$HSRC" ] || stop "the Intel panel driver (NMIntelFB) is not on this Mac: update the NVIDIA driver to a package that carries it"
-    [ "$(plutil -extract CFBundleIdentifier raw -o - "$HSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.NMIntelFB ] || stop "$HSRC is not the NullMoth Intel panel driver"
-    [ -f "$HSRC/Contents/MacOS/NMIntelFB" ] || stop "the Intel panel driver has no executable"
-    step "Installing the Intel panel driver"
-    rm -rf "$HK" && ditto "$HSRC" "$HK" && chown -R root:wheel "$HK" && chmod -R go-w "$HK" || stop "could not install NMIntelFB"
+    # every driver is checked before anything is installed, so a package that lacks one changes nothing
+    for HN in $HNEED; do
+      case $HN in NMIntelFB) HL="Intel panel driver (NMIntelFB)";; *) HL="AMD panel driver (NMGopFB)";; esac
+      HSRC=/Library/NullMoth/kexts/$HN.kext
+      if [ -n "$PR" ]; then
+        [ -d "$PR/Library/NullMoth/kexts/$HN.kext" ] || stop "this driver package does not carry the ${HL}; update the driver first"
+        mkdir -p /Library/NullMoth/kexts && rm -rf "$HSRC" && ditto "$PR/Library/NullMoth/kexts/$HN.kext" "$HSRC" || stop "could not copy the ${HL}"
+      fi
+      [ -d "$HSRC" ] || stop "the ${HL} is not on this Mac: update the NVIDIA driver to a package that carries it"
+      [ "$(plutil -extract CFBundleIdentifier raw -o - "$HSRC/Contents/Info.plist" 2>/dev/null)" = com.nullmoth.$HN ] || stop "$HSRC is not the NullMoth ${HL}"
+      [ -f "$HSRC/Contents/MacOS/$HN" ] || stop "the ${HL} has no executable"
+    done
+    for HN in $HNEED; do
+      HSRC=/Library/NullMoth/kexts/$HN.kext; HK=$EXT/$HN.kext
+      step "Installing the panel driver $HN"
+      rm -rf "$HK" && ditto "$HSRC" "$HK" && chown -R root:wheel "$HK" && chmod -R go-w "$HK" || stop "could not install $HN"
+    done
     hauxkc
-    kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.NMIntelFB \
-      || { rm -rf "$HK"; hauxkc; cp -p "$BKC" "$C"; stop "the kernel collection did not take NMIntelFB (log: $ST/hybrid-kmutil.log) - it is removed again"; }
-    ok "NMIntelFB is in the kernel collection"
+    for HN in $HNEED; do
+      kmutil inspect -a x86_64 -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc 2>/dev/null | grep -q com.nullmoth.$HN \
+        || { for HM in $HNEED; do rm -rf "$EXT/$HM.kext"; done; hauxkc; cp -p "$BKC" "$C"; stop "the kernel collection did not take $HN (log: $ST/hybrid-kmutil.log) - it is removed again"; }
+      ok "$HN is in the kernel collection"
+    done
     ha del nmhybrid=1; ha del nmhybrid=2; ha add nmhybrid=$HV
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
     printf 'LEVEL=%s\n' "$HV" > "$HREC.tmp" && mv "$HREC.tmp" "$HREC"
@@ -1468,7 +1498,7 @@ if [ -n "${HYBRID:-}" ]; then
     step "Turning hybrid laptop mode off"
     ha del nmhybrid=1; ha del nmhybrid=2
     plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
-    if [ -d "$HK" ]; then rm -rf "$HK"; hauxkc || note "the kernel collection rebuild reported an error (log: $ST/hybrid-kmutil.log)"; fi
+    if [ -d "$HK" ] || [ -d "$HKG" ]; then rm -rf "$HK" "$HKG"; hauxkc || note "the kernel collection rebuild reported an error (log: $ST/hybrid-kmutil.log)"; fi
     rm -f "$HREC"
     ok "hybrid laptop mode off - restart to finish"
   fi

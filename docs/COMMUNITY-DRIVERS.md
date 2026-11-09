@@ -77,7 +77,7 @@ are the IDs each project documents as running; `tests/test_community_gpu.py` run
 |---|---|---|
 | WhateverXe | Intel Tiger Lake, Alder Lake, Raptor Lake: the 60 IDs of WhateverXe 0.8.0 (`intel_gpu.WHATEVERXE_IDS`, `App.xeIds` in the Mac app, the list in `nullmoth-setup.sh`; a test keeps the three equal) | The Mac app offers Intel Xe graphics after install (macOS 15.8 and later, 26.7 and later). New in 0.8.0: Tiger Lake `9A59 9AC0 9AC9 9AD9 9AF8`, Alder Lake `4626 4628 462A 46A0-46A2 46B0-46B2 46C0-46C2`, Raptor Lake `A720 A721`. |
 | IntelMKLFixup | CPU manufacturer AMD | Added to the EFI as an experimental driver, only when the user turns on experimental drivers. Intel processors never get it. |
-| PrimeBridge | `1002-1681` (Radeon 680M) with any NVIDIA GPU in the same scan | Build notice. The author's release works with NullMoth 2.6.3 only. |
+| PrimeBridge | `1002-1681` (Radeon 680M) with any NVIDIA GPU in the same scan | Build notice. The author's release works with NullMoth 2.6.3 only; NullMoth 2.9 has the method built in (Mac app, Hybrid laptop mode). |
 | WTLIntelGfx (XeGfx) | `8086-7D40 7D41 7D45 7D51 7D55 7D67 7DD1 7DD5` (the Meteor Lake and Arrow Lake IDs its README lists as running) | Build notice. |
 | nullarc | `1002-1900 15BF 15C8` (Phoenix, Hawk Point) | Build notice. |
 
@@ -122,8 +122,11 @@ Conclusion: PrimeBridge does not beat the hybrid path on Intel, where ours has t
 we have no working panel driver, because it needs none. The fake HDMI head is only needed when no panel head is published;
 a generic firmware-framebuffer panel provider that publishes head 4 (a small framebuffer kext modelled on `NMIntelFB`, with
 PrimeBridge's boot-framebuffer mapping, MIT) would give every MUX-less laptop the copy path without any iGPU driver, and
-the direct-write probe can be added per chip as PrimeBridge does it. This is a driver change, tracked with the hybrid work;
-it is not in 1401. Until it ships the build notice only names PrimeBridge for the one ID it supports.
+the direct-write probe can be added per chip as PrimeBridge does it. This is what was built: `NMGopFB` in the driver tree
+(`kexts/NMGopFB`, docs/HYBRID-LAPTOPS.md in the driver repository), behind `nmhybrid`, for the AMD integrated GPUs and RDNA 3
+and 4 cards macOS has no driver for. The Mac app's Hybrid laptop mode installs it in place of `NMIntelFB` when the scan
+shows such a GPU. The direct-write probe is not built (staging copy only); it needs the per-chip register offsets and a
+laptop to measure on. Nothing has run on hardware: the build notice still names PrimeBridge for its one proven ID.
 
 ### Permission and credit for PrimeBridge
 

@@ -47,7 +47,7 @@ PROJECTS = (
        "already built from this commit and mirrored by NullMoth (p1401/amd_rdna4.py); experimental opt-in"),
     _p("myvoow/PrimeBridge", "8c08c3e4efa612a49d3c4ce330ef381b9bafdb16", "2026-11-02", "MIT (source, script, docs); NVRMFB patch is NullMoth's PolyForm code",
        DRIVER_IDEA, "internal screen of MUX-less Radeon 680M + NVIDIA laptops: forced HDMI head plus a copy into the firmware framebuffer",
-       "release 0.4.8 needs NullMoth 2.6.3 exactly (hard-coded NVRMFB offsets); the design is rebuilt in our own driver, see docs"),
+       "release 0.4.8 needs NullMoth 2.6.3 exactly (hard-coded NVRMFB offsets); rebuilt in our driver as NMGopFB (AMD panel provider, 2.9)"),
     _p("watchthelight-labs/WTLIntelGfx", "aac09a43ab77133878222522922b90a8428d5796", "2026-11-06", "BSD-2-Clause for shim/tools; PolyForm-NC for the forks of our code",
        PORT_REVIEW, "i915 on XNU for Meteor Lake and Arrow Lake (Metal, Vulkan, GPU-composited desktop); renamed from XeGfx",
        "its release is one bring-up kext (no accelerator, plugin or installer), so it is not a user package; patches reviewed for NMXGPU"),
@@ -133,8 +133,9 @@ _NOTES = {
               "this build and NullMoth has not tested it; NullMoth's AMD / Intel test driver is the supported route."),
     "primebridge": ("Graphics: {name} drives this laptop's internal screen and macOS has no driver for it, so the NVIDIA card "
                     "has no screen of its own here. The community project PrimeBridge (myvoow, MIT) copies the NVIDIA desktop "
-                    "to this exact GPU (1002:1681); its release works with NullMoth 2.6.3 only and is not part of this build. "
-                    "Use an external monitor on the NVIDIA card, or see docs/COMMUNITY-DRIVERS.md for the hybrid-laptop path."),
+                    "to this exact GPU (1002:1681); its own release works with NullMoth 2.6.3 only and is not part of this build. "
+                    "NullMoth 2.9 has the same method built in: turn on Hybrid laptop mode in the Mac app after installing "
+                    "(it adds the AMD panel driver NMGopFB), or use an external monitor on the NVIDIA card."),
     "nullarc": ("Graphics: {name} ({family}) - a community project, nullarc (luuumi-dev), reports Metal on this family of AMD "
                 "Phoenix and Hawk Point graphics on macOS Tahoe, tested by its author on one machine, alpha, with parts "
                 "licensed PolyForm Noncommercial. It is not part of this build and NullMoth has not tested it."),
