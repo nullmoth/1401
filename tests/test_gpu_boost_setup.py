@@ -94,7 +94,7 @@ class Wiring(unittest.TestCase):
     def test_status_is_read_by_the_app_without_a_password_and_on_carries_the_package(self):
         swift = (ROOT / "mac/Sources/main.swift").read_text()
         self.assertIn('send("boostStatus"', swift)
-        self.assertIn('"--gpu-boost", "on", "--pkg", pk, "--sha", sha', swift)
+        self.assertIn('"--gpu-boost", "on", "--pkg", pkg.path, "--sha", pkg.sha', swift)
         self.assertIn('extra: ["--gpu-boost", op]', swift)
 
 
