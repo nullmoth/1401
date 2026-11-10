@@ -24,7 +24,7 @@ class HardwareMapTests(unittest.TestCase):
         send = source.split('    func sendLogs(sample: String = "") {', 1)[1].split('    func crashReportFromWindow()', 1)[0]
         self.assertLess(send.index('guard a.runModal()'), send.index('HardwareMapWorker.run'))
         self.assertLess(send.index('DispatchQueue.global().async'), send.index('HardwareMapWorker.run'))
-        self.assertIn('let important = ["hardware-map.json",', send)
+        self.assertIn('"hardware-map.json",', send.split('let important = [', 1)[1].split(']', 1)[0])
         self.assertIn('if argv == [argv[0], "--hardware-map"]', source)
         self.assertNotIn('.load(as: UInt32.self)', source.split('func u32(', 1)[1].split('func str(', 1)[0])
         self.assertIn('HardwareMap.integer(prop(e, k)', source)

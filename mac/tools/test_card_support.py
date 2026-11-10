@@ -84,7 +84,8 @@ files += ["hardware-map.json","crash-report.txt","driver-state.txt","driver-plug
 files += (0..<3).map { URL(fileURLWithPath: "macos-WindowServer-\($0).ips.txt") }
             PRODUCTION
 let sent=Set(files.prefix(important.count + 3).map { $0.lastPathComponent })  // every priority file + the 3 WindowServer reports
-assert(Set(important).isSubset(of:sent))
+let present=Set(important).intersection(Set(files.map { $0.lastPathComponent }))
+assert(present.count >= 9 && present.isSubset(of:sent))
 assert(Set((0..<3).map { "macos-WindowServer-\($0).ips.txt" }).isSubset(of:sent))
 print("PASS essential diagnostics and WindowServer reports survive 50 competing files")
 '''

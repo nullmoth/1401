@@ -122,7 +122,7 @@ class RyzenPower(unittest.TestCase):
 
     def test_a_bad_value_is_refused(self):
         out, args, _, _ = run("maybe")
-        self.assertIn("STOP --ryzen-power takes on or off", out)
+        self.assertIn("STOP --ryzen-power takes on, off or status", out)
 
 
 if __name__ == "__main__":

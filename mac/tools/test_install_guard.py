@@ -7,6 +7,9 @@ class Backup(m.Install):
   super().setUp()
   # Use the real system mktemp with templates rewritten to this private filesystem.
   source=self.script.read_text().replace('/var/tmp/',str(self.root/'tmp')+'/');(self.root/'tmp').mkdir();self.script.write_text(source)
+  # the installer was just rewritten, so its line in the checksum list is refreshed
+  lines=[hashlib.sha256(p.read_bytes()).hexdigest()+'  '+str(p.relative_to(self.payload)) for p in self.payload.rglob('*') if p.is_file() and p.name!='SHA256SUMS']
+  (self.payload/'SHA256SUMS').write_text('\n'.join(lines)+'\n')
   (self.bin/'mktemp').unlink()
   p=self.bin/'date';p.write_text('#!/bin/bash\necho 20261008-000000\n');p.chmod(0o755)
  def calls(self):return [json.loads(l) for l in (self.root/'calls.jsonl').read_text().splitlines()]
