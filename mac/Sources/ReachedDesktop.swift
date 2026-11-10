@@ -393,7 +393,7 @@ enum ReachedDesktop {
     /// success it removes its own login item; on a failed send it counts the try and gives up (also removing the item)
     /// after a few starts, so a machine that can never reach the site is not left running it start after start.
     static func report() -> Int32 {
-        var s = state()
+        let s = state()
         guard (s["consent"] as? Bool) == true, (s["sent"] as? Bool) != true else { return 0 }
         // A laptop whose NVIDIA card drives no display (the panel is on the integrated GPU) gets its Metal device from
         // the driver's headless check, 60 s after the accelerator starts. A login sooner than that read
