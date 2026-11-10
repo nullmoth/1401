@@ -73,6 +73,13 @@ class Experimental(unittest.TestCase):
         e.run("none")
         self.assertEqual(e.args(), ["keepsyms=1"])
 
+    def test_idle_link_power_saving_is_one_argument_and_comes_out_again(self):
+        e = Env()
+        e.run("aspm")
+        self.assertEqual(e.args(), ["keepsyms=1", "nvrmaspm=1"])
+        e.run("none")
+        self.assertEqual(e.args(), ["keepsyms=1"])
+
     def test_the_power_budget_is_three_arguments_together(self):
         e = Env()
         e.run("tgp")
