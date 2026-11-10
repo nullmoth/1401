@@ -1547,7 +1547,7 @@ if [ -n "${EXPER:-}" ]; then
   # Kernel > Add entry (the 1401 builder places these drivers in the EFI switched off), and turning it off switches it off.
   xkext_of() { case "$1" in kbl) echo NMKbdBacklight;; hda) echo NMHDA;; esac; }
   xneeds_of() { case "$1" in kbl) echo "Lilu VirtualSMC";; hda) echo Lilu;; esac; }
-  XKD="$(dirname "$C")/Kexts"; XSRC=${NULLMOTH_KEXT_SOURCE:-/Library/NullMoth/kexts}
+  XKD="$(dirname "$C")/Kexts"; XSRC=/Library/NullMoth/kexts
   xcount() { local i=0; while plutil -extract "Kernel.Add.$i.BundlePath" raw -o - "$C" >/dev/null 2>&1; do i=$((i + 1)); done; echo $i; }
   xidx() { local i=0 b; while b=$(plutil -extract "Kernel.Add.$i.BundlePath" raw -o - "$C" 2>/dev/null); do [ "${b##*/}" = "$1.kext" ] && { echo $i; return; }; i=$((i + 1)); done; }
   xon() { local i; i=$(xidx "$1"); [ -n "$i" ] && [ "$(plutil -extract "Kernel.Add.$i.Enabled" raw -o - "$C" 2>/dev/null)" = true ]; }
@@ -1573,7 +1573,10 @@ if [ -n "${EXPER:-}" ]; then
     case "$XWANT" in *,$id,*)
       for need in $(xneeds_of $id); do xon "$need" || { cp -p "$BKC" "$C"; stop "$k needs $need.kext loaded by OpenCore and this EFI does not load it - nothing changed"; }; done
       if [ -z "$i" ]; then   # an EFI built before 2.9: take the driver from the installed NVIDIA driver package
-        [ -f "$XSRC/$k.kext/Contents/MacOS/$k" ] && [ ! -L "$XSRC/$k.kext" ] || { cp -p "$BKC" "$C"; stop "this EFI does not carry $k.kext and the installed NVIDIA driver has none to copy; update the driver to 2.9 or build the EFI again with 1401 2.9 - nothing changed"; }
+        # what goes into the EFI is loaded into the kernel: the copy comes only from a driver the installer placed
+        # (root-owned, nobody else able to write it, no link anywhere in it)
+        xtrusted() { [ -z "$(find "$1" \( -type l -o ! -user root -o -perm -002 -o -perm -020 \) -print -quit 2>/dev/null)" ]; }
+        [ -f "$XSRC/$k.kext/Contents/MacOS/$k" ] && [ ! -L "$XSRC/$k.kext" ] && xtrusted "$XSRC/$k.kext" || { cp -p "$BKC" "$C"; stop "this EFI does not carry $k.kext and the installed NVIDIA driver has none to copy; update the driver to 2.9 or build the EFI again with 1401 2.9 - nothing changed"; }
         [ -d "$XKD" ] || { cp -p "$BKC" "$C"; stop "the EFI has no Kexts folder beside its config - nothing changed"; }
         rm -rf "$XKD/$k.kext.nullmoth-new"; ditto "$XSRC/$k.kext" "$XKD/$k.kext.nullmoth-new" && rm -rf "$XKD/$k.kext" && mv "$XKD/$k.kext.nullmoth-new" "$XKD/$k.kext" \
           || { rm -rf "$XKD/$k.kext.nullmoth-new"; cp -p "$BKC" "$C"; stop "could not copy $k.kext into the EFI$(ro_why "$XKD") - nothing changed"; }
