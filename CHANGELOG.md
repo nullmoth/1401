@@ -8,6 +8,28 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 - 1401 for Windows: AMD processors can get IntelMKLFixup (thanks carnations-botanica) so applications built on Intel's Math Kernel Library run. It is an experimental driver: it is added only when "Include experimental drivers" is on.
 - 1401 for Windows: the build notice now names community graphics projects that target a GPU in the scan (Radeon 680M beside an NVIDIA card, Meteor Lake and Arrow Lake, Radeon 780M/760M/740M), with author, licence and state. Nothing is downloaded for them. `docs/COMMUNITY-DRIVERS.md` lists every community Intel Xe and AMD graphics project we read, the licence text of each, and what we do with it.
 - Radeon `1002:1900` is Phoenix / Hawk Point graphics, not Strix Halo; the notice names it correctly.
+- Mac app: a new pane, Experimental drivers and features, with a switch per item and Select all / Deselect all. The builder places NullMoth's own EFI drivers that fit the PC (keyboard backlight on laptops, display audio) into the EFI switched off, and the pane turns each one on or off.
+- Mac app: Driver settings window over the driver's settings catalogue, with the card's PCIe link and BAR facts.
+- Mac app: Game Mode (off by default) with a menu-bar indicator; a GPU boost switch; a Ryzen laptop power-limit profile.
+- Mac app: ARM apps can take an unencrypted iPhone or iPad app (.ipa).
+- Every desktop gets SMCSuperIO for fan speeds, AMD ones included; VirtualSMC and its sensor plugins are built from source.
+- Root actions resolve their package against the app's own pinned list, never from the page.
+- Arrow Lake: a corrected MADT when firmware lists only x2APIC processors (#252, #64); extra processor devices hidden on HX laptops (#141, #110).
+- AMD laptops: ALIB fix built per machine, 0xFF000000 MMIO whitelist, SSDT-PLUG tables off, relocation block when the installer needs it.
+- DSDT repair: each deferred Scope is guarded, so macOS no longer drops the whole DSDT on some Lenovo and Dell laptops.
+- Coffee Lake-H laptops: the firmware page every reported panic named is reserved (#328, #451).
+- Resizable BAR: an installed EFI never resizes the GPU window above 8 GB, and the BIOS guide no longer contradicts itself.
+- VMD and unusable internal drives are planned for (BIOS path per maker, reversible Windows preparation, external-drive option) instead of stopping the build.
+- Full macOS installer option (verified, resumable download) for PCs where the online Recovery install fails. Finish a new macOS 26 install from Recovery when setup cannot draw (#86).
+- Apple ID: every PCI Ethernet controller is marked built-in so it is en0.
+- USB map import (your own UTBMap.kext), new serial, own recovery image, and own config.plist options.
+- After a macOS update that left the driver parked, the Mac app says so (#484), retries the kernel collection build, and turns the driver back on.
+- Updates keep your hidden auxiliary boot entries (#371). Vault is set to Optional (#153).
+- Send logs: no more hang on "Waiting for your Mac password" (#369, #373, #525); flicker samples, display traces, WindowServer watchdog samples, and failed shaders are included; a per-frame log line can no longer fill the kernel log (#16).
+- Clearer stops in the writer: antivirus removing built files, Windows "Access is denied" on the stick, Apple download failures, installer download errors.
+- Stick logs name the board and CPU. The first-login report says whether the accelerator offered its Metal plugin.
+- Intel Xe support updated (WhateverXe 0.8.0, 60 GPU ids). Community drivers reviewed against their licences.
+- AMD/Intel side: H.264 and HEVC decode through Vulkan video where macOS has no hardware decoder, Mesa 26.3.0-rc3.
 
 ## 2.8.1
 - Updates no longer fail when GitHub's downloads are down. If a GitHub download fails, the Mac app (driver updates and its own updates) and 1401 for Windows (the driver package on the stick) fetch the same file from nullmothsystems.com instead. Every file from either place is checked against the release's SHA-256 list and the NullMoth release signature, so a file that differs by one byte is refused. If GitHub's release list itself does not answer, the Mac app reads the release from the site the same way.
