@@ -1365,7 +1365,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 let cr = dir.appendingPathComponent("crash-report.txt")
                 if writeReport(Array(crashes.prefix(3)), to: cr) { files.append(cr) }
             }
-            var ids: [String] = [], errs: [String] = collectionErrors, acknowledgements: [[String: String]] = []
+            var ids: [String] = [], errs: [String] = collectionErrors
             let savedReceipt = support.appendingPathComponent("Diagnostics/diagnostic-receipt.json")
             if fm.fileExists(atPath: savedReceipt.path) {
                 do {
@@ -1398,7 +1398,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
                 DispatchQueue.main.async { self.send("logsDone", ["ok": false, "why": "Could not save the report queue: \(sent.errors.first ?? "")", "localPath": dir.path]) }
                 return
             }
-            ids = sent.ids; errs += sent.errors; acknowledgements = sent.acknowledgements
+            ids = sent.ids; errs += sent.errors
             DispatchQueue.main.async { self.send("logsDone", ["ok": !ids.isEmpty, "ids": ids, "errors": errs, "localPath": dir.path]) }
         }
     }
