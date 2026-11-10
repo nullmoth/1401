@@ -8,6 +8,7 @@ import pathlib
 import plistlib
 import subprocess
 import tempfile
+import sys
 import unittest
 
 SETUP = pathlib.Path(__file__).resolve().parents[1] / "mac/Resources/nullmoth-setup.sh"
@@ -38,6 +39,7 @@ def efi(folder, model):
     return root
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class FindsOpenCore(unittest.TestCase):
     def test_boot_path_folder_is_read_from_the_variable(self):
         out = shell("boot_ocrel", "MacPro7,1", BOOTPATH)

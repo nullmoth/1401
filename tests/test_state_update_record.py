@@ -3,6 +3,7 @@ by hand after updating, and the upload could not say whether the preparation or 
 import pathlib
 import subprocess
 import tempfile
+import sys
 import unittest
 
 SETUP = pathlib.Path(__file__).resolve().parents[1] / "mac/Resources/nullmoth-setup.sh"
@@ -26,6 +27,7 @@ def run(files, bootargs):
     return out.stdout + out.stderr
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class UpdateRecord(unittest.TestCase):
     def test_a_parked_mac_shows_the_pending_update_and_nvoff(self):
         text = run({"update-pending": "FROM=15\nBAR0=-1\n", "os-major": "15\n"}, "nvfb=1 -nvoff -v")

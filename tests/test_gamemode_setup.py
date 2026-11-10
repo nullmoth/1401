@@ -3,6 +3,7 @@ Game Mode too. The service script is stubbed (its own tests belong to the macpar
 import pathlib
 import subprocess
 import tempfile
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -23,6 +24,7 @@ set -- ; function dirname() {{ echo {d}; }}
     return p.stdout, (calls.read_text().splitlines() if calls.exists() else []), d
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class GameMode(unittest.TestCase):
     def test_on_installs_with_the_two_bundled_files(self):
         out, calls, d = run("on")
@@ -49,6 +51,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class CardAndFlagAgree(unittest.TestCase):
     """The Tools-tab card (GameMode.swift) and setup's --game-mode run the same bundled script with the same arguments."""
     SWIFT = (ROOT / "mac/Sources/GameMode.swift").read_text()
