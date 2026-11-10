@@ -1542,7 +1542,15 @@ if [ -n "${EXPER:-}" ]; then
   # $ST/experimental names what was turned on and which boot arguments were added by it, so turning a feature off removes exactly
   # that and never an argument the user had set themselves. No package is involved, so there is nothing to pin.
   XREC=$ST/experimental; XCONF=/Library/GPUBundles/nvmtl/nvrm610.conf
-  xargs_of() { case "$1" in kbl) echo nmkbl=1;; kblhid) echo nmkblhid=1;; tgp) echo "nvrmtgp=1 nvrmgps=1 nvrmnvpcf=1";; igpuproxy) echo nvfbigpu=1;; xvt) echo nmxvt=1;; hybrid20) echo nmhybrid20=1;; rtd3) echo nvrtd3=1;; aspm) echo nvrmaspm=1;; esac; }
+  xargs_of() { case "$1" in kbl) echo nmkbl=1;; kblhid) echo nmkblhid=1;; tgp) echo "nvrmtgp=1 nvrmgps=1 nvrmnvpcf=1";; igpuproxy) echo nvfbigpu=1;; xvt) echo nmxvt=1;; hybrid20) echo nmhybrid20=1;; rtd3) echo nvrtd3=1;; aspm) echo nvrmaspm=1;; hda) echo nmhdavol=1;; esac; }
+  # An experimental feature that is an EFI driver: OpenCore must load its kext, so turning it on also switches on its
+  # Kernel > Add entry (the 1401 builder places these drivers in the EFI switched off), and turning it off switches it off.
+  xkext_of() { case "$1" in kbl) echo NMKbdBacklight;; hda) echo NMHDA;; esac; }
+  xneeds_of() { case "$1" in kbl) echo "Lilu VirtualSMC";; hda) echo Lilu;; esac; }
+  XKD="$(dirname "$C")/Kexts"; XSRC=${NULLMOTH_KEXT_SOURCE:-/Library/NullMoth/kexts}
+  xcount() { local i=0; while plutil -extract "Kernel.Add.$i.BundlePath" raw -o - "$C" >/dev/null 2>&1; do i=$((i + 1)); done; echo $i; }
+  xidx() { local i=0 b; while b=$(plutil -extract "Kernel.Add.$i.BundlePath" raw -o - "$C" 2>/dev/null); do [ "${b##*/}" = "$1.kext" ] && { echo $i; return; }; i=$((i + 1)); done; }
+  xon() { local i; i=$(xidx "$1"); [ -n "$i" ] && [ "$(plutil -extract "Kernel.Add.$i.Enabled" raw -o - "$C" 2>/dev/null)" = true ]; }
   xenv_of() { case "$1" in gameprio) echo NVMTL_GAME_GPU_PRIORITY=1;; hwrt) echo NVK_HWRT_QUERY=1;; curves) echo NVK_CURVES=1;; tile) echo NVMTL_TILE_SHADING=1;; icb) echo NVMTL_GPU_ICB=1;; esac; }
   XWANT=","; if [ "$EXPER" != none ]; then
     for id in $(echo "$EXPER" | tr ',' ' '); do
@@ -1559,10 +1567,29 @@ if [ -n "${EXPER:-}" ]; then
     if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
     for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
     [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+  # EFI drivers first: a refusal here must come before any boot argument is written to NVRAM
+  for id in kbl hda; do
+    k=$(xkext_of $id); i=$(xidx "$k")
+    case "$XWANT" in *,$id,*)
+      for need in $(xneeds_of $id); do xon "$need" || { cp -p "$BKC" "$C"; stop "$k needs $need.kext loaded by OpenCore and this EFI does not load it - nothing changed"; }; done
+      if [ -z "$i" ]; then   # an EFI built before 2.9: take the driver from the installed NVIDIA driver package
+        [ -f "$XSRC/$k.kext/Contents/MacOS/$k" ] && [ ! -L "$XSRC/$k.kext" ] || { cp -p "$BKC" "$C"; stop "this EFI does not carry $k.kext and the installed NVIDIA driver has none to copy; update the driver to 2.9 or build the EFI again with 1401 2.9 - nothing changed"; }
+        [ -d "$XKD" ] || { cp -p "$BKC" "$C"; stop "the EFI has no Kexts folder beside its config - nothing changed"; }
+        rm -rf "$XKD/$k.kext.nullmoth-new"; ditto "$XSRC/$k.kext" "$XKD/$k.kext.nullmoth-new" && rm -rf "$XKD/$k.kext" && mv "$XKD/$k.kext.nullmoth-new" "$XKD/$k.kext" \
+          || { rm -rf "$XKD/$k.kext.nullmoth-new"; cp -p "$BKC" "$C"; stop "could not copy $k.kext into the EFI$(ro_why "$XKD") - nothing changed"; }
+        i=$(xcount)
+        plutil -insert "Kernel.Add.$i" -json "{\"Arch\":\"x86_64\",\"BundlePath\":\"$k.kext\",\"Comment\":\"NullMoth experimental driver\",\"Enabled\":false,\"ExecutablePath\":\"Contents/MacOS/$k\",\"MaxKernel\":\"\",\"MinKernel\":\"24.0.0\",\"PlistPath\":\"Contents/Info.plist\"}" "$C" \
+          || { rm -rf "$XKD/$k.kext"; cp -p "$BKC" "$C"; stop "could not add $k.kext to the config - nothing changed"; }
+        echo "CHANGE experimental: $k.kext copied into the EFI"
+      fi
+      xon "$k" || { plutil -replace "Kernel.Add.$i.Enabled" -bool true "$C" && echo "CHANGE experimental: $k.kext switched on in the EFI"; };;
+    *) if [ -n "$i" ] && xon "$k"; then plutil -replace "Kernel.Add.$i.Enabled" -bool false "$C" && echo "CHANGE experimental: $k.kext switched off in the EFI"; fi;;
+    esac
+  done
   XHAD=","; XADDED=""
   if [ -f "$XREC" ]; then while IFS= read -r l; do case "$l" in ON=*) XHAD="$XHAD${l#ON=},";; ARG=*) XADDED="$XADDED ${l#ARG=}";; esac; done < "$XREC"; fi
   XNEWADDED=""
-  for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 aspm; do
+  for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 aspm hda; do
     case "$XWANT" in *,$id,*) w=1;; *) w=0;; esac; case "$XHAD" in *,$id,*) h=1;; *) h=0;; esac
     if [ $w = 1 ] && [ $h = 0 ]; then
       for a in $(xargs_of $id); do
@@ -1587,7 +1614,7 @@ if [ -n "${EXPER:-}" ]; then
       if [ -n "$XENVL" ]; then echo "# --- 1401 experimental ---"; for kv in $XENVL; do echo "$kv"; done; echo "# --- end 1401 experimental ---"; fi; } > "$XTMP" \
       && chmod "$(stat -f %Lp "$XCONF")" "$XTMP" && chown "$(stat -f %u:%g "$XCONF")" "$XTMP" && mv -f "$XTMP" "$XCONF" || { rm -f "$XTMP"; cp -p "$BKC" "$C"; stop "could not update the driver's knob file - nothing changed"; }
   fi
-  { for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 aspm gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) echo "ON=$id";; esac; done
+  { for id in kbl kblhid tgp igpuproxy xvt hybrid20 rtd3 aspm hda gameprio hwrt curves tile icb; do case "$XWANT" in *,$id,*) echo "ON=$id";; esac; done
     for ia in $XADDED; do echo "ARG=$ia"; done; } > "$XREC.tmp" && mv -f "$XREC.tmp" "$XREC"
   [ "$XWANT" = "," ] && rm -f "$XREC"
   ok "experimental features updated - restart for them to take effect"

@@ -295,7 +295,7 @@
    "grandfathered": true
   },
   "nullmoth": {
-   "license": "per package (SimpleMtkWlan GPL-2.0 with source, AMDRadeonRDNA4 BSD-3-Clause, VirtualSMC set BSD-3-Clause)",
+   "license": "per package (SimpleMtkWlan GPL-2.0 with source, AMDRadeonRDNA4 BSD-3-Clause, VirtualSMC set BSD-3-Clause, NullMoth's own EFI drivers PolyForm Noncommercial)",
    "class": "nullmoth"
   },
   "OpenIntelWireless/IntelBluetoothFirmware": {

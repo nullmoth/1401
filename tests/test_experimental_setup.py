@@ -16,11 +16,19 @@ FUNCS = (T[T.index("has() {"):T.index("\nget() {")] + "\n" + T[T.index("get() {"
 
 
 class Env:
-    def __init__(self, args="keepsyms=1", conf="NVRM_X=1\n", record=None):
+    def __init__(self, args="keepsyms=1", conf="NVRM_X=1\n", record=None, kexts=("Lilu", "VirtualSMC"),
+                 placed=("NMKbdBacklight", "NMHDA"), source=()):
         self.t = pathlib.Path(tempfile.mkdtemp())
         (self.t / "ns").mkdir()
         self.cfg = self.t / "config.plist"
-        self.cfg.write_bytes(plistlib.dumps({"NVRAM": {"Add": {B: {"boot-args": args}}}}))
+        add = [{"BundlePath": f"{k}.kext", "Enabled": True} for k in kexts] + [
+            {"BundlePath": f"{k}.kext", "Enabled": False, "Comment": "placed by the builder"} for k in placed]
+        self.cfg.write_bytes(plistlib.dumps({"Kernel": {"Add": add}, "NVRAM": {"Add": {B: {"boot-args": args}}}}, sort_keys=False))
+        (self.t / "Kexts").mkdir()
+        self.src = self.t / "driver-kexts"       # stands in for /Library/NullMoth/kexts
+        for k in source:
+            (self.src / f"{k}.kext/Contents/MacOS").mkdir(parents=True)
+            (self.src / f"{k}.kext/Contents/MacOS" / k).write_text("driver " + k)
         self.nv = self.t / "nvram-args"
         self.nv.write_text(args)
         self.conf = self.t / "nvrm610.conf" if conf is not None else self.t / "none.conf"
@@ -35,7 +43,7 @@ class Env:
         script = f'''stop() {{ echo "STOP $*"; exit 1; }}; step() {{ :; }}; ok() {{ echo "OK $*"; }}; note() {{ echo "NOTE $*"; }}; cleanup() {{ :; }}; ro_why() {{ :; }}
 chown() {{ :; }}
 nvram() {{ if [ "$1" = boot-args ]; then printf 'boot-args\\t%s\\n' "$(cat {self.nv})"; else echo "$1" | sed 's/^boot-args=//' > {self.nv}; fi; }}
-ST={self.t / "ns"}; C={self.cfg}; B={B}; EXPER='{spec}'
+ST={self.t / "ns"}; C={self.cfg}; B={B}; EXPER='{spec}'; NULLMOTH_KEXT_SOURCE={self.src}
 {FUNCS}
 {block}'''
         p = subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True, timeout=60)
@@ -43,6 +51,9 @@ ST={self.t / "ns"}; C={self.cfg}; B={B}; EXPER='{spec}'
 
     def args(self):
         return plistlib.loads(self.cfg.read_bytes())["NVRAM"]["Add"][B]["boot-args"].split()
+
+    def kernel(self):
+        return {k["BundlePath"]: k["Enabled"] for k in plistlib.loads(self.cfg.read_bytes())["Kernel"]["Add"]}
 
     def record(self):
         f = self.t / "ns/experimental"
@@ -79,6 +90,46 @@ class Experimental(unittest.TestCase):
         self.assertEqual(e.args(), ["keepsyms=1", "nvrmaspm=1"])
         e.run("none")
         self.assertEqual(e.args(), ["keepsyms=1"])
+
+    def test_an_efi_driver_the_builder_placed_is_switched_on_and_off_in_the_efi(self):
+        e = Env()
+        out = e.run("kbl,hda")
+        self.assertIn("OK experimental features updated", out, out)
+        self.assertEqual(e.kernel(), {"Lilu.kext": True, "VirtualSMC.kext": True, "NMKbdBacklight.kext": True, "NMHDA.kext": True})
+        self.assertEqual(e.args(), ["keepsyms=1", "nmkbl=1", "nmhdavol=1"])
+        e.run("hda")
+        self.assertEqual(e.kernel()["NMKbdBacklight.kext"], False)
+        self.assertEqual(e.kernel()["NMHDA.kext"], True)
+        e.run("none")
+        self.assertEqual(e.kernel(), {"Lilu.kext": True, "VirtualSMC.kext": True, "NMKbdBacklight.kext": False, "NMHDA.kext": False})
+        self.assertEqual(e.args(), ["keepsyms=1"])
+
+    def test_an_older_efi_gets_the_driver_copied_in_from_the_installed_package(self):
+        e = Env(placed=(), source=("NMKbdBacklight",))
+        out = e.run("kbl")
+        self.assertIn("NMKbdBacklight.kext copied into the EFI", out, out)
+        self.assertEqual((e.t / "Kexts/NMKbdBacklight.kext/Contents/MacOS/NMKbdBacklight").read_text(), "driver NMKbdBacklight")
+        entry = plistlib.loads(e.cfg.read_bytes())["Kernel"]["Add"][-1]
+        self.assertEqual((entry["BundlePath"], entry["Enabled"], entry["ExecutablePath"], entry["PlistPath"]),
+                         ("NMKbdBacklight.kext", True, "Contents/MacOS/NMKbdBacklight", "Contents/Info.plist"))
+        e.run("none")
+        self.assertEqual(e.kernel()["NMKbdBacklight.kext"], False)
+
+    def test_a_driver_that_is_nowhere_to_be_found_changes_nothing_not_even_nvram(self):
+        e = Env(placed=(), source=())
+        before = e.cfg.read_bytes()
+        out = e.run("kbl,rtd3")
+        self.assertIn("STOP", out); self.assertIn("NMKbdBacklight.kext", out)
+        self.assertEqual(e.cfg.read_bytes(), before)
+        self.assertEqual(e.nv.read_text().split(), ["keepsyms=1"])
+
+    def test_the_keyboard_driver_is_refused_without_virtualsmc(self):
+        e = Env(kexts=("Lilu", "FakeSMC"))
+        before = e.cfg.read_bytes()
+        out = e.run("kbl")
+        self.assertIn("needs VirtualSMC.kext", out, out)
+        self.assertEqual(e.cfg.read_bytes(), before)
+        self.assertEqual(e.nv.read_text().split(), ["keepsyms=1"])
 
     def test_the_power_budget_is_three_arguments_together(self):
         e = Env()
