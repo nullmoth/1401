@@ -70,7 +70,7 @@ arm("the app's own update (updateApp) and Send logs carry no OS gate",
 arm("the profile reports macos_major from the running OS (27 on 27)",
     'p["macos_major"] = ProcessInfo.processInfo.operatingSystemVersion.majorVersion' in main)
 arm("the build runs the OS gate test and compiles OSGate into the app",
-    "tests/os_gate/main.swift" in build and 'Sources/OSGate.swift "$HASHES"' in build)
+    "Sources/OSGate.swift tests/os_gate/main.swift" in build and "Sources/OSGate.swift" in build.split("os_gate_test", 1)[1])
 arm("nothing a 2.x user sees mentions another driver or macOS 27 (the page, the app's and setup's refusals)",
     "macOS 27" not in appjs and "27 driver" not in (ROOT / "Sources/OSGate.swift").read_text()
     and "27 driver" not in setup and "[15, 26].includes(m.major)" in appjs)
