@@ -13,5 +13,6 @@ arm("a shell-looking id is refused", Experimental.argument(["kbl; rm -rf /"]) ==
 arm("the record's ON= lines are read and unknown lines ignored", Experimental.on(record: "ON=kbl\nARG=kbl:nmkbl=1\nON=bogus\nON=icb\n") == ["kbl", "icb"])
 arm("the newest Intel graphics item is in the catalog", Experimental.argument(["hybrid20"]) == "hybrid20")
 arm("idle GPU deep sleep is in the catalog", Experimental.argument(["rtd3"]) == "rtd3")
+arm("idle link power saving is in the catalog", Experimental.argument(["aspm"]) == "aspm")
 arm("the list has no fetch-copy entry", !Experimental.ids.contains { $0.lowercased().contains("fetch") })
 if failures > 0 { exit(1) }

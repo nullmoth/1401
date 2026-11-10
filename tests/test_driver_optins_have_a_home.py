@@ -21,7 +21,7 @@ CONTROL = {
     "nmxnpu": "--gpu-test",
     # the Experimental features pane (setup --experimental); each is off until ticked and needs a restart
     "nmkbl": "--experimental", "nmkblhid": "--experimental", "nvrmtgp": "--experimental", "nvrmgps": "--experimental",
-    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental", "nmhybrid20": "--experimental", "nvrtd3": "--experimental",
+    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental", "nmhybrid20": "--experimental", "nvrtd3": "--experimental", "nvrmaspm": "--experimental",
     "NVMTL_GAME_GPU_PRIORITY": "--experimental", "NVK_HWRT_QUERY": "--experimental", "NVK_CURVES": "--experimental",
     "NVMTL_TILE_SHADING": "--experimental", "NVMTL_GPU_ICB": "--experimental",
 }
