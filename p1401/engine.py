@@ -31,6 +31,7 @@ from . import amd_rdna4
 from . import intel_gpu
 from . import ryzen_power
 from . import community
+from . import own_experimental
 from . import own_virtualsmc
 from . import community_gpu
 from . import continuity
@@ -460,6 +461,9 @@ def _modern_nvidia_stays_ours():
         return out
 
     km.select_required_kexts = select_required_kexts
+
+
+NVIDIA_NOTICE = "NullMoth driver: "   # the notice of a build the NVIDIA driver was selected for; later steps read it
 
 
 def _desktop_fan_sensors(km, hardware_report, macos_version):
@@ -910,7 +914,7 @@ def _nullmoth_gpu_pass(checker, h):
             h.notices.append(mux)
         checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
         target = "macOS 26 Tahoe" if h.policy.prefer["macOS"] == "25" else "macOS 15 Sequoia"
-        h.notices.append("NullMoth driver: " + ", ".join(hit) + f" selected for {target}."
+        h.notices.append(NVIDIA_NOTICE + ", ".join(hit) + f" selected for {target}."
                          + ("" if nullmoth.tested(checker.hardware_report) else
                             " This card is in NVIDIA's supported list but has not been tested with the driver yet."))
     checker.check_gpu_compatibility = wrapped
@@ -1127,6 +1131,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 netsupport.write_marker(out_dir, net_status)
                 netsupport.add_missing_bt_ids(out_dir, cust, h.notices)   # MediaTek BT IDs the kext does not list (#336)
                 own_virtualsmc.replace(out_dir, h.notices)   # VirtualSMC set built from source: more fan chips (own_virtualsmc.py)
+                # NullMoth's own EFI drivers that fit this PC, placed switched off (own_experimental.py)
+                own_experimental.place(out_dir, h.notices, nvidia=any(n.startswith(NVIDIA_NOTICE) for n in h.notices))
                 _keep_identity(out_dir, prior_identity, machine_key, h)
                 _identity_rom_pass(out_dir, prior_identity, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided

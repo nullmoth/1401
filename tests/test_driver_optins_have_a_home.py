@@ -21,7 +21,7 @@ CONTROL = {
     "nmxnpu": "--gpu-test",
     # the Experimental features pane (setup --experimental); each is off until ticked and needs a restart
     "nmkbl": "--experimental", "nmkblhid": "--experimental", "nvrmtgp": "--experimental", "nvrmgps": "--experimental",
-    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental", "nmhybrid20": "--experimental", "nvrtd3": "--experimental", "nvrmaspm": "--experimental",
+    "nvrmnvpcf": "--experimental", "nvfbigpu": "--experimental", "nmxvt": "--experimental", "nmhybrid20": "--experimental", "nvrtd3": "--experimental", "nvrmaspm": "--experimental", "nmhdavol": "--experimental",
     "NVMTL_GAME_GPU_PRIORITY": "--experimental", "NVK_HWRT_QUERY": "--experimental", "NVK_CURVES": "--experimental",
     "NVMTL_TILE_SHADING": "--experimental", "NVMTL_GPU_ICB": "--experimental",
 }
@@ -48,7 +48,7 @@ _group("diagnostic output or probe for support: it prints or measures more and c
        "nvfblog", "nvfbtrace", "nvaccelverbose", "nvrmdiag", "nvfbsurvey", "nvfbsample", "nvfbscalerprobe", "nvregdwords", "nvhud", "liludelay")
 _group("tuning value support sets for one machine after a report (timing, caching, probing); the default is right for everyone else",
        "nvfbbootretry", "nvfbhotplugpoll", "nvfbigpucache", "nvfbkeepfront", "nvfbsmall", "nvhwvbl", "nvmaxbpc", "nvcursor", "nvagdcheads",
-       "nvselector", "nvoffbar", "nvrmfbddc", "nvrmholdcap", "nvrmshutdown", "nmflatskip", "nmgopid", "nmhdavol")
+       "nvselector", "nvoffbar", "nvrmfbddc", "nvrmholdcap", "nvrmshutdown", "nmflatskip", "nmgopid")
 _group("the ACPI resource name runtime D3 (the Idle GPU deep sleep item) uses on machines that need it spelled out; set by support with nvrtd3 on that machine",
        "nvrtd3res")
 _group("AMD / Intel test driver (NMXGPU) tuning, hang and recovery values and display options; the test driver's switch is the only control, "

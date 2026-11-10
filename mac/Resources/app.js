@@ -296,6 +296,8 @@ $("gpuoff").onclick = () => post({ act: "gputest", on: false, efi: efi() });
 $("hybcopy").onclick = () => post({ act: "hybrid", level: "copy", pkg: S.pkg || "", efi: efi() });
 $("hybimport").onclick = () => post({ act: "hybrid", level: "import", pkg: S.pkg || "", efi: efi() });
 $("hyboff").onclick = () => post({ act: "hybrid", level: "off", efi: efi() });
+// Select all and Deselect all only tick and untick; nothing changes until Apply
+for (const [id, on] of [["expall", true], ["expnone", false]]) $(id).onclick = () => { for (const c of document.querySelectorAll(".expitem")) c.checked = on; };
 $("expapply").onclick = () => post({ act: "experimental", items: Array.from(document.querySelectorAll(".expitem")).filter((c) => c.checked).map((c) => c.dataset.id), efi: efi() });
 $("boston").onclick = () => post({ act: "gpuboost", op: "on", pkg: S.pkg || "", efi: efi() });
 $("bostoff").onclick = () => post({ act: "gpuboost", op: "off", efi: efi() });

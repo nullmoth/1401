@@ -14,5 +14,6 @@ arm("the record's ON= lines are read and unknown lines ignored", Experimental.on
 arm("the newest Intel graphics item is in the catalog", Experimental.argument(["hybrid20"]) == "hybrid20")
 arm("idle GPU deep sleep is in the catalog", Experimental.argument(["rtd3"]) == "rtd3")
 arm("idle link power saving is in the catalog", Experimental.argument(["aspm"]) == "aspm")
+arm("display audio volume is in the catalog", Experimental.argument(["hda"]) == "hda")
 arm("the list has no fetch-copy entry", !Experimental.ids.contains { $0.lowercased().contains("fetch") })
 if failures > 0 { exit(1) }
