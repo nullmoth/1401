@@ -17,7 +17,8 @@ FUNCS = (T[T.index("has() {"):T.index("\nget() {")] + "\n" + T[T.index("get() {"
 
 class Env:
     def __init__(self, args="keepsyms=1", conf="NVRM_X=1\n", record=None, kexts=("Lilu", "VirtualSMC"),
-                 placed=("NMKbdBacklight", "NMHDA"), source=()):
+                 placed=("NMKbdBacklight", "NMHDA"), source=(), trust_source=True):
+        self.trust_source = trust_source
         self.t = pathlib.Path(tempfile.mkdtemp())
         (self.t / "ns").mkdir()
         self.cfg = self.t / "config.plist"
@@ -40,10 +41,14 @@ class Env:
 
     def run(self, spec):
         block = BLOCK.replace("/Library/GPUBundles/nvmtl/nvrm610.conf", str(self.conf))
+        block = block.replace("XSRC=/Library/NullMoth/kexts", f"XSRC={self.src}")
+        if self.trust_source:   # the stand-in source is owned by whoever runs the test, not root
+            assert block.count('&& xtrusted "$XSRC') == 1
+            block = block.replace('&& xtrusted "$XSRC', '&& true "$XSRC')
         script = f'''stop() {{ echo "STOP $*"; exit 1; }}; step() {{ :; }}; ok() {{ echo "OK $*"; }}; note() {{ echo "NOTE $*"; }}; cleanup() {{ :; }}; ro_why() {{ :; }}
 chown() {{ :; }}
 nvram() {{ if [ "$1" = boot-args ]; then printf 'boot-args\\t%s\\n' "$(cat {self.nv})"; else echo "$1" | sed 's/^boot-args=//' > {self.nv}; fi; }}
-ST={self.t / "ns"}; C={self.cfg}; B={B}; EXPER='{spec}'; NULLMOTH_KEXT_SOURCE={self.src}
+ST={self.t / "ns"}; C={self.cfg}; B={B}; EXPER='{spec}'
 {FUNCS}
 {block}'''
         p = subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True, timeout=60)
@@ -114,6 +119,14 @@ class Experimental(unittest.TestCase):
                          ("NMKbdBacklight.kext", True, "Contents/MacOS/NMKbdBacklight", "Contents/Info.plist"))
         e.run("none")
         self.assertEqual(e.kernel()["NMKbdBacklight.kext"], False)
+
+    def test_a_driver_copy_that_root_does_not_own_is_never_put_into_the_efi(self):
+        e = Env(placed=(), source=("NMKbdBacklight",), trust_source=False)
+        before = e.cfg.read_bytes()
+        out = e.run("kbl")
+        self.assertIn("STOP", out, out)
+        self.assertFalse((e.t / "Kexts/NMKbdBacklight.kext").exists())
+        self.assertEqual(e.cfg.read_bytes(), before)
 
     def test_a_driver_that_is_nowhere_to_be_found_changes_nothing_not_even_nvram(self):
         e = Env(placed=(), source=())
