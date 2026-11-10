@@ -7,6 +7,7 @@ import os
 import plistlib
 import struct
 import tempfile
+import sys
 import unittest
 import zlib
 
@@ -182,6 +183,7 @@ class Stick(unittest.TestCase):
         self.assertIn("at least 32 GB", str(e.exception))
         f.check_stick(64 << 30)
 
+    @unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
     def test_the_helper_script_parses_in_bash(self):
         import subprocess
         p = subprocess.run(["/bin/bash", "-n"], input=f.SCRIPT, capture_output=True, text=True)

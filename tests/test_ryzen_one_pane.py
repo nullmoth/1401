@@ -4,6 +4,7 @@ import pathlib
 import re
 import subprocess
 import tempfile
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -32,6 +33,7 @@ class OnePane(unittest.TestCase):
         self.assertIn('--ryzen-power takes on, off or status', SETUP)
         self.assertIn('[ "$RYZEN" = status ]', SETUP)
 
+    @unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
     def test_status_changes_nothing_and_names_the_four_facts(self):
         a = SETUP.index('  if [ "$RYZEN" = status ]; then')
         block = SETUP[a:SETUP.index("  fi\n", a) + 5]

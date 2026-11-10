@@ -3,6 +3,7 @@ planted under one of those names would put a root-only file's contents into the 
 import pathlib
 import subprocess
 import tempfile
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -16,6 +17,7 @@ def tail(root, path):
     return subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True, timeout=30).stdout
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class Reader(unittest.TestCase):
     def setUp(self):
         self.t = pathlib.Path(tempfile.mkdtemp())

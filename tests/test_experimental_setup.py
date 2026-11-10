@@ -5,6 +5,7 @@ import pathlib
 import plistlib
 import subprocess
 import tempfile
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -65,6 +66,7 @@ ST={self.t / "ns"}; C={self.cfg}; B={B}; EXPER='{spec}'
         return f.read_text().splitlines() if f.exists() else []
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class Experimental(unittest.TestCase):
     def test_a_boot_argument_feature_goes_to_the_config_and_nvram_and_is_recorded(self):
         e = Env()
@@ -199,6 +201,7 @@ class Experimental(unittest.TestCase):
         self.assertEqual(e.args(), ["keepsyms=1"])
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class Wiring(unittest.TestCase):
     def test_the_app_sends_only_the_catalog_and_reads_the_record(self):
         swift = (ROOT / "mac/Sources/main.swift").read_text()

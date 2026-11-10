@@ -6,6 +6,7 @@ import pathlib
 import subprocess
 import tarfile
 import tempfile
+import sys
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -48,6 +49,7 @@ export CALLS={calls}; GPUBOOST={op}; ST={st}; STATE={st}/state; PKG={pkg[0] if p
     return p.stdout, (calls.read_text().splitlines() if calls.exists() else []), st
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class Boost(unittest.TestCase):
     def test_on_verifies_then_installs_and_switches_on_and_keeps_a_copy(self):
         out, calls, st = run("on", package())
@@ -89,6 +91,7 @@ class Boost(unittest.TestCase):
         self.assertIn("takes on, off or remove", run("status")[0])
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class Wiring(unittest.TestCase):
     def test_status_is_read_by_the_app_without_a_password_and_on_carries_the_package(self):
         swift = (ROOT / "mac/Sources/main.swift").read_text()

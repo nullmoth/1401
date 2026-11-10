@@ -4,6 +4,7 @@ import plistlib
 import subprocess
 import tempfile
 import shutil
+import sys
 import unittest
 import hashlib
 import stat
@@ -37,6 +38,7 @@ def plist(root):
         return plistlib.load(fh)
 
 
+@unittest.skipUnless(sys.platform == "darwin", "runs macOS tools (bash, plutil); the Mac side is tested on a Mac")
 class RyzenPower(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
