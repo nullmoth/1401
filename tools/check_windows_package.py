@@ -98,7 +98,8 @@ def main():
                 if filename and not Path(filename).resolve().is_relative_to(app.resolve()):
                     raise RuntimeError('Regression imports left the packaged application boundary.')
         result['regression_tests'] = {'run': checks.testsRun, 'failures': len(checks.failures),
-                                      'errors': len(checks.errors), 'skipped': len(checks.skipped)}
+                                      'errors': len(checks.errors), 'skipped': len(checks.skipped),
+                                      'skipped_tests': [[test.id(), str(reason)[:200]] for test, reason in checks.skipped]}
         result['test_failure_locations'] = [{'test_id': test.id(), 'kind': kind, 'frames': failure_frames(trace)}
                                             for kind, failures in [('failure', checks.failures), ('error', checks.errors)]
                                             for test, trace in failures]
