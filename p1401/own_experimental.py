@@ -25,9 +25,9 @@ from . import mirror
 
 PACKAGE = {
     "version": "2.9",
-    "url": "https://nullmothsystems.com/mirror/41a627054f4af5f876ab2becb97f0eaa850f6a8714118e754de55eb84c018f96",
-    "sha256": "41a627054f4af5f876ab2becb97f0eaa850f6a8714118e754de55eb84c018f96",
-    "size": 35027,
+    "url": "https://nullmothsystems.com/mirror/2f9bbee7cb1fba4ed51893e7792d5103f57d1d56a109f3ece4e15c1734242633",
+    "sha256": "2f9bbee7cb1fba4ed51893e7792d5103f57d1d56a109f3ece4e15c1734242633",
+    "size": 35020,
 }
 COMMENT = "NullMoth experimental driver, off: turn it on in the 1401 Mac app (Experimental drivers)"
 # name -> (kexts that must already be in the EFI, newest Darwin it applies to or "", what it is)
