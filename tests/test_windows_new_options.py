@@ -1,6 +1,6 @@
 """The Windows window exposes the 2.9 engine options: the full macOS installer (fetched and checked before the stick is erased,
 refused on a stick under 32 GB), the user's own USB port map, and the notices for settings taken from known machines.
-The C# is built on the mini; these arms pin the wiring to the engine's own command lines."""
+The C# is built elsewhere; these arms pin the wiring to the engine's own command lines."""
 import pathlib
 import re
 import unittest
