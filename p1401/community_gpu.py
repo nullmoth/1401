@@ -38,7 +38,7 @@ def _p(repo, commit, date, licence, verdict, what, why):
     return {"repo": repo, "commit": commit, "date": date, "licence": licence, "verdict": verdict, "what": what, "why": why}
 
 
-# commit = the head of the default branch when it was read (2026-11-08), except where the row says a release tag.
+# commit = the head of the default branch when it was read, except where the row says a release tag.
 PROJECTS = (
     _p("b00t0x/WhateverXe", "db438fdf4d5fe903f5dfbc65537ed3884e2ea980", "2026-11-08", "BSD-3-Clause", INTEGRATED,
        "Intel Xe-LP graphics (Tiger, Alder, Raptor Lake) by running Apple's Tiger Lake driver; Lilu plugin",
@@ -125,7 +125,7 @@ PROJECTS = (
 
 # --- hardware fingerprints. Upper-case "VVVV-DDDD" as the scan writes them. ---------------------------------------------
 
-# The Meteor Lake and Arrow Lake IDs the XeGfx README lists as running (its "Does it work on my machine?" table).
+# The Meteor Lake and Arrow Lake IDs the XeGfx README lists as running (its compatibility table).
 XEGFX_IDS = ("8086-7D40", "8086-7D41", "8086-7D45", "8086-7D51", "8086-7D55", "8086-7D67", "8086-7DD1", "8086-7DD5")
 # PrimeBridge matches only the Rembrandt / Rembrandt-R Radeon 680M (its Info.plist).
 PRIMEBRIDGE_IDS = ("1002-1681",)

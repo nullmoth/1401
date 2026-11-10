@@ -1,5 +1,5 @@
 """The Windows window's storage step: the plan joins the summary, Prepare / Finish / Undo call `p1401 storage-prep`, and the
-buttons follow whether Prepare has run (its state file). The C# is built on the mini; these arms pin it to the engine."""
+buttons follow whether Prepare has run (its state file). The C# is built elsewhere; these arms pin it to the engine."""
 import json
 import pathlib
 import re

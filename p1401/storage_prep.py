@@ -24,7 +24,7 @@ SERVICES = ("storahci", "stornvme")
 REG = r"HKLM\SYSTEM\CurrentControlSet\Services"
 
 # Where the VMD / storage-mode switch is, by the maker named in the scan's board string. Each row cites the maker's own page
-# where one was found (checked 2026-11-09); "reported" rows rest on user reports and say so in the text. Menu names move between
+# where one was found; "reported" rows rest on user reports and say so in the text. Menu names move between
 # BIOS versions, and the setting can be absent on a model (the text then points at the external-drive alternative).
 BIOS_PATHS = (
     # ASUS: https://www.asus.com/support/faq/1048546/ and https://www.asus.com/me-en/support/faq/1044458/

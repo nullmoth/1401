@@ -1027,7 +1027,7 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     res.disabled_devices = {k: (v.get("Device ID") if isinstance(v, dict) else v) for k, v in (disabled or {}).items()}
     res.kexts = [k.name for k in o.k.kexts if k.checked]
     # itlwm (not AirportItlwm) does not join Wi-Fi through macOS's own menu: users had working
-    # Bluetooth and no Wi-Fi until someone told them to install HeliPort, itlwm's companion app (10-08).
+    # Bluetooth and no Wi-Fi until someone told them to install HeliPort, itlwm's companion app.
     if "itlwm" in res.kexts and "AirportItlwm" not in res.kexts:
         h.notices.append("Wi-Fi: this Intel card uses itlwm. In macOS, Wi-Fi is joined with the HeliPort app "
                          "(github.com/OpenIntelWireless/HeliPort/releases), not the menu bar; install it after setup.")
