@@ -31,7 +31,7 @@ class Reserved(unittest.TestCase):
             self.assertEqual(build(n, kind, v)[0]["UEFI"]["ReservedMemory"], [], n)
 
     def test_opencore_validator_accepts_it(self):
-        z = os.path.join(validate.CACHE, "OpenCore-1.0.8-RELEASE.zip")
+        z = os.environ.get("OPENCORE_TEST_ZIP", os.path.join(validate.CACHE, "OpenCore-1.0.8-RELEASE.zip"))
         if not os.path.isfile(z): self.skipTest("OpenCore 1.0.8 archive missing")
         with zipfile.ZipFile(z) as a:
             sample = plistlib.loads(a.read("Docs/Sample.plist"))
