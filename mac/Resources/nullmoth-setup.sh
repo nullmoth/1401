@@ -350,7 +350,8 @@ m27_flags() { ls -lO "$1" 2>/dev/null | awk '{print $5}'; }   # the file flags c
 m27_tail() {  # <label> <path> <bytes>: the end of one log, or why it is not there
   local f="$M27_ROOT$2"
   echo "== $1 ($2)"
-  if [ ! -e "$f" ]; then echo "(not present: nothing on this Mac has written it)"
+  if [ -L "$f" ]; then echo "(a link, not a log: not read)"   # some of these names are in folders any account can write
+  elif [ ! -e "$f" ]; then echo "(not present: nothing on this Mac has written it)"
   elif [ ! -r "$f" ]; then echo "(not readable by this user: Send logs, which asks for the administrator password, reads it)"
   elif [ ! -s "$f" ]; then echo "(empty)"
   else tail -c "$3" "$f" 2>&1 || echo "(read failed)"; fi
