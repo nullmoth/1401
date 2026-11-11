@@ -1117,12 +1117,26 @@ def cli_write(argv):
     # A recovery image already downloaded elsewhere (1401\\Recovery, or --recovery-dir) is used first: Apple refuses some
     # networks on every session (HTTP 403 in 1.2.0 logs) and some PCs have no internet at all.
     rec = (opt("--recovery-dir") or [RECOVERY_DIR])[0]
-    info = apple.local_image(rec)
+    info = apple.local_image(rec, darwin)
     if netsupport.needs_local_image(efi):
         # The build found no network adapter the macOS installer can use: say what the install will need, then write.
         print("NOTE " + netsupport.OFFLINE_INSTALLER_MESSAGE, flush=True)
     if info:
-        print(f"OK using {info['name']} (checked against Apple's signed chunklist while copying)", flush=True)
+        # A local image used to be checked chunk by chunk only while it was copied, i.e. after the erase. A damaged,
+        # unsigned or wrong-version file then cost the user their stick before it was refused.
+        print(f"OK using {info['name']} (checking every part against Apple's signed chunklist before erasing)", flush=True)
+        try:
+            checked = apple.verify_local(info)
+        except (apple.AppleError, OSError) as e:
+            print(f"STOP 1401-RECOVERY-IMAGE: {e}", flush=True)
+            print("OK your USB stick was not touched: nothing has been erased.", flush=True)
+            return 1
+        print(f"OK {checked['bytes'] / GiB:.2f} GiB in {checked['chunks']} parts match Apple's signed chunklist", flush=True)
+        if not info.get("version_known"):
+            print("NOTE this local image does not record which macOS it is. The chunklist proves the bytes are Apple's, "
+                  "not which version they are; if it is not the macOS this EFI was built for, Recovery can stop at "
+                  "OS.dmg.root_hash. To record it, put {\"darwin\": <major>} in BaseSystem.product.json beside the image.",
+                  flush=True)
     else:
         print("STEP asking Apple for the macOS recovery image", flush=True)
         try:
@@ -1147,7 +1161,8 @@ def cli_write(argv):
             print("OK your USB stick was not touched: nothing has been erased.", flush=True)
             return 1
         print(f"OK Apple is serving {info['name']} ({ready['bytes'] / GiB:.2f} GiB in {ready['chunks']} parts, "
-              f"signed chunklist verified)", flush=True)
+              f"signed chunklist verified" + (", first part matches Apple's hash" if ready.get("verified") else "") + ")",
+              flush=True)
     last = [-1]
     def progress(done, total, *_):
         pct = int(done * 100 / total) if total else 0

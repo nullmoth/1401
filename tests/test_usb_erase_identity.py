@@ -108,6 +108,7 @@ class FinalNumber(unittest.TestCase):
              mock.patch("p1401.machine_handoff.opt_in", return_value=None), \
              mock.patch("p1401.netsupport.needs_local_image", return_value=False), \
              mock.patch("p1401.apple.local_image", return_value={"local": True, "name": "local"}), \
+             mock.patch("p1401.apple.verify_local", return_value={"bytes": 1, "chunks": 1}), \
              mock.patch("p1401.fullinstaller.check_stick"), \
              mock.patch("p1401.fullinstaller.verify_xar"), \
              mock.patch("p1401.fullinstaller.place"), \

@@ -73,6 +73,7 @@ class ArmAppsOptIn(unittest.TestCase):
                 patch.object(usbwriter, "eligible", return_value=(True, [])), \
                 patch.object(usbwriter, "write", fake_write), \
                 patch("p1401.apple.local_image", return_value={"name": "local", "local": True}), \
+                patch("p1401.apple.verify_local", return_value={"bytes": 1, "chunks": 1}), \
                 patch("p1401.netsupport.needs_local_image", return_value=False), \
                 patch("builtins.print") as out:
             rc = usbwriter.cli_write(["3", str(self.build), "24", "--profile", str(self.scan), *flags])
