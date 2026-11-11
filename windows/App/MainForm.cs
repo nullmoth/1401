@@ -880,6 +880,18 @@ namespace A1401
                 var ok = MessageBox.Show(this, Loc.F("Erase {0}", d) + Loc.F(" and make it the macOS installer?\r\n\r\nEverything on it will be lost."),
                     Loc.T("1401 - erase this stick?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (ok != DialogResult.Yes) return;
+                // A USB disk this large is far more likely to be a backup or data disk than an installer stick. The
+                // writer accepts it only with --allow-large; the window used to add that by itself after the one erase
+                // prompt, so a 1-4 TB backup drive could be wiped at the same click. Ask separately, and name the disk.
+                bool allowLarge = false;
+                if (d.Size > 256UL * 1024 * 1024 * 1024)
+                {
+                    var big = MessageBox.Show(this, Loc.F("This disk is {0} GB, far larger than a macOS installer stick. It may be a backup or data disk. Erase the whole disk {1} anyway?",
+                            (d.Size / (1024.0 * 1024 * 1024)).ToString("0"), d.Name + " (" + d.UniqueId + ")"),
+                        Loc.T("1401 - erase a large USB disk?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                    if (big != DialogResult.Yes) { Say(Loc.T("Cancelled: the large USB disk was not erased.")); return; }
+                    allowLarge = true;
+                }
                 busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
                 // the full macOS installer: fetched and verified BEFORE the stick is erased, so a failed download costs nothing
                 string fullPkg = null;
@@ -913,7 +925,7 @@ namespace A1401
                 if (mac != null) args += " --extra " + Engine.Q(mac);
                 var report = Path.Combine(scanDir, "Report.json");
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
-                if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
+                if (allowLarge) args += " --allow-large";
                 if (armApps.Checked && armApps.Visible) args += " --arm-apps";
                 var writeLines = new List<string>();
                 int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
