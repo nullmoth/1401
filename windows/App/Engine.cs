@@ -163,6 +163,6 @@ namespace A1401
             });
         }
 
-        public static string Q(string s) { return "\"" + s.Replace("\"", "\\\"") + "\""; }
+        public static string Q(string s) { return Argv.Quote(s); }
     }
 }
