@@ -528,6 +528,7 @@ def network_help(url):
 # that cache. On Windows it now lives in the user's writable app-data folder; the zip ships none.
 OCK_CACHE = (os.path.join(os.environ["LOCALAPPDATA"], "NullMoth", "1401", "OCK_Files") if os.environ.get("LOCALAPPDATA")
              else os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files"))
+ACTIVE_OCK_CACHE = OCK_CACHE  # the folder this build actually used (base or a -2/-3 fallback)
 
 
 def cache_writable(path):
@@ -573,12 +574,14 @@ def pick_cache(base, writable=None):
 
 
 def _use_ock_cache(o):
+    global ACTIVE_OCK_CACHE
     cache = pick_cache(OCK_CACHE)
     if cache is None:
         raise RuntimeError(f"the dependency cache folders {OCK_CACHE}, {OCK_CACHE}-2 and {OCK_CACHE}-3 cannot be "
                            f"written. Close other 1401 windows, or delete the folder named in Send logs, and build again.")
     if cache != OCK_CACHE:
         print(f"OK the dependency cache {OCK_CACHE} is not writable; using {cache} instead", flush=True)
+    ACTIVE_OCK_CACHE = cache
     o.o.ock_files_dir = cache
     o.o.download_history_file = os.path.join(cache, "history.json")
     if hasattr(o.o, 'integrity_checker'):

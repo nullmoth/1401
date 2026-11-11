@@ -54,8 +54,10 @@ class PickCache(unittest.TestCase):
         fake.o = mock.Mock()
         fake.k = mock.Mock()
         with mock.patch.object(engine, "pick_cache", return_value=r"C:\cache-2"), \
+             mock.patch.object(engine, "ACTIVE_OCK_CACHE", r"C:\cache"), \
              mock.patch("builtins.print") as out:
             engine._use_ock_cache(fake)
+            self.assertEqual(engine.ACTIVE_OCK_CACHE, r"C:\cache-2")
         self.assertEqual(fake.o.ock_files_dir, r"C:\cache-2")
         self.assertEqual(fake.k.ock_files_dir, r"C:\cache-2")
         self.assertIn("not writable", " ".join(str(c.args[0]) for c in out.call_args_list if c.args))

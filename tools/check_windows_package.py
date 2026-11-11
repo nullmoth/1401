@@ -42,6 +42,9 @@ def main():
     args = parser.parse_args()
     if platform.system() != 'Windows':
         raise RuntimeError('Packaged startup verification requires Windows.')
+    # cl resolves /OUT: relative to its own cwd, so a relative evidence path made the native capture check look for
+    # reports\tests\reports\tests\capture-abi.exe (LNK1104). Normalize once here.
+    args.output = str(Path(args.output).resolve())
     root = Path(args.stage).resolve() / '1401'
     repo, cache = Path(args.repo).resolve(), Path(args.cache).resolve()
     app = root / 'engine/app'
