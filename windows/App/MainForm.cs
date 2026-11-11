@@ -768,7 +768,7 @@ namespace A1401
                 ScanEvidence.Remember(Engine.Work, scanRunId);
                 Say(Loc.T("Checking this PC..."));
                 var scanLines = new List<string>();
-                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { scanLines.Add(l); Say(l); });
+                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { lock (scanLines) scanLines.Add(l); Say(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 if (rc != 0)
@@ -880,6 +880,18 @@ namespace A1401
                 var ok = MessageBox.Show(this, Loc.F("Erase {0}", d) + Loc.F(" and make it the macOS installer?\r\n\r\nEverything on it will be lost."),
                     Loc.T("1401 - erase this stick?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (ok != DialogResult.Yes) return;
+                // A USB disk this large is far more likely to be a backup or data disk than an installer stick. The
+                // writer accepts it only with --allow-large; the window used to add that by itself after the one erase
+                // prompt, so a 1-4 TB backup drive could be wiped at the same click. Ask separately, and name the disk.
+                bool allowLarge = false;
+                if (d.Size > 256UL * 1024 * 1024 * 1024)
+                {
+                    var big = MessageBox.Show(this, Loc.F("This disk is {0} GB, far larger than a macOS installer stick. It may be a backup or data disk. Erase the whole disk {1} anyway?",
+                            (d.Size / (1024.0 * 1024 * 1024)).ToString("0"), d.Name + " (" + d.UniqueId + ")"),
+                        Loc.T("1401 - erase a large USB disk?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                    if (big != DialogResult.Yes) { Say(Loc.T("Cancelled: the large USB disk was not erased.")); return; }
+                    allowLarge = true;
+                }
                 busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
                 // the full macOS installer: fetched and verified BEFORE the stick is erased, so a failed download costs nothing
                 string fullPkg = null;
@@ -913,10 +925,10 @@ namespace A1401
                 if (mac != null) args += " --extra " + Engine.Q(mac);
                 var report = Path.Combine(scanDir, "Report.json");
                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
-                if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
+                if (allowLarge) args += " --allow-large";
                 if (armApps.Checked && armApps.Visible) args += " --arm-apps";
                 var writeLines = new List<string>();
-                int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
+                int rc = await Engine.Run(args, l => { lock (writeLines) writeLines.Add(l); Say(l); });
                 // The stick holds a Mac or Windows partition (an older macOS installer, or a disk with a system on it).
                 // Name what is there and ask once more; only an explicit Yes erases it.
                 var found = writeLines.FirstOrDefault(l => l.Contains("1401-OS-PARTITIONS:"));
@@ -1070,7 +1082,7 @@ namespace A1401
                 "(the DSDT and SSDTs, which describe how the board connects its devices; licence-key and logo tables are left out). Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
                 "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.", Loc.Op(kind));
             var ask = MessageBox.Show(this, text,
-                Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
             if (ask != DialogResult.OK) { Say(Loc.T("The log was not sent. It stays in ") + file + Loc.T(".")); return; }
             var ids = new List<string>();
             var batch = NewBatch();
@@ -1501,7 +1513,7 @@ namespace A1401
                 send.Left = f.ClientSize.Width - margin - send.Width - cancel.Width - 8; send.Top = f.ClientSize.Height - margin - send.Height;
                 cancel.Left = f.ClientSize.Width - margin - cancel.Width; cancel.Top = send.Top;
                 f.Controls.AddRange(new Control[] { msg, q, box, send, cancel });
-                f.AcceptButton = send; f.CancelButton = cancel;
+                f.AcceptButton = cancel; f.CancelButton = cancel;
                 f.ResumeLayout(false); f.PerformLayout();
                 var r = f.ShowDialog(this);
                 screen = (box.Text ?? "").Replace("\r", " ").Replace("\n", " ").Trim();

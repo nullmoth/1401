@@ -42,6 +42,9 @@ def main():
     args = parser.parse_args()
     if platform.system() != 'Windows':
         raise RuntimeError('Packaged startup verification requires Windows.')
+    # cl resolves /OUT: relative to its own cwd, so a relative evidence path made the native capture check look for
+    # reports\tests\reports\tests\capture-abi.exe (LNK1104). Normalize once here.
+    args.output = str(Path(args.output).resolve())
     root = Path(args.stage).resolve() / '1401'
     repo, cache = Path(args.repo).resolve(), Path(args.cache).resolve()
     app = root / 'engine/app'
@@ -126,7 +129,14 @@ def main():
             raise RuntimeError('The packaged engine planning smoke did not pass.')
         gui_path = Path(args.output).with_name('gui-verification.json')
         step = 'actual packaged executable startup and version'
-        process = subprocess.run([str(root / '1401.exe'), '--verify-package', str(gui_path)], cwd=root, timeout=30)
+        # --verify-package is the app's non-privileged self-check: it reads its own files, exercises the
+        # ScanEvidence binding and draws/closes the window; it never scans hardware or writes a disk. The manifest
+        # requests administrator for real use, so a non-elevated CI session would get WinError 740 here. Scope the
+        # compatibility layer to this self-check process only; real launches still go through UAC.
+        gui_env = dict(os.environ)
+        gui_env['__COMPAT_LAYER'] = 'RunAsInvoker'
+        process = subprocess.run([str(root / '1401.exe'), '--verify-package', str(gui_path)], cwd=root, timeout=30,
+                                 env=gui_env)
         gui = json.loads(gui_path.read_text())
         result['gui'] = gui
         result['version'] = gui.get('assembly_version')

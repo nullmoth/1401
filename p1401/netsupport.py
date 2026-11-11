@@ -99,11 +99,14 @@ def _devices(hardware_report, section):
 
 
 def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_known, ethernet_known,
-                     wifi_unsupported=()):
+                     wifi_unsupported=(), itlwm=False):
     """What this machine can do for networking, from the device IDs the probe found.
 
     The ID sets are passed in (built from pci_data by the caller, or by a test) so this stays pure.
     wifi_unsupported = Wi-Fi cards we recognise but have no driver for (present, but no macOS Wi-Fi).
+    itlwm = the build selected itlwm for the Intel card. itlwm is a working macOS driver, but it joins networks
+    through the HeliPort app rather than the menu bar, so it is not available inside the macOS installer; the card is
+    still "native" after macOS starts, but the installer needs Ethernet or a full offline installer.
     Returns a dict with:
       wifi:     "native" | "experimental" | "unsupported" | "none"  (none = no Wi-Fi card at all)
       ethernet: True if a supported wired NIC is present
@@ -126,13 +129,19 @@ def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_k
         wifi = "unsupported"
 
     # The installer has internet only if the build gives it a working NIC. Ethernet always works there; native
-    # Wi-Fi works there too. An experimental Wi-Fi driver may not be in time for the installer and is not relied
-    # on. So: recommend the offline (full-installer) path unless there is Ethernet or native Wi-Fi.
-    installer_online = eth or wifi == "native"
+    # Wi-Fi works there too. itlwm does not: it needs HeliPort, which is a macOS app, so count it like an
+    # experimental driver for this decision (it still works after macOS is installed). An experimental driver may
+    # not be in time for the installer and is not relied on either.
+    wireless_in_installer = wifi == "native" and not itlwm
+    installer_online = eth or wireless_in_installer
     offline_recommended = not installer_online
 
     if installer_online:
         notice = ""
+    elif itlwm:
+        notice = ("No Ethernet. This build gives the Intel Wi-Fi card itlwm, which joins networks through the HeliPort "
+                  "app after macOS starts; it cannot be used inside the macOS installer. Write a full offline installer, "
+                  "or plug in Ethernet, so the installer can reach the internet.")
     elif wifi == "experimental":
         notice = ("No Ethernet and no natively-supported Wi-Fi: this build adds an experimental MediaTek Wi-Fi "
                   "driver, but it may not work inside the macOS installer. Write a full offline installer, or "
@@ -144,7 +153,8 @@ def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_k
         notice = ("No Ethernet and no Wi-Fi that works in the macOS installer. Write a full offline installer, or "
                   "plug in Ethernet, so the installer can reach the internet.")
 
-    return {"wifi": wifi, "ethernet": eth, "offline_recommended": offline_recommended, "notice": notice}
+    return {"wifi": wifi, "ethernet": eth, "offline_recommended": offline_recommended,
+            "installer_online": installer_online, "itlwm": bool(itlwm), "notice": notice}
 
 
 def register():
@@ -229,13 +239,18 @@ def apply_kexts(ocpe, customization, macos_version, notices, experimental=False)
         notices.append(f"MediaTek network support could not be applied: {type(e).__name__}: {e}")
 
 
-def support_from_pci(customization, notices):
-    """Run network_support() against the engine's real ID tables and append its notice. Returns the dict."""
+def support_from_pci(customization, notices, selected=None):
+    """Run network_support() against the engine's real ID tables and append its notice. Returns the dict.
+
+    selected: the kext names the build checked. When itlwm is one of them (1401's choice for Intel Wi-Fi), the card
+    is not counted as installer-capable: itlwm joins networks through HeliPort after macOS starts, not in Recovery."""
     from Scripts.datasets import pci_data  # noqa: PLC0415
     native = set(pci_data.WirelessCardIDs) - set(MEDIATEK_WIFI_IDS)
     unsupported = set(MEDIATEK_WIFI_IDS) - set(MEDIATEK_WIFI_KEXT_IDS)  # RZ616/MT7925: recognised, no driver
+    chosen = set(selected or ())
+    itlwm = "itlwm" in chosen and "AirportItlwm" not in chosen
     status = network_support(customization, native, MEDIATEK_WIFI_KEXT_IDS, pci_data.BluetoothIDs,
-                             pci_data.EthernetIDs, unsupported)
+                             pci_data.EthernetIDs, unsupported, itlwm=itlwm)
     if status["notice"]:
         notices.append(status["notice"])
     return status

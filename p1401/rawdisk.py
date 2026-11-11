@@ -8,6 +8,7 @@ import struct
 import time
 from ctypes import wintypes
 
+GENERIC_READ = 0x80000000
 GENERIC_RW = 0x80000000 | 0x40000000
 SHARE_RW = 0x1 | 0x2
 OPEN_EXISTING = 3
@@ -20,6 +21,9 @@ DISK_ATTRIBUTE_OFFLINE = 0x1
 IOCTL_DISK_CREATE_DISK = 0x7C058
 IOCTL_DISK_SET_DRIVE_LAYOUT_EX = 0x7C054
 IOCTL_DISK_UPDATE_PROPERTIES = 0x70140
+IOCTL_STORAGE_QUERY_PROPERTY = 0x2D1400
+IOCTL_DISK_GET_DRIVE_GEOMETRY_EX = 0x000700A0
+STORAGE_DEVICE_PROPERTY = 0
 MiB = 1 << 20
 FAT32_LBA = 0x0C
 
@@ -46,8 +50,8 @@ def _k32():
     return k
 
 
-def _open(k, path):
-    h = k.CreateFileW(path, GENERIC_RW, SHARE_RW, None, OPEN_EXISTING, 0, None)
+def _open(k, path, access=GENERIC_RW):
+    h = k.CreateFileW(path, access, SHARE_RW, None, OPEN_EXISTING, 0, None)
     if h in (None, wintypes.HANDLE(-1).value):
         raise DiskError(f"cannot open {path} (Windows error {ctypes.get_last_error()})")
     return h
@@ -136,6 +140,70 @@ def _sector_size(k, h):
     return struct.unpack_from("<I", out, 20)[0] if ok and len(out) >= 24 else None
 
 
+def _ascii_field(out, offset):
+    """A NUL-terminated ASCII field inside a STORAGE_DEVICE_DESCRIPTOR, or ""."""
+    if not offset or offset >= len(out):
+        return ""
+    end = out.find(b"\0", offset)
+    if end < 0:
+        end = len(out)
+    return out[offset:end].decode("ascii", "replace").strip()
+
+
+def _device_identity(k, h):
+    """What the open disk handle says it is: serial number, vendor+product and byte size. Read-only.
+
+    This is deliberately read from the handle that is about to be erased, not from a list Windows returned earlier: a
+    stick that dropped off and came back under another disk number must not let the number's new owner be erased."""
+    serial = model = ""
+    ok, out, _ = _ioctl(k, h, IOCTL_STORAGE_QUERY_PROPERTY,
+                        struct.pack("<II", STORAGE_DEVICE_PROPERTY, 0), 1024)
+    if ok and len(out) >= 36:
+        serial = _ascii_field(out, struct.unpack_from("<I", out, 24)[0])
+        vendor = _ascii_field(out, struct.unpack_from("<I", out, 12)[0])
+        product = _ascii_field(out, struct.unpack_from("<I", out, 16)[0])
+        model = " ".join(x for x in (vendor, product) if x).strip()
+    ok, geo, _ = _ioctl(k, h, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, b"", 64)
+    # DISK_GEOMETRY_EX = DISK_GEOMETRY (24 bytes) followed by DiskSize (8 bytes)
+    size = struct.unpack_from("<Q", geo, 24)[0] if ok and len(geo) >= 32 else 0
+    return {"SerialNumber": serial, "Model": model, "Size": size}
+
+
+def _norm(value):
+    return " ".join((value or "").split()).casefold()
+
+
+def _identity_matches(expected, actual):
+    """(ok, reason): is the open disk the USB stick the user picked?
+
+    The serial number is the strongest identity. Some USB bridges report a new (or no) serial on every read, which the
+    writer already had to live with, so the model and the exact byte size are accepted as the fallback. A different size
+    is always a refusal, whatever else matches."""
+    want_size, have_size = int(expected.get("Size") or 0), int(actual.get("Size") or 0)
+    if want_size and have_size and want_size != have_size:
+        return False, f"its size is {have_size} bytes and the picked stick is {want_size}"
+    want_serial, have_serial = _norm(expected.get("SerialNumber")), _norm(actual.get("SerialNumber"))
+    if want_serial and have_serial and want_serial == have_serial:
+        return True, "the serial number matches"
+    want_model, have_model = _norm(expected.get("FriendlyName")), _norm(actual.get("Model"))
+    if want_model and have_model and (want_model == have_model or want_model in have_model or have_model in want_model):
+        return True, "the model and size match"
+    if want_serial and not have_serial:
+        return False, "its serial number could not be read"
+    return False, "its serial number and model are not the picked stick's"
+
+
+def read_identity(disk):
+    """Read-only: the serial number, model and byte size Windows reports for PhysicalDrive<disk>."""
+    k = _k32()
+    h = _open(k, rf"\\.\PhysicalDrive{int(disk)}", access=GENERIC_READ)
+    try:
+        return _device_identity(k, h)
+    finally:
+        k.CloseHandle(h)
+
+
+
 def _write_at(k, h, off, data):
     """Writes data at byte offset off. 0 = written, else the Windows error (the seek is checked: a failed seek used to
     send the write to the wrong place)."""
@@ -148,8 +216,11 @@ def _write_at(k, h, off, data):
     return 0
 
 
-def wipe_mbr_fat32(disk, size, part_size, say=print):
-    """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes."""
+def wipe_mbr_fat32(disk, size, part_size, say=print, expected=None):
+    """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes.
+
+    expected: the disk dict the user picked (SerialNumber/Size/FriendlyName). When given, the open handle itself is
+    queried before the first destructive call and the erase is refused unless it is that stick."""
     k = _k32()
     held = []
     offline = None
@@ -179,6 +250,16 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
         d = offline or _open(k, rf"\\.\PhysicalDrive{int(disk)}")
         if d is not offline:
             held.append(d)
+        if expected is not None:
+            # The list the user picked from was read in a different process, before the volumes were locked. Windows can
+            # renumber a USB disk in that window, and the number then belongs to another disk. Ask the handle that is
+            # about to be destroyed what it is, and refuse before the partition table is touched.
+            actual = _device_identity(k, d)
+            ok, why = _identity_matches(expected, actual)
+            if not ok:
+                raise DiskError(f"refusing: PhysicalDrive{int(disk)} is not the USB stick that was picked ({why}). "
+                                f"Nothing was erased. Unplug the stick, plug it in again and press Write again.")
+            say(f"OK PhysicalDrive{int(disk)} is the picked stick ({why})")
         # Rufus order: drop the partition table first, so no volume covers the sectors written next (Windows refuses
         # raw writes inside a mounted volume: error 5, and error 1 on some USB bridges - 34 uploads through 1.2.0).
         _ioctl(k, d, IOCTL_DISK_DELETE_DRIVE_LAYOUT)

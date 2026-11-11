@@ -1,0 +1,124 @@
+D:\code\Ai\1401\p1401\usbwriter.py:654: SyntaxWarning: invalid escape sequence '\d'
+  except UsbError as e:
+.......s...............................................................................................................................................................F.........................................................................................s...............................................................E.......s....................E..................s...................................................................................................E...................................EE..............E....................................................................................s..........................................................................................s........................................s.....................................................s..................................................................................................................................................................................................................E.......................................................................................................
+======================================================================
+ERROR: test_production_core_fixtures (tests.test_cpu_core.CpuCore.test_production_core_fixtures)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_cpu_core.py", line 18, in test_production_core_fixtures
+    subprocess.run(command,cwd=directory,check=True,capture_output=True,timeout=30)
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] 系统找不到指定的文件。
+
+======================================================================
+ERROR: setUpClass (tests.test_devicemap_native.Native)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_devicemap_native.py", line 24, in setUpClass
+    subprocess.run(command, cwd=cls.temp.name, check=True, capture_output=True, timeout=30)
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] 系统找不到指定的文件。
+
+======================================================================
+ERROR: test_symlink_oversized_and_non_dictionary_reports_refuse (tests.test_firmware_guide.FirmwareReview.test_symlink_oversized_and_non_dictionary_reports_refuse)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_firmware_guide.py", line 84, in test_symlink_oversized_and_non_dictionary_reports_refuse
+    link = self.root / 'link.json'; link.symlink_to(self.report)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1386, in symlink_to
+    os.symlink(target, self, target_is_directory)
+OSError: [WinError 1314] 客户端没有所需的特权。: 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmpx2to5c8m\\Report.json' -> 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmpx2to5c8m\\link.json'
+
+======================================================================
+ERROR: setUpClass (tests.test_fwres.Nvidia)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_fwres.py", line 23, in setUpClass
+    subprocess.run(command, cwd=cls.temp.name, check=True, capture_output=True, timeout=30)
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] 系统找不到指定的文件。
+
+======================================================================
+ERROR: setUpClass (tests.test_fwres.Resources)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_fwres.py", line 23, in setUpClass
+    subprocess.run(command, cwd=cls.temp.name, check=True, capture_output=True, timeout=30)
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] 系统找不到指定的文件。
+
+======================================================================
+ERROR: setUpClass (tests.test_hwcapture.Capture)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_hwcapture.py", line 48, in setUpClass
+    subprocess.run(command, cwd=cls.temp.name, check=True, capture_output=True, timeout=30)
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] 系统找不到指定的文件。
+
+======================================================================
+ERROR: test_each_kind_of_wrong_folder_is_refused_with_its_reason (tests.test_utbmap_import.UtbMapImport.test_each_kind_of_wrong_folder_is_refused_with_its_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_utbmap_import.py", line 78, in test_each_kind_of_wrong_folder_is_refused_with_its_reason
+    os.symlink("/etc/hosts", os.path.join(link, "Contents", "hosts"))
+OSError: [WinError 1314] 客户端没有所需的特权。: '/etc/hosts' -> 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmppfxwb5cf\\D.kext\\Contents\\hosts'
+
+======================================================================
+FAIL: test_the_probe_names_the_disk_windows_runs_from_and_unmounts (tests.test_boot_esp_ps.BootEspProbe.test_the_probe_names_the_disk_windows_runs_from_and_unmounts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_boot_esp_ps.py", line 38, in test_the_probe_names_the_disk_windows_runs_from_and_unmounts
+    self.assertEqual(letters_before, letters_after, "the probe left a drive letter mounted")
+AssertionError: 'C:,D:,E:,F:' != 'C:,D:,E:,F:,R:'
+- C:,D:,E:,F:
++ C:,D:,E:,F:,R:
+?            +++
+ : the probe left a drive letter mounted
+
+Stdout:
+probe: {'known': True, 'sys': [0], 'firmware': None, 'esp': 0}
+
+----------------------------------------------------------------------
+Ran 1097 tests in 60.948s
+
+FAILED (failures=1, errors=7, skipped=8)
+
+Stdout:
+probe: {'known': True, 'sys': [0], 'firmware': None, 'esp': 0}

@@ -1,0 +1,63 @@
+ok   the built Tahoe EFI passes ocvalidate and every invariant  [issues=0 inv=[] err=]
+ok   ocvalidate catches an illegal Misc.Security.Vault value  [issues=1]
+ok   invariants catch a missing kext folder  [['kext missing on disk: Lilu.kext']]
+ok   invariants catch a Lilu plugin loading before Lilu  [['BlueToolFixup.kext loads before Lilu', 'IntelBTPatcher.kext loads before Lilu']]
+ok   invariants catch a missing BOOTx64.efi  [['EFI/BOOT/BOOTx64.efi missing - the firmware has nothing to boot']]
+ok   invariants catch an empty serial  [['PlatformInfo.Generic.SystemSerialNumber is empty']]
+ok   Tahoe + AMD dGPU, no iGPU: WhateverGreen off, pikera moved to a kernel patch  [weg=[False] args=-v debug=0x100 keepsyms=1 -ibtcompatbeta revpatch=sbvmm]
+ok   WhateverGreen's boot args are removed with it (-radcodec)  [-v debug=0x100 keepsyms=1 -ibtcompatbeta revpatch=sbvmm]
+ok   VoodooHDA on Tahoe lowers SIP to 0x03 and no further  [03000000]
+ok   the policy pass keeps the EFI valid (ocvalidate accepts the added kernel patch)  [['tahoe-weg-args', 'tahoe-weg-amd', 'tahoe-intel-bt', 'tahoe-sbvmm', 'sip-minimal']]
+ok   same machine with an Intel iGPU keeps WhateverGreen (the iGPU needs it)  [weg=[True]]
+ok   machine that needs nothing gets SIP fully on (engine's 0x0A03 undone)  [00000000]
+ok   Ryzen board reported as 'AMD': SetupVirtualMap False (STOP 0x16 sticks)  [False]
+ok   Ryzen board reported as 'B650': SetupVirtualMap False (STOP 0x16 sticks)  [False]
+ok   Ryzen board reported as 'A320': SetupVirtualMap True (STOP 0x16 sticks)  [True]
+ok   Ryzen board reported as 'B550': DevirtualiseMmio False  [False]
+ok   Ryzen board reported as 'AMD': DevirtualiseMmio False  [False]
+ok   Ryzen board reported as 'TRX40': DevirtualiseMmio True  [True]
+ok   B650 with a MmioWhitelist entry: DevirtualiseMmio and the entry go off together, EFI validates  [(False, [False], None)]
+ok   a table listed twice in ACPI > Add is kept once and the EFI validates  [['SSDT-EC.aml', 'SSDT-PLUG.aml', 'SSDT-USB-Reset.aml']]
+ok   ProvideCustomSlide True: AllowRelocationBlock True, EFI validates (STOP 0x16 sticks)  [True]
+ok   ProvideCustomSlide False: AllowRelocationBlock False  [False]
+ok   Replace bits outside ReplaceMask are cleared and the EFI validates  [('b80f000000', ['replace-under-mask', 'sip-minimal'])]
+Download stalled (https://example.invalid/f); retrying in 2 s...
+Download stalled (https://example.invalid/f); retrying in 4 s...
+No SHA256 hash provided. Downloading file without verification.
+ok   a download that stalls mid-read twice is retried and lands  [(True, 3)]
+Failed to fetch content from https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json. Retrying...
+Failed to fetch content from https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json. Retrying...
+Failed to fetch content from https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json. Retrying...
+Failed to fetch content from https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json
+ok   a fetch GitHub never answers says VPN/proxy, not 'NoneType is not iterable'  [1401 could not reach raw.githubusercontent.com (tried several times). ]
+No SHA256 hash provided. Downloading file without verification.
+Verifying SHA256 checksum...
+Checksum verified successfully.
+ok   an unverified OpenCore zip is NOT handed to the validator  [False]
+ok   the engine's checked OpenCore zip is kept for the validator (no second download)  [True]
+ok   a VMD stop leads with the VMD migration guidance  [This builder cannot continue with the reported Intel VMD con]
+ok   a stop with no known fix keeps the engine's words first  [OpenCore-Simplify stopped. It ]
+OK the dependency cache C:\Users\HUAWEI\AppData\Local\NullMoth\1401\OCK_Files is not writable; using C:\Users\HUAWEI\AppData\Local\NullMoth\1401\OCK_Files-2 instead
+ok   the engine's download cache is one writable folder for both gatherer and kext picker  [C:\Users\HUAWEI\AppData\Local\NullMoth\1401\OCK_Files-2]
+ok   unknown prompt stops the build instead of guessing  [UnknownPrompt]
+ok   same prompt 3x in a row stops the build  [EngineLoop]
+ok   a driverless card (Basic Display Adapter) gets its maker from the PCI ID  [['USB Controllers: the report has no usb controllers section - treated as none; the build continues (a fuller scan adds the matching quirks)', 'Storage Controllers: the report has no storage controllers section - treated as none; the build continues (a fuller scan adds the matching quirks)', 'Network: Windows reported no network adapter - treated as none; the installer will need the offline (local image) path, and Ethernet or Wi-Fi can be added later', "GPU: 'Microsoft Basic Display Adapter' has no Windows driver (maker read from its PCI ID 10DE-1F08: NVIDIA). Installing the card's driver in Windows and scanning again gives a fuller report."]]
+ok   a lone driverless card with no PCI ID stops with 'install your graphics driver'  [The only graphics card Windows reports is 'Microsoft Basic D]
+ok   a default missing from the menu answers Sequoia 24 (Turing + Broadcom)  [24]
+ok   a default that IS on the menu keeps the engine's default  ['']
+ok   no Sequoia on the menu takes the newest listed  [25]
+ok   a Sonoma default with only Sequoia listed answers 24  [24]
+ok   a PowerShell banner in the firmware type is dropped, UEFI kept  [UEFI]
+ok   a Legacy firmware type reads as BIOS  [BIOS]
+ok   Build with no Report.json says 'Run Check this PC first'  [RuntimeError: This PC has not been checked yet (no hardware ]
+ok   refuses to build into a non-empty folder it did not make (the engine wipes its output dir)  [refused]
+ok   a previous build whose file vanishes mid-wipe is still wiped  [empty]
+ok   Wi-Fi pick is matched by name in the engine's list, not position  [2]
+ok   a pick the engine didn't list stops the build  [UnknownPrompt]
+ok   OCLP flag clears when every OCLP device is disabled (no AMFIPass for a dead card)  [False]
+ok   OCLP flag stays when an enabled device still needs it  [True]
+ok   a USB audio interface without a Device ID is dropped (class-compliant; never in the EFI)  [["Sound: 'Focusrite USB Audio' (bus FOCUSRITEUSB) has no Device ID in this report - USB audio needs no kext; macOS drives it natively"]]
+ok   a report with no Input section gets an empty one (one was rejected for it), and says so  [['Input: the report lists no keyboard/trackpad section - treated as none (no PS/2 or I2C input kexts)', 'USB Controllers: the report has no usb controllers section - treated as none; the build continues (a fuller scan adds the matching quirks)', 'Storage Controllers: the report has no storage controllers section - treated as none; the build continues (a fuller scan adds the matching quirks)', 'Network: Windows reported no network adapter - treated as none; the installer will need the offline (local image) path, and Ethernet or Wi-Fi can be added later']]
+ok   HDA codec without a Device ID is kept, so the engine's validator still rejects it  [['Realtek(R) Audio']]
+
+50/50 passed

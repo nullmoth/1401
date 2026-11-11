@@ -193,6 +193,15 @@ def main():
     from Scripts import resource_fetcher as rf  # noqa: PLC0415
     tries = []
 
+    def fake_zip():
+        """A readable ZIP: archive_download refuses a 2-byte body before it can reach the validator cache."""
+        import hashlib, io, zipfile  # noqa: PLC0415
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as archive:
+            archive.writestr("x", "ok")
+        data = buf.getvalue()
+        return data, hashlib.sha256(data).hexdigest()
+
     class Stall(rf.ResourceFetcher):
         def _make_request(self, url, timeout=30):
             return object()
@@ -201,7 +210,9 @@ def main():
             tries.append(1)
             if len(tries) < 3:
                 raise TimeoutError("The read operation timed out")
-            fh.write(b"ok")
+            data, digest = fake_zip()
+            fh.write(data)
+            return digest
     real_sleep, engine.time.sleep = engine.time.sleep, lambda s: None
     try:
         dest = os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "f")
@@ -228,11 +239,18 @@ def main():
     try:
         tries.clear(); tries.extend([1, 1])
         dest = os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "OpenCorePkg.zip")
-        Stall().download_and_save_file("https://example.invalid/x/OpenCore-1.0.9-RELEASE.zip", dest, None)
+        from .downloads import DownloadError  # noqa: PLC0415
+        try:
+            Stall().download_and_save_file("https://example.invalid/x/OpenCore-1.0.9-RELEASE.zip", dest, None)
+        except DownloadError:
+            # The fake download is two bytes, not a ZIP; archive_download refuses it and raises. That refusal is
+            # exactly what this arm checks: the validator cache must not receive the unverified file.
+            pass
         unkept = os.path.exists(os.path.join(validate_mod.CACHE, "OpenCore-1.0.9-RELEASE.zip"))
         tries.clear(); tries.extend([1, 1])
         import hashlib  # noqa: PLC0415
-        Stall().download_and_save_file("https://example.invalid/x/OpenCore-1.0.9-RELEASE.zip", dest, hashlib.sha256(b"ok").hexdigest())
+        _, digest = fake_zip()
+        Stall().download_and_save_file("https://example.invalid/x/OpenCore-1.0.9-RELEASE.zip", dest, digest)
         kept = os.path.exists(os.path.join(validate_mod.CACHE, "OpenCore-1.0.9-RELEASE.zip"))
     finally:
         validate_mod.CACHE = real_cache
@@ -240,14 +258,16 @@ def main():
     arm("the engine's checked OpenCore zip is kept for the validator (no second download)", kept, kept)
 
     vmd = engine.stop_message(["5. Storage Controllers:", "Intel VMD controllers are not supported in macOS.\nPlease disable Intel VMD"])
-    arm("a VMD stop leads with 'Turn off Intel VMD'", vmd.startswith("Turn off Intel VMD"), vmd[:40])
+    arm("a VMD stop leads with the VMD migration guidance",
+        vmd.startswith("This builder cannot continue with the reported Intel VMD controller") and "encryption recovery key" in vmd, vmd[:60])
     plain = engine.stop_message(["something else"])
     arm("a stop with no known fix keeps the engine's words first", plain.startswith("OpenCore-Simplify stopped"), plain[:30])
 
     o = type("O", (), {})(); o.o = type("G", (), {})(); o.k = type("K", (), {})()
     engine._use_ock_cache(o)
-    arm("the engine's download cache is OCK_CACHE for both gatherer and kext picker",
-        o.o.ock_files_dir == o.k.ock_files_dir == engine.OCK_CACHE and o.o.download_history_file.startswith(engine.OCK_CACHE), engine.OCK_CACHE)
+    expected_cache = engine.pick_cache(engine.OCK_CACHE) or engine.OCK_CACHE
+    arm("the engine's download cache is one writable folder for both gatherer and kext picker",
+        o.o.ock_files_dir == o.k.ock_files_dir == expected_cache and o.o.download_history_file.startswith(expected_cache), expected_cache)
 
     # --- engine guards
     class FakeUtils:
@@ -298,10 +318,11 @@ def main():
     arm("a Sonoma default with only Sequoia listed answers 24", a4 == "24", a4)
     nores = engine.build(os.path.join(tempfile.mkdtemp(prefix="1401-selftest-"), "Report.json"), tempfile.mkdtemp(prefix="1401-selftest-"),
                          tempfile.mkdtemp(prefix="1401-selftest-"), download=False)
-    rf_ = report_mod.normalize({"Input": {}, "GPU": {}, "BIOS": {"Firmware Type": "Linux Rice loaded!\nUEFI"}})
+    sample_gpu = {"Test GPU": {"Manufacturer": "Intel", "Device ID": "8086-3E92", "Device Type": "Integrated GPU"}}
+    rf_ = report_mod.normalize({"Input": {}, "GPU": dict(sample_gpu), "BIOS": {"Firmware Type": "Linux Rice loaded!\nUEFI"}})
     arm("a PowerShell banner in the firmware type is dropped, UEFI kept",
         rf_[0]["BIOS"]["Firmware Type"] == "UEFI" and rf_[1], rf_[0]["BIOS"]["Firmware Type"])
-    rl_ = report_mod.normalize({"Input": {}, "GPU": {}, "BIOS": {"Firmware Type": "Legacy"}})
+    rl_ = report_mod.normalize({"Input": {}, "GPU": dict(sample_gpu), "BIOS": {"Firmware Type": "Legacy"}})
     arm("a Legacy firmware type reads as BIOS", rl_[0]["BIOS"]["Firmware Type"] == "BIOS", rl_[0]["BIOS"]["Firmware Type"])
     arm("Build with no Report.json says 'Run Check this PC first'", "Check this PC first" in (nores.error or ""), (nores.error or "")[:60])
 
@@ -363,7 +384,8 @@ def main():
     r, notes = report.normalize({"Input": {}, "Sound": {"Focusrite USB Audio": {"Bus Type": "FOCUSRITEUSB"},
                                            "Realtek(R) Audio": {"Bus Type": "HDAUDIO"}}})
     arm("a USB audio interface without a Device ID is dropped (class-compliant; never in the EFI)",
-        "Focusrite USB Audio" not in r["Sound"] and len(notes) == 1, notes[:1])
+        "Focusrite USB Audio" not in r["Sound"] and any(n.startswith("Sound:") for n in notes),
+        [n for n in notes if n.startswith("Sound:")])
     r2, n2 = report.normalize({"Sound": {}})
     arm("a report with no Input section gets an empty one (one was rejected for it), and says so",
         r2.get("Input") == {} and any(n.startswith("Input:") for n in n2), n2)

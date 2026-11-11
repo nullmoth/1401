@@ -208,7 +208,7 @@ class NothingIsErasedWhenAppleRefuses(unittest.TestCase):
                 patch.object(usbwriter, "write", lambda *a, **k: erased.append(1) or {"root": "Z:\\"}), \
                 patch.object(machine_handoff, "verified", lambda *a, **k: None), \
                 patch.object(netsupport, "needs_local_image", lambda e: False), \
-                patch.object(apple, "local_image", lambda d: None), \
+                patch.object(apple, "local_image", lambda d, *a: None), \
                 patch.object(apple, "image_info", lambda d: info()), \
                 patch.object(apple, "preflight", preflight), \
                 patch("builtins.print", lambda *a, **k: printed.append(" ".join(str(x) for x in a))):

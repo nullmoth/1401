@@ -23,6 +23,8 @@ import os
 import plistlib
 import re
 import struct
+import time
+import urllib.error
 import urllib.request
 import zlib
 import xml.etree.ElementTree as ET
@@ -176,32 +178,71 @@ def verify_xar(path, progress=None, chunk=4 << 20):
     return sorted(names)
 
 
-def fetch(product, dest_dir, progress=None, opener=None, tries=12):
+def fetch(product, dest_dir, progress=None, opener=None, tries=12, sleep=None):
     """Downloads product['url'] to dest_dir/InstallAssistant.pkg with resume, then verifies size, digest and structure.
-    `opener(url, start)` returns (stream, total_or_None); the default is urllib with a Range header."""
+    `opener(url, start)` returns (stream, total_or_None); the default is urllib with a Range header.
+
+    The catalog size is a hard limit. A previous version appended whatever the server sent and then, with a .part
+    larger than the expected size, asked to resume past the end on every retry: Apple answered 416 each time and the
+    loop spent its twelve tries on a file that could never become right (issue #161: "stopped at 19032695007 of
+    18388869343 bytes"). An oversized .part is now thrown away, every read is capped at the bytes still missing, a
+    server that sends more than the catalog lists is refused, and 416/4xx are terminal instead of retried."""
     os.makedirs(dest_dir, exist_ok=True)
     path = os.path.join(dest_dir, PACKAGE_NAME)
     part = path + ".part"
     want = int(product["size"])
     opener = opener or _open_range
+    sleep = sleep or time.sleep
     last = None
-    for _ in range(tries):
+    for attempt in range(tries):
         have = os.path.getsize(part) if os.path.exists(part) else 0
+        if want and have > want:
+            # The bytes past Apple's size cannot be part of this package. Keeping them makes every resume ask for a
+            # range beyond the object, which is exactly the 416 loop.
+            os.remove(part)
+            have = 0
         if want and have == want:
             break
+        written = 0
         try:
             stream, _total = opener(product["url"], have)
-            with open(part, "ab") as out:
-                while True:
-                    b = stream.read(1 << 20)
-                    if not b:
-                        break
-                    out.write(b)
-                    if progress:
-                        progress(out.tell(), want)
+            try:
+                with open(part, "ab") as out:
+                    while True:
+                        left = want - have - written if want else None
+                        if left is not None and left <= 0:
+                            if stream.read(1):
+                                raise FullInstallerError(
+                                    f"the server sent more than the {want} bytes Apple's catalog lists; the download "
+                                    f"was thrown away")
+                            break
+                        b = stream.read(min(1 << 20, left) if left is not None else (1 << 20))
+                        if not b:
+                            break
+                        out.write(b)
+                        written += len(b)
+                        if progress:
+                            progress(have + written, want)
+            finally:
+                stream.close()
+        except urllib.error.HTTPError as e:
+            if e.code == 416:
+                if want and have == want:
+                    break
+                raise FullInstallerError(
+                    f"the server refused the resume at {have} of {want} bytes (HTTP 416); the file it is serving is "
+                    f"shorter than Apple's catalog says. The partial download was removed; try again.") from e
+            if 400 <= e.code < 500 and e.code not in (408, 429):
+                raise FullInstallerError(
+                    f"the server refused the download (HTTP {e.code}); Apple is not serving this package right now. "
+                    f"The partial download was kept for the next attempt.") from e
+            last = e
+            if attempt + 1 < tries:
+                sleep(min(2 ** attempt, 10))
         except OSError as e:
             last = e
-            continue
+            if attempt + 1 < tries:
+                sleep(min(2 ** attempt, 10))
     have = os.path.getsize(part) if os.path.exists(part) else 0
     if want and have != want:
         raise FullInstallerError(f"the download stopped at {have} of {want} bytes ({last or 'the server closed the connection'})")

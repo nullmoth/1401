@@ -367,6 +367,7 @@ def _not_a_web_page(data):
 
 
 PREFLIGHT_BYTES = 64 * 1024  # enough to prove the CDN serves a range of the image; not a download
+PREFLIGHT_CHUNK_MAX = 64 << 20  # a first chunk this large is hashed too; larger ones are sampled only
 
 
 def _gave_up(e, resumes, stalled, got, total, seconds, trail):
@@ -432,18 +433,30 @@ def preflight(info):
     costs one small request and turns that into a stop that changed nothing.
 
     It is not a guarantee: a download that starts can still be cut later, and that is still handled where it
-    happens. This only moves the failure that was ALREADY certain before the erase to before the erase."""
+    happens. This only moves the failure that was ALREADY certain before the erase to before the erase.
+
+    The sample is the whole first chunk when it is 64 MiB or less, so it can be checked against the sha256 in
+    Apple's signed chunklist. Reading a few bytes and only counting them proves that a server answered, not that it
+    is serving Apple's image (it used to do exactly that)."""
     cl = fetch_chunklist(info)
     chunks = parse_chunklist(cl)          # raises unless Apple's EFI ROM key signed exactly these bytes
     total = sum(s for s, _ in chunks)
-    want = min(PREFLIGHT_BYTES, chunks[0][0])
+    first = chunks[0][0]
+    want = first if first <= PREFLIGHT_CHUNK_MAX else min(PREFLIGHT_BYTES, first)
     r = _asset(info["image_url"], info["image_token"], {"Range": f"bytes=0-{want - 1}"})
     try:
-        got = len(_read_exact(r, want))
+        sample = _read_exact(r, want)
     finally:
         r.close()
+    verified = False
+    if len(sample) == first:
+        if hashlib.sha256(sample).digest() != chunks[0][1]:
+            raise AppleError("the first part of Apple's recovery image does not match its signed hash - something on "
+                             "this network or computer is changing the download. Connect through a phone hotspot or a "
+                             "VPN, or turn off web/HTTP scanning in your antivirus, and press Next. Nothing was erased.")
+        verified = True
     info["chunklist_bytes"] = cl
-    return {"chunklist": cl, "chunks": len(chunks), "bytes": total, "sampled": got}
+    return {"chunklist": cl, "chunks": len(chunks), "bytes": total, "sampled": len(sample), "verified": verified}
 
 
 def download(info, usb_root, progress=None):
@@ -598,9 +611,18 @@ def download(info, usb_root, progress=None):
     finally:
         r.close()
         if fh is not None:
+            # Make the stick's own cache commit the image before it is read back: verify_written bypasses the Windows
+            # file cache, but not a device that still holds the last blocks in RAM.
+            try:
+                fh.flush()
+                os.fsync(fh.fileno())
+            except (OSError, ValueError):
+                pass
             fh.close()  # the handle may be a reopened one (_write_settled); the with only closed the first
     with _open_part(cnk + ".part", dest) as fh:
         fh.write(cl)
+        fh.flush()
+        os.fsync(fh.fileno())
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
@@ -699,28 +721,85 @@ def repair_written(info, img, chunks, bad, fetch=None, read=None):
     return verify_written(img, chunks, read)
 
 
-def local_image(folder):
+def local_image(folder, darwin=None):
     """A recovery image the user downloaded elsewhere (BaseSystem.dmg + BaseSystem.chunklist, e.g. macrecovery on another
     network), as an info dict for copy_local, or None. Apple refuses some networks outright (HTTP 403 on every session,
-    1.2.0 logs), and one user asked for an offline installer: this is it. Nothing is trusted - copy_local checks every
-    chunk against Apple's signed chunklist, exactly like a download."""
+    1.2.0 logs), and one user asked for an offline installer: this is it. Nothing is trusted - verify_local() checks
+    every chunk against Apple's signed chunklist BEFORE the stick is erased, and copy_local checks them again as it
+    writes.
+
+    A BaseSystem.product.json beside the image may say {"product": "...", "darwin": 25}. When it does, a request for a
+    different macOS is refused here, before anything is erased. A chunklist signs hashes and sizes, not a version, so
+    an image without that file cannot be tied to the macOS this EFI was built for: it is used with a printed note."""
     if not folder or not os.path.isdir(folder):
         return None
     for cl in sorted(n for n in os.listdir(folder) if n.lower().endswith(".chunklist")):
         img = os.path.join(folder, os.path.splitext(cl)[0] + ".dmg")
         if os.path.isfile(img):
+            marker = os.path.join(folder, os.path.splitext(cl)[0] + ".product.json")
+            meta = {}
+            if os.path.isfile(marker):
+                try:
+                    with open(marker, encoding="utf-8") as fh:
+                        meta = json.load(fh)
+                except (OSError, ValueError):
+                    meta = {}
+            made_for = None
+            if meta.get("darwin") not in (None, ""):
+                try:
+                    made_for = int(meta["darwin"])
+                except (TypeError, ValueError):
+                    made_for = None
+            if darwin is not None and made_for is not None and made_for != int(darwin):
+                raise AppleError(
+                    f"{os.path.basename(img)} is a recovery image for macOS Darwin {made_for}, not Darwin {darwin}. "
+                    f"Put the image for the macOS this EFI was built for in {folder}, or remove it so 1401 downloads "
+                    f"the right one from Apple. Nothing was erased.")
             return {"local": True, "image_path": img, "chunklist_path": os.path.join(folder, cl),
                     "image_url": "file:///" + os.path.basename(img), "name": "recovery image from " + folder,
-                    "product": os.path.basename(img)}
+                    "product": str(meta.get("product") or os.path.basename(img)),
+                    "darwin": made_for, "version_known": made_for is not None}
     return None
+
+
+def verify_local(info):
+    """Check a local recovery image completely, before the stick is erased: signed chunklist, exact size, every chunk's
+    sha256. copy_local used to be the first check, and it ran after the erase: a corrupt or unsigned local image cost
+    the user their stick before it was refused."""
+    cl = info.get("chunklist_bytes")
+    if cl is None:
+        with open(info["chunklist_path"], "rb") as fh:
+            cl = fh.read()
+    chunks = parse_chunklist(cl)
+    total = sum(size for size, _ in chunks)
+    path = info["image_path"]
+    size = os.path.getsize(path)
+    if size != total:
+        raise AppleError(f"{os.path.basename(path)} is {size} bytes; its signed chunklist says {total}. The image is "
+                         f"cut short or is not the one that chunklist describes. Nothing was erased.")
+    done = 0
+    with open(path, "rb") as src:
+        for i, (chunk_size, digest) in enumerate(chunks, 1):
+            buf = src.read(chunk_size)
+            if len(buf) != chunk_size:
+                raise AppleError(f"{os.path.basename(path)} ends in the middle of chunk {i}/{len(chunks)}. Nothing "
+                                 f"was erased.")
+            if hashlib.sha256(buf).digest() != digest:
+                raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(path)} fails Apple's hash - the image "
+                                 f"is damaged or was changed. Nothing was erased. Download it again with macrecovery.")
+            done += chunk_size
+    info["chunklist_bytes"] = cl
+    return {"bytes": done, "chunks": len(chunks), "product": info.get("product")}
 
 
 def copy_local(info, usb_root, progress=None):
     """Like download(), from local files: the chunklist must carry Apple's signature and every chunk its hash."""
     dest = os.path.join(usb_root, "com.apple.recovery.boot")
     os.makedirs(dest, exist_ok=True)
-    with open(info["chunklist_path"], "rb") as fh:
-        cl = fh.read()
+    cl = info.get("chunklist_bytes")
+    if cl is None:
+        with open(info["chunklist_path"], "rb") as fh:
+            cl = fh.read()
     chunks = parse_chunklist(cl)
     total = sum(s for s, _ in chunks)
     if os.path.getsize(info["image_path"]) != total:
@@ -728,17 +807,25 @@ def copy_local(info, usb_root, progress=None):
     img = os.path.join(dest, os.path.basename(info["image_path"]))
     cnk = os.path.splitext(img)[0] + ".chunklist"
     done = 0
-    with open(info["image_path"], "rb") as src, open(img + ".part", "wb") as fh:
-        for i, (size, digest) in enumerate(chunks, 1):
-            buf = src.read(size)
-            if hashlib.sha256(buf).digest() != digest:
-                raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(info['image_path'])} fails Apple's hash - refused")
-            fh.write(buf)
-            done += size
-            if progress:
-                progress(done, total)
-    with open(cnk + ".part", "wb") as fh:
+    with open(info["image_path"], "rb") as src:
+        fh = _open_part(img + ".part", dest)
+        try:
+            for i, (size, digest) in enumerate(chunks, 1):
+                buf = src.read(size)
+                if len(buf) != size or hashlib.sha256(buf).digest() != digest:
+                    raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(info['image_path'])} fails Apple's hash - refused")
+                fh = _write_settled(fh, img + ".part", done, buf)
+                done += size
+                if progress:
+                    progress(done, total)
+            fh.flush()
+            os.fsync(fh.fileno())
+        finally:
+            fh.close()
+    with _open_part(cnk + ".part", dest) as fh:
         fh.write(cl)
+        fh.flush()
+        os.fsync(fh.fileno())
     os.replace(img + ".part", img)
     os.replace(cnk + ".part", cnk)
     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}

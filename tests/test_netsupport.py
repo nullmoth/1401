@@ -16,7 +16,7 @@ if REPO not in sys.path:
 
 from p1401 import netsupport
 
-NATIVE = {"8086-2723"}                                   # Intel AX200
+NATIVE = {"8086-2723", "8086-51F1"}                       # Intel AX200, AX211
 EXPERIMENTAL = set(netsupport.MEDIATEK_WIFI_KEXT_IDS)    # MediaTek IDs the SimpleMtkWlan kext matches
 UNSUPPORTED = set(netsupport.MEDIATEK_WIFI_IDS) - EXPERIMENTAL  # MediaTek Wi-Fi with no driver (RZ616, MT7925)
 BT = {"8087-0029"}                                       # Intel BT
@@ -28,8 +28,8 @@ def _report(net=None, bt=None):
             "Bluetooth": {n: {"Device ID": d} for n, d in (bt or {}).items()}}
 
 
-def _classify(net=None, bt=None):
-    return netsupport.network_support(_report(net, bt), NATIVE, EXPERIMENTAL, BT, ETH, UNSUPPORTED)
+def _classify(net=None, bt=None, itlwm=False):
+    return netsupport.network_support(_report(net, bt), NATIVE, EXPERIMENTAL, BT, ETH, UNSUPPORTED, itlwm=itlwm)
 
 
 class Classifier(unittest.TestCase):
@@ -37,6 +37,26 @@ class Classifier(unittest.TestCase):
         s = _classify(net={"wifi": "8086-2723"})
         self.assertEqual(s["wifi"], "native")
         self.assertFalse(s["offline_recommended"])
+        self.assertEqual(s["notice"], "")
+
+    def test_ax211_with_itlwm_is_not_installer_online(self):
+        # The MateBook's AX211 (8086-51F1) is in the native table, but 1401 forces itlwm. itlwm joins Wi-Fi through
+        # HeliPort, a macOS app, so Recovery cannot use it: an unqualified "native" would hide the offline warning.
+        s = _classify(net={"wifi": "8086-51F1"}, itlwm=True)
+        self.assertEqual(s["wifi"], "native")
+        self.assertTrue(s["offline_recommended"])
+        self.assertFalse(s["installer_online"])
+        self.assertIn("HeliPort", s["notice"])
+        self.assertIn("full offline installer", s["notice"])
+
+    def test_ax211_with_itlwm_and_ethernet_is_online(self):
+        s = _classify(net={"wifi": "8086-51F1", "eth": "10EC-8168"}, itlwm=True)
+        self.assertTrue(s["installer_online"])
+        self.assertEqual(s["notice"], "")
+
+    def test_the_same_card_with_airportitlwm_is_installer_online(self):
+        s = _classify(net={"wifi": "8086-51F1"}, itlwm=False)
+        self.assertTrue(s["installer_online"])
         self.assertEqual(s["notice"], "")
 
     def test_ethernet_is_installer_online(self):

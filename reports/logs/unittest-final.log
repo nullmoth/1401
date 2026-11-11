@@ -1,0 +1,27 @@
+D:\code\Ai\1401\p1401\usbwriter.py:675: SyntaxWarning: invalid escape sequence '\d'
+  except UsbError as e:
+.......s.......................................................................................................................................................................................................................................................................s.......................................................................s.....................................................s...................................................................................................E......................................................................................................................................................................s...........................................................................................s...........................................s.....................................................s............................................................................................................................................................................................................................E....................................................................................................................
+======================================================================
+ERROR: test_symlink_oversized_and_non_dictionary_reports_refuse (tests.test_firmware_guide.FirmwareReview.test_symlink_oversized_and_non_dictionary_reports_refuse)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_firmware_guide.py", line 84, in test_symlink_oversized_and_non_dictionary_reports_refuse
+    link = self.root / 'link.json'; link.symlink_to(self.report)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1386, in symlink_to
+    os.symlink(target, self, target_is_directory)
+OSError: [WinError 1314] 客户端没有所需的特权。: 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmp9egek_ib\\Report.json' -> 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmp9egek_ib\\link.json'
+
+======================================================================
+ERROR: test_each_kind_of_wrong_folder_is_refused_with_its_reason (tests.test_utbmap_import.UtbMapImport.test_each_kind_of_wrong_folder_is_refused_with_its_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_utbmap_import.py", line 78, in test_each_kind_of_wrong_folder_is_refused_with_its_reason
+    os.symlink("/etc/hosts", os.path.join(link, "Contents", "hosts"))
+OSError: [WinError 1314] 客户端没有所需的特权。: '/etc/hosts' -> 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmpaew1o1zo\\D.kext\\Contents\\hosts'
+
+----------------------------------------------------------------------
+Ran 1186 tests in 55.760s
+
+FAILED (errors=2, skipped=8)
+EXIT:1

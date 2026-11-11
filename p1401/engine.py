@@ -36,12 +36,14 @@ from . import own_virtualsmc
 from . import community_gpu
 from . import continuity
 from . import downloads
+from . import huawei
 from . import identity_ready
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
 from . import storage_prep
 from . import unsupported
+from . import utbmap
 from . import report as report_mod
 from . import validate as validate_mod
 
@@ -528,17 +530,67 @@ def network_help(url):
 # that cache. On Windows it now lives in the user's writable app-data folder; the zip ships none.
 OCK_CACHE = (os.path.join(os.environ["LOCALAPPDATA"], "NullMoth", "1401", "OCK_Files") if os.environ.get("LOCALAPPDATA")
              else os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files"))
+ACTIVE_OCK_CACHE = OCK_CACHE  # the folder this build actually used (base or a -2/-3 fallback)
+
+
+def cache_writable(path):
+    """True when this process can create a file in the cache folder and in every folder already inside it. A folder
+    left with a protected ACL (a sandbox or another user's tool made it) can still be listed at the top while one of
+    its children refuses every write; the build then died on that child's first kext manifest."""
+    try:
+        os.makedirs(path, exist_ok=True)
+        probe = os.path.join(path, ".1401-write-test")
+        with open(probe, "w", encoding="ascii") as fh:
+            fh.write("x")
+        os.remove(probe)
+        children = os.listdir(path)
+    except OSError:
+        return False
+    for name in children:
+        child = os.path.join(path, name)
+        try:
+            is_dir = stat.S_ISDIR(os.stat(child).st_mode)
+        except OSError:
+            return False
+        if not is_dir:
+            continue
+        probe = os.path.join(child, ".1401-write-test")
+        try:
+            with open(probe, "w", encoding="ascii") as fh:
+                fh.write("x")
+            os.remove(probe)
+        except OSError:
+            return False
+    return True
+
+
+def pick_cache(base, writable=None):
+    """The first writable cache folder: base, then base-2, base-3. A cache that cannot be written is never deleted
+    (it may belong to another user); a fresh one is used beside it."""
+    writable = writable or cache_writable
+    for suffix in ("", "-2", "-3"):
+        candidate = base + suffix
+        if writable(candidate):
+            return candidate
+    return None
 
 
 def _use_ock_cache(o):
-    os.makedirs(OCK_CACHE, exist_ok=True)
-    o.o.ock_files_dir = OCK_CACHE
-    o.o.download_history_file = os.path.join(OCK_CACHE, "history.json")
+    global ACTIVE_OCK_CACHE
+    cache = pick_cache(OCK_CACHE)
+    if cache is None:
+        raise RuntimeError(f"the dependency cache folders {OCK_CACHE}, {OCK_CACHE}-2 and {OCK_CACHE}-3 cannot be "
+                           f"written. Close other 1401 windows, or delete the folder named in Send logs, and build again.")
+    if cache != OCK_CACHE:
+        print(f"OK the dependency cache {OCK_CACHE} is not writable; using {cache} instead", flush=True)
+    ACTIVE_OCK_CACHE = cache
+    o.o.ock_files_dir = cache
+    o.o.download_history_file = os.path.join(cache, "history.json")
     if hasattr(o.o, 'integrity_checker'):
         from . import dependency_cache
         dependency_cache.harden(o.o.integrity_checker)
-        dependency_cache.tolerate_cache_locks(o.o.utils, OCK_CACHE)
-    o.k.ock_files_dir = OCK_CACHE
+        dependency_cache.tolerate_cache_locks(o.o.utils, cache)
+    o.k.ock_files_dir = cache
 
 
 
@@ -1002,7 +1054,21 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
     amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
-    net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
+    net_status = netsupport.support_from_pci(cust, h.notices, [k.name for k in o.k.kexts if k.checked])  # warn if the installer will have no internet
+    if huawei.matches(hw):
+        # check_compatibility() returns the upstream sections, and the upstream validator's report drops 1401's own
+        # Storage Drives section; take it from the raw scan the build loaded before validation.
+        huawei_hw = dict(hw)
+        raw = getattr(res, "raw_hardware", None) or report
+        huawei_hw["Storage Drives"] = raw.get("Storage Drives") or {}
+        h.notices.extend(huawei.notes(huawei_hw, [k.name for k in o.k.kexts if k.checked], net_status))
+    usb_map = utbmap.map_status(o.k.kexts)
+    if usb_map == "default":
+        h.notices.append("USB: this build uses UTBDefault.kext (every port on) and has no UTBMap for this board. "
+                         "That usually works for the installer, but sleep/wake or one port can misbehave on a laptop; "
+                         "make a map for this machine with USBToolBox and build again with --utbmap <folder> if it does.")
+    elif usb_map == "mapped":
+        h.notices.append("USB: the port map supplied for this board is in the EFI (UTBDefault.kext switched off).")
     # whatever is still switched off now has no driver: say so in plain words, with what to use instead
     h.notices.extend(unsupported.notes(hw, disabled, cust, mv, held_ids, h.notices))
     # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass

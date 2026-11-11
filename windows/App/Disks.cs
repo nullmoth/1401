@@ -90,6 +90,10 @@ namespace A1401
         static void AddUsbInterfaceDisks(ManagementScope storageScope, List<UsbDisk> list)
         {
             uint osDisk = OsDiskNumber();
+            // Fail closed: when WMI cannot name the disk Windows runs from, this fallback cannot prove any USB disk is
+            // not it. Offering a list without that check is worse than offering none; the writer still re-identifies
+            // the stick, and the primary MSFT_Disk path is independent of this fallback.
+            if (osDisk == uint.MaxValue) return;
             var seen = new HashSet<uint>(list.Select(d => d.Number));
             try
             {

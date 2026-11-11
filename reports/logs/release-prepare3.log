@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tools\windows_release.py", line 312, in <module>
+    main()
+  File "D:\code\Ai\1401\tools\windows_release.py", line 308, in main
+    prepare(args) if args.command == 'prepare' else package(args)
+    ^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\tools\windows_release.py", line 173, in prepare
+    raise RuntimeError('The candidate staging directory must be empty.')
+RuntimeError: The candidate staging directory must be empty.
+EXIT:1
