@@ -17,7 +17,7 @@ the [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/)
 1. Unzip the release and keep the `1401` folder together. Run `1401.exe` as administrator (it reads the hardware and
    writes the stick).
 2. Click Check this PC, Build the Mac setup, read Your BIOS steps, then Create the macOS stick. You need a USB stick of
-   4 GB or more that can be erased, and an internet connection.
+   2 GB or more (16 GB recommended) that can be erased, and an internet connection.
 3. Restart, change the BIOS settings 1401 showed you, boot the stick and pick the macOS installer in the OpenCore menu.
    In Disk Utility, erase only the partition or disk meant for macOS (APFS), never a disk with Windows or data you
    want to keep. Then choose Reinstall macOS; the rest of macOS downloads from Apple.

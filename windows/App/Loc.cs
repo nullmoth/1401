@@ -42,12 +42,12 @@ namespace A1401
             { "The 1401 Assistant helps you install macOS on this PC, the way Boot Camp put Windows on a Mac.\r\n\r\n" +
               "It checks this PC, builds the startup files macOS needs for your exact hardware, shows BIOS settings based on your scan and startup files, " +
               "and makes a macOS install stick. Windows stays as it is. Nothing about this PC is sent anywhere.\r\n\r\n" +
-              "You need: an internet connection and a USB stick of 4 GB or more that can be erased.\r\n\r\n" +
+              "You need: an internet connection and a USB stick of 2 GB or more (16 GB recommended) that can be erased.\r\n\r\n" +
               "1401 is new and may not work on every PC. If it does not work on yours, set up OpenCore by hand with the guide below; " +
               "the NullMoth app works on any OpenCore setup.",
               "1401 助手帮你在本机安装 macOS，就像 Boot Camp 把 Windows 装到 Mac 上那样。\r\n\r\n" +
               "它会检测本机，为你的具体硬件构建 macOS 所需的启动文件，根据扫描结果和启动文件给出 BIOS 设置，并制作 macOS 安装盘。Windows 保持原样。本机的任何信息都不会被发送出去。\r\n\r\n" +
-              "你需要：一台能上网的电脑，以及一块 4 GB 以上、可以被清空的 U 盘。\r\n\r\n" +
+              "你需要：一台能上网的电脑，以及一块 2 GB 以上（建议 16 GB）、可以被清空的 U 盘。\r\n\r\n" +
               "1401 是新项目，不保证在每台机器上都能用。如果你的机器不行，可以按下面的指南手动配置 OpenCore；NullMoth 应用在任何 OpenCore 环境下都能工作。" },
 
             // --- step: check this PC ---
@@ -110,8 +110,8 @@ namespace A1401
             { ": 1401 is running from it", "：1401 正在从它运行" },
             { ": too small, 1401 needs 2 GB", "：容量过小，1401 需要 2 GB" },
             { "Found {0} USB stick(s).", "找到 {0} 个 U 盘。" },
-            { "No USB stick found. Plug one in (4 GB or more, not the stick 1401 runs from) and press Refresh.",
-              "未找到 U 盘。请插入一块（4 GB 以上，且不是 1401 当前运行所在的盘），然后点刷新。" },
+            { "No USB stick found. Plug one in (2 GB or more, not the stick 1401 runs from) and press Refresh.",
+              "未找到 U 盘。请插入一块（2 GB 以上，且不是 1401 当前运行所在的盘），然后点刷新。" },
             { "Disks 1401 saw and left out:", "1401 看到但已排除的磁盘：" },
             { "Board", "主板" },
             { "Processor", "处理器" },

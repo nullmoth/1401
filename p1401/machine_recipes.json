@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "about": "Settings for a class of machine, written for 1401 from what a verified setup of that machine needs. A recipe applies when the scan's board name contains one of 'boards' and its CPU name contains one of 'cpus' (whole-word, case-insensitive, like known_machines.json). Unlike a known-machine row it can set kernel quirks and the CPUID emulation. status: works = the owner reached the desktop with it; opt-in = applies only when the build asks for it. Every effect is recorded in the build report under the rule 'machine-recipe'.",
+ "about": "Settings for a class of machine, written for 1401 from what a verified setup of that machine needs. A recipe applies when the scan's board name contains one of 'boards' and its CPU name contains one of 'cpus' (whole-word, case-insensitive, like known_machines.json). Unlike a known-machine row it can set kernel quirks and the CPUID emulation. status: works = the owner reached the desktop with it; opt-in = applies only when the build asks for it; theory = derived from a verified setup of the same CPU class, not yet booted on this board. Every effect is recorded in the build report under the rule 'machine-recipe'.",
  "recipes": [
   {
    "id": "dell-xps-13-plus-9320",
@@ -12,6 +12,17 @@
    "kernel_quirks": {"ProvideCurrentCpuInfo": true},
    "cpuid1_logical_per_package": 128,
    "why": "ProvideCurrentCpuInfo reports the 4 performance + 8 efficiency core part with a core count per package of 128 while CPUID leaf 1 reports 64 logical processors, so the kernel computes threads per core as 64 / 128 = 0 and divides by it in cpu_thread_alloc: the machine freezes right after EXITBS with E-cores enabled. Setting the logical-processor field of CPUID leaf 1 (EBX bits 23:16) to 128 makes the two agree."
+  },
+  {
+   "id": "huawei-matebook-x-pro-2023",
+   "title": "Huawei MateBook X Pro 2023 (MRGFG-XX), i7-1360P",
+   "boards": ["MRGFG-XX", "MateBook X Pro"],
+   "cpus": ["i7-1360P"],
+   "status": "theory",
+   "source": "1401's own scan of this machine on 2026-11-11 (HUAWEI MRGFG-XX-PCB, 13th Gen Intel Core i7-1360P, 12 cores, Raptor Lake-P) and the CPUID mechanism verified on the Dell XPS 13 Plus 9320 with the same i7-1360P; this board has not yet booted macOS in this project, so the row is marked theory, not works",
+   "kernel_quirks": {"ProvideCurrentCpuInfo": true},
+   "cpuid1_logical_per_package": 128,
+   "why": "The i7-1360P is the same 4 performance + 8 efficiency core part as the XPS 13 Plus 9320 recipe: with ProvideCurrentCpuInfo on, the CPUID leaf 1 logical-processor field must agree with the kernel's per-package count or cpu_thread_alloc divides by zero right after EXITBS. The value is applied because the same CPU and the same hybrid topology are present; it is unverified on this board and must be confirmed by a real boot before the row becomes works. If the board freezes after EXITBS with E-cores enabled, this is the first setting to review."
   }
  ]
 }

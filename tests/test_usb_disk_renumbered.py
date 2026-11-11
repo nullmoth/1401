@@ -34,7 +34,7 @@ class Renumbered(unittest.TestCase):
         src = inspect.getsource(usbwriter.write)
         self.assertEqual(src.count("moved = current_number(disk)"), 2)
         self.assertEqual(src.count("if moved is None:"), 2)
-        self.assertEqual(src.count('_diskpart(diskpart_script({**disk, "Number": n}, letter))'), 2)
+        self.assertEqual(src.count('_diskpart(diskpart_script({**disk, "Number": n}, letter, cap))'), 2)
         self.assertNotIn("_diskpart(diskpart_script(disk, letter))", src)
 
 

@@ -52,6 +52,13 @@ class Recipes(unittest.TestCase):
         self.assertFalse(policy.set_cpuid1_logical_per_package(cfg, 128))
         self.assertEqual(cfg["Kernel"]["Emulate"], before)
 
+    def test_the_matebook_gets_the_same_topology_fix(self):
+        k, ch = build("HUAWEI MRGFG-XX-PCB", CPU)
+        self.assertEqual(k["Emulate"]["Cpuid1Data"][6], 128)
+        self.assertEqual(k["Emulate"]["Cpuid1Mask"][6], 255)
+        self.assertTrue(k["Quirks"]["ProvideCurrentCpuInfo"])
+        self.assertEqual(len(ch), 2)
+
     def test_another_laptop_or_another_cpu_is_untouched(self):
         for board, cpu in (("LENOVO 21HQ", CPU), (XPS, "11th Gen Intel(R) Core(TM) i7-1185G7")):
             k, ch = build(board, cpu)
@@ -66,7 +73,7 @@ class Recipes(unittest.TestCase):
     def test_every_recipe_names_its_source_status_and_reason(self):
         for r in policy._machine_recipes():
             self.assertTrue(r["boards"] and r["cpus"] and r["source"] and r["why"])
-            self.assertIn(r["status"], ("works", "opt-in"))
+            self.assertIn(r["status"], ("works", "opt-in", "theory"))
 
 
 if __name__ == "__main__":

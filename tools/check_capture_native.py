@@ -139,8 +139,16 @@ def verify_capture_native(repo, output, evidence=None):
     if 'devices' not in counts['measured'] + counts['partial']:
         raise RuntimeError('Actual Windows SetupAPI device inventory did not run.')
     serialized = json.dumps(device_map)
-    for identifier in (os.environ.get('USERNAME', ''), os.environ.get('COMPUTERNAME', '')):
-        if len(identifier) >= 3 and identifier.lower() in serialized.lower(): raise RuntimeError('Private identity appeared in the device map.')
+    # A bare USERNAME can be a hardware vendor word: this MateBook's Windows account is "HUAWEI", and the device
+    # map legitimately contains HUAWEI as the board manufacturer. Look for the full profile path (a real path leak)
+    # instead; check both the raw and JSON-escaped form. COMPUTERNAME is still checked as itself.
+    serialized_l = serialized.lower()
+    for identifier in (os.environ.get('USERPROFILE', ''), os.environ.get('COMPUTERNAME', '')):
+        if len(identifier) < 3:
+            continue
+        variants = {identifier.lower(), json.dumps(identifier)[1:-1].lower()}
+        if any(variant in serialized_l for variant in variants):
+            raise RuntimeError('Private identity appeared in the device map.')
     evidence['device_map_native_stages'] = counts
     evidence['device_map_stage_reasons'] = {stage: {'status':record.get('status'), 'reason':record.get('error'), 'source':record.get('source')} for stage in hc.DEVICE_STAGES for record in [device_map.get(stage) or {}] if record.get('status') != 'measured'}
     evidence['device_nodes'] = len(((device_map.get('devices') or {}).get('value') or {}).get('nodes') or [])

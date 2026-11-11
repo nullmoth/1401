@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tools\windows_release.py", line 312, in <module>
+    main()
+  File "D:\code\Ai\1401\tools\windows_release.py", line 308, in main
+    prepare(args) if args.command == 'prepare' else package(args)
+    ^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\tools\windows_release.py", line 191, in prepare
+    runpy.run_path(str(REPO / 'tools/build_cpu_helper.py'))['build'](REPO, app / 'bin')
+  File "D:\code\Ai\1401\tools\build_cpu_helper.py", line 19, in build
+    subprocess.run(['cl','/nologo','/std:c11','/O2','/MT','/W4','/WX','/DWIN32_LEAN_AND_MEAN','/D_WIN32_WINNT=0x0602',
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 548, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] 系统找不到指定的文件。
+EXIT:1

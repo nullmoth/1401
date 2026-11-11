@@ -1,0 +1,14 @@
+optiplex-5050-micro    OK     17.7s macOS=22.99.99  iMac18,1        
+                              decided Please enter the macOS version you want ->
+                              decided Enter the ID of the codec layout you wan->
+                              validation: {'ok': True, 'ocvalidate': {'ok': True, 'issues': 0, 'text': 'NOTE: This version of ocvalidate is only compatible with OpenCore version 1.0.9!\n\n\nCompleted validating config.plist in 1 ms. No issues found.'}, 'invariants': [], 'error': ''}
+x570-5800x-6600xt      OK     13.5s macOS=25.99.99  MacPro7,1       
+                              decided Please enter the macOS version you want ->
+                              decided Select audio kext for your system:->2
+                              decided Select Intel Wi-Fi kext (default: Airpor->3
+                              decided Select kext for your AMD Navi 23 GPU (de->
+                              decided Would you like to scan for WiFi profiles->no
+                              validation: {'ok': True, 'ocvalidate': {'ok': True, 'issues': 0, 'text': 'NOTE: This version of ocvalidate is only compatible with OpenCore version 1.0.9!\n\n\nCompleted validating config.plist in 1 ms. No issues found.'}, 'invariants': [], 'error': ''}
+
+2/2 OK or skipped
+EXIT:0

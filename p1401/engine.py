@@ -36,12 +36,14 @@ from . import own_virtualsmc
 from . import community_gpu
 from . import continuity
 from . import downloads
+from . import huawei
 from . import identity_ready
 from . import netsupport
 from . import nullmoth
 from . import policy as policy_mod
 from . import storage_prep
 from . import unsupported
+from . import utbmap
 from . import report as report_mod
 from . import validate as validate_mod
 
@@ -1052,7 +1054,21 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
     amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
-    net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
+    net_status = netsupport.support_from_pci(cust, h.notices, [k.name for k in o.k.kexts if k.checked])  # warn if the installer will have no internet
+    if huawei.matches(hw):
+        # check_compatibility() returns the upstream sections, and the upstream validator's report drops 1401's own
+        # Storage Drives section; take it from the raw scan the build loaded before validation.
+        huawei_hw = dict(hw)
+        raw = getattr(res, "raw_hardware", None) or report
+        huawei_hw["Storage Drives"] = raw.get("Storage Drives") or {}
+        h.notices.extend(huawei.notes(huawei_hw, [k.name for k in o.k.kexts if k.checked], net_status))
+    usb_map = utbmap.map_status(o.k.kexts)
+    if usb_map == "default":
+        h.notices.append("USB: this build uses UTBDefault.kext (every port on) and has no UTBMap for this board. "
+                         "That usually works for the installer, but sleep/wake or one port can misbehave on a laptop; "
+                         "make a map for this machine with USBToolBox and build again with --utbmap <folder> if it does.")
+    elif usb_map == "mapped":
+        h.notices.append("USB: the port map supplied for this board is in the EFI (UTBDefault.kext switched off).")
     # whatever is still switched off now has no driver: say so in plain words, with what to use instead
     h.notices.extend(unsupported.notes(hw, disabled, cust, mv, held_ids, h.notices))
     # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass

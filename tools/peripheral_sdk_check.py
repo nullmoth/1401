@@ -23,7 +23,9 @@ rename = {'WAVEFORMATEXTENSIBLE.wValidBitsPerSample': 'Samples.wValidBitsPerSamp
 head = '''#define COBJMACROS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <initguid.h>
+/* No <initguid.h>: this file only asserts struct/offset/constant layouts, and with Windows SDK 10.0.22621
+   initguid.h makes windot11.h's DEFINE_NWF_GUID expand to "0x6cb9a43e+(ord)", which MSVC rejects as a pp-number.
+   The GUID checks are the separate C++ file, which uses __uuidof and needs no object definitions. */
 #include <setupapi.h>
 #include <hidsdi.h>
 #include <hidpi.h>

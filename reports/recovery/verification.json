@@ -1,0 +1,30 @@
+{
+ "recovery": {
+  "ok": true,
+  "darwin": 25,
+  "product": "140-93589",
+  "image": "BaseSystem.dmg",
+  "bytes": 960530321,
+  "chunks": 92,
+  "chunklist_signature": "Apple EFI ROM RSA verified",
+  "first_chunk_sha256_matches": true,
+  "preflight_sampled_bytes": 10485760
+ },
+ "full_installer": {
+  "ok": true,
+  "macos": 26,
+  "title": "macOS Tahoe",
+  "version": "26.7.3",
+  "build": "25G342",
+  "bytes": 18388869343,
+  "catalog_digest": "37f6e6b8bc3f4d718acc22631404e24b4fe8f8c2",
+  "product": "142-54128",
+  "url": "https://swcdn.apple.com/content/downloads/02/21/142-54128-A_OWMUBNYT6S/xlorkwl2msc8dgn34ayr8dk2jm8xka68z3/InstallAssistant.pkg",
+  "first_mib_received": 1048576,
+  "resume_status": 206,
+  "resume_bytes": 1024,
+  "downloaded_full_package": false,
+  "note": "catalog, live URL and HTTP range verified; the 18 GB package is not downloaded, and creating a standard Apple createinstallmedia USB requires macOS"
+ },
+ "errors": []
+}

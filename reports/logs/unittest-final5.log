@@ -1,0 +1,162 @@
+.......E.......................................................................................................................................................................................................................................................................E.......................................................................E.....................................................E...........................................................................................................................................................................................................................................................................E...........................................................................................E...........................................EEEEE.....................................................E....................................................................................................................................................................................................................................................................................................................................................
+======================================================================
+ERROR: test_opencore_validator_accepts_the_patch_and_the_added_table (tests.test_acpi_alib_shim.AlibShimValidates.test_opencore_validator_accepts_the_patch_and_the_added_table)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_acpi_alib_shim.py", line 104, in test_opencore_validator_accepts_the_patch_and_the_added_table
+    with zipfile.ZipFile(archive) as z:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_opencore_validator_accepts_it (tests.test_coffee_lake_h_reserved.Reserved.test_opencore_validator_accepts_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_coffee_lake_h_reserved.py", line 36, in test_opencore_validator_accepts_it
+    with zipfile.ZipFile(z) as a:
+         ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: setUpClass (tests.test_dependency_cache.DependencyCache)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_dependency_cache.py", line 22, in setUpClass
+    with zipfile.ZipFile(archive) as release:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: setUpClass (tests.test_disabled_gpu_policy.DisabledGpuPolicy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_disabled_gpu_policy.py", line 26, in setUpClass
+    with zipfile.ZipFile(archive) as z:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: setUpClass (tests.test_legal_comments.LegalCommentsValidator)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_legal_comments.py", line 67, in setUpClass
+    with zipfile.ZipFile(archive) as z:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: setUpClass (tests.test_mmio_policy.MmioPolicy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_mmio_policy.py", line 21, in setUpClass
+    with zipfile.ZipFile(cls.archive) as archive:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_binary_mismatch_is_detected_even_when_config_is_unchanged (tests.test_opencore_components.OpenCoreComponents.test_binary_mismatch_is_detected_even_when_config_is_unchanged)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_opencore_components.py", line 29, in setUp
+    with zipfile.ZipFile(self.archive_path) as release:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_changed_release_archive_is_rejected (tests.test_opencore_components.OpenCoreComponents.test_changed_release_archive_is_rejected)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_opencore_components.py", line 29, in setUp
+    with zipfile.ZipFile(self.archive_path) as release:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_external_driver_is_not_mistaken_for_a_stock_release_driver (tests.test_opencore_components.OpenCoreComponents.test_external_driver_is_not_mistaken_for_a_stock_release_driver)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_opencore_components.py", line 29, in setUp
+    with zipfile.ZipFile(self.archive_path) as release:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_matching_release_files_pass (tests.test_opencore_components.OpenCoreComponents.test_matching_release_files_pass)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_opencore_components.py", line 29, in setUp
+    with zipfile.ZipFile(self.archive_path) as release:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: test_missing_opencore_executable_stops_validation (tests.test_opencore_components.OpenCoreComponents.test_missing_opencore_executable_stops_validation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_opencore_components.py", line 29, in setUp
+    with zipfile.ZipFile(self.archive_path) as release:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+======================================================================
+ERROR: setUpClass (tests.test_picker_visible.PickerVisible)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_picker_visible.py", line 34, in setUpClass
+    with zipfile.ZipFile(archive) as z:
+         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1354, in __init__
+    self._RealGetContents()
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\zipfile\__init__.py", line 1421, in _RealGetContents
+    raise BadZipFile("File is not a zip file")
+zipfile.BadZipFile: File is not a zip file
+
+----------------------------------------------------------------------
+Ran 1195 tests in 62.282s
+
+FAILED (errors=12)
+EXIT:1
