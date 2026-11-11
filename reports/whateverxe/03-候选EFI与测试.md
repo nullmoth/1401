@@ -102,12 +102,14 @@ Completed validating config.plist in 1 ms. No issues found.
 | 键 | 2.9.1 示例 | 候选 |
 |---|---|---|
 | `NVRAM.Add.7C436110-…csr-active-config` | `03 00 00 00`（`0x03`） | `03 0A 00 00`（`0x0A03`） |
-| `PlatformInfo.Generic.MLB` | `C02011700J9P8PGFB` | `C02148701QXP8PGFB` |
-| `PlatformInfo.Generic.ROM` | `90 FD 2B C9 CC 62` | `A2 10 70 04 47 BC` |
-| `PlatformInfo.Generic.SystemSerialNumber` | `C02CFXZMML7H` | `C02GR00QML7H` |
-| `PlatformInfo.Generic.SystemUUID` | `8298333E-408A-42BF-8268-6718248398D2` | `06117760-215A-4718-9BF5-C1EE1D6C8D61` |
+| `PlatformInfo.Generic.MLB` | `<已打码>` | `<已打码>` |
+| `PlatformInfo.Generic.ROM` | `<已打码>` | `<已打码>` |
+| `PlatformInfo.Generic.SystemSerialNumber` | `<已打码>` | `<已打码>` |
+| `PlatformInfo.Generic.SystemUUID` | `<已打码>` | `<已打码>` |
 
 - `csr-active-config` 是本次修复的预期差异。
+- 四个 SMBIOS 身份字段（MLB、ROM、SystemSerialNumber、SystemUUID）的实际值已打码：仓库公开，这些值一旦被用于
+  真机就会成为该机器的 Apple 身份。打码前的值仍在 Git 历史中，真机使用前请重新生成 SMBIOS，不要沿用这里出现过的值。
 - 身份字段不同是因为候选 EFI 在新目录中重新生成了 SMBIOS；候选是独立交付物，不是覆盖发布 EFI 的补丁。
   如果用户希望沿用已安装系统的序列号，应在自己的输出目录上重建，或把旧身份复制到候选；本次不自动做这件事。
 
