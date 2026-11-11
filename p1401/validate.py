@@ -23,10 +23,67 @@ tls.install()   # downloads verify against the OS certificate store + certifi
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def _engine_cache():
-    from .engine import OCK_CACHE  # noqa: PLC0415 - the engine decides where its downloads live
-    return OCK_CACHE
+    from . import engine  # noqa: PLC0415 - the engine decides where its downloads live
+    return getattr(engine, "ACTIVE_OCK_CACHE", engine.OCK_CACHE)
 CACHE = os.path.join(os.path.expanduser("~"), ".cache", "1401")
 TIMEOUT = 120  # seconds
+
+
+def _candidate_caches():
+    from . import engine  # noqa: PLC0415
+    active = getattr(engine, "ACTIVE_OCK_CACHE", "")
+    bases = [active, engine.OCK_CACHE] + [engine.OCK_CACHE + suffix for suffix in ("-2", "-3")]
+    seen, out = set(), []
+    for base in bases:
+        if base and os.path.normcase(os.path.abspath(base)) not in seen:
+            seen.add(os.path.normcase(os.path.abspath(base)))
+            out.append(base)
+    return out
+
+
+def _select_cache_for(efi_dir):
+    """Point validation at the cache whose OpenCore release produced this EFI's boot files.
+
+    The engine may have built from OCK_Files-2 when the base folder refused writes. Reading the base folder's
+    history then compared the EFI with a different OpenCore commit and reported a false 'OpenCore.efi differs'
+    invariant (the x570 corpus build hit this). The EFI is the truth: match it against each cache's verified zip."""
+    try:
+        want = _sha256(os.path.join(efi_dir, "EFI", "OC", "OpenCore.efi"))
+    except OSError:
+        return
+    from . import engine  # noqa: PLC0415
+    # The cache folder holds the extracted release; matching it needs no download and works even when the original
+    # zip was not kept. An unreadable folder (the base cache with a protected ACL) is skipped.
+    for base in _candidate_caches():
+        try:
+            if _sha256(os.path.join(base, "OpenCorePkg", "EFI", "OC", "OpenCore.efi")) == want:
+                engine.ACTIVE_OCK_CACHE = base
+                return
+        except OSError:
+            continue
+    for base in _candidate_caches():
+        try:
+            with open(os.path.join(base, "history.json"), encoding="utf-8") as fh:
+                history = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        for entry in history:
+            if not isinstance(entry, dict) or entry.get("product_name") != "OpenCorePkg":
+                continue
+            url, sha = entry.get("url"), entry.get("sha256")
+            if not url or not sha:
+                continue
+            for folder in (CACHE, base):
+                zpath = os.path.join(folder, os.path.basename(url))
+                if not os.path.isfile(zpath) or _sha256(zpath) != sha:
+                    continue
+                try:
+                    with zipfile.ZipFile(zpath) as archive:
+                        if hashlib.sha256(archive.read("X64/EFI/OC/OpenCore.efi")).hexdigest() == want:
+                            engine.ACTIVE_OCK_CACHE = base
+                            return
+                except (OSError, KeyError, zipfile.BadZipFile):
+                    continue
 
 # Kexts that are Lilu plugins: Lilu must load before every one of them.
 LILU_PLUGINS = {"WhateverGreen.kext", "AppleALC.kext", "VirtualSMC.kext", "NVMeFix.kext", "RestrictEvents.kext",
@@ -397,6 +454,7 @@ def validate(efi_dir):
     checked against OpenCore's own sample of the same verified release instead (schema_problems), with the same file
     and boot-file checks; the result says so. WAS: the build stopped there and 8 PCs could not make a stick at all."""
     out = {"ok": False, "ocvalidate": None, "invariants": [], "error": ""}
+    _select_cache_for(efi_dir)
     cfg_path = os.path.join(efi_dir, "EFI", "OC", "config.plist")
     try:
         ok, n, text = run_ocvalidate(cfg_path)
