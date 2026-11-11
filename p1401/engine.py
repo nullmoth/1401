@@ -1053,7 +1053,12 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
     net_status = netsupport.support_from_pci(cust, h.notices, [k.name for k in o.k.kexts if k.checked])  # warn if the installer will have no internet
     if huawei.matches(hw):
-        h.notices.extend(huawei.notes(hw, [k.name for k in o.k.kexts if k.checked], net_status))
+        # check_compatibility() returns the upstream sections, and the upstream validator's report drops 1401's own
+        # Storage Drives section; take it from the raw scan the build loaded before validation.
+        huawei_hw = dict(hw)
+        raw = getattr(res, "raw_hardware", None) or report
+        huawei_hw["Storage Drives"] = raw.get("Storage Drives") or {}
+        h.notices.extend(huawei.notes(huawei_hw, [k.name for k in o.k.kexts if k.checked], net_status))
     usb_map = utbmap.map_status(o.k.kexts)
     if usb_map == "default":
         h.notices.append("USB: this build uses UTBDefault.kext (every port on) and has no UTBMap for this board. "
