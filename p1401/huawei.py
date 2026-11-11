@@ -61,9 +61,11 @@ def notes(hardware, kexts=(), net_status=None):
     gpu = _gpu(hardware)
     if gpu is not None:
         if "WhateverXe" in chosen:
-            out.append("Huawei profile: the Iris Xe A7A0 (Raptor Lake-P) is in WhateverXe's device table and this EFI "
-                       "includes WhateverXe.kext. macOS starts on the firmware framebuffer; the full graphics package "
-                       "is the opt-in 1401 Mac-app step for macOS 15.8 or 26.7 and later.")
+            out.append("Huawei profile: the Iris Xe A7A0 (Raptor Lake-P/H) is in WhateverXe's device table and this "
+                       "EFI includes WhateverXe.kext. macOS starts on the firmware framebuffer; the full graphics "
+                       "package is the opt-in 1401 Mac-app step for macOS 15.8 or 26.7 and later. b00t0x's tested "
+                       "hardware is Raptor Lake-U, not this A7A0 or its internal eDP, so acceleration is expected, "
+                       "not verified.")
         else:
             out.append("Huawei profile: the Iris Xe A7A0 is present but WhateverXe.kext was not selected; expect the "
                        "firmware framebuffer only.")

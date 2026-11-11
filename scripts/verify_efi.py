@@ -17,7 +17,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if REPO not in sys.path:
     sys.path.insert(0, REPO)
 
-from p1401 import validate  # noqa: E402
+from p1401 import validate, whateverxe  # noqa: E402
 
 
 def sha256(path):
@@ -75,6 +75,38 @@ def main():
                  .get("boot-args", ""))
     for arg in ("ctrsmt=full", "-vi2c-force-polling", "-ibtcompatbeta"):
         check("boot-arg " + arg, arg in boot_args, boot_args)
+
+    # WhateverXe's own requirements (README 0.8.0): after Lilu, with the author's AMFIPass Mod, WhateverGreen off,
+    # its boot arguments, SIP 0x803, and the pinned 0.8.0 bundle. A Windows build that loses any of these starts on
+    # the firmware framebuffer and cannot install the graphics package later.
+    add = cfg.get("Kernel", {}).get("Add", [])
+    wex = next((k for k in add if k.get("BundlePath") == "WhateverXe.kext"), None)
+    if wex is not None:
+        check("WhateverXe is enabled", wex.get("Enabled") is True)
+        check("WhateverXe Tahoe MinKernel is 25.7.0", wex.get("MinKernel") == "25.7.0", str(wex.get("MinKernel")))
+        enabled_paths = [k.get("BundlePath") for k in add if k.get("Enabled")]
+        check("Lilu is enabled before WhateverXe",
+              "Lilu.kext" in enabled_paths and "WhateverXe.kext" in enabled_paths
+              and enabled_paths.index("Lilu.kext") < enabled_paths.index("WhateverXe.kext"), str(enabled_paths))
+        amfi = next((k for k in add if k.get("BundlePath") == "AMFIPass.kext"), None)
+        check("WhateverXe has AMFIPass enabled", bool(amfi and amfi.get("Enabled")))
+        weg = next((k for k in add if k.get("BundlePath") == "WhateverGreen.kext"), None)
+        check("WhateverGreen is off with WhateverXe", not weg or weg.get("Enabled") is not True)
+        for arg in whateverxe.BOOT_ARGS:
+            check("WhateverXe boot-arg " + arg, arg in boot_args.split(), boot_args)
+        csr = cfg.get("NVRAM", {}).get("Add", {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {}).get("csr-active-config")
+        csr_b = bytes(csr or b"")
+        csr_val = int.from_bytes(csr_b, "little") if len(csr_b) == 4 else 0
+        check("WhateverXe SIP includes 0x803", csr_val & whateverxe.SIP == whateverxe.SIP, f"0x{csr_val:04X}")
+        info_path = os.path.join(root, "EFI", "OC", "Kexts", "WhateverXe.kext", "Contents", "Info.plist")
+        try:
+            with open(info_path, "rb") as fh:
+                info = plistlib.load(fh)
+            check("WhateverXe bundle is pinned " + whateverxe.VERSION, info.get("CFBundleVersion") == whateverxe.VERSION,
+                  str(info.get("CFBundleVersion")))
+        except OSError as e:
+            check("WhateverXe bundle is pinned " + whateverxe.VERSION, False, f"{type(e).__name__}: {e}")
+
     emu = cfg.get("Kernel", {}).get("Emulate", {})
     data = bytes(emu.get("Cpuid1Data") or b"")
     mask = bytes(emu.get("Cpuid1Mask") or b"")

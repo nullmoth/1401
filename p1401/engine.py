@@ -414,7 +414,8 @@ def _load_engine():
     _patient_downloads()
     _dsdt_signature_fix()
     _modern_nvidia_stays_ours()
-    from . import tls  # noqa: PLC0415
+    from . import tls, whateverxe  # noqa: PLC0415
+    whateverxe.pin_downloads()   # Windows builds use the Mac app's WEX + AMFIPass Mod releases, checked by SHA-256
     tls.install()   # verify against the Windows store + certifi, not certifi alone
     return mod, utils_mod
 

@@ -1405,7 +1405,24 @@ if [ -n "${XE:-}" ]; then
     for a in $(get NVRAM.Add.$B.boot-args) $(nvram boot-args 2>/dev/null | cut -f2-); do
       [ "$a" = -nmxintel ] && stop "the AMD / Intel test driver is on for this Intel GPU - turn it off first"; done
     if kmutil showloaded --list-only 2>/dev/null | grep -q 'org\.b00t0x\.WhateverXe '; then
-      # second run: WhateverXe is loaded, so the graphics package goes in now
+      # second run: WhateverXe is loaded, so the graphics package goes in now. A Windows-built EFI already carries
+      # WhateverXe, so this can be the first time setup sees it while its SIP is still below 0x803; the graphics
+      # package needs that bit (and a restart before it can use it). Raise it, record the change for "off", and ask
+      # for the restart instead of running the installer against the old SIP value.
+      cur=$(csr_of); want=$(( cur | 0x803 ))
+      if [ "$want" != "$cur" ]; then
+        fail=0
+        BKC="$C.nullmoth-xe-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"
+        if has NVRAM.Add.$B.csr-active-config; then
+          plutil -replace NVRAM.Add.$B.csr-active-config -data "$(csr_data $want)" "$C" || fail=1
+        else
+          plutil -insert NVRAM.Add.$B.csr-active-config -data "$(csr_data $want)" "$C" || fail=1
+        fi
+        if [ $fail = 1 ] || ! plutil -lint "$C" >/dev/null; then cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; fi
+        mkdir -p "$ST" && printf 'BKC=%s\nAMFI_ADDED=1\nCSR_OLD=%s\nCSR_NEW=%s\n' "$BKC" "$cur" "$want" > "$XS" || stop "could not record the change in $XS"
+        ok "WhateverXe is loaded but SIP is $(printf '0x%04X' $cur); raised it to $(printf '0x%04X' $want) - restart, then turn Intel Xe graphics on again to install its graphics package"
+        cleanup; echo "RESULT ok"; exit 0
+      fi
       step "Installing WhateverXe Graphics (from its author, SHA-256 checked)"
       upstream "$XPKG_URL" "$XPKG_SHA" WhateverXe-Graphics.pkg
       installer -pkg "$KT/WhateverXe-Graphics.pkg" -target / > "$ST/xe-installer.log" 2>&1 || stop "the WhateverXe Graphics installer failed (log: $ST/xe-installer.log)"

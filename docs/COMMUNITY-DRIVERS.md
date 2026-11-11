@@ -34,7 +34,7 @@ release that 1401 pins. Licence is what the LICENSE text says.
 
 | Repo | Licence (read from the LICENSE text) | What it is | Verdict | How 1401 uses it, or why not | Commit read |
 |---|---|---|---|---|---|
-| b00t0x/WhateverXe | BSD-3-Clause | Intel Xe-LP graphics (Tiger, Alder, Raptor Lake) by running Apple's Tiger Lake driver; Lilu plugin | Integrated | release 0.8.0 (this commit) pinned in the Mac app; the Mac app already offered 0.6.1 (commit 68a2427) | `db438fd` (2026-11-08) |
+| b00t0x/WhateverXe | BSD-3-Clause | Intel Xe-LP graphics (Tiger, Alder, Raptor Lake) by running Apple's Tiger Lake driver; Lilu plugin | Integrated | release 0.8.0 pinned in the Windows builder (`p1401/whateverxe.py`) and the Mac app; the Mac app already offered 0.6.1 (commit 68a2427) | `db438fd` (2026-11-08) |
 | b00t0x/WhateverXe-Graphics | tools BSD-3 only; payloads not licensed | the graphics payloads WhateverXe needs, as an installer package | Integrated | release v0.4.1 pinned; fetched on the user's Mac from the author only, never mirrored (payloads are Apple's drivers) | `88d64a3` (2026-11-08) |
 | carnations-botanica/IntelMKLFixup | GPL-3.0 | in-memory patch so Intel MKL applications run on AMD processors; Lilu plugin | Integrated | release 1.0.0 pinned in p1401/community.py, experimental opt-in, AMD processors only | `b77cd91` (2026-09-20) |
 | RX4Darwin/AMDRadeonRDNA4.kext | BSD-3-Clause | RX 9070 / 9070 XT display driver (Lilu plugin over IONDRVFramebuffer), no acceleration | Integrated | already built from this commit and mirrored by NullMoth (p1401/amd_rdna4.py); experimental opt-in | `49f7f20` (2026-10-12) |
@@ -159,10 +159,12 @@ cheapest source of findings for the AMD / Intel test driver. Hardware these auth
 
 1. Read the release notes and the LICENSE text at the new tag; compare the supported IDs and the macOS range.
 2. Download on a build machine into an empty folder; compute the SHA-256 and compare it with the author's `SHA256SUMS`.
-3. Change the URL, size and hash in one place (`p1401/community.py`, or `mac/Resources/nullmoth-setup.sh` for WhateverXe),
-   the commit in `p1401/community_gpu.py` and this page, and the version in `NOTICE.md`.
-4. Run `python3 -m unittest tests.test_community tests.test_community_gpu tests.test_licenses tests.test_intel_gpu` and
-   `python3 mac/tools/test_xe_whateverxe.py`.
+3. Change the URL, size and hash in one place (`p1401/community.py`, or `p1401/whateverxe.py` and
+   `mac/Resources/nullmoth-setup.sh` together for WhateverXe), the commit in `p1401/community_gpu.py` and this page, and
+   the version in `NOTICE.md`. `tests/test_whateverxe_integration.py` fails if the Windows pin and the Mac setup script
+   disagree.
+4. Run `python3 -m unittest tests.test_community tests.test_community_gpu tests.test_licenses tests.test_intel_gpu
+   tests.test_whateverxe_integration` and `python3 mac/tools/test_xe_whateverxe.py`.
 
 WhateverXe moved from 0.6.1 to 0.8.0 this way. Its requirements did not change (Lilu, the modified AMFIPass build,
 `csr-active-config` 0x803, `-allow3d -disablegfxfirmware`, macOS 15.8 or 26.7 and later); the AMFIPass file has the same

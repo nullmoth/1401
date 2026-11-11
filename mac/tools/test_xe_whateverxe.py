@@ -7,12 +7,16 @@ import hashlib
 import os
 import pathlib
 import plistlib
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
 
 SETUP = pathlib.Path(__file__).resolve().parents[1] / "Resources/nullmoth-setup.sh"
+BASH = os.environ.get("BASH") or shutil.which("bash") or "/bin/bash"
+BASE64 = shutil.which("base64") or "/usr/bin/base64"
 START, END = 'if [ -n "${XE:-}" ]; then', 'if [ -n "${GPUTEST:-}" ]; then'
 HS, HE = "# Kexts the driver's OpenCore setup needs", "booted_part() {"
 GUID = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
@@ -42,14 +46,106 @@ def stub(b, name, body):
     os.chmod(p, 0o755)
 
 
+# The setup block uses macOS's plutil and ditto. On a Windows build machine those do not exist; small Python
+# stand-ins with the same command lines keep this test runnable there (macOS still uses the real tools).
+PLUTIL = r'''
+import base64, json, plistlib, sys
+def load(p):
+    with open(p, "rb") as f:
+        return plistlib.load(f)
+def save(p, c):
+    with open(p, "wb") as f:
+        plistlib.dump(c, f)
+def get(c, parts):
+    for p in parts:
+        c = c[int(p)] if isinstance(c, list) else c[p]
+    return c
+def put(c, parts, value, insert):
+    for p in parts[:-1]:
+        if isinstance(c, list):
+            i = int(p)
+            while len(c) <= i:
+                c.append({})
+            c = c[i]
+        else:
+            c = c.setdefault(p, {})
+    last = parts[-1]
+    if isinstance(c, list):
+        i = int(last)
+        if insert:
+            c.insert(min(i, len(c)), value)
+        else:
+            while len(c) <= i:
+                c.append(None)
+            c[i] = value
+    else:
+        c[last] = value
+def raw(v):
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, bytes):
+        return base64.b64encode(v).decode()
+    return str(v)
+try:
+    op, args = sys.argv[1], sys.argv[2:]
+    path = args[-1]
+    cfg = load(path)
+    if op == "-extract":
+        print(raw(get(cfg, args[0].split("."))))
+    elif op in ("-replace", "-insert"):
+        key, kind, value = args[0], args[1], args[2]
+        if kind == "-bool":
+            value = value == "true"
+        elif kind == "-data":
+            value = base64.b64decode(value)
+        elif kind == "-json":
+            value = json.loads(value)
+        elif kind == "-integer":
+            value = int(value)
+        put(cfg, key.split("."), value, op == "-insert")
+        save(path, cfg)
+    elif op == "-remove":
+        parts = args[0].split(".")
+        parent = get(cfg, parts[:-1])
+        if isinstance(parent, list):
+            del parent[int(parts[-1])]
+        else:
+            del parent[parts[-1]]
+        save(path, cfg)
+    elif op == "-lint":
+        print(path + ": OK")
+finally:
+    pass
+'''
+DITTO = r'''
+import os, shutil, sys, zipfile
+a = sys.argv[1:]
+if a[:2] == ["-x", "-k"]:
+    zipfile.ZipFile(a[2]).extractall(a[3])
+elif os.path.isdir(a[0]):
+    shutil.copytree(a[0], a[1], dirs_exist_ok=True)
+else:
+    os.makedirs(os.path.dirname(os.path.abspath(a[1])), exist_ok=True)
+    shutil.copy2(a[0], a[1])
+'''
+
+
+def native_tool(b, name, code):
+    script = os.path.join(b, name + ".py")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write(code)
+    exe = sys.executable.replace("\\", "/")
+    stub(b, name, 'exec "%s" "%s" "$@"' % (exe, script.replace("\\", "/")))
+
+
 def run(mode, kexts, folders=("Lilu.kext",), dev="9A49", ver="15.8.1", bootargs="", csr=0x0,
         loaded="", good=True, t=None, cfg_extra=None):
     s = SETUP.read_text()
     for a in (START, END, HS, HE):
         assert s.count(a) == 1, f"anchor moved in nullmoth-setup.sh: {a}"
-    t = t or tempfile.mkdtemp()
-    oc = os.path.join(t, "EFI/OC")
-    cfg = os.path.join(oc, "config.plist")
+    t = (t or tempfile.mkdtemp()).replace("\\", "/")
+    oc = os.path.join(t, "EFI/OC").replace("\\", "/")
+    cfg = os.path.join(oc, "config.plist").replace("\\", "/")
     if not os.path.exists(cfg):
         for f in folders:
             os.makedirs(os.path.join(oc, "Kexts", f, "Contents"), exist_ok=True)
@@ -65,7 +161,16 @@ def run(mode, kexts, folders=("Lilu.kext",), dev="9A49", ver="15.8.1", bootargs=
             plistlib.dump(c, fh)
     wz, wsha = zipped(t, "wex.zip", "WhateverXe.kext")
     az, asha = zipped(t, "amfi.zip", "AMFIPass.kext")
-    b = os.path.join(t, "bin"); os.makedirs(b, exist_ok=True)
+    wz, az = wz.replace("\\", "/"), az.replace("\\", "/")
+    b = os.path.join(t, "bin").replace("\\", "/"); os.makedirs(b, exist_ok=True)
+    if not shutil.which("plutil"):
+        native_tool(b, "plutil", PLUTIL)
+    if not shutil.which("ditto"):
+        native_tool(b, "ditto", DITTO)
+    if os.name == "nt":
+        # Git Bash's GNU base64 uses -d; the setup script (and macOS) uses -D.
+        stub(b, "base64", 'args=(); for a in "$@"; do [ "$a" = "-D" ] && a="-d"; args+=("$a"); done\n'
+                           'exec "%s" "${args[@]}"' % BASE64.replace("\\", "/"))
     stub(b, "curl", f'out=""; url=""; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; http*) url=$1;; esac; shift; done\n'
                     f'case "$url" in *WhateverXe-0.8.0*) cp "{wz}" "$out";; *AMFIPass*) cp "{az}" "$out";; '
                     f'*.pkg) echo pkg > "$out";; *) exit 22;; esac')
@@ -82,7 +187,7 @@ def run(mode, kexts, folders=("Lilu.kext",), dev="9A49", ver="15.8.1", bootargs=
     fake = {"WhateverXe.kext": wsha, "AMFIPass-Mod.zip": asha, "WhateverXe-Graphics.pkg": hashlib.sha256(PKG).hexdigest()}
     for k, real in PINS.items():
         block = block.replace(real, fake[k] if good else "0" * 64)
-    st = os.path.join(t, "state"); os.makedirs(st, exist_ok=True)
+    st = os.path.join(t, "state").replace("\\", "/"); os.makedirs(st, exist_ok=True)
     script = (f'C="{cfg}"; B={GUID}; ST="{st}"; XE={mode}\n'
               'has() { plutil -extract "$1" raw -o - "$C" >/dev/null 2>&1; }\n'
               'get() { plutil -extract "$1" raw -o - "$C" 2>/dev/null; }\n'
@@ -91,7 +196,10 @@ def run(mode, kexts, folders=("Lilu.kext",), dev="9A49", ver="15.8.1", bootargs=
               + s[s.index("csr_of() {"):s.index("\n", s.index("csr_data() {"))] + "\n"
               + block)
     env = dict(os.environ, PATH=b + ":" + os.environ["PATH"])
-    r = subprocess.run(["/bin/bash", "-c", script], capture_output=True, text=True, timeout=60, env=env)
+    script_path = os.path.join(t, "run-xe.sh")
+    with open(script_path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(script)
+    r = subprocess.run([BASH, script_path], capture_output=True, text=True, timeout=60, env=env)
     with open(cfg, "rb") as fh:
         c = plistlib.load(fh)
     return r.returncode, r.stdout + r.stderr, c, t
@@ -155,8 +263,27 @@ class Xe(unittest.TestCase):
         self.assertEqual(csr(c), 0x0A43, out)
         self.assertNotIn("csr-active-config", out)
 
-    def test_second_run_with_whateverxe_loaded_installs_the_graphics_package(self):
-        rc, out, c, t = run("on", list(BASE), folders=("Lilu.kext",), loaded="org.b00t0x.WhateverXe (0.8.0) X")
+    def test_second_run_with_whateverxe_loaded_raises_sip_before_the_package(self):
+        # A Windows-built EFI already carries WhateverXe, so setup can see it loaded before setup ever raised SIP;
+        # the graphics package needs 0x803, so the first toggle must fix SIP and ask for a restart, not install.
+        rc, out, c, t = run("on", list(BASE), folders=("Lilu.kext",), csr=0x3, loaded="org.b00t0x.WhateverXe (0.8.0) X")
+        self.assertEqual(rc, 0, out)
+        self.assertFalse(os.path.exists(os.path.join(t, "installed")), out)
+        self.assertEqual(csr(c) & 0x803, 0x803, out)
+        self.assertIn("restart", out)
+        self.assertTrue(os.path.exists(os.path.join(t, "state/xe-state")), out)
+
+    def test_second_run_after_the_sip_fix_installs_the_graphics_package(self):
+        rc, out, c, t = run("on", list(BASE), folders=("Lilu.kext",), csr=0x3, loaded="org.b00t0x.WhateverXe (0.8.0) X")
+        self.assertEqual(rc, 0, out)
+        rc, out, c, t = run("on", None, t=t, loaded="org.b00t0x.WhateverXe (0.8.0) X")
+        self.assertEqual(rc, 0, out)
+        self.assertTrue(os.path.exists(os.path.join(t, "installed")), out)
+        self.assertNotIn(("WhateverXe.kext", True), names(c), "the package step does not touch the config")
+
+    def test_second_run_with_compliant_sip_installs_the_graphics_package(self):
+        rc, out, c, t = run("on", list(BASE), folders=("Lilu.kext",), csr=0x803,
+                            loaded="org.b00t0x.WhateverXe (0.8.0) X")
         self.assertEqual(rc, 0, out)
         self.assertTrue(os.path.exists(os.path.join(t, "installed")), out)
         self.assertNotIn(("WhateverXe.kext", True), names(c), "the package step does not touch the config")

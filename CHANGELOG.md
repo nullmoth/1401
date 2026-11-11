@@ -3,6 +3,21 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## Unreleased (WhateverXe / Huawei audit)
+- 1401 for Windows now installs the same WhateverXe 0.8.0 and AMFIPass 1.4.1 Mod releases the Mac app pins, checked
+  against their SHA-256 (`p1401/whateverxe.py`); OpCore Simplify previously took whatever the latest GitHub release was.
+- The generated EFI keeps WhateverXe's required SIP bits: the policy pass no longer lowers `csr-active-config` to
+  0x03 for a VoodooHDA menu answer when no VoodooHDA kext is in the EFI, and a WhateverXe entry now requires 0x803.
+  The Huawei build's value is 0x0A03 (0x803 plus the engine's other bits).
+- A Tahoe build gives WhateverXe `MinKernel 25.7.0`, so macOS 26.0-26.6 starts on the firmware framebuffer instead of
+  loading a driver its author supports only from 26.7. WhateverGreen is disabled beside WhateverXe, and the two
+  required boot arguments are checked.
+- The Mac setup's second run (WhateverXe already loaded, as in a Windows-built EFI) raises SIP to 0x803 and asks for
+  the restart before installing WhateverXe Graphics, instead of running the package against a lower SIP value.
+- Huawei notices say A7A0 is in WhateverXe's table but its author's tested hardware is Raptor Lake-U; this A7A0 and
+  its internal eDP are expected, not verified. Tests: `tests/test_whateverxe_integration.py`,
+  `mac/tools/test_xe_whateverxe.py`, and `scripts/verify_efi.py` check the WEX prerequisites.
+
 ## 2.9.1 (Huawei fork)
 - Writing a stick: the disk is re-identified inside the destructive operation itself. The raw erase asks the open
   `PhysicalDrive` for its serial number, vendor/product and byte size before dropping the partition table, and the

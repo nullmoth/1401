@@ -13,7 +13,7 @@ import os
 import plistlib
 import re
 
-from . import nullmoth
+from . import nullmoth, whateverxe
 
 BOOT = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
 SIP_ON = bytes(4)
@@ -286,6 +286,7 @@ def apply(config_path, result, policy):
         changes.append(change_early)
     kexts = cfg["Kernel"]["Add"]
     enabled = {k["BundlePath"].split("/")[-1] for k in kexts if k.get("Enabled")}
+    wex = "WhateverXe.kext" in enabled
     tahoe = _darwin(result.macos_version) >= TAHOE
     gpus = (result.hardware or {}).get("GPU", {})
     amd_dgpu = any(g.get("Manufacturer") == "AMD" and g.get("Device Type") != "Integrated GPU" for n, g in gpus.items()
@@ -295,6 +296,33 @@ def apply(config_path, result, policy):
 
     def change(rule, before, after, why):
         changes.append({"rule": rule, "before": before, "after": after, "why": why})
+
+    # 0b. WhateverXe: upstream's own README says WhateverGreen and WhateverXe must not be enabled together, and the
+    # two required boot arguments are part of its installation. The engine normally makes both choices itself; these
+    # guards keep a hand-edited or older engine's config from loading two drivers for the same Intel GPU.
+    if wex:
+        if "WhateverGreen.kext" in enabled:
+            for k in kexts:
+                if k["BundlePath"] == "WhateverGreen.kext" and k.get("Enabled"):
+                    k["Enabled"] = False
+            enabled.discard("WhateverGreen.kext")
+            change("whateverxe-weg", "WhateverGreen", "disabled",
+                   "b00t0x/WhateverXe README: WhateverGreen and WhateverXe must not be enabled together")
+        args = _args(nv)
+        missing = [a for a in whateverxe.BOOT_ARGS if a not in args]
+        if missing:
+            nv["boot-args"] = " ".join(args + missing)
+            change("whateverxe-args", "", " ".join(missing),
+                   "b00t0x/WhateverXe README: -allow3d -disablegfxfirmware are required")
+        # WhateverXe 0.8.0 supports Tahoe 26.7+, not every 26.x. A Tahoe build's entry gets MinKernel 25.7.0, so an
+        # installer older than 26.7 runs on the firmware framebuffer instead of loading a driver its author does not
+        # support. Sequoia and older keep the engine's value (the Mac app checks 15.8 at install).
+        if str(result.macos_version or "").startswith("25."):
+            for k in kexts:
+                if k["BundlePath"] == "WhateverXe.kext" and k.get("MinKernel") != "25.7.0":
+                    change("whateverxe-minkernel", str(k.get("MinKernel") or ""), "25.7.0",
+                           "WhateverXe 0.8.0 supports macOS 26.7 and later (Darwin 25.7+)")
+                    k["MinKernel"] = "25.7.0"
 
     # 1. Tahoe + AMD dGPU: WhateverGreen out, pikera as a kernel patch.
     if tahoe and amd_dgpu and "WhateverGreen.kext" in enabled:
@@ -656,18 +684,36 @@ def apply(config_path, result, policy):
         cfg["UEFI"]["Quirks"]["ResizeGpuBars"] = -1
         change("nullmoth-installer-bar", "", "ResizeAppleGpuBars=0", "keeps the installer's screen alive on a Resizable BAR NVIDIA card")
 
-    # 4. SIP: the least that the chosen features need (the driver's tested value wins when it applies).
-    voodoo = tahoe and policy.tahoe_audio == "voodoohda" and any(
-        d.prompt.startswith("Select audio kext") for d in result.decisions)
+    # 4. SIP: the least that the chosen features need (the driver's tested value wins when it applies). VoodooHDA is
+    # checked as an enabled kext, not from the menu choice: 1401's default menu answer leaves no VoodooHDA in the EFI
+    # (the option now means AppleALC plus SimpleHDA), so keying off the prompt lowered SIP on every Tahoe build.
+    voodoo = tahoe and "VoodooHDA.kext" in enabled
     if result.needs_oclp:
         want, why = nv.get("csr-active-config"), "OCLP root patches need SIP lowered (the user was told, and chose it)"
     elif voodoo:
         want, why = SIP_VOODOOHDA, "VoodooHDA on Tahoe loads from /Library/Extensions (Dortania: csr 03000000)"
+    elif wex:
+        cur_b = nv.get("csr-active-config") or bytes(4)
+        cur = int.from_bytes(cur_b, "little") if len(cur_b) == 4 else 0
+        want = (cur | whateverxe.SIP).to_bytes(4, "little")
+        why = "WhateverXe needs csr-active-config 0x803 (its README); other bits are kept"
     else:
         want, why = SIP_ON, "nothing this machine uses needs SIP lowered"
     if not driver and nv.get("csr-active-config") != want:
         change("sip-minimal", (nv.get("csr-active-config") or b"").hex(), want.hex(), why)
         nv["csr-active-config"] = want
+
+    # 4a. WhateverXe requires csr-active-config 0x803 before macOS starts (its README and the WhateverXe Graphics
+    # requirements). The minimal-SIP rule above can lower the engine's 0x0A03 to 0 or 0x03, neither of which carries
+    # the 0x800 bit the graphics installer checks; full SIP is unsupported. Keep any other bits another feature needs.
+    if wex:
+        cur_b = nv.get("csr-active-config") or bytes(4)
+        cur = int.from_bytes(cur_b, "little") if len(cur_b) == 4 else 0
+        want = cur | whateverxe.SIP
+        if want != cur:
+            change("whateverxe-sip", cur.to_bytes(4, "little").hex(), want.to_bytes(4, "little").hex(),
+                   "b00t0x/WhateverXe and WhateverXe Graphics requirements: csr-active-config 0x803")
+            nv["csr-active-config"] = want.to_bytes(4, "little")
 
     # 4b. Known machines (known_machines.json): a board + CPU whose own boots showed the settings it needs gets them on
     # every build, so a verified setup remains reproducible. Checked before 5, so a newer failed boot's own log still wins.

@@ -18,6 +18,8 @@ Device IDs are from the Linux i915/xe pci id tables (include/drm/intel/pciids.h)
 explains; it changes no config, adds no kext and sets no boot argument.
 """
 
+from . import whateverxe
+
 WHATEVERXE = "whateverxe"   # no Apple driver; basic display at install, opt-in WhateverXe from the Mac app afterwards
 NO_DRIVER = "none"          # no Apple driver and no driver 1401 can offer yet; basic display
 
@@ -78,9 +80,10 @@ _BASIC = ("macOS installs and runs on the screen the firmware sets up (basic dis
           "graphics acceleration, the resolution the firmware picked)")
 _NOTE = {
     WHATEVERXE: ("Graphics: {name} ({family}) has no Apple driver. " + _BASIC + ". This EFI includes b00t0x's "
-                 "WhateverXe 0.8.0 for the card, so macOS starts with its basic display path. The full graphics "
-                 "package is an opt-in test installed from the 1401 Mac app after macOS starts, for macOS 15.8 or "
-                 "26.7 and later."),
+                 "WhateverXe " + whateverxe.VERSION + " for the card, so macOS starts with its basic display path. "
+                 "The full graphics package is an opt-in test installed from the 1401 Mac app after macOS starts, for "
+                 "macOS 15.8 or 26.7 and later. The author has not tested every listed GPU or internal panel; its "
+                 "README names the configurations it has."),
     NO_DRIVER: ("Graphics: {name} ({family}) has no Apple driver, and no driver 1401 can offer for it yet. " + _BASIC
                 + "."),
 }

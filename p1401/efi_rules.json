@@ -317,6 +317,7 @@
   "builder_only": {
     "about": "policy.py changes that are build decisions, not facts a working EFI must match. The Mac checker never reports these.",
     "ids": ["excluded-kexts", "tahoe-weg-args", "arrow-lake-ctrsmt", "hybrid-intel-bios", "nullmoth-installer-bar", "sip-minimal",
+            "whateverxe-sip", "whateverxe-weg", "whateverxe-args", "whateverxe-minkernel",
             "known-machine", "machine-recipe", "bootlog-note", "amd-nvram-emulated-write", "amd-emulated-nvram-driver", "amd-emulated-logouthook",
             "amd-emulated-openruntime-early", "amd-emulated-legacyschema", "boot-logo", "storage-drive-warning", "legal-comments",
             "amd-laptop-mmio-ff000000", "amd-ssdt-plug-off", "ethernet-built-in", "vault-optional", "coffee-lake-h-reserved-page"]

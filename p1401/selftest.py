@@ -107,8 +107,20 @@ def main():
         weg == [False] and "agdpmod=pikera" not in nv["boot-args"] and any("1401" in (p.get("Comment") or "") for p in c["Kernel"]["Patch"]),
         f"weg={weg} args={nv['boot-args']}")
     arm("WhateverGreen's boot args are removed with it (-radcodec)", "-radcodec" not in nv["boot-args"], nv["boot-args"])
-    arm("VoodooHDA on Tahoe lowers SIP to 0x03 and no further", nv["csr-active-config"] == bytes.fromhex("03000000"), nv["csr-active-config"].hex())
+    arm("a Tahoe build without VoodooHDA keeps SIP fully on (the audio menu answer alone does not lower it)",
+        nv["csr-active-config"] == bytes(4), nv["csr-active-config"].hex())
     arm("the policy pass keeps the EFI valid (ocvalidate accepts the added kernel patch)", validate.validate(d)["ok"], [x["rule"] for x in ch])
+
+    d = _copy(FIXTURE)
+    _edit(d, engine_original)
+    _edit(d, lambda c: c["Kernel"]["Add"].append({
+        "Arch": "Any", "BundlePath": "VoodooHDA.kext", "Comment": "SIP fixture", "Enabled": True,
+        "ExecutablePath": "Contents/MacOS/VoodooHDA", "MaxKernel": "", "MinKernel": "",
+        "PlistPath": "Contents/Info.plist"}))
+    policy.apply(_cfg(d), fake, engine.Policy())
+    with open(_cfg(d), "rb") as fh:
+        csr = plistlib.load(fh)["NVRAM"]["Add"][policy.BOOT]["csr-active-config"]
+    arm("VoodooHDA on Tahoe lowers SIP to 0x03 and no further", csr == bytes.fromhex("03000000"), csr.hex())
 
     d = _copy(FIXTURE)
     _edit(d, engine_original)

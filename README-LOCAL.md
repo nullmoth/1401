@@ -78,6 +78,7 @@ scripts\run-tests.cmd          # 全量；自动加载 MSVC 环境
 ## 关键新增
 
 - `p1401/huawei.py`：MateBook 专属通知（A7A0/WhateverXe、AX211/itlwm、GXTP786 触摸板 vs GXTP738X 触摸屏、TBU405Pro 外置盘）。
+- `p1401/whateverxe.py`：WhateverXe 0.8.0 / AMFIPass 1.4.1 Mod / WhateverXe Graphics 0.4.1 的固定版本与 SHA-256；Windows 构建器与 Mac App 共用同一组 pin。
 - `p1401/machine_recipes.json`：Huawei CPUID/拓扑配方（状态 `theory`，未实机启动）。
 - `p1401/netsupport.py`：itlwm 不再被当作安装器可联网。
 - `p1401/utbmap.py::map_status`：报告“有 map / 默认无 map / 无 USB 栈”。
