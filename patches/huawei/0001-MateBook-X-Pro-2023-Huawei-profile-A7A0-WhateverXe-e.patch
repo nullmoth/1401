@@ -1,0 +1,520 @@
+From 15bba79f9f962e4037487961f526d5fe05ae131b Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:41:24 +0800
+Subject: [PATCH] MateBook X Pro 2023: Huawei profile, A7A0/WhateverXe
+ evidence, AX211 installer classification
+
+The generic builder already selects WhateverXe, itlwm, UTBDefault/USBToolBox, VoodooI2C/PS2 and
+MacBookPro16,2 for this machine; this adds the Huawei-specific interpretation and closes three
+evidence gaps, without changing a generic rule:
+
+- p1401/huawei.py: board+CPU match (MRGFG-XX + i7-1360P) and notes that keep the I2C touchpad
+  (GXTP786) apart from the I2C touchscreen (GXTP738X), name A7A0 in WhateverXe's table, explain
+  AX211/itlwm+HeliPort, and mark the TBU405Pro USB enclosure as external, not the target.
+- machine_recipes.json: Huawei recipe with ProvideCurrentCpuInfo and the 128-logical-processor
+  CPUID fix used for the same i7-1360P on the XPS 9320. Status is theory: not yet booted here.
+- netsupport: the installer-network decision now receives the selected kexts. itlwm is a working
+  post-install driver but needs HeliPort, so AX211 is no longer counted as installer Wi-Fi; the
+  build recommends Ethernet or a full offline installer.
+- utbmap.map_status(): the build now says whether it used a supplied UTBMap or the generic
+  UTBDefault (the no-map case this project was asked to re-check).
+- intel_gpu notice matches the EFI: WhateverXe is included, the full graphics package is opt-in.
+- Tests: Huawei profile, UTBMap status, AX211 installer classification, recipe.
+---
+ p1401/engine.py               | 13 ++++-
+ p1401/huawei.py               | 95 +++++++++++++++++++++++++++++++++++
+ p1401/intel_gpu.py            |  7 +--
+ p1401/machine_recipes.json    | 13 ++++-
+ p1401/netsupport.py           | 31 +++++++++---
+ p1401/utbmap.py               | 12 +++++
+ tests/test_huawei_profile.py  | 76 ++++++++++++++++++++++++++++
+ tests/test_machine_recipes.py |  9 +++-
+ tests/test_netsupport.py      | 26 ++++++++--
+ tests/test_utbmap_status.py   | 29 +++++++++++
+ 10 files changed, 294 insertions(+), 17 deletions(-)
+ create mode 100644 p1401/huawei.py
+ create mode 100644 tests/test_huawei_profile.py
+ create mode 100644 tests/test_utbmap_status.py
+
+diff --git a/p1401/engine.py b/p1401/engine.py
+index cf0047a..5c634c6 100644
+--- a/p1401/engine.py
++++ b/p1401/engine.py
+@@ -36,12 +36,14 @@ from . import own_virtualsmc
+ from . import community_gpu
+ from . import continuity
+ from . import downloads
++from . import huawei
+ from . import identity_ready
+ from . import netsupport
+ from . import nullmoth
+ from . import policy as policy_mod
+ from . import storage_prep
+ from . import unsupported
++from . import utbmap
+ from . import report as report_mod
+ from . import validate as validate_mod
+ 
+@@ -1049,7 +1051,16 @@ def _select(o, h, policy, res, report, load_capture, prepare):
+     netsupport.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)   # MediaTek Wi-Fi/BT, if this machine has one and the user opted in
+     amd_rdna4.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # RX 9070 display driver, same opt-in
+     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
+-    net_status = netsupport.support_from_pci(cust, h.notices)  # warn if the installer will have no internet
++    net_status = netsupport.support_from_pci(cust, h.notices, [k.name for k in o.k.kexts if k.checked])  # warn if the installer will have no internet
++    if huawei.matches(hw):
++        h.notices.extend(huawei.notes(hw, [k.name for k in o.k.kexts if k.checked], net_status))
++    usb_map = utbmap.map_status(o.k.kexts)
++    if usb_map == "default":
++        h.notices.append("USB: this build uses UTBDefault.kext (every port on) and has no UTBMap for this board. "
++                         "That usually works for the installer, but sleep/wake or one port can misbehave on a laptop; "
++                         "make a map for this machine with USBToolBox and build again with --utbmap <folder> if it does.")
++    elif usb_map == "mapped":
++        h.notices.append("USB: the port map supplied for this board is in the EFI (UTBDefault.kext switched off).")
+     # whatever is still switched off now has no driver: say so in plain words, with what to use instead
+     h.notices.extend(unsupported.notes(hw, disabled, cust, mv, held_ids, h.notices))
+     # Kexts under the ChefKiss licence are never downloaded or shipped (policy.EXCLUDED_KEXTS; the policy pass
+diff --git a/p1401/huawei.py b/p1401/huawei.py
+new file mode 100644
+index 0000000..31c1606
+--- /dev/null
++++ b/p1401/huawei.py
+@@ -0,0 +1,95 @@
++"""Huawei MateBook X Pro 2023 (MRGFG-XX) profile: what this exact machine's scan means.
++
++The generic builder already picks the right pieces for this hardware; this module adds what is specific to the
++machine and what is still unverified, without changing any generic rule:
++
++  - Iris Xe 8086:A7A0 is in WhateverXe's table (Raptor Lake-P), and the EFI includes WhateverXe.kext.
++  - AX211 (8086:51F1) uses itlwm, so Wi-Fi is joined with HeliPort after macOS starts, not by the installer.
++  - GXTP786 is the I2C touchpad and GXTP738X is the I2C touchscreen: two different devices, never one map for both.
++  - The TBU405Pro is an external USB NVMe enclosure; 1401 never treats a USB disk as the install target.
++
++Nothing here claims a boot that was not observed. notes() returns lines for the build report; the matching
++machine_recipes.json row carries the CPUID topology setting and its status.
++"""
++import os
++
++BOARD_TOKENS = ("MRGFG-XX", "MateBook X Pro")
++CPU_TOKENS = ("i7-1360P",)
++GPU_DEVICE = "8086-A7A0"
++WIFI_DEVICE = "8086-51F1"
++TOUCHPAD_DEVICE = "GXTP786"
++TOUCHSCREEN_DEVICE = "GXTP738X"
++EXTERNAL_BRIDGE = "TBU405"
++
++
++def matches(hardware):
++    """True for this machine's scan: board and CPU both named, not just a similar CPU."""
++    board = str(((hardware or {}).get("Motherboard") or {}).get("Name") or "").lower()
++    cpu = str(((hardware or {}).get("CPU") or {}).get("Processor Name") or "").lower()
++    return (any(t.lower() in board for t in BOARD_TOKENS)
++            and any(t.lower() in cpu for t in CPU_TOKENS))
++
++
++def _gpu(hardware):
++    for props in ((hardware or {}).get("GPU") or {}).values():
++        if isinstance(props, dict) and str(props.get("Device ID") or "").upper() == GPU_DEVICE:
++            return props
++    return None
++
++
++def _input_device(hardware, device):
++    for name, props in ((hardware or {}).get("Input") or {}).items():
++        if isinstance(props, dict) and str(props.get("Device") or "").upper() == device:
++            return name
++    return None
++
++
++def _external(hardware):
++    for props in ((hardware or {}).get("Storage Drives") or {}).values():
++        if (isinstance(props, dict) and str(props.get("Bus Type") or "").upper() == "USB"
++                and EXTERNAL_BRIDGE in str(props.get("Model") or "").upper()):
++            return props
++    return None
++
++
++def notes(hardware, kexts=(), net_status=None):
++    """Build notices for this machine. Empty for any other scan."""
++    if not matches(hardware):
++        return []
++    chosen = set(kexts or ())
++    out = []
++    gpu = _gpu(hardware)
++    if gpu is not None:
++        if "WhateverXe" in chosen:
++            out.append("Huawei profile: the Iris Xe A7A0 (Raptor Lake-P) is in WhateverXe's device table and this EFI "
++                       "includes WhateverXe.kext. macOS starts on the firmware framebuffer; the full graphics package "
++                       "is the opt-in 1401 Mac-app step for macOS 15.8 or 26.7 and later.")
++        else:
++            out.append("Huawei profile: the Iris Xe A7A0 is present but WhateverXe.kext was not selected; expect the "
++                       "firmware framebuffer only.")
++    net = (hardware or {}).get("Network") or {}
++    if any(isinstance(v, dict) and str(v.get("Device ID") or "").upper() == WIFI_DEVICE for v in net.values()):
++        if net_status is not None and net_status.get("offline_recommended"):
++            out.append("Huawei profile: the AX211 (8086:51F1) uses itlwm, which joins Wi-Fi through HeliPort after "
++                       "macOS starts and is not available in the installer. The build has already said the installer "
++                       "needs Ethernet or a full offline installer; both are true for this machine.")
++        else:
++            out.append("Huawei profile: the AX211 (8086:51F1) uses itlwm; join Wi-Fi with HeliPort after macOS starts, "
++                       "not from the menu bar.")
++    pad = _input_device(hardware, TOUCHPAD_DEVICE)
++    screen = _input_device(hardware, TOUCHSCREEN_DEVICE)
++    if pad:
++        out.append(f"Huawei profile: {pad} (GXTP786) is the I2C touchpad. VoodooI2C/VoodooI2CHID and "
++                   f"VoodooPS2Controller are included for it, with -vi2c-force-polling. It is the touchpad, not the "
++                   f"touchscreen.")
++    if screen:
++        out.append(f"Huawei profile: {screen} (GXTP738X) is the I2C touchscreen, not the touchpad. macOS has no "
++                   f"touchscreen driver, so 1401 does not count it as the trackpad and does not promise it works.")
++    external = _external(hardware)
++    if external is not None:
++        size = int(external.get("Size") or 0)
++        out.append(f"Huawei profile: {external.get('Model')} ({size / (1 << 30):.1f} GiB, USB) is an external USB NVMe "
++                   f"enclosure, not the internal install target. 1401 never treats a USB disk as the target: erase it "
++                   f"as APFS in Disk Utility and boot through the stick's OpenCore. UASP, sleep/wake and booting from "
++                   f"this bridge are unverified on this machine.")
++    return out
+diff --git a/p1401/intel_gpu.py b/p1401/intel_gpu.py
+index 27cb8c1..1ed847b 100644
+--- a/p1401/intel_gpu.py
++++ b/p1401/intel_gpu.py
+@@ -77,9 +77,10 @@ def classify(gpu):
+ _BASIC = ("macOS installs and runs on the screen the firmware sets up (basic display: the desktop and apps work, no "
+           "graphics acceleration, the resolution the firmware picked)")
+ _NOTE = {
+-    WHATEVERXE: ("Graphics: {name} ({family}) has no Apple driver. " + _BASIC + ". After macOS is installed, the 1401 "
+-                 "Mac app offers Intel Xe graphics through b00t0x's WhateverXe as an opt-in test, for macOS 15.8 or "
+-                 "26.7 and later. It is off unless you turn it on."),
++    WHATEVERXE: ("Graphics: {name} ({family}) has no Apple driver. " + _BASIC + ". This EFI includes b00t0x's "
++                 "WhateverXe 0.8.0 for the card, so macOS starts with its basic display path. The full graphics "
++                 "package is an opt-in test installed from the 1401 Mac app after macOS starts, for macOS 15.8 or "
++                 "26.7 and later."),
+     NO_DRIVER: ("Graphics: {name} ({family}) has no Apple driver, and no driver 1401 can offer for it yet. " + _BASIC
+                 + "."),
+ }
+diff --git a/p1401/machine_recipes.json b/p1401/machine_recipes.json
+index dd9ea4c..8ab17ca 100644
+--- a/p1401/machine_recipes.json
++++ b/p1401/machine_recipes.json
+@@ -1,6 +1,6 @@
+ {
+  "schema": 1,
+- "about": "Settings for a class of machine, written for 1401 from what a verified setup of that machine needs. A recipe applies when the scan's board name contains one of 'boards' and its CPU name contains one of 'cpus' (whole-word, case-insensitive, like known_machines.json). Unlike a known-machine row it can set kernel quirks and the CPUID emulation. status: works = the owner reached the desktop with it; opt-in = applies only when the build asks for it. Every effect is recorded in the build report under the rule 'machine-recipe'.",
++ "about": "Settings for a class of machine, written for 1401 from what a verified setup of that machine needs. A recipe applies when the scan's board name contains one of 'boards' and its CPU name contains one of 'cpus' (whole-word, case-insensitive, like known_machines.json). Unlike a known-machine row it can set kernel quirks and the CPUID emulation. status: works = the owner reached the desktop with it; opt-in = applies only when the build asks for it; theory = derived from a verified setup of the same CPU class, not yet booted on this board. Every effect is recorded in the build report under the rule 'machine-recipe'.",
+  "recipes": [
+   {
+    "id": "dell-xps-13-plus-9320",
+@@ -12,6 +12,17 @@
+    "kernel_quirks": {"ProvideCurrentCpuInfo": true},
+    "cpuid1_logical_per_package": 128,
+    "why": "ProvideCurrentCpuInfo reports the 4 performance + 8 efficiency core part with a core count per package of 128 while CPUID leaf 1 reports 64 logical processors, so the kernel computes threads per core as 64 / 128 = 0 and divides by it in cpu_thread_alloc: the machine freezes right after EXITBS with E-cores enabled. Setting the logical-processor field of CPUID leaf 1 (EBX bits 23:16) to 128 makes the two agree."
++  },
++  {
++   "id": "huawei-matebook-x-pro-2023",
++   "title": "Huawei MateBook X Pro 2023 (MRGFG-XX), i7-1360P",
++   "boards": ["MRGFG-XX", "MateBook X Pro"],
++   "cpus": ["i7-1360P"],
++   "status": "theory",
++   "source": "1401's own scan of this machine on 2026-11-11 (HUAWEI MRGFG-XX-PCB, 13th Gen Intel Core i7-1360P, 12 cores, Raptor Lake-P) and the CPUID mechanism verified on the Dell XPS 13 Plus 9320 with the same i7-1360P; this board has not yet booted macOS in this project, so the row is marked theory, not works",
++   "kernel_quirks": {"ProvideCurrentCpuInfo": true},
++   "cpuid1_logical_per_package": 128,
++   "why": "The i7-1360P is the same 4 performance + 8 efficiency core part as the XPS 13 Plus 9320 recipe: with ProvideCurrentCpuInfo on, the CPUID leaf 1 logical-processor field must agree with the kernel's per-package count or cpu_thread_alloc divides by zero right after EXITBS. The value is applied because the same CPU and the same hybrid topology are present; it is unverified on this board and must be confirmed by a real boot before the row becomes works. If the board freezes after EXITBS with E-cores enabled, this is the first setting to review."
+   }
+  ]
+ }
+diff --git a/p1401/netsupport.py b/p1401/netsupport.py
+index db421f2..fb93808 100644
+--- a/p1401/netsupport.py
++++ b/p1401/netsupport.py
+@@ -99,11 +99,14 @@ def _devices(hardware_report, section):
+ 
+ 
+ def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_known, ethernet_known,
+-                     wifi_unsupported=()):
++                     wifi_unsupported=(), itlwm=False):
+     """What this machine can do for networking, from the device IDs the probe found.
+ 
+     The ID sets are passed in (built from pci_data by the caller, or by a test) so this stays pure.
+     wifi_unsupported = Wi-Fi cards we recognise but have no driver for (present, but no macOS Wi-Fi).
++    itlwm = the build selected itlwm for the Intel card. itlwm is a working macOS driver, but it joins networks
++    through the HeliPort app rather than the menu bar, so it is not available inside the macOS installer; the card is
++    still "native" after macOS starts, but the installer needs Ethernet or a full offline installer.
+     Returns a dict with:
+       wifi:     "native" | "experimental" | "unsupported" | "none"  (none = no Wi-Fi card at all)
+       ethernet: True if a supported wired NIC is present
+@@ -126,13 +129,19 @@ def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_k
+         wifi = "unsupported"
+ 
+     # The installer has internet only if the build gives it a working NIC. Ethernet always works there; native
+-    # Wi-Fi works there too. An experimental Wi-Fi driver may not be in time for the installer and is not relied
+-    # on. So: recommend the offline (full-installer) path unless there is Ethernet or native Wi-Fi.
+-    installer_online = eth or wifi == "native"
++    # Wi-Fi works there too. itlwm does not: it needs HeliPort, which is a macOS app, so count it like an
++    # experimental driver for this decision (it still works after macOS is installed). An experimental driver may
++    # not be in time for the installer and is not relied on either.
++    wireless_in_installer = wifi == "native" and not itlwm
++    installer_online = eth or wireless_in_installer
+     offline_recommended = not installer_online
+ 
+     if installer_online:
+         notice = ""
++    elif itlwm:
++        notice = ("No Ethernet. This build gives the Intel Wi-Fi card itlwm, which joins networks through the HeliPort "
++                  "app after macOS starts; it cannot be used inside the macOS installer. Write a full offline installer, "
++                  "or plug in Ethernet, so the installer can reach the internet.")
+     elif wifi == "experimental":
+         notice = ("No Ethernet and no natively-supported Wi-Fi: this build adds an experimental MediaTek Wi-Fi "
+                   "driver, but it may not work inside the macOS installer. Write a full offline installer, or "
+@@ -144,7 +153,8 @@ def network_support(hardware_report, wifi_native, wifi_experimental, bluetooth_k
+         notice = ("No Ethernet and no Wi-Fi that works in the macOS installer. Write a full offline installer, or "
+                   "plug in Ethernet, so the installer can reach the internet.")
+ 
+-    return {"wifi": wifi, "ethernet": eth, "offline_recommended": offline_recommended, "notice": notice}
++    return {"wifi": wifi, "ethernet": eth, "offline_recommended": offline_recommended,
++            "installer_online": installer_online, "itlwm": bool(itlwm), "notice": notice}
+ 
+ 
+ def register():
+@@ -229,13 +239,18 @@ def apply_kexts(ocpe, customization, macos_version, notices, experimental=False)
+         notices.append(f"MediaTek network support could not be applied: {type(e).__name__}: {e}")
+ 
+ 
+-def support_from_pci(customization, notices):
+-    """Run network_support() against the engine's real ID tables and append its notice. Returns the dict."""
++def support_from_pci(customization, notices, selected=None):
++    """Run network_support() against the engine's real ID tables and append its notice. Returns the dict.
++
++    selected: the kext names the build checked. When itlwm is one of them (1401's choice for Intel Wi-Fi), the card
++    is not counted as installer-capable: itlwm joins networks through HeliPort after macOS starts, not in Recovery."""
+     from Scripts.datasets import pci_data  # noqa: PLC0415
+     native = set(pci_data.WirelessCardIDs) - set(MEDIATEK_WIFI_IDS)
+     unsupported = set(MEDIATEK_WIFI_IDS) - set(MEDIATEK_WIFI_KEXT_IDS)  # RZ616/MT7925: recognised, no driver
++    chosen = set(selected or ())
++    itlwm = "itlwm" in chosen and "AirportItlwm" not in chosen
+     status = network_support(customization, native, MEDIATEK_WIFI_KEXT_IDS, pci_data.BluetoothIDs,
+-                             pci_data.EthernetIDs, unsupported)
++                             pci_data.EthernetIDs, unsupported, itlwm=itlwm)
+     if status["notice"]:
+         notices.append(status["notice"])
+     return status
+diff --git a/p1401/utbmap.py b/p1401/utbmap.py
+index 07a7fe0..83f0415 100644
+--- a/p1401/utbmap.py
++++ b/p1401/utbmap.py
+@@ -21,6 +21,18 @@ class Refused(Exception):
+     pass
+ 
+ 
++def map_status(kexts):
++    """'mapped' when the build uses a UTBMap the user supplied, 'default' when UTBDefault is on with no map, 'none'
++    when neither is selected. UTBDefault assumes every port is usable and no port limit; on a laptop that can make
++    sleep/wake or a port unreliable, so the build says which case it is."""
++    chosen = {getattr(k, "name", "") for k in (kexts or ()) if getattr(k, "checked", False)}
++    if "UTBMap" in chosen:
++        return "mapped"
++    if "UTBDefault" in chosen:
++        return "default"
++    return "none"
++
++
+ def check(src):
+     """Raises Refused with the reason when `src` is not a usable USBToolBox map; returns the bundle's Info.plist."""
+     if not os.path.isdir(src) or os.path.islink(src):
+diff --git a/tests/test_huawei_profile.py b/tests/test_huawei_profile.py
+new file mode 100644
+index 0000000..1ea60cd
+--- /dev/null
++++ b/tests/test_huawei_profile.py
+@@ -0,0 +1,76 @@
++"""The Huawei MateBook X Pro 2023 profile: the real scan's devices get their own, honest notes.
++
++Fixture data is the structure of the scan this project made on the machine (MRGFG-XX, i7-1360P, A7A0, AX211,
++GXTP786 touchpad, GXTP738X touchscreen, TBU405Pro). The profile must never call the touchscreen a touchpad and must
++not claim a boot that was not observed.
++"""
++import unittest
++
++from p1401 import huawei
++
++REPORT = {
++    "Motherboard": {"Name": "HUAWEI MRGFG-XX-PCB", "Chipset": "Raptor Lake-P", "Platform": "Laptop"},
++    "CPU": {"Manufacturer": "Intel", "Processor Name": "13th Gen Intel(R) Core(TM) i7-1360P", "Codename": "Raptor Lake-P"},
++    "GPU": {"Intel(R) Iris(R) Xe Graphics": {"Manufacturer": "Intel", "Device ID": "8086-A7A0",
++                                             "Device Type": "Integrated GPU"}},
++    "Network": {"Intel(R) Wi-Fi 6E AX211 160MHz": {"Bus Type": "PCI", "Device ID": "8086-51F1"},
++                "Realtek USB GbE Family Controller": {"Bus Type": "USB", "Device ID": "0BDA-8153"}},
++    "Input": {"符合 HID 标准的触摸板": {"Bus Type": "ACPI", "Device": "GXTP786", "Device Type": "I2C HID 设备"},
++              "符合 HID 标准的触摸屏": {"Bus Type": "ACPI", "Device": "GXTP738X", "Device Type": "I2C HID 设备"},
++              "PS/2 标准键盘": {"Bus Type": "ACPI", "Device": "MSFT0001", "Device Type": "PS/2"}},
++    "Storage Drives": {"Disk 2": {"Model": "TBU405Pro", "Bus Type": "USB", "Size": 1024209543168},
++                       "Disk 0": {"Model": "WD PC SN740 SDDPNQE-2T00-1027", "Bus Type": "NVMe", "Size": 2048408248320,
++                                  "System": True}},
++}
++KEXTS = ["WhateverXe", "itlwm", "VoodooI2C", "VoodooI2CHID", "VoodooPS2Controller", "UTBDefault"]
++
++
++class Profile(unittest.TestCase):
++    def test_board_and_cpu_must_both_match(self):
++        self.assertTrue(huawei.matches(REPORT))
++        other = dict(REPORT, Motherboard={"Name": "LENOVO 21HQ"})
++        self.assertFalse(huawei.matches(other))
++        other = dict(REPORT, CPU={"Processor Name": "13th Gen Intel(R) Core(TM) i5-1340P"})
++        self.assertFalse(huawei.matches(other))
++        self.assertEqual(huawei.notes(other, KEXTS), [])
++
++    def test_a7a0_and_whateverxe_are_named(self):
++        notes = huawei.notes(REPORT, KEXTS, {"offline_recommended": True})
++        self.assertTrue(any("A7A0" in n and "WhateverXe" in n for n in notes), notes)
++        self.assertTrue(any("unverified" in n or "opt-in" in n for n in notes), notes)
++
++    def test_ax211_is_named_as_itlwm_and_not_installer_wifi(self):
++        notes = huawei.notes(REPORT, KEXTS, {"offline_recommended": True})
++        ax = [n for n in notes if "AX211" in n]
++        self.assertTrue(ax, notes)
++        self.assertIn("itlwm", ax[0])
++        self.assertIn("HeliPort", ax[0])
++        self.assertIn("offline", ax[0])
++
++    def test_the_touchpad_and_touchscreen_are_never_confused(self):
++        notes = huawei.notes(REPORT, KEXTS, {"offline_recommended": False})
++        pad = [n for n in notes if "GXTP786" in n]
++        screen = [n for n in notes if "GXTP738X" in n]
++        self.assertTrue(pad and screen, notes)
++        self.assertIn("is the i2c touchpad", pad[0].lower())
++        self.assertIn("not the touchscreen", pad[0].lower())
++        self.assertIn("is the i2c touchscreen", screen[0].lower())
++        self.assertIn("not the touchpad", screen[0].lower())
++        self.assertTrue(any("VoodooI2C" in n for n in pad), notes)
++
++    def test_the_external_enclosure_is_not_treated_as_the_target(self):
++        notes = huawei.notes(REPORT, KEXTS, {"offline_recommended": False})
++        ext = [n for n in notes if "TBU405Pro" in n]
++        self.assertTrue(ext, notes)
++        self.assertIn("external", ext[0].lower())
++        self.assertIn("APFS", ext[0])
++
++    def test_nothing_claims_a_verified_boot(self):
++        notes = huawei.notes(REPORT, KEXTS, {"offline_recommended": True})
++        joined = " ".join(notes).lower()
++        self.assertNotIn("has booted", joined)
++        self.assertNotIn("works on this machine", joined)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_machine_recipes.py b/tests/test_machine_recipes.py
+index 428bcaf..cdd9f91 100644
+--- a/tests/test_machine_recipes.py
++++ b/tests/test_machine_recipes.py
+@@ -52,6 +52,13 @@ class Recipes(unittest.TestCase):
+         self.assertFalse(policy.set_cpuid1_logical_per_package(cfg, 128))
+         self.assertEqual(cfg["Kernel"]["Emulate"], before)
+ 
++    def test_the_matebook_gets_the_same_topology_fix(self):
++        k, ch = build("HUAWEI MRGFG-XX-PCB", CPU)
++        self.assertEqual(k["Emulate"]["Cpuid1Data"][6], 128)
++        self.assertEqual(k["Emulate"]["Cpuid1Mask"][6], 255)
++        self.assertTrue(k["Quirks"]["ProvideCurrentCpuInfo"])
++        self.assertEqual(len(ch), 2)
++
+     def test_another_laptop_or_another_cpu_is_untouched(self):
+         for board, cpu in (("LENOVO 21HQ", CPU), (XPS, "11th Gen Intel(R) Core(TM) i7-1185G7")):
+             k, ch = build(board, cpu)
+@@ -66,7 +73,7 @@ class Recipes(unittest.TestCase):
+     def test_every_recipe_names_its_source_status_and_reason(self):
+         for r in policy._machine_recipes():
+             self.assertTrue(r["boards"] and r["cpus"] and r["source"] and r["why"])
+-            self.assertIn(r["status"], ("works", "opt-in"))
++            self.assertIn(r["status"], ("works", "opt-in", "theory"))
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tests/test_netsupport.py b/tests/test_netsupport.py
+index 3be2a60..f4a46b0 100644
+--- a/tests/test_netsupport.py
++++ b/tests/test_netsupport.py
+@@ -16,7 +16,7 @@ if REPO not in sys.path:
+ 
+ from p1401 import netsupport
+ 
+-NATIVE = {"8086-2723"}                                   # Intel AX200
++NATIVE = {"8086-2723", "8086-51F1"}                       # Intel AX200, AX211
+ EXPERIMENTAL = set(netsupport.MEDIATEK_WIFI_KEXT_IDS)    # MediaTek IDs the SimpleMtkWlan kext matches
+ UNSUPPORTED = set(netsupport.MEDIATEK_WIFI_IDS) - EXPERIMENTAL  # MediaTek Wi-Fi with no driver (RZ616, MT7925)
+ BT = {"8087-0029"}                                       # Intel BT
+@@ -28,8 +28,8 @@ def _report(net=None, bt=None):
+             "Bluetooth": {n: {"Device ID": d} for n, d in (bt or {}).items()}}
+ 
+ 
+-def _classify(net=None, bt=None):
+-    return netsupport.network_support(_report(net, bt), NATIVE, EXPERIMENTAL, BT, ETH, UNSUPPORTED)
++def _classify(net=None, bt=None, itlwm=False):
++    return netsupport.network_support(_report(net, bt), NATIVE, EXPERIMENTAL, BT, ETH, UNSUPPORTED, itlwm=itlwm)
+ 
+ 
+ class Classifier(unittest.TestCase):
+@@ -39,6 +39,26 @@ class Classifier(unittest.TestCase):
+         self.assertFalse(s["offline_recommended"])
+         self.assertEqual(s["notice"], "")
+ 
++    def test_ax211_with_itlwm_is_not_installer_online(self):
++        # The MateBook's AX211 (8086-51F1) is in the native table, but 1401 forces itlwm. itlwm joins Wi-Fi through
++        # HeliPort, a macOS app, so Recovery cannot use it: an unqualified "native" would hide the offline warning.
++        s = _classify(net={"wifi": "8086-51F1"}, itlwm=True)
++        self.assertEqual(s["wifi"], "native")
++        self.assertTrue(s["offline_recommended"])
++        self.assertFalse(s["installer_online"])
++        self.assertIn("HeliPort", s["notice"])
++        self.assertIn("full offline installer", s["notice"])
++
++    def test_ax211_with_itlwm_and_ethernet_is_online(self):
++        s = _classify(net={"wifi": "8086-51F1", "eth": "10EC-8168"}, itlwm=True)
++        self.assertTrue(s["installer_online"])
++        self.assertEqual(s["notice"], "")
++
++    def test_the_same_card_with_airportitlwm_is_installer_online(self):
++        s = _classify(net={"wifi": "8086-51F1"}, itlwm=False)
++        self.assertTrue(s["installer_online"])
++        self.assertEqual(s["notice"], "")
++
+     def test_ethernet_is_installer_online(self):
+         s = _classify(net={"eth": "10EC-8168"})
+         self.assertTrue(s["ethernet"])
+diff --git a/tests/test_utbmap_status.py b/tests/test_utbmap_status.py
+new file mode 100644
+index 0000000..9ac569b
+--- /dev/null
++++ b/tests/test_utbmap_status.py
+@@ -0,0 +1,29 @@
++"""The build says whether it used a real UTBMap or the generic UTBDefault (every port on, no map)."""
++import unittest
++
++from p1401 import utbmap
++
++
++class Keat:
++    def __init__(self, name, checked=True):
++        self.name = name
++        self.checked = checked
++
++
++class Status(unittest.TestCase):
++    def test_a_supplied_map_is_mapped(self):
++        self.assertEqual(utbmap.map_status([Keat("USBToolBox"), Keat("UTBMap"), Keat("UTBDefault", False)]), "mapped")
++
++    def test_the_generic_default_is_reported_as_default(self):
++        self.assertEqual(utbmap.map_status([Keat("USBToolBox"), Keat("UTBDefault")]), "default")
++
++    def test_a_disabled_default_without_a_map_is_none(self):
++        self.assertEqual(utbmap.map_status([Keat("USBToolBox"), Keat("UTBDefault", False)]), "none")
++
++    def test_the_real_matebook_build_is_default_not_mapped(self):
++        # The EFI this project built for the MateBook has USBToolBox + UTBDefault and no UTBMap.kext.
++        self.assertEqual(utbmap.map_status([Keat("USBToolBox"), Keat("UTBDefault"), Keat("XHCI-unsupported")]), "default")
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.53.0.windows.2
+

@@ -1,0 +1,168 @@
+From 9a753b4384d50c60e076998d62059e0e05e1196c Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:40:26 +0800
+Subject: [PATCH] Building again: use a fresh dependency cache when the old one
+ refuses writes
+
+A repeat build on the MateBook died with "PermissionError: ...\OCK_Files\Lilu\manifest.json".
+The cache root was writable but a child folder carried an ACL that denied its own user (the
+folder may belong to a sandbox or another tool); naming it a cache problem did not help because
+nothing checked inside it.
+
+- cache_writable() probes the root AND every existing child folder.
+- pick_cache() tries base, base-2, base-3; an unusable folder is never deleted.
+- _use_ock_cache() uses the chosen folder and says so in the build log.
+- If none of the three is writable, the build stops with a message that names them.
+- Regression tests: unwritable base, inaccessible child, no writable candidate, real folder/file.
+---
+ p1401/engine.py              | 57 ++++++++++++++++++++++++++++---
+ tests/test_cache_recovery.py | 65 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 117 insertions(+), 5 deletions(-)
+ create mode 100644 tests/test_cache_recovery.py
+
+diff --git a/p1401/engine.py b/p1401/engine.py
+index 2c30529..cf0047a 100644
+--- a/p1401/engine.py
++++ b/p1401/engine.py
+@@ -530,15 +530,62 @@ OCK_CACHE = (os.path.join(os.environ["LOCALAPPDATA"], "NullMoth", "1401", "OCK_F
+              else os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files"))
+ 
+ 
++def cache_writable(path):
++    """True when this process can create a file in the cache folder and in every folder already inside it. A folder
++    left with a protected ACL (a sandbox or another user's tool made it) can still be listed at the top while one of
++    its children refuses every write; the build then died on that child's first kext manifest."""
++    try:
++        os.makedirs(path, exist_ok=True)
++        probe = os.path.join(path, ".1401-write-test")
++        with open(probe, "w", encoding="ascii") as fh:
++            fh.write("x")
++        os.remove(probe)
++        children = os.listdir(path)
++    except OSError:
++        return False
++    for name in children:
++        child = os.path.join(path, name)
++        try:
++            is_dir = stat.S_ISDIR(os.stat(child).st_mode)
++        except OSError:
++            return False
++        if not is_dir:
++            continue
++        probe = os.path.join(child, ".1401-write-test")
++        try:
++            with open(probe, "w", encoding="ascii") as fh:
++                fh.write("x")
++            os.remove(probe)
++        except OSError:
++            return False
++    return True
++
++
++def pick_cache(base, writable=None):
++    """The first writable cache folder: base, then base-2, base-3. A cache that cannot be written is never deleted
++    (it may belong to another user); a fresh one is used beside it."""
++    writable = writable or cache_writable
++    for suffix in ("", "-2", "-3"):
++        candidate = base + suffix
++        if writable(candidate):
++            return candidate
++    return None
++
++
+ def _use_ock_cache(o):
+-    os.makedirs(OCK_CACHE, exist_ok=True)
+-    o.o.ock_files_dir = OCK_CACHE
+-    o.o.download_history_file = os.path.join(OCK_CACHE, "history.json")
++    cache = pick_cache(OCK_CACHE)
++    if cache is None:
++        raise RuntimeError(f"the dependency cache folders {OCK_CACHE}, {OCK_CACHE}-2 and {OCK_CACHE}-3 cannot be "
++                           f"written. Close other 1401 windows, or delete the folder named in Send logs, and build again.")
++    if cache != OCK_CACHE:
++        print(f"OK the dependency cache {OCK_CACHE} is not writable; using {cache} instead", flush=True)
++    o.o.ock_files_dir = cache
++    o.o.download_history_file = os.path.join(cache, "history.json")
+     if hasattr(o.o, 'integrity_checker'):
+         from . import dependency_cache
+         dependency_cache.harden(o.o.integrity_checker)
+-        dependency_cache.tolerate_cache_locks(o.o.utils, OCK_CACHE)
+-    o.k.ock_files_dir = OCK_CACHE
++        dependency_cache.tolerate_cache_locks(o.o.utils, cache)
++    o.k.ock_files_dir = cache
+ 
+ 
+ 
+diff --git a/tests/test_cache_recovery.py b/tests/test_cache_recovery.py
+new file mode 100644
+index 0000000..e1d90e5
+--- /dev/null
++++ b/tests/test_cache_recovery.py
+@@ -0,0 +1,65 @@
++"""A dependency cache that exists but refuses writes must not end the build.
++
++The first MateBook build in this project left OCK_Files/Lilu with an ACL that denied its own user; the second build
++died with "PermissionError: ...\\OCK_Files\\Lilu\\manifest.json". The folder may belong to another user or a sandbox,
++so it is never deleted: a fresh cache is used beside it.
++"""
++import os
++import tempfile
++import unittest
++from unittest import mock
++
++from p1401 import engine
++
++
++class PickCache(unittest.TestCase):
++    def test_a_writable_base_is_used(self):
++        calls = []
++        got = engine.pick_cache(r"C:\cache", writable=lambda p: calls.append(p) or True)
++        self.assertEqual(got, r"C:\cache")
++        self.assertEqual(calls, [r"C:\cache"])
++
++    def test_an_unwritable_base_falls_over_to_a_fresh_folder(self):
++        got = engine.pick_cache(r"C:\cache", writable=lambda p: p == r"C:\cache-2")
++        self.assertEqual(got, r"C:\cache-2")
++
++    def test_none_writable_is_none_not_a_crash_inside_the_engine(self):
++        self.assertIsNone(engine.pick_cache(r"C:\cache", writable=lambda p: False))
++
++    def test_a_real_folder_is_writable_and_a_file_in_its_place_is_not(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            self.assertTrue(engine.cache_writable(os.path.join(tmp, "cache")))
++            marker = os.path.join(tmp, "file")
++            open(marker, "wb").close()
++            self.assertFalse(engine.cache_writable(marker))
++
++    def test_a_cache_with_an_inaccessible_child_is_not_used(self):
++        # The real failure: OCK_Files itself was writable, OCK_Files/Lilu was not, and the build died there.
++        with tempfile.TemporaryDirectory() as tmp:
++            os.mkdir(os.path.join(tmp, "Lilu"))
++            real_open = open
++
++            def fake_open(path, *a, **k):
++                parent = os.path.basename(os.path.dirname(str(path)))
++                if parent == "Lilu":
++                    raise PermissionError(13, "Permission denied", str(path))
++                return real_open(path, *a, **k)
++
++            with mock.patch("builtins.open", fake_open):
++                self.assertFalse(engine.cache_writable(tmp))
++
++    def test_the_build_uses_the_fallback_and_says_so(self):
++        seen = {}
++        fake = mock.Mock()
++        fake.o = mock.Mock()
++        fake.k = mock.Mock()
++        with mock.patch.object(engine, "pick_cache", return_value=r"C:\cache-2"), \
++             mock.patch("builtins.print") as out:
++            engine._use_ock_cache(fake)
++        self.assertEqual(fake.o.ock_files_dir, r"C:\cache-2")
++        self.assertEqual(fake.k.ock_files_dir, r"C:\cache-2")
++        self.assertIn("not writable", " ".join(str(c.args[0]) for c in out.call_args_list if c.args))
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.53.0.windows.2
+

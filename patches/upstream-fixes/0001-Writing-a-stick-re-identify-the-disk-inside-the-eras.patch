@@ -1,0 +1,481 @@
+From d197d823f329af6e29545858897b30aaf366cb91 Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:19:32 +0800
+Subject: [PATCH] Writing a stick: re-identify the disk inside the erase, and
+ never reuse a stale number
+
+The read-only check ran in a separate PowerShell process, then the raw erase opened
+PhysicalDriveN and deleted its partition table without asking what was behind that number.
+Windows can renumber a USB disk between the two, so the number could belong to another disk.
+The format fallback also returned the picked number when no unique serial/size/model match
+was found, and the full-installer partition used the pre-erase number.
+
+- rawdisk.wipe_mbr_fat32(..., expected=disk) queries the open handle (serial, vendor/product,
+  size) and refuses before IOCTL_DISK_DELETE_DRIVE_LAYOUT unless it is the picked stick.
+- current_number() returns None instead of guessing; both diskpart fallbacks stop and say so.
+- The format script no longer falls back to Get-Disk -Number; it reports the disk it found, and
+  the second partition uses that final number.
+- WMI erase path verifies the physical disk identity before diskpart.
+- Regression tests: tests/test_usb_erase_identity.py, updated renumbering tests.
+---
+ p1401/rawdisk.py                  |  89 ++++++++++++++++++++-
+ p1401/usbwriter.py                |  63 ++++++++++++---
+ tests/test_usb_disk_renumbered.py |  13 ++--
+ tests/test_usb_erase_identity.py  | 123 ++++++++++++++++++++++++++++++
+ 4 files changed, 268 insertions(+), 20 deletions(-)
+ create mode 100644 tests/test_usb_erase_identity.py
+
+diff --git a/p1401/rawdisk.py b/p1401/rawdisk.py
+index 851d0e8..867cb20 100644
+--- a/p1401/rawdisk.py
++++ b/p1401/rawdisk.py
+@@ -8,6 +8,7 @@ import struct
+ import time
+ from ctypes import wintypes
+ 
++GENERIC_READ = 0x80000000
+ GENERIC_RW = 0x80000000 | 0x40000000
+ SHARE_RW = 0x1 | 0x2
+ OPEN_EXISTING = 3
+@@ -20,6 +21,9 @@ DISK_ATTRIBUTE_OFFLINE = 0x1
+ IOCTL_DISK_CREATE_DISK = 0x7C058
+ IOCTL_DISK_SET_DRIVE_LAYOUT_EX = 0x7C054
+ IOCTL_DISK_UPDATE_PROPERTIES = 0x70140
++IOCTL_STORAGE_QUERY_PROPERTY = 0x2D1400
++IOCTL_DISK_GET_DRIVE_GEOMETRY_EX = 0x000700A0
++STORAGE_DEVICE_PROPERTY = 0
+ MiB = 1 << 20
+ FAT32_LBA = 0x0C
+ 
+@@ -46,8 +50,8 @@ def _k32():
+     return k
+ 
+ 
+-def _open(k, path):
+-    h = k.CreateFileW(path, GENERIC_RW, SHARE_RW, None, OPEN_EXISTING, 0, None)
++def _open(k, path, access=GENERIC_RW):
++    h = k.CreateFileW(path, access, SHARE_RW, None, OPEN_EXISTING, 0, None)
+     if h in (None, wintypes.HANDLE(-1).value):
+         raise DiskError(f"cannot open {path} (Windows error {ctypes.get_last_error()})")
+     return h
+@@ -136,6 +140,70 @@ def _sector_size(k, h):
+     return struct.unpack_from("<I", out, 20)[0] if ok and len(out) >= 24 else None
+ 
+ 
++def _ascii_field(out, offset):
++    """A NUL-terminated ASCII field inside a STORAGE_DEVICE_DESCRIPTOR, or ""."""
++    if not offset or offset >= len(out):
++        return ""
++    end = out.find(b"\0", offset)
++    if end < 0:
++        end = len(out)
++    return out[offset:end].decode("ascii", "replace").strip()
++
++
++def _device_identity(k, h):
++    """What the open disk handle says it is: serial number, vendor+product and byte size. Read-only.
++
++    This is deliberately read from the handle that is about to be erased, not from a list Windows returned earlier: a
++    stick that dropped off and came back under another disk number must not let the number's new owner be erased."""
++    serial = model = ""
++    ok, out, _ = _ioctl(k, h, IOCTL_STORAGE_QUERY_PROPERTY,
++                        struct.pack("<II", STORAGE_DEVICE_PROPERTY, 0), 1024)
++    if ok and len(out) >= 36:
++        serial = _ascii_field(out, struct.unpack_from("<I", out, 24)[0])
++        vendor = _ascii_field(out, struct.unpack_from("<I", out, 12)[0])
++        product = _ascii_field(out, struct.unpack_from("<I", out, 16)[0])
++        model = " ".join(x for x in (vendor, product) if x).strip()
++    ok, geo, _ = _ioctl(k, h, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, b"", 64)
++    # DISK_GEOMETRY_EX = DISK_GEOMETRY (24 bytes) followed by DiskSize (8 bytes)
++    size = struct.unpack_from("<Q", geo, 24)[0] if ok and len(geo) >= 32 else 0
++    return {"SerialNumber": serial, "Model": model, "Size": size}
++
++
++def _norm(value):
++    return " ".join((value or "").split()).casefold()
++
++
++def _identity_matches(expected, actual):
++    """(ok, reason): is the open disk the USB stick the user picked?
++
++    The serial number is the strongest identity. Some USB bridges report a new (or no) serial on every read, which the
++    writer already had to live with, so the model and the exact byte size are accepted as the fallback. A different size
++    is always a refusal, whatever else matches."""
++    want_size, have_size = int(expected.get("Size") or 0), int(actual.get("Size") or 0)
++    if want_size and have_size and want_size != have_size:
++        return False, f"its size is {have_size} bytes and the picked stick is {want_size}"
++    want_serial, have_serial = _norm(expected.get("SerialNumber")), _norm(actual.get("SerialNumber"))
++    if want_serial and have_serial and want_serial == have_serial:
++        return True, "the serial number matches"
++    want_model, have_model = _norm(expected.get("FriendlyName")), _norm(actual.get("Model"))
++    if want_model and have_model and (want_model == have_model or want_model in have_model or have_model in want_model):
++        return True, "the model and size match"
++    if want_serial and not have_serial:
++        return False, "its serial number could not be read"
++    return False, "its serial number and model are not the picked stick's"
++
++
++def read_identity(disk):
++    """Read-only: the serial number, model and byte size Windows reports for PhysicalDrive<disk>."""
++    k = _k32()
++    h = _open(k, rf"\\.\PhysicalDrive{int(disk)}", access=GENERIC_READ)
++    try:
++        return _device_identity(k, h)
++    finally:
++        k.CloseHandle(h)
++
++
++
+ def _write_at(k, h, off, data):
+     """Writes data at byte offset off. 0 = written, else the Windows error (the seek is checked: a failed seek used to
+     send the write to the wrong place)."""
+@@ -148,8 +216,11 @@ def _write_at(k, h, off, data):
+     return 0
+ 
+ 
+-def wipe_mbr_fat32(disk, size, part_size, say=print):
+-    """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes."""
++def wipe_mbr_fat32(disk, size, part_size, say=print, expected=None):
++    """disk = PhysicalDrive number, size = disk bytes. Leaves one empty MBR partition (type 0x0C, active) of part_size bytes.
++
++    expected: the disk dict the user picked (SerialNumber/Size/FriendlyName). When given, the open handle itself is
++    queried before the first destructive call and the erase is refused unless it is that stick."""
+     k = _k32()
+     held = []
+     offline = None
+@@ -179,6 +250,16 @@ def wipe_mbr_fat32(disk, size, part_size, say=print):
+         d = offline or _open(k, rf"\\.\PhysicalDrive{int(disk)}")
+         if d is not offline:
+             held.append(d)
++        if expected is not None:
++            # The list the user picked from was read in a different process, before the volumes were locked. Windows can
++            # renumber a USB disk in that window, and the number then belongs to another disk. Ask the handle that is
++            # about to be destroyed what it is, and refuse before the partition table is touched.
++            actual = _device_identity(k, d)
++            ok, why = _identity_matches(expected, actual)
++            if not ok:
++                raise DiskError(f"refusing: PhysicalDrive{int(disk)} is not the USB stick that was picked ({why}). "
++                                f"Nothing was erased. Unplug the stick, plug it in again and press Write again.")
++            say(f"OK PhysicalDrive{int(disk)} is the picked stick ({why})")
+         # Rufus order: drop the partition table first, so no volume covers the sectors written next (Windows refuses
+         # raw writes inside a mounted volume: error 5, and error 1 on some USB bridges - 34 uploads through 1.2.0).
+         _ioctl(k, d, IOCTL_DISK_DELETE_DRIVE_LAYOUT)
+diff --git a/p1401/usbwriter.py b/p1401/usbwriter.py
+index 34ec4eb..5f73b11 100644
+--- a/p1401/usbwriter.py
++++ b/p1401/usbwriter.py
+@@ -435,7 +435,10 @@ def current_number(disk):
+     """The stick's disk number now. Taking a stick offline and online (the write's own retry, release()) can give it a
+     new number: a 1.15 write log (10-13, ADATA USB Flash Drive) then sent diskpart "select disk 3" and got "The disk
+     you specified is not valid". Found again by serial; by size and model when the serial does not identify exactly one
+-    disk (some controllers report a new serial on every read); the number the user picked when neither does."""
++    disk (some controllers report a new serial on every read).
++
++    None when neither identifies exactly one disk. Returning the picked number here used to send diskpart "select disk
++    N; clean" after a failed erase had already invalidated that number - the number may by then belong to another disk."""
+     n = int(disk["Number"])
+     if platform.system() != "Windows":
+         return n
+@@ -446,7 +449,7 @@ if ($hit.Count -ne 1) {{ $hit = @($all | Where-Object {{ $_.Size -eq $sz -and $_
+ if ($hit.Count -eq 1) {{ Write-Output "NUMBER=$($hit[0].Number)" }}
+ """)
+     got = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("NUMBER=")), "")
+-    return int(got) if got.isdigit() else n
++    return int(got) if got.isdigit() else None
+ 
+ 
+ def release(n):
+@@ -562,23 +565,32 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None,
+             raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
+     if disk.get("Via") == "Win32_DiskDrive":
+         root = _write_wmi_erase(disk, erase_os)
+-        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
++        done = _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
++        done["number"] = int(disk["Number"])
++        return done
+     _ps(check_script(disk, erase_os))
+     from . import rawdisk  # noqa: PLC0415
+     n = int(disk["Number"])
+     letter = _free_letter()
+     try:
+         try:
+-            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
++            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True), expected=disk)
+         except rawdisk.DiskError as e:
+             # A 2.0.1 write log: "cannot open \\.\PhysicalDrive1 (Windows error 2)" right after its volume was locked;
+             # the stick had come back under another disk number. Find it again by serial and erase that one, once.
+-            moved = current_number(disk) if "Windows error 2" in str(e) else n
++            if "Windows error 2" not in str(e):
++                raise
++            moved = current_number(disk)
++            if moved is None:
++                raise rawdisk.DiskError(
++                    "the stick could not be found again by its serial number, size and model after Windows renumbered "
++                    "the disks, so 1401 will not erase a disk that may be a different one. Nothing else was erased. "
++                    "Unplug the stick, plug it in again and press Write again.") from e
+             if moved == n:
+                 raise
+             print(f"(Windows renumbered the stick: disk {n} is now disk {moved}; erasing that one)", flush=True)
+             n = moved
+-            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
++            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True), expected=disk)
+     except rawdisk.DiskError as e:
+         # Some sticks refuse raw sector writes outright (1.7 logs 10-10: Lexar, "Windows error 5" with nothing else
+         # using them). Windows' own diskpart erase goes through the volume manager and works on them; it was the
+@@ -589,7 +601,13 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None,
+         if not code or int(code.group(1)) not in RAW_REFUSED:
+             raise
+         print("(this stick refuses direct writes; erasing it with Windows' diskpart instead)", flush=True)
+-        n = current_number(disk)
++        moved = current_number(disk)
++        if moved is None:
++            raise rawdisk.DiskError(
++                "the stick could not be found again by its serial number, size and model, so 1401 will not hand a disk "
++                "number to diskpart that may now belong to a different disk. Nothing else was erased. Unplug the stick, "
++                "plug it in again and press Write again.") from e
++        n = moved
+         release(n)
+         _diskpart(diskpart_script({**disk, "Number": n}, letter))
+     script = (f"""$ErrorActionPreference = 'Stop'
+@@ -602,7 +620,9 @@ function Find-Stick {{
+   $hit = @($all | Where-Object {{ $sn -and (($_.SerialNumber + '').Trim() -eq $sn) }})
+   if (-not $hit.Count) {{ $hit = @($all | Where-Object {{ $_.FriendlyName -eq $fn }}) }}
+   if ($hit.Count -eq 1) {{ return $hit[0] }}
+-  return Get-Disk -Number {n} -ErrorAction SilentlyContinue
++  # Not the picked stick by serial, size and model (or two candidates): never fall back to the old disk number, which
++  # may by now belong to a different disk. The caller waits and retries, then stops without formatting anything.
++  return $null
+ }}
+ $p = $null
+ for ($i = 0; $i -lt 40 -and -not $p; $i++) {{
+@@ -648,6 +668,7 @@ if (-not $done) {{
+   if ($LASTEXITCODE -ne 0) {{ throw "Format-Volume: $last; format.com: $($out | Select-Object -Last 2)" }}
+ }}
+ Write-Output "LETTER=$letter"
++Write-Output "DISK=$($p.DiskNumber)"
+ """)
+     try:
+         out = _ps(script)
+@@ -682,6 +703,11 @@ Write-Output "LETTER=$letter"
+             out = _ps(script)
+     got_letter = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("LETTER=")), "")
+     letter = got_letter[:1].upper() if got_letter[:1].isalpha() else letter
++    got_disk = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("DISK=")), "")
++    if got_disk.isdigit():
++        # The format script found the stick itself, by serial/size/model. If Windows gave it another number while it was
++        # formatted, the full-installer partition must be made on that number, never on the one picked before the erase.
++        n = int(got_disk)
+     root = letter + ":\\"
+     for _ in range(60):
+         if os.path.isdir(root):
+@@ -692,7 +718,9 @@ Write-Output "LETTER=$letter"
+         # the stick search's own answer (empty when it found nothing) is now part of it.
+         seen = " ".join((out or "").split())[-300:]
+         raise UsbError(f"diskpart finished but {root} did not appear (the stick search said: {seen or 'nothing'})")
+-    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
++    done = _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
++    done["number"] = n
++    return done
+ 
+ 
+ def _write_wmi_erase(disk, erase_os):
+@@ -701,7 +729,17 @@ def _write_wmi_erase(disk, erase_os):
+     letter), which goes through the volume manager rather than the storage provider. Returns the drive root."""
+     _ps(wmi_check_script(disk, erase_os))
+     letter = _free_letter()
+-    print("(erasing the stick with Windows' diskpart: this PC's storage service lists no disks)", flush=True)
++    from . import rawdisk  # noqa: PLC0415
++    try:
++        actual = rawdisk.read_identity(int(disk["Number"]))
++    except rawdisk.DiskError as e:
++        raise UsbError(f"could not read disk {disk['Number']} to confirm it is the picked stick before erasing it ({e}). "
++                       f"Nothing was erased.") from e
++    ok, why = rawdisk._identity_matches(disk, actual)
++    if not ok:
++        raise UsbError(f"refusing: disk {disk['Number']} is not the USB stick that was picked ({why}). Nothing was erased. "
++                       f"Unplug the stick, plug it in again and press Write again.")
++    print(f"(erasing the stick with Windows' diskpart: this PC's storage service lists no disks; {why})", flush=True)
+     _diskpart(diskpart_script(disk, letter))
+     root = letter + ":\\"
+     for _ in range(60):
+@@ -1134,6 +1172,7 @@ def cli_write(argv):
+     res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff,
+                 erase_os="--erase-os-partitions" in argv, opt_in=opt_in)
+     root = res["root"]
++    final_number = int(res.get("number", disk["Number"]))
+     print('OK verified build profile written to the stick (live identity remains unverified)', flush=True)
+     if opt_in:
+         print('OK ARM apps requested: after macOS starts, the 1401 Mac app offers to finish setting them up, if this Mac can run them',
+@@ -1146,7 +1185,9 @@ def cli_write(argv):
+         print("STEP making the second partition for the full macOS installer", flush=True)
+         letter2 = _free_letter()
+         try:
+-            _diskpart(fullinstaller.diskpart_script(int(disk["Number"]), letter2, PART_CAP >> 20))
++            # final_number is the disk the write itself ended on: Windows can renumber a USB disk while it is erased
++            # and formatted, and the second partition must never be made on the number that disk had before.
++            _diskpart(fullinstaller.diskpart_script(final_number, letter2, PART_CAP >> 20))
+             for _ in range(40):
+                 if os.path.isdir(letter2 + ":\\"):
+                     break
+diff --git a/tests/test_usb_disk_renumbered.py b/tests/test_usb_disk_renumbered.py
+index d57cddf..c9cb573 100644
+--- a/tests/test_usb_disk_renumbered.py
++++ b/tests/test_usb_disk_renumbered.py
+@@ -20,17 +20,20 @@ class Renumbered(unittest.TestCase):
+         self.assertEqual(n, 4)
+         self.assertIn("'2A57'", script)
+ 
+-    def test_no_single_match_keeps_the_picked_number(self):
+-        self.assertEqual(self.number("")[0], 3)
+-        self.assertEqual(self.number("NUMBER=\n")[0], 3)
++    def test_no_single_match_is_refused_instead_of_guessed(self):
++        # The old fallback returned the picked number, and diskpart then cleaned whatever disk held that number after
++        # the stick had moved. None stops the write before diskpart runs.
++        self.assertIsNone(self.number("")[0])
++        self.assertIsNone(self.number("NUMBER=\n")[0])
+ 
+     def test_off_windows_the_picked_number_stands(self):
+         with mock.patch.object(usbwriter.platform, "system", return_value="Darwin"):
+             self.assertEqual(usbwriter.current_number(STICK), 3)
+ 
+-    def test_both_diskpart_fallbacks_look_the_stick_up_again(self):
++    def test_both_diskpart_fallbacks_look_the_stick_up_again_and_refuse_a_guess(self):
+         src = inspect.getsource(usbwriter.write)
+-        self.assertEqual(src.count("n = current_number(disk)"), 2)
++        self.assertEqual(src.count("moved = current_number(disk)"), 2)
++        self.assertEqual(src.count("if moved is None:"), 2)
+         self.assertEqual(src.count('_diskpart(diskpart_script({**disk, "Number": n}, letter))'), 2)
+         self.assertNotIn("_diskpart(diskpart_script(disk, letter))", src)
+ 
+diff --git a/tests/test_usb_erase_identity.py b/tests/test_usb_erase_identity.py
+new file mode 100644
+index 0000000..46903e1
+--- /dev/null
++++ b/tests/test_usb_erase_identity.py
+@@ -0,0 +1,123 @@
++"""The erase path re-identifies the disk inside the destructive operation, and never falls back to a stale disk number.
++
++A USB disk that drops off and comes back under another number made the writer's earlier checks (run in a different
++PowerShell process) meaningless: the raw erase took only a number, and the diskpart fallbacks reused the picked number
++when no unique match was found. These tests pin the three refusals and the number the full-installer partition uses.
++"""
++import os
++import tempfile
++import unittest
++from unittest import mock
++
++from p1401 import rawdisk, usbwriter
++
++STICK = {"Number": 3, "FriendlyName": "aigo U350", "SerialNumber": "FC262A0B28EE2", "BusType": "USB",
++         "Size": 125304832000}
++
++
++class Identity(unittest.TestCase):
++    def test_the_same_serial_number_matches_whatever_the_model_says(self):
++        ok, why = rawdisk._identity_matches(STICK, {"SerialNumber": "fc262a0b28ee2", "Model": "U350 USB Device",
++                                                    "Size": STICK["Size"]})
++        self.assertTrue(ok, why)
++
++    def test_a_different_size_is_always_a_refusal(self):
++        ok, why = rawdisk._identity_matches(STICK, {"SerialNumber": STICK["SerialNumber"], "Model": "aigo U350",
++                                                    "Size": STICK["Size"] - 1})
++        self.assertFalse(ok)
++        self.assertIn("size", why)
++
++    def test_a_controller_that_reports_another_serial_is_matched_by_model_and_size(self):
++        ok, why = rawdisk._identity_matches(STICK, {"SerialNumber": "NEW-SERIAL-EACH-READ", "Model": "aigo U350 USB Device",
++                                                    "Size": STICK["Size"]})
++        self.assertTrue(ok, why)
++
++    def test_a_different_disk_with_the_same_size_is_refused(self):
++        ok, why = rawdisk._identity_matches(STICK, {"SerialNumber": "SOMEONE-ELSE", "Model": "Samsung Portable SSD",
++                                                    "Size": STICK["Size"]})
++        self.assertFalse(ok)
++        self.assertIn("serial", why)
++
++    def test_a_stick_with_no_serial_is_matched_by_model_and_size(self):
++        ok, why = rawdisk._identity_matches({"Size": STICK["Size"], "FriendlyName": "aigo U350"},
++                                            {"SerialNumber": "", "Model": "aigo U350 USB Device", "Size": STICK["Size"]})
++        self.assertTrue(ok, why)
++
++    def test_nothing_to_compare_is_a_refusal(self):
++        ok, _ = rawdisk._identity_matches({"Size": STICK["Size"]}, {"SerialNumber": "", "Model": "", "Size": STICK["Size"]})
++        self.assertFalse(ok)
++
++
++class Wipe(unittest.TestCase):
++    def test_a_different_disk_is_refused_before_the_partition_table_is_touched(self):
++        log = []
++
++        def ioctl(k, h, code, inbuf=b"", outsize=0):
++            log.append(code)
++            return True, b"", 0
++
++        with mock.patch.object(rawdisk, "_k32", lambda: type("K", (), {"CloseHandle": lambda *a: None})()), \
++             mock.patch.object(rawdisk, "_volumes_on", lambda k, d: []), \
++             mock.patch.object(rawdisk, "_open", lambda k, p, access=0: 7), \
++             mock.patch.object(rawdisk, "_ioctl", ioctl), \
++             mock.patch.object(rawdisk, "_device_identity",
++                               lambda k, h: {"SerialNumber": "OTHER", "Model": "Other Disk", "Size": STICK["Size"]}):
++            with self.assertRaises(rawdisk.DiskError) as cm:
++                rawdisk.wipe_mbr_fat32(3, STICK["Size"], 1 << 30, say=lambda m: None, expected=STICK)
++        self.assertIn("not the USB stick that was picked", str(cm.exception))
++        self.assertNotIn(rawdisk.IOCTL_DISK_DELETE_DRIVE_LAYOUT, log)
++
++    def test_the_matching_disk_is_erased(self):
++        log = []
++
++        def ioctl(k, h, code, inbuf=b"", outsize=0):
++            log.append(code)
++            return True, b"", 0
++
++        with mock.patch.object(rawdisk, "_k32", lambda: type("K", (), {"CloseHandle": lambda *a: None})()), \
++             mock.patch.object(rawdisk, "_volumes_on", lambda k, d: []), \
++             mock.patch.object(rawdisk, "_open", lambda k, p, access=0: 7), \
++             mock.patch.object(rawdisk, "_ioctl", ioctl), \
++             mock.patch.object(rawdisk, "_write_at", lambda k, h, off, data: 0), \
++             mock.patch.object(rawdisk, "_device_identity",
++                               lambda k, h: {"SerialNumber": STICK["SerialNumber"], "Model": "aigo U350 USB Device",
++                                             "Size": STICK["Size"]}):
++            rawdisk.wipe_mbr_fat32(3, STICK["Size"], 1 << 30, say=lambda m: None, expected=STICK)
++        self.assertIn(rawdisk.IOCTL_DISK_DELETE_DRIVE_LAYOUT, log)
++
++    def test_the_writer_passes_the_picked_identity_to_both_raw_attempts(self):
++        import inspect
++        src = inspect.getsource(usbwriter.write)
++        self.assertEqual(src.count("expected=disk"), 2,
++                         "the first attempt and the renumbered retry must both verify the open handle")
++        self.assertNotIn("wipe_mbr_fat32(n, int(disk[\"Size\"]), PART_CAP, say=lambda m: print(m, flush=True))", src)
++
++
++class FinalNumber(unittest.TestCase):
++    def test_the_second_partition_is_made_on_the_number_the_write_ended_on(self):
++        got = []
++        with tempfile.TemporaryDirectory() as root, \
++             mock.patch.object(usbwriter, "list_disks", return_value=[dict(STICK, Number=2)]), \
++             mock.patch.object(usbwriter, "eligible", return_value=(True, [])), \
++             mock.patch.object(usbwriter, "_free_letter", return_value="Q"), \
++             mock.patch.object(usbwriter, "_diskpart", side_effect=lambda script: got.append(script)), \
++             mock.patch.object(usbwriter.os.path, "isdir", return_value=True), \
++             mock.patch.object(usbwriter.time, "sleep", lambda s: None), \
++             mock.patch.object(usbwriter, "write", return_value={"root": root, "number": 9}), \
++             mock.patch("p1401.machine_handoff.verified", return_value=None), \
++             mock.patch("p1401.machine_handoff.opt_in", return_value=None), \
++             mock.patch("p1401.netsupport.needs_local_image", return_value=False), \
++             mock.patch("p1401.apple.local_image", return_value={"local": True, "name": "local"}), \
++             mock.patch("p1401.fullinstaller.check_stick"), \
++             mock.patch("p1401.fullinstaller.verify_xar"), \
++             mock.patch("p1401.fullinstaller.place"), \
++             mock.patch("builtins.print"):
++            rc = usbwriter.cli_write(["2", "efi", "26", "--full-installer", os.path.join(root, "InstallAssistant.pkg")])
++        self.assertEqual(rc, 0)
++        self.assertTrue(got, "the second partition script was never run")
++        self.assertIn("select disk 9", got[-1])
++        self.assertNotIn("select disk 2", got[-1])
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.53.0.windows.2
+

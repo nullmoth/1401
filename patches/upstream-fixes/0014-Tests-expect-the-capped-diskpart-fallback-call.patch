@@ -1,0 +1,25 @@
+From 9c30c6b4208984ad0795015f6d7334daa4adcf42 Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 11:58:36 +0800
+Subject: [PATCH] Tests: expect the capped diskpart fallback call
+
+---
+ tests/test_usb_disk_renumbered.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/test_usb_disk_renumbered.py b/tests/test_usb_disk_renumbered.py
+index c9cb573..9c305de 100644
+--- a/tests/test_usb_disk_renumbered.py
++++ b/tests/test_usb_disk_renumbered.py
+@@ -34,7 +34,7 @@ class Renumbered(unittest.TestCase):
+         src = inspect.getsource(usbwriter.write)
+         self.assertEqual(src.count("moved = current_number(disk)"), 2)
+         self.assertEqual(src.count("if moved is None:"), 2)
+-        self.assertEqual(src.count('_diskpart(diskpart_script({**disk, "Number": n}, letter))'), 2)
++        self.assertEqual(src.count('_diskpart(diskpart_script({**disk, "Number": n}, letter, cap))'), 2)
+         self.assertNotIn("_diskpart(diskpart_script(disk, letter))", src)
+ 
+ 
+-- 
+2.53.0.windows.2
+

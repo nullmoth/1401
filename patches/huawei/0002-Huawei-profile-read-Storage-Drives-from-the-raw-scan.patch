@@ -1,0 +1,33 @@
+From f6882aad6048dc57888528ba68812b6b3be201f5 Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 11:07:04 +0800
+Subject: [PATCH] Huawei profile: read Storage Drives from the raw scan
+
+The upstream validator's report drops 1401's own Storage Drives section, so the external-enclosure
+note never fired. Use res.raw_hardware (the scan as written) for that section. The final MateBook
+build now records the TBU405Pro notice.
+---
+ p1401/engine.py | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/p1401/engine.py b/p1401/engine.py
+index 5c634c6..c52d5eb 100644
+--- a/p1401/engine.py
++++ b/p1401/engine.py
+@@ -1053,7 +1053,12 @@ def _select(o, h, policy, res, report, load_capture, prepare):
+     community.apply_kexts(o, cust, mv, h.notices, experimental=policy.experimental_drivers)    # Realtek/Qualcomm Wi-Fi, BT, input, USB fixes
+     net_status = netsupport.support_from_pci(cust, h.notices, [k.name for k in o.k.kexts if k.checked])  # warn if the installer will have no internet
+     if huawei.matches(hw):
+-        h.notices.extend(huawei.notes(hw, [k.name for k in o.k.kexts if k.checked], net_status))
++        # check_compatibility() returns the upstream sections, and the upstream validator's report drops 1401's own
++        # Storage Drives section; take it from the raw scan the build loaded before validation.
++        huawei_hw = dict(hw)
++        raw = getattr(res, "raw_hardware", None) or report
++        huawei_hw["Storage Drives"] = raw.get("Storage Drives") or {}
++        h.notices.extend(huawei.notes(huawei_hw, [k.name for k in o.k.kexts if k.checked], net_status))
+     usb_map = utbmap.map_status(o.k.kexts)
+     if usb_map == "default":
+         h.notices.append("USB: this build uses UTBDefault.kext (every port on) and has no UTBMap for this board. "
+-- 
+2.53.0.windows.2
+

@@ -1,0 +1,119 @@
+From 99aa068c0385116984732b72b6860266b6b18be7 Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:43:13 +0800
+Subject: [PATCH] Windows app: lock output collection, default consent to
+ Cancel, fail closed on an unknown OS disk
+
+- Engine.Run delivers stdout and stderr on two threads; scanLines/writeLines used List<T>.Add
+  without a lock, so a build JSON or 1401-DISK-RENUMBERED line could be lost.
+- The send-log consent dialog and the "last screen line" dialog defaulted to the sending button;
+  Enter now keeps the log on the PC unless the user clicks Send.
+- The Win32_DiskDrive fallback omitted its OS-disk check when WMI could not name the system disk
+  (uint.MaxValue); it now offers no disks instead of possibly offering the system disk.
+- Regression tests: tests/test_windows_ui_safety.py.
+---
+ tests/test_windows_ui_safety.py | 35 +++++++++++++++++++++++++++++++++
+ windows/App/Disks.cs            |  4 ++++
+ windows/App/MainForm.cs         |  8 ++++----
+ 3 files changed, 43 insertions(+), 4 deletions(-)
+ create mode 100644 tests/test_windows_ui_safety.py
+
+diff --git a/tests/test_windows_ui_safety.py b/tests/test_windows_ui_safety.py
+new file mode 100644
+index 0000000..56509ab
+--- /dev/null
++++ b/tests/test_windows_ui_safety.py
+@@ -0,0 +1,35 @@
++"""Windows launcher safety/quality checks: output collection, consent defaults, fail-closed disk fallback."""
++import pathlib
++import unittest
++
++APP = pathlib.Path(__file__).resolve().parents[1] / "windows" / "App"
++MAIN = (APP / "MainForm.cs").read_text(encoding="utf-8")
++DISKS = (APP / "Disks.cs").read_text(encoding="utf-8")
++
++
++class Output(unittest.TestCase):
++    def test_scan_and_write_output_are_locked(self):
++        # Engine.Run delivers stdout and stderr on two threads; List<T>.Add is not thread-safe.
++        self.assertIn("lock (scanLines) scanLines.Add(l)", MAIN)
++        self.assertIn("lock (writeLines) writeLines.Add(l)", MAIN)
++        self.assertIn("lock (lines) lines.Add(l)", MAIN)
++
++
++class Consent(unittest.TestCase):
++    def test_enter_does_not_send_a_log_by_default(self):
++        self.assertIn('Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, '
++                      'MessageBoxDefaultButton.Button2', MAIN)
++
++    def test_the_screen_line_dialog_defaults_to_cancel(self):
++        self.assertIn("f.AcceptButton = cancel; f.CancelButton = cancel;", MAIN)
++        self.assertNotIn("f.AcceptButton = send;", MAIN)
++
++
++class DiskFallback(unittest.TestCase):
++    def test_an_unknown_os_disk_fails_closed(self):
++        block = DISKS.split("static void AddUsbInterfaceDisks", 1)[1].split("static uint OsDiskNumber", 1)[0]
++        self.assertIn("if (osDisk == uint.MaxValue) return;", block)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/windows/App/Disks.cs b/windows/App/Disks.cs
+index b96a371..f0b307d 100644
+--- a/windows/App/Disks.cs
++++ b/windows/App/Disks.cs
+@@ -90,6 +90,10 @@ namespace A1401
+         static void AddUsbInterfaceDisks(ManagementScope storageScope, List<UsbDisk> list)
+         {
+             uint osDisk = OsDiskNumber();
++            // Fail closed: when WMI cannot name the disk Windows runs from, this fallback cannot prove any USB disk is
++            // not it. Offering a list without that check is worse than offering none; the writer still re-identifies
++            // the stick, and the primary MSFT_Disk path is independent of this fallback.
++            if (osDisk == uint.MaxValue) return;
+             var seen = new HashSet<uint>(list.Select(d => d.Number));
+             try
+             {
+diff --git a/windows/App/MainForm.cs b/windows/App/MainForm.cs
+index 9197c04..1ccd77f 100644
+--- a/windows/App/MainForm.cs
++++ b/windows/App/MainForm.cs
+@@ -768,7 +768,7 @@ namespace A1401
+                 ScanEvidence.Remember(Engine.Work, scanRunId);
+                 Say(Loc.T("Checking this PC..."));
+                 var scanLines = new List<string>();
+-                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { scanLines.Add(l); Say(l); });
++                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { lock (scanLines) scanLines.Add(l); Say(l); });
+                 ReportSaveStatus();
+                 busy = false; next.Enabled = true;
+                 if (rc != 0)
+@@ -928,7 +928,7 @@ namespace A1401
+                 if (allowLarge) args += " --allow-large";
+                 if (armApps.Checked && armApps.Visible) args += " --arm-apps";
+                 var writeLines = new List<string>();
+-                int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
++                int rc = await Engine.Run(args, l => { lock (writeLines) writeLines.Add(l); Say(l); });
+                 // The stick holds a Mac or Windows partition (an older macOS installer, or a disk with a system on it).
+                 // Name what is there and ask once more; only an explicit Yes erases it.
+                 var found = writeLines.FirstOrDefault(l => l.Contains("1401-OS-PARTITIONS:"));
+@@ -1082,7 +1082,7 @@ namespace A1401
+                 "(the DSDT and SSDTs, which describe how the board connects its devices; licence-key and logo tables are left out). Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
+                 "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.", Loc.Op(kind));
+             var ask = MessageBox.Show(this, text,
+-                Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
++                Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
+             if (ask != DialogResult.OK) { Say(Loc.T("The log was not sent. It stays in ") + file + Loc.T(".")); return; }
+             var ids = new List<string>();
+             var batch = NewBatch();
+@@ -1513,7 +1513,7 @@ namespace A1401
+                 send.Left = f.ClientSize.Width - margin - send.Width - cancel.Width - 8; send.Top = f.ClientSize.Height - margin - send.Height;
+                 cancel.Left = f.ClientSize.Width - margin - cancel.Width; cancel.Top = send.Top;
+                 f.Controls.AddRange(new Control[] { msg, q, box, send, cancel });
+-                f.AcceptButton = send; f.CancelButton = cancel;
++                f.AcceptButton = cancel; f.CancelButton = cancel;
+                 f.ResumeLayout(false); f.PerformLayout();
+                 var r = f.ShowDialog(this);
+                 screen = (box.Text ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
+-- 
+2.53.0.windows.2
+

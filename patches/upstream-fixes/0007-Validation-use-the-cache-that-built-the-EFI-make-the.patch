@@ -1,0 +1,236 @@
+From eb9d5e6b87f573cbb891fe3a9c3c96d15205aa90 Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 11:28:08 +0800
+Subject: [PATCH] Validation: use the cache that built the EFI; make the
+ packaged check path-safe
+
+- engine records ACTIVE_OCK_CACHE when it falls back to OCK_Files-2; validate reads that instead of
+  the base folder's history. A later build from the fallback cache compared the EFI against a
+  different OpenCore commit and failed with a false 'OpenCore.efi differs' invariant (x570 corpus).
+- validate._select_cache_for() matches the EFI's OpenCore.efi against each cache's extracted release
+  (or verified zip), so a standalone re-validation picks the right one too.
+- check_windows_package resolves --output to an absolute path: cl resolves /OUT relative to its cwd,
+  so a relative path made the native capture check fail LNK1104.
+- check_capture_native uses Path(output).resolve().parent for the same reason.
+- Tests: tests/test_validate_cache.py; corpus x570 + optiplex now both build and validate OK.
+---
+ p1401/engine.py                |  3 ++
+ p1401/validate.py              | 62 ++++++++++++++++++++++++++++++++--
+ tests/test_cache_recovery.py   |  2 ++
+ tests/test_validate_cache.py   | 50 +++++++++++++++++++++++++++
+ tools/check_capture_native.py  |  2 +-
+ tools/check_windows_package.py |  3 ++
+ 6 files changed, 119 insertions(+), 3 deletions(-)
+ create mode 100644 tests/test_validate_cache.py
+
+diff --git a/p1401/engine.py b/p1401/engine.py
+index cf0047a..76fcf64 100644
+--- a/p1401/engine.py
++++ b/p1401/engine.py
+@@ -528,6 +528,7 @@ def network_help(url):
+ # that cache. On Windows it now lives in the user's writable app-data folder; the zip ships none.
+ OCK_CACHE = (os.path.join(os.environ["LOCALAPPDATA"], "NullMoth", "1401", "OCK_Files") if os.environ.get("LOCALAPPDATA")
+              else os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files"))
++ACTIVE_OCK_CACHE = OCK_CACHE  # the folder this build actually used (base or a -2/-3 fallback)
+ 
+ 
+ def cache_writable(path):
+@@ -573,12 +574,14 @@ def pick_cache(base, writable=None):
+ 
+ 
+ def _use_ock_cache(o):
++    global ACTIVE_OCK_CACHE
+     cache = pick_cache(OCK_CACHE)
+     if cache is None:
+         raise RuntimeError(f"the dependency cache folders {OCK_CACHE}, {OCK_CACHE}-2 and {OCK_CACHE}-3 cannot be "
+                            f"written. Close other 1401 windows, or delete the folder named in Send logs, and build again.")
+     if cache != OCK_CACHE:
+         print(f"OK the dependency cache {OCK_CACHE} is not writable; using {cache} instead", flush=True)
++    ACTIVE_OCK_CACHE = cache
+     o.o.ock_files_dir = cache
+     o.o.download_history_file = os.path.join(cache, "history.json")
+     if hasattr(o.o, 'integrity_checker'):
+diff --git a/p1401/validate.py b/p1401/validate.py
+index 3adf660..a47669f 100644
+--- a/p1401/validate.py
++++ b/p1401/validate.py
+@@ -23,11 +23,68 @@ tls.install()   # downloads verify against the OS certificate store + certifi
+ 
+ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ def _engine_cache():
+-    from .engine import OCK_CACHE  # noqa: PLC0415 - the engine decides where its downloads live
+-    return OCK_CACHE
++    from . import engine  # noqa: PLC0415 - the engine decides where its downloads live
++    return getattr(engine, "ACTIVE_OCK_CACHE", engine.OCK_CACHE)
+ CACHE = os.path.join(os.path.expanduser("~"), ".cache", "1401")
+ TIMEOUT = 120  # seconds
+ 
++
++def _candidate_caches():
++    from . import engine  # noqa: PLC0415
++    active = getattr(engine, "ACTIVE_OCK_CACHE", "")
++    bases = [active, engine.OCK_CACHE] + [engine.OCK_CACHE + suffix for suffix in ("-2", "-3")]
++    seen, out = set(), []
++    for base in bases:
++        if base and os.path.normcase(os.path.abspath(base)) not in seen:
++            seen.add(os.path.normcase(os.path.abspath(base)))
++            out.append(base)
++    return out
++
++
++def _select_cache_for(efi_dir):
++    """Point validation at the cache whose OpenCore release produced this EFI's boot files.
++
++    The engine may have built from OCK_Files-2 when the base folder refused writes. Reading the base folder's
++    history then compared the EFI with a different OpenCore commit and reported a false 'OpenCore.efi differs'
++    invariant (the x570 corpus build hit this). The EFI is the truth: match it against each cache's verified zip."""
++    try:
++        want = _sha256(os.path.join(efi_dir, "EFI", "OC", "OpenCore.efi"))
++    except OSError:
++        return
++    from . import engine  # noqa: PLC0415
++    # The cache folder holds the extracted release; matching it needs no download and works even when the original
++    # zip was not kept. An unreadable folder (the base cache with a protected ACL) is skipped.
++    for base in _candidate_caches():
++        try:
++            if _sha256(os.path.join(base, "OpenCorePkg", "EFI", "OC", "OpenCore.efi")) == want:
++                engine.ACTIVE_OCK_CACHE = base
++                return
++        except OSError:
++            continue
++    for base in _candidate_caches():
++        try:
++            with open(os.path.join(base, "history.json"), encoding="utf-8") as fh:
++                history = json.load(fh)
++        except (OSError, ValueError):
++            continue
++        for entry in history:
++            if not isinstance(entry, dict) or entry.get("product_name") != "OpenCorePkg":
++                continue
++            url, sha = entry.get("url"), entry.get("sha256")
++            if not url or not sha:
++                continue
++            for folder in (CACHE, base):
++                zpath = os.path.join(folder, os.path.basename(url))
++                if not os.path.isfile(zpath) or _sha256(zpath) != sha:
++                    continue
++                try:
++                    with zipfile.ZipFile(zpath) as archive:
++                        if hashlib.sha256(archive.read("X64/EFI/OC/OpenCore.efi")).hexdigest() == want:
++                            engine.ACTIVE_OCK_CACHE = base
++                            return
++                except (OSError, KeyError, zipfile.BadZipFile):
++                    continue
++
+ # Kexts that are Lilu plugins: Lilu must load before every one of them.
+ LILU_PLUGINS = {"WhateverGreen.kext", "AppleALC.kext", "VirtualSMC.kext", "NVMeFix.kext", "RestrictEvents.kext",
+                 "CpuTopologyRebuild.kext", "NootRX.kext", "NootedRed.kext", "BlueToolFixup.kext", "CPUFriend.kext",
+@@ -397,6 +454,7 @@ def validate(efi_dir):
+     checked against OpenCore's own sample of the same verified release instead (schema_problems), with the same file
+     and boot-file checks; the result says so. WAS: the build stopped there and 8 PCs could not make a stick at all."""
+     out = {"ok": False, "ocvalidate": None, "invariants": [], "error": ""}
++    _select_cache_for(efi_dir)
+     cfg_path = os.path.join(efi_dir, "EFI", "OC", "config.plist")
+     try:
+         ok, n, text = run_ocvalidate(cfg_path)
+diff --git a/tests/test_cache_recovery.py b/tests/test_cache_recovery.py
+index e1d90e5..dc30c5d 100644
+--- a/tests/test_cache_recovery.py
++++ b/tests/test_cache_recovery.py
+@@ -54,8 +54,10 @@ class PickCache(unittest.TestCase):
+         fake.o = mock.Mock()
+         fake.k = mock.Mock()
+         with mock.patch.object(engine, "pick_cache", return_value=r"C:\cache-2"), \
++             mock.patch.object(engine, "ACTIVE_OCK_CACHE", r"C:\cache"), \
+              mock.patch("builtins.print") as out:
+             engine._use_ock_cache(fake)
++            self.assertEqual(engine.ACTIVE_OCK_CACHE, r"C:\cache-2")
+         self.assertEqual(fake.o.ock_files_dir, r"C:\cache-2")
+         self.assertEqual(fake.k.ock_files_dir, r"C:\cache-2")
+         self.assertIn("not writable", " ".join(str(c.args[0]) for c in out.call_args_list if c.args))
+diff --git a/tests/test_validate_cache.py b/tests/test_validate_cache.py
+new file mode 100644
+index 0000000..8b63626
+--- /dev/null
++++ b/tests/test_validate_cache.py
+@@ -0,0 +1,50 @@
++"""Validation must use the dependency cache that produced the EFI's OpenCore files.
++
++A fallback cache (OCK_Files-2) is normal when the base folder refuses writes. Validation used to read the base
++folder's history and compare the EFI with a different OpenCore commit, failing with a false "OpenCore.efi differs"
++invariant (the x570 corpus build did this).
++"""
++import os
++import tempfile
++import unittest
++from unittest import mock
++
++from p1401 import engine, validate
++
++
++def write(path, data):
++    os.makedirs(os.path.dirname(path), exist_ok=True)
++    with open(path, "wb") as fh:
++        fh.write(data)
++
++
++class Select(unittest.TestCase):
++    def test_the_cache_holding_the_efi_release_is_selected(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            base = os.path.join(tmp, "OCK_Files")
++            fallback = base + "-2"
++            write(os.path.join(base, "OpenCorePkg", "EFI", "OC", "OpenCore.efi"), b"old release")
++            write(os.path.join(fallback, "OpenCorePkg", "EFI", "OC", "OpenCore.efi"), b"new release")
++            efi = os.path.join(tmp, "efi")
++            write(os.path.join(efi, "EFI", "OC", "OpenCore.efi"), b"new release")
++            with mock.patch.object(engine, "OCK_CACHE", base), \
++                 mock.patch.object(engine, "ACTIVE_OCK_CACHE", base), \
++                 mock.patch.object(validate, "CACHE", os.path.join(tmp, "cache")):
++                validate._select_cache_for(efi)
++                self.assertEqual(engine.ACTIVE_OCK_CACHE, fallback)
++
++    def test_no_match_keeps_the_active_cache(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            base = os.path.join(tmp, "OCK_Files")
++            write(os.path.join(base, "OpenCorePkg", "EFI", "OC", "OpenCore.efi"), b"release")
++            efi = os.path.join(tmp, "efi")
++            write(os.path.join(efi, "EFI", "OC", "OpenCore.efi"), b"something else")
++            with mock.patch.object(engine, "OCK_CACHE", base), \
++                 mock.patch.object(engine, "ACTIVE_OCK_CACHE", base), \
++                 mock.patch.object(validate, "CACHE", os.path.join(tmp, "cache")):
++                validate._select_cache_for(efi)
++                self.assertEqual(engine.ACTIVE_OCK_CACHE, base)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tools/check_capture_native.py b/tools/check_capture_native.py
+index 56f71f3..c7a6555 100644
+--- a/tools/check_capture_native.py
++++ b/tools/check_capture_native.py
+@@ -25,7 +25,7 @@ def verify_capture_native(repo, output, evidence=None):
+     evidence = evidence if evidence is not None else {}
+     if sys.platform != 'win32' or ctypes.sizeof(ctypes.c_void_p) != 8:
+         raise RuntimeError('Native capture verification needs 64-bit Windows.')
+-    exe = Path(output).parent / 'capture-abi.exe'
++    exe = Path(output).resolve().parent / 'capture-abi.exe'
+     subprocess.run(['cl', '/nologo', '/O2', str(Path(repo) / 'tools/windows_capture_abi.c'), '/link', '/OUT:' + str(exe)],
+                    cwd=exe.parent, check=True, capture_output=True, timeout=30)
+     sdk = json.loads(subprocess.check_output([str(exe)], timeout=10))
+diff --git a/tools/check_windows_package.py b/tools/check_windows_package.py
+index 343b929..eae8942 100644
+--- a/tools/check_windows_package.py
++++ b/tools/check_windows_package.py
+@@ -42,6 +42,9 @@ def main():
+     args = parser.parse_args()
+     if platform.system() != 'Windows':
+         raise RuntimeError('Packaged startup verification requires Windows.')
++    # cl resolves /OUT: relative to its own cwd, so a relative evidence path made the native capture check look for
++    # reports\tests\reports\tests\capture-abi.exe (LNK1104). Normalize once here.
++    args.output = str(Path(args.output).resolve())
+     root = Path(args.stage).resolve() / '1401'
+     repo, cache = Path(args.repo).resolve(), Path(args.cache).resolve()
+     app = root / 'engine/app'
+-- 
+2.53.0.windows.2
+

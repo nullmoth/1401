@@ -1,0 +1,466 @@
+From 1e4e4bab0ca81e9a38b5605ba1d1ac8d8ba6e1be Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:29:24 +0800
+Subject: [PATCH] Writing a stick: verify the recovery image before erasing,
+ and hash the preflight sample
+
+A local BaseSystem.dmg was checked chunk by chunk only while it was copied, which happens after the
+stick is erased. A damaged, unsigned or wrong-version local image cost the user their stick before
+the refusal. The online preflight read a small range and only counted the bytes, so any server
+could pass it with bytes that were not Apple's.
+
+- apple.verify_local(): signed chunklist, exact size and every chunk's sha256, run from cli_write
+  before write() is called; the stick is untouched on failure.
+- local_image(folder, darwin) reads an optional BaseSystem.product.json {product, darwin} and refuses
+  an image recorded for another macOS. Without it, the writer prints that the version is unrecorded.
+- preflight() samples the whole first chunk (up to 64 MiB) and checks its signed sha256.
+- copy_local() survives a stick remount per chunk and fsyncs image and chunklist; download() fsyncs too.
+- Regression tests: no erase on a bad local image, version marker, preflight hash match/mismatch.
+---
+ p1401/apple.py                       | 127 ++++++++++++++++++++++-----
+ p1401/usbwriter.py                   |  21 ++++-
+ tests/test_apple_local_verify.py     |  96 ++++++++++++++++++++
+ tests/test_apple_preflight_hash.py   |  51 +++++++++++
+ tests/test_apple_preflight_status.py |   2 +-
+ tests/test_arm_apps_opt_in.py        |   1 +
+ tests/test_usb_erase_identity.py     |   1 +
+ 7 files changed, 275 insertions(+), 24 deletions(-)
+ create mode 100644 tests/test_apple_local_verify.py
+ create mode 100644 tests/test_apple_preflight_hash.py
+
+diff --git a/p1401/apple.py b/p1401/apple.py
+index c3a02bd..d3c19e8 100644
+--- a/p1401/apple.py
++++ b/p1401/apple.py
+@@ -367,6 +367,7 @@ def _not_a_web_page(data):
+ 
+ 
+ PREFLIGHT_BYTES = 64 * 1024  # enough to prove the CDN serves a range of the image; not a download
++PREFLIGHT_CHUNK_MAX = 64 << 20  # a first chunk this large is hashed too; larger ones are sampled only
+ 
+ 
+ def _gave_up(e, resumes, stalled, got, total, seconds, trail):
+@@ -432,18 +433,30 @@ def preflight(info):
+     costs one small request and turns that into a stop that changed nothing.
+ 
+     It is not a guarantee: a download that starts can still be cut later, and that is still handled where it
+-    happens. This only moves the failure that was ALREADY certain before the erase to before the erase."""
++    happens. This only moves the failure that was ALREADY certain before the erase to before the erase.
++
++    The sample is the whole first chunk when it is 64 MiB or less, so it can be checked against the sha256 in
++    Apple's signed chunklist. Reading a few bytes and only counting them proves that a server answered, not that it
++    is serving Apple's image (it used to do exactly that)."""
+     cl = fetch_chunklist(info)
+     chunks = parse_chunklist(cl)          # raises unless Apple's EFI ROM key signed exactly these bytes
+     total = sum(s for s, _ in chunks)
+-    want = min(PREFLIGHT_BYTES, chunks[0][0])
++    first = chunks[0][0]
++    want = first if first <= PREFLIGHT_CHUNK_MAX else min(PREFLIGHT_BYTES, first)
+     r = _asset(info["image_url"], info["image_token"], {"Range": f"bytes=0-{want - 1}"})
+     try:
+-        got = len(_read_exact(r, want))
++        sample = _read_exact(r, want)
+     finally:
+         r.close()
++    verified = False
++    if len(sample) == first:
++        if hashlib.sha256(sample).digest() != chunks[0][1]:
++            raise AppleError("the first part of Apple's recovery image does not match its signed hash - something on "
++                             "this network or computer is changing the download. Connect through a phone hotspot or a "
++                             "VPN, or turn off web/HTTP scanning in your antivirus, and press Next. Nothing was erased.")
++        verified = True
+     info["chunklist_bytes"] = cl
+-    return {"chunklist": cl, "chunks": len(chunks), "bytes": total, "sampled": got}
++    return {"chunklist": cl, "chunks": len(chunks), "bytes": total, "sampled": len(sample), "verified": verified}
+ 
+ 
+ def download(info, usb_root, progress=None):
+@@ -598,9 +611,18 @@ def download(info, usb_root, progress=None):
+     finally:
+         r.close()
+         if fh is not None:
++            # Make the stick's own cache commit the image before it is read back: verify_written bypasses the Windows
++            # file cache, but not a device that still holds the last blocks in RAM.
++            try:
++                fh.flush()
++                os.fsync(fh.fileno())
++            except (OSError, ValueError):
++                pass
+             fh.close()  # the handle may be a reopened one (_write_settled); the with only closed the first
+     with _open_part(cnk + ".part", dest) as fh:
+         fh.write(cl)
++        fh.flush()
++        os.fsync(fh.fileno())
+     os.replace(img + ".part", img)
+     os.replace(cnk + ".part", cnk)
+     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+@@ -699,28 +721,85 @@ def repair_written(info, img, chunks, bad, fetch=None, read=None):
+     return verify_written(img, chunks, read)
+ 
+ 
+-def local_image(folder):
++def local_image(folder, darwin=None):
+     """A recovery image the user downloaded elsewhere (BaseSystem.dmg + BaseSystem.chunklist, e.g. macrecovery on another
+     network), as an info dict for copy_local, or None. Apple refuses some networks outright (HTTP 403 on every session,
+-    1.2.0 logs), and one user asked for an offline installer: this is it. Nothing is trusted - copy_local checks every
+-    chunk against Apple's signed chunklist, exactly like a download."""
++    1.2.0 logs), and one user asked for an offline installer: this is it. Nothing is trusted - verify_local() checks
++    every chunk against Apple's signed chunklist BEFORE the stick is erased, and copy_local checks them again as it
++    writes.
++
++    A BaseSystem.product.json beside the image may say {"product": "...", "darwin": 25}. When it does, a request for a
++    different macOS is refused here, before anything is erased. A chunklist signs hashes and sizes, not a version, so
++    an image without that file cannot be tied to the macOS this EFI was built for: it is used with a printed note."""
+     if not folder or not os.path.isdir(folder):
+         return None
+     for cl in sorted(n for n in os.listdir(folder) if n.lower().endswith(".chunklist")):
+         img = os.path.join(folder, os.path.splitext(cl)[0] + ".dmg")
+         if os.path.isfile(img):
++            marker = os.path.join(folder, os.path.splitext(cl)[0] + ".product.json")
++            meta = {}
++            if os.path.isfile(marker):
++                try:
++                    with open(marker, encoding="utf-8") as fh:
++                        meta = json.load(fh)
++                except (OSError, ValueError):
++                    meta = {}
++            made_for = None
++            if meta.get("darwin") not in (None, ""):
++                try:
++                    made_for = int(meta["darwin"])
++                except (TypeError, ValueError):
++                    made_for = None
++            if darwin is not None and made_for is not None and made_for != int(darwin):
++                raise AppleError(
++                    f"{os.path.basename(img)} is a recovery image for macOS Darwin {made_for}, not Darwin {darwin}. "
++                    f"Put the image for the macOS this EFI was built for in {folder}, or remove it so 1401 downloads "
++                    f"the right one from Apple. Nothing was erased.")
+             return {"local": True, "image_path": img, "chunklist_path": os.path.join(folder, cl),
+                     "image_url": "file:///" + os.path.basename(img), "name": "recovery image from " + folder,
+-                    "product": os.path.basename(img)}
++                    "product": str(meta.get("product") or os.path.basename(img)),
++                    "darwin": made_for, "version_known": made_for is not None}
+     return None
+ 
+ 
++def verify_local(info):
++    """Check a local recovery image completely, before the stick is erased: signed chunklist, exact size, every chunk's
++    sha256. copy_local used to be the first check, and it ran after the erase: a corrupt or unsigned local image cost
++    the user their stick before it was refused."""
++    cl = info.get("chunklist_bytes")
++    if cl is None:
++        with open(info["chunklist_path"], "rb") as fh:
++            cl = fh.read()
++    chunks = parse_chunklist(cl)
++    total = sum(size for size, _ in chunks)
++    path = info["image_path"]
++    size = os.path.getsize(path)
++    if size != total:
++        raise AppleError(f"{os.path.basename(path)} is {size} bytes; its signed chunklist says {total}. The image is "
++                         f"cut short or is not the one that chunklist describes. Nothing was erased.")
++    done = 0
++    with open(path, "rb") as src:
++        for i, (chunk_size, digest) in enumerate(chunks, 1):
++            buf = src.read(chunk_size)
++            if len(buf) != chunk_size:
++                raise AppleError(f"{os.path.basename(path)} ends in the middle of chunk {i}/{len(chunks)}. Nothing "
++                                 f"was erased.")
++            if hashlib.sha256(buf).digest() != digest:
++                raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(path)} fails Apple's hash - the image "
++                                 f"is damaged or was changed. Nothing was erased. Download it again with macrecovery.")
++            done += chunk_size
++    info["chunklist_bytes"] = cl
++    return {"bytes": done, "chunks": len(chunks), "product": info.get("product")}
++
++
+ def copy_local(info, usb_root, progress=None):
+     """Like download(), from local files: the chunklist must carry Apple's signature and every chunk its hash."""
+     dest = os.path.join(usb_root, "com.apple.recovery.boot")
+     os.makedirs(dest, exist_ok=True)
+-    with open(info["chunklist_path"], "rb") as fh:
+-        cl = fh.read()
++    cl = info.get("chunklist_bytes")
++    if cl is None:
++        with open(info["chunklist_path"], "rb") as fh:
++            cl = fh.read()
+     chunks = parse_chunklist(cl)
+     total = sum(s for s, _ in chunks)
+     if os.path.getsize(info["image_path"]) != total:
+@@ -728,17 +807,25 @@ def copy_local(info, usb_root, progress=None):
+     img = os.path.join(dest, os.path.basename(info["image_path"]))
+     cnk = os.path.splitext(img)[0] + ".chunklist"
+     done = 0
+-    with open(info["image_path"], "rb") as src, open(img + ".part", "wb") as fh:
+-        for i, (size, digest) in enumerate(chunks, 1):
+-            buf = src.read(size)
+-            if hashlib.sha256(buf).digest() != digest:
+-                raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(info['image_path'])} fails Apple's hash - refused")
+-            fh.write(buf)
+-            done += size
+-            if progress:
+-                progress(done, total)
+-    with open(cnk + ".part", "wb") as fh:
++    with open(info["image_path"], "rb") as src:
++        fh = _open_part(img + ".part", dest)
++        try:
++            for i, (size, digest) in enumerate(chunks, 1):
++                buf = src.read(size)
++                if len(buf) != size or hashlib.sha256(buf).digest() != digest:
++                    raise AppleError(f"chunk {i}/{len(chunks)} of {os.path.basename(info['image_path'])} fails Apple's hash - refused")
++                fh = _write_settled(fh, img + ".part", done, buf)
++                done += size
++                if progress:
++                    progress(done, total)
++            fh.flush()
++            os.fsync(fh.fileno())
++        finally:
++            fh.close()
++    with _open_part(cnk + ".part", dest) as fh:
+         fh.write(cl)
++        fh.flush()
++        os.fsync(fh.fileno())
+     os.replace(img + ".part", img)
+     os.replace(cnk + ".part", cnk)
+     return {"image": img, "chunklist": cnk, "bytes": total, "chunks": len(chunks)}
+diff --git a/p1401/usbwriter.py b/p1401/usbwriter.py
+index 5f73b11..74ef46e 100644
+--- a/p1401/usbwriter.py
++++ b/p1401/usbwriter.py
+@@ -1117,12 +1117,26 @@ def cli_write(argv):
+     # A recovery image already downloaded elsewhere (1401\\Recovery, or --recovery-dir) is used first: Apple refuses some
+     # networks on every session (HTTP 403 in 1.2.0 logs) and some PCs have no internet at all.
+     rec = (opt("--recovery-dir") or [RECOVERY_DIR])[0]
+-    info = apple.local_image(rec)
++    info = apple.local_image(rec, darwin)
+     if netsupport.needs_local_image(efi):
+         # The build found no network adapter the macOS installer can use: say what the install will need, then write.
+         print("NOTE " + netsupport.OFFLINE_INSTALLER_MESSAGE, flush=True)
+     if info:
+-        print(f"OK using {info['name']} (checked against Apple's signed chunklist while copying)", flush=True)
++        # A local image used to be checked chunk by chunk only while it was copied, i.e. after the erase. A damaged,
++        # unsigned or wrong-version file then cost the user their stick before it was refused.
++        print(f"OK using {info['name']} (checking every part against Apple's signed chunklist before erasing)", flush=True)
++        try:
++            checked = apple.verify_local(info)
++        except (apple.AppleError, OSError) as e:
++            print(f"STOP 1401-RECOVERY-IMAGE: {e}", flush=True)
++            print("OK your USB stick was not touched: nothing has been erased.", flush=True)
++            return 1
++        print(f"OK {checked['bytes'] / GiB:.2f} GiB in {checked['chunks']} parts match Apple's signed chunklist", flush=True)
++        if not info.get("version_known"):
++            print("NOTE this local image does not record which macOS it is. The chunklist proves the bytes are Apple's, "
++                  "not which version they are; if it is not the macOS this EFI was built for, Recovery can stop at "
++                  "OS.dmg.root_hash. To record it, put {\"darwin\": <major>} in BaseSystem.product.json beside the image.",
++                  flush=True)
+     else:
+         print("STEP asking Apple for the macOS recovery image", flush=True)
+         try:
+@@ -1147,7 +1161,8 @@ def cli_write(argv):
+             print("OK your USB stick was not touched: nothing has been erased.", flush=True)
+             return 1
+         print(f"OK Apple is serving {info['name']} ({ready['bytes'] / GiB:.2f} GiB in {ready['chunks']} parts, "
+-              f"signed chunklist verified)", flush=True)
++              f"signed chunklist verified" + (", first part matches Apple's hash" if ready.get("verified") else "") + ")",
++              flush=True)
+     last = [-1]
+     def progress(done, total, *_):
+         pct = int(done * 100 / total) if total else 0
+diff --git a/tests/test_apple_local_verify.py b/tests/test_apple_local_verify.py
+new file mode 100644
+index 0000000..3958a50
+--- /dev/null
++++ b/tests/test_apple_local_verify.py
+@@ -0,0 +1,96 @@
++"""A local recovery image is fully checked BEFORE the stick is erased, and a preflight sample is hashed.
++
++The writer used to verify a local BaseSystem.dmg only while copying it, i.e. after the erase; a corrupt, unsigned or
++wrong-version local image then cost the user their stick before it was refused. preflight() counted the bytes a server
++returned without hashing them, so a proxy could pass it with any bytes.
++"""
++import hashlib
++import os
++import tempfile
++import unittest
++from unittest import mock
++
++from p1401 import apple, usbwriter
++
++CHUNKS = [os.urandom(64), os.urandom(32), os.urandom(16)]
++IMAGE = b"".join(CHUNKS)
++LIST = [(len(c), hashlib.sha256(c).digest()) for c in CHUNKS]
++STICK = {"Number": 2, "FriendlyName": "aigo U350", "SerialNumber": "FC262A0B28EE2", "BusType": "USB",
++         "Size": 125304832000}
++
++
++def local(tmp, data=None, marker=None):
++    open(os.path.join(tmp, "BaseSystem.chunklist"), "wb").write(b"signed")
++    open(os.path.join(tmp, "BaseSystem.dmg"), "wb").write(IMAGE if data is None else data)
++    if marker is not None:
++        open(os.path.join(tmp, "BaseSystem.product.json"), "w", encoding="utf-8").write(marker)
++    with mock.patch.object(apple, "parse_chunklist", lambda d: LIST):
++        return apple.local_image(tmp, 25)
++
++
++class VerifyLocal(unittest.TestCase):
++    def test_every_chunk_is_checked_before_the_erase(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            info = local(tmp)
++            with mock.patch.object(apple, "parse_chunklist", lambda d: LIST):
++                got = apple.verify_local(info)
++        self.assertEqual(got["bytes"], len(IMAGE))
++        self.assertEqual(got["chunks"], len(LIST))
++
++    def test_a_flipped_byte_is_refused(self):
++        bad = bytearray(IMAGE); bad[3] ^= 1
++        with tempfile.TemporaryDirectory() as tmp:
++            info = local(tmp, bytes(bad))
++            with mock.patch.object(apple, "parse_chunklist", lambda d: LIST):
++                with self.assertRaises(apple.AppleError) as e:
++                    apple.verify_local(info)
++        self.assertIn("Nothing was erased", str(e.exception))
++
++    def test_a_cut_short_image_is_refused(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            info = local(tmp, IMAGE[:-5])
++            with mock.patch.object(apple, "parse_chunklist", lambda d: LIST):
++                with self.assertRaises(apple.AppleError) as e:
++                    apple.verify_local(info)
++        self.assertIn("cut short", str(e.exception))
++
++
++class VersionMarker(unittest.TestCase):
++    def test_an_image_marked_for_another_macos_is_refused_before_the_erase(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            with self.assertRaises(apple.AppleError) as e:
++                local(tmp, marker='{"product": "macOS 15", "darwin": 24}')
++        self.assertIn("Darwin 24", str(e.exception))
++        self.assertIn("Nothing was erased", str(e.exception))
++
++    def test_a_matching_or_missing_marker_is_accepted(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            info = local(tmp, marker='{"product": "macOS 26", "darwin": 25}')
++        self.assertTrue(info["version_known"])
++        self.assertEqual(info["product"], "macOS 26")
++        with tempfile.TemporaryDirectory() as tmp:
++            info = local(tmp)
++        self.assertFalse(info["version_known"])
++
++
++class BeforeErase(unittest.TestCase):
++    def test_a_local_image_that_fails_verification_stops_before_write(self):
++        with tempfile.TemporaryDirectory() as root, \
++             mock.patch.object(usbwriter, "list_disks", return_value=[STICK]), \
++             mock.patch.object(usbwriter, "eligible", return_value=(True, [])), \
++             mock.patch("p1401.machine_handoff.verified", return_value=None), \
++             mock.patch("p1401.netsupport.needs_local_image", return_value=False), \
++             mock.patch("p1401.apple.local_image", return_value={"local": True, "name": "local"}), \
++             mock.patch("p1401.apple.verify_local", side_effect=apple.AppleError("chunk 2 fails Apple's hash")), \
++             mock.patch.object(usbwriter, "write") as write, \
++             mock.patch("builtins.print") as out:
++            rc = usbwriter.cli_write(["2", "efi", "25"])
++        self.assertEqual(rc, 1)
++        write.assert_not_called()
++        line = " ".join(str(c.args[0]) for c in out.call_args_list if c.args)
++        self.assertIn("1401-RECOVERY-IMAGE", line)
++        self.assertIn("nothing has been erased", line)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_apple_preflight_hash.py b/tests/test_apple_preflight_hash.py
+new file mode 100644
+index 0000000..3175dd8
+--- /dev/null
++++ b/tests/test_apple_preflight_hash.py
+@@ -0,0 +1,51 @@
++"""preflight() must hash the first chunk it samples, not merely count the bytes a server returned."""
++import hashlib
++import os
++import unittest
++from unittest import mock
++
++from p1401 import apple
++
++CHUNKS = [os.urandom(64), os.urandom(32), os.urandom(16)]
++LIST = [(len(c), hashlib.sha256(c).digest()) for c in CHUNKS]
++
++
++class PreflightHash(unittest.TestCase):
++    def test_a_first_chunk_that_matches_is_reported_verified(self):
++        class S:
++            status = 200
++            headers = {}
++
++            def read(self, n=-1):
++                return CHUNKS[0][:n] if n is not None else CHUNKS[0]
++
++            def close(self):
++                pass
++
++        info = {"image_url": "http://oscdn/x/BaseSystem.dmg", "image_token": "t"}
++        with mock.patch.object(apple, "fetch_chunklist", lambda i: b"signed"),              mock.patch.object(apple, "parse_chunklist", lambda d: LIST),              mock.patch.object(apple, "_asset", lambda u, t, e=None: S()):
++            got = apple.preflight(info)
++        self.assertTrue(got["verified"])
++        self.assertEqual(got["sampled"], len(CHUNKS[0]))
++
++    def test_a_first_chunk_that_does_not_match_is_refused_before_the_erase(self):
++        class S:
++            status = 200
++            headers = {}
++
++            def read(self, n=-1):
++                return b"X" * len(CHUNKS[0])
++
++            def close(self):
++                pass
++
++        info = {"image_url": "http://oscdn/x/BaseSystem.dmg", "image_token": "t"}
++        with mock.patch.object(apple, "fetch_chunklist", lambda i: b"signed"),              mock.patch.object(apple, "parse_chunklist", lambda d: LIST),              mock.patch.object(apple, "_asset", lambda u, t, e=None: S()):
++            with self.assertRaises(apple.AppleError) as e:
++                apple.preflight(info)
++        self.assertIn("signed hash", str(e.exception))
++        self.assertIn("Nothing was erased", str(e.exception))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_apple_preflight_status.py b/tests/test_apple_preflight_status.py
+index d709ecf..3701d1b 100644
+--- a/tests/test_apple_preflight_status.py
++++ b/tests/test_apple_preflight_status.py
+@@ -208,7 +208,7 @@ class NothingIsErasedWhenAppleRefuses(unittest.TestCase):
+                 patch.object(usbwriter, "write", lambda *a, **k: erased.append(1) or {"root": "Z:\\"}), \
+                 patch.object(machine_handoff, "verified", lambda *a, **k: None), \
+                 patch.object(netsupport, "needs_local_image", lambda e: False), \
+-                patch.object(apple, "local_image", lambda d: None), \
++                patch.object(apple, "local_image", lambda d, *a: None), \
+                 patch.object(apple, "image_info", lambda d: info()), \
+                 patch.object(apple, "preflight", preflight), \
+                 patch("builtins.print", lambda *a, **k: printed.append(" ".join(str(x) for x in a))):
+diff --git a/tests/test_arm_apps_opt_in.py b/tests/test_arm_apps_opt_in.py
+index 1feb8d4..e92b878 100644
+--- a/tests/test_arm_apps_opt_in.py
++++ b/tests/test_arm_apps_opt_in.py
+@@ -73,6 +73,7 @@ class ArmAppsOptIn(unittest.TestCase):
+                 patch.object(usbwriter, "eligible", return_value=(True, [])), \
+                 patch.object(usbwriter, "write", fake_write), \
+                 patch("p1401.apple.local_image", return_value={"name": "local", "local": True}), \
++                patch("p1401.apple.verify_local", return_value={"bytes": 1, "chunks": 1}), \
+                 patch("p1401.netsupport.needs_local_image", return_value=False), \
+                 patch("builtins.print") as out:
+             rc = usbwriter.cli_write(["3", str(self.build), "24", "--profile", str(self.scan), *flags])
+diff --git a/tests/test_usb_erase_identity.py b/tests/test_usb_erase_identity.py
+index 46903e1..9f0ae44 100644
+--- a/tests/test_usb_erase_identity.py
++++ b/tests/test_usb_erase_identity.py
+@@ -108,6 +108,7 @@ class FinalNumber(unittest.TestCase):
+              mock.patch("p1401.machine_handoff.opt_in", return_value=None), \
+              mock.patch("p1401.netsupport.needs_local_image", return_value=False), \
+              mock.patch("p1401.apple.local_image", return_value={"local": True, "name": "local"}), \
++             mock.patch("p1401.apple.verify_local", return_value={"bytes": 1, "chunks": 1}), \
+              mock.patch("p1401.fullinstaller.check_stick"), \
+              mock.patch("p1401.fullinstaller.verify_xar"), \
+              mock.patch("p1401.fullinstaller.place"), \
+-- 
+2.53.0.windows.2
+

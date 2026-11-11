@@ -1,0 +1,108 @@
+From 76a1edd5ea848c2f74310b86100de4f387e23f6e Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:22:39 +0800
+Subject: [PATCH] Windows app: a USB disk over 256 GiB needs its own erase
+ confirmation
+
+Any disk above the writer's large-disk limit was given --allow-large automatically after the
+single erase prompt. A 1-4 TB USB backup or data disk was therefore one click from being wiped
+as if it were an installer stick. The window now asks a second time, names the disk and its
+identity, defaults to No, and only then adds --allow-large. The warning is translated.
+---
+ tests/test_windows_large_disk.py | 35 ++++++++++++++++++++++++++++++++
+ windows/App/Loc.cs               |  4 ++++
+ windows/App/MainForm.cs          | 14 ++++++++++++-
+ 3 files changed, 52 insertions(+), 1 deletion(-)
+ create mode 100644 tests/test_windows_large_disk.py
+
+diff --git a/tests/test_windows_large_disk.py b/tests/test_windows_large_disk.py
+new file mode 100644
+index 0000000..b5561bc
+--- /dev/null
++++ b/tests/test_windows_large_disk.py
+@@ -0,0 +1,35 @@
++"""A USB disk above the writer's large-disk limit gets its own warning, not an automatic --allow-large.
++
++The writer refuses a USB disk larger than 256 GiB unless --allow-large is passed. The window added that flag by
++itself after the single erase prompt, so a 1-4 TB backup or data drive was one click away from being wiped as if it
++were an installer stick.
++"""
++import pathlib
++import unittest
++
++APP = pathlib.Path(__file__).resolve().parents[1] / "windows" / "App"
++
++
++class LargeDisk(unittest.TestCase):
++    def test_a_large_disk_is_not_auto_allowed(self):
++        src = (APP / "MainForm.cs").read_text(encoding="utf-8")
++        self.assertNotIn('if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";', src)
++        self.assertIn("bool allowLarge = false;", src)
++        self.assertIn("1401 - erase a large USB disk?", src)
++        self.assertIn("if (allowLarge) args += \" --allow-large\";", src)
++
++    def test_the_confirmation_names_the_disk_and_defaults_to_no(self):
++        src = (APP / "MainForm.cs").read_text(encoding="utf-8")
++        block = src.split("bool allowLarge = false;", 1)[1].split("busy = true", 1)[0]
++        self.assertIn('d.Name + " (" + d.UniqueId + ")"', block)
++        self.assertIn("MessageBoxDefaultButton.Button2", block)
++        self.assertIn("Cancelled: the large USB disk was not erased.", block)
++
++    def test_the_warning_is_translated(self):
++        loc = (APP / "Loc.cs").read_text(encoding="utf-8")
++        self.assertIn("擦除大容量 USB 磁盘？", loc)
++        self.assertIn("已取消：未擦除这块大容量 USB 磁盘。", loc)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/windows/App/Loc.cs b/windows/App/Loc.cs
+index a0a2238..704a436 100644
+--- a/windows/App/Loc.cs
++++ b/windows/App/Loc.cs
+@@ -140,6 +140,10 @@ namespace A1401
+             { " and make it the macOS installer?\r\n\r\nEverything on it will be lost.",
+               "{0}，并将其制作成 macOS 安装盘？\r\n\r\n盘上所有内容都会丢失。" },
+             { "1401 - erase this stick?", "1401 - 擦除这个 U 盘？" },
++            { "This disk is {0} GB, far larger than a macOS installer stick. It may be a backup or data disk. Erase the whole disk {1} anyway?",
++              "这块磁盘有 {0} GB，远大于 macOS 安装盘。它可能是备份盘或数据盘。仍要擦除整块磁盘 {1} 吗？" },
++            { "1401 - erase a large USB disk?", "1401 - 擦除大容量 USB 磁盘？" },
++            { "Cancelled: the large USB disk was not erased.", "已取消：未擦除这块大容量 USB 磁盘。" },
+             { "Writing the stick did not finish. The saved report includes the writer output; partial changes to the selected stick may remain.",
+               "写入 U 盘未完成。已保存的报告包含写入器输出；所选 U 盘上可能残留部分更改。" },
+             { "Package verification\r\nLaptop display note: panel wiring requires verification.\r\nIntel I225-LM vP link testing is required.",
+diff --git a/windows/App/MainForm.cs b/windows/App/MainForm.cs
+index cea385a..9197c04 100644
+--- a/windows/App/MainForm.cs
++++ b/windows/App/MainForm.cs
+@@ -880,6 +880,18 @@ namespace A1401
+                 var ok = MessageBox.Show(this, Loc.F("Erase {0}", d) + Loc.F(" and make it the macOS installer?\r\n\r\nEverything on it will be lost."),
+                     Loc.T("1401 - erase this stick?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+                 if (ok != DialogResult.Yes) return;
++                // A USB disk this large is far more likely to be a backup or data disk than an installer stick. The
++                // writer accepts it only with --allow-large; the window used to add that by itself after the one erase
++                // prompt, so a 1-4 TB backup drive could be wiped at the same click. Ask separately, and name the disk.
++                bool allowLarge = false;
++                if (d.Size > 256UL * 1024 * 1024 * 1024)
++                {
++                    var big = MessageBox.Show(this, Loc.F("This disk is {0} GB, far larger than a macOS installer stick. It may be a backup or data disk. Erase the whole disk {1} anyway?",
++                            (d.Size / (1024.0 * 1024 * 1024)).ToString("0"), d.Name + " (" + d.UniqueId + ")"),
++                        Loc.T("1401 - erase a large USB disk?"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
++                    if (big != DialogResult.Yes) { Say(Loc.T("Cancelled: the large USB disk was not erased.")); return; }
++                    allowLarge = true;
++                }
+                 busy = true; next.Enabled = false; refresh.Enabled = false; log.Clear(); bar.Value = 0;
+                 // the full macOS installer: fetched and verified BEFORE the stick is erased, so a failed download costs nothing
+                 string fullPkg = null;
+@@ -913,7 +925,7 @@ namespace A1401
+                 if (mac != null) args += " --extra " + Engine.Q(mac);
+                 var report = Path.Combine(scanDir, "Report.json");
+                 if (File.Exists(report)) args += " --profile " + Engine.Q(report);
+-                if (d.Size > 256UL * 1024 * 1024 * 1024) args += " --allow-large";
++                if (allowLarge) args += " --allow-large";
+                 if (armApps.Checked && armApps.Visible) args += " --arm-apps";
+                 var writeLines = new List<string>();
+                 int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
+-- 
+2.53.0.windows.2
+

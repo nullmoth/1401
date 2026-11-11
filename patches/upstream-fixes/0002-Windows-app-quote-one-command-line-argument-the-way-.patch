@@ -1,0 +1,230 @@
+From 1e39b1c1ee3c1734cbffd439121549bc634ced6f Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 10:22:33 +0800
+Subject: [PATCH] Windows app: quote one command-line argument the way Windows
+ parses it
+
+Q() wrapped every value in quotes and escaped only embedded quotes. A folder ending in a
+backslash (C:\Program Files\1401\) escaped the closing quote, so CommandLineToArgvW merged
+--stick-id, --stick-size and --stick-name into the preceding --recovery-dir value. The writer
+then had no stick identity and trusted the bare disk number.
+
+Argv.Quote implements the CommandLineToArgvW rule (special characters trigger quoting; runs of
+backslashes before an embedded or closing quote are doubled). Engine.Q delegates to it.
+tests/native/ArgvQuoteCheck.cs round-trips the cases through CommandLineToArgvW itself, and
+tests/test_windows_argv_quote.py compiles and runs it with the .NET Framework compiler.
+---
+ tests/native/ArgvQuoteCheck.cs   | 83 ++++++++++++++++++++++++++++++++
+ tests/test_windows_argv_quote.py | 43 +++++++++++++++++
+ windows/App/Argv.cs              | 46 ++++++++++++++++++
+ windows/App/Engine.cs            |  2 +-
+ 4 files changed, 173 insertions(+), 1 deletion(-)
+ create mode 100644 tests/native/ArgvQuoteCheck.cs
+ create mode 100644 tests/test_windows_argv_quote.py
+ create mode 100644 windows/App/Argv.cs
+
+diff --git a/tests/native/ArgvQuoteCheck.cs b/tests/native/ArgvQuoteCheck.cs
+new file mode 100644
+index 0000000..9049dc5
+--- /dev/null
++++ b/tests/native/ArgvQuoteCheck.cs
+@@ -0,0 +1,83 @@
++using System;
++using System.Runtime.InteropServices;
++using A1401;
++
++/// <summary>Checks Argv.Quote against the parser Windows actually uses (CommandLineToArgvW), including the
++/// trailing-backslash case that silently swallowed --stick-id and put the disk identity check out of reach.
++/// Built and run by tests/test_windows_argv_quote.py with the .NET Framework compiler; no app is started.</summary>
++static class ArgvQuoteCheck
++{
++    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
++    static extern IntPtr CommandLineToArgvW(string lpCmdLine, out int pNumArgs);
++
++    [DllImport("kernel32.dll")]
++    static extern IntPtr LocalFree(IntPtr hMem);
++
++    static int failures;
++
++    static void Exact(string input, string expected)
++    {
++        string got = Argv.Quote(input);
++        if (got != expected)
++        {
++            Console.WriteLine("FAIL exact [" + input + "] got [" + got + "] want [" + expected + "]");
++            failures++;
++        }
++    }
++
++    static void RoundTrip(string input)
++    {
++        string command = "1401.exe " + Argv.Quote(input);
++        int argc;
++        IntPtr argv = CommandLineToArgvW(command, out argc);
++        if (argv == IntPtr.Zero)
++        {
++            Console.WriteLine("FAIL parse [" + input + "] CommandLineToArgvW failed " + Marshal.GetLastWin32Error());
++            failures++;
++            return;
++        }
++        try
++        {
++            if (argc != 2)
++            {
++                Console.WriteLine("FAIL parse [" + input + "] argc=" + argc + " (the argument split apart)");
++                failures++;
++                return;
++            }
++            IntPtr one = Marshal.ReadIntPtr(argv, IntPtr.Size);
++            string got = Marshal.PtrToStringUni(one);
++            if (got != input)
++            {
++                Console.WriteLine("FAIL roundtrip [" + input + "] parsed [" + got + "]");
++                failures++;
++            }
++        }
++        finally
++        {
++            LocalFree(argv);
++        }
++    }
++
++    static int Main()
++    {
++        Exact("plain", "plain");
++        Exact("", "\"\"");
++        Exact("D:\\", "D:\\");
++        Exact("C:\\Program Files\\", "\"C:\\Program Files\\\\\"");
++        Exact("a b", "\"a b\"");
++        Exact("a\"b", "\"a\\\"b\"");
++
++        RoundTrip("plain");
++        RoundTrip("");
++        RoundTrip("D:\\");
++        RoundTrip("C:\\Users\\A B\\1401\\");
++        RoundTrip("a b");
++        RoundTrip("a\"b");
++        RoundTrip("ends with two\\\\");
++        RoundTrip("quote\" and \\ backslash");
++        RoundTrip("C:\\Program Files\\1401\\recovery\\");
++
++        if (failures == 0) Console.WriteLine("OK argv quoting");
++        return failures == 0 ? 0 : 1;
++    }
++}
+diff --git a/tests/test_windows_argv_quote.py b/tests/test_windows_argv_quote.py
+new file mode 100644
+index 0000000..251da7a
+--- /dev/null
++++ b/tests/test_windows_argv_quote.py
+@@ -0,0 +1,43 @@
++"""Engine.Q must quote one argument the way Windows parses it.
++
++The old Q() only replaced an embedded quote with \\" and wrapped the whole value in quotes. A folder ending in a
++backslash and containing a space (C:\\Program Files\\1401\\) then escaped the closing quote, and CommandLineToArgvW
++merged the following --stick-id, --stick-size and --stick-name into the previous argument. The writer, with no
++identity, fell back to the bare disk number.
++"""
++import os
++import pathlib
++import subprocess
++import sys
++import tempfile
++import unittest
++
++REPO = pathlib.Path(__file__).resolve().parents[1]
++APP = REPO / "windows" / "App"
++
++
++def csc():
++    path = pathlib.Path(os.environ.get("WINDIR", r"C:\Windows")) / "Microsoft.NET" / "Framework64" / "v4.0.30319" / "csc.exe"
++    return str(path) if path.is_file() else None
++
++
++class ArgvQuoting(unittest.TestCase):
++    def test_the_app_uses_the_tested_quoter(self):
++        engine = (APP / "Engine.cs").read_text(encoding="utf-8")
++        self.assertIn("public static string Q(string s) { return Argv.Quote(s); }", engine)
++
++    @unittest.skipUnless(sys.platform == "win32" and csc(), "needs Windows and the .NET Framework compiler")
++    def test_quote_round_trips_through_windows_own_parser(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            exe = os.path.join(tmp, "argv-check.exe")
++            build = subprocess.run([csc(), "/nologo", "/target:exe", "/out:" + exe,
++                                    str(APP / "Argv.cs"), str(REPO / "tests" / "native" / "ArgvQuoteCheck.cs")],
++                                   capture_output=True, text=True)
++            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
++            ran = subprocess.run([exe], capture_output=True, text=True, timeout=60)
++            self.assertEqual(ran.returncode, 0, ran.stdout + ran.stderr)
++            self.assertIn("OK argv quoting", ran.stdout)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/windows/App/Argv.cs b/windows/App/Argv.cs
+new file mode 100644
+index 0000000..42d8796
+--- /dev/null
++++ b/windows/App/Argv.cs
+@@ -0,0 +1,46 @@
++using System.Text;
++
++namespace A1401
++{
++    /// <summary>One argument, quoted for the Windows command line exactly as CommandLineToArgvW parses it.
++    /// Engine.Run concatenates its arguments into one string, so a trailing backslash (a folder path such as D:\)
++    /// must not escape the closing quote: that turned "--stick-id ..." into part of the previous argument and the
++    /// writer then had no identity to check the disk against.</summary>
++    static class Argv
++    {
++        public static string Quote(string value)
++        {
++            if (value == null) value = "";
++            bool special = false;
++            foreach (char c in value)
++            {
++                if (c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '"') { special = true; break; }
++            }
++            if (value.Length > 0 && !special) return value;
++            var sb = new StringBuilder();
++            sb.Append('"');
++            int backslashes = 0;
++            foreach (char c in value)
++            {
++                if (c == '\\') { backslashes++; continue; }
++                if (c == '"')
++                {
++                    // backslashes before an embedded quote are doubled, then the quote is escaped
++                    sb.Append('\\', backslashes * 2 + 1);
++                    sb.Append('"');
++                    backslashes = 0;
++                }
++                else
++                {
++                    sb.Append('\\', backslashes);
++                    sb.Append(c);
++                    backslashes = 0;
++                }
++            }
++            // backslashes before the closing quote are doubled, so the closing quote stays a quote
++            sb.Append('\\', backslashes * 2);
++            sb.Append('"');
++            return sb.ToString();
++        }
++    }
++}
+diff --git a/windows/App/Engine.cs b/windows/App/Engine.cs
+index d2584f0..a5e0a03 100644
+--- a/windows/App/Engine.cs
++++ b/windows/App/Engine.cs
+@@ -163,6 +163,6 @@ namespace A1401
+             });
+         }
+ 
+-        public static string Q(string s) { return "\"" + s.Replace("\"", "\\\"") + "\""; }
++        public static string Q(string s) { return Argv.Quote(s); }
+     }
+ }
+-- 
+2.53.0.windows.2
+

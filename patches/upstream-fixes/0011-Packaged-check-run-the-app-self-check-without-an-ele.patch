@@ -1,0 +1,38 @@
+From 4e001542af186cec11625d685ec5763d643611e3 Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 12:17:49 +0800
+Subject: [PATCH] Packaged check: run the app self-check without an elevation
+ prompt
+
+The manifest requests administrator for real scans and disk writes. --verify-package itself reads
+its own files and draws/closes the window; in a non-elevated CI session, launching it returned
+WinError 740 and the gate stopped after every other check had passed. Set __COMPAT_LAYER=RunAsInvoker
+for this one subprocess only; normal launches still request administrator. The self-check still
+verifies ok, version, ScanEvidence binding, notice visibility and firmware navigation.
+---
+ tools/check_windows_package.py | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/tools/check_windows_package.py b/tools/check_windows_package.py
+index eae8942..9dd2013 100644
+--- a/tools/check_windows_package.py
++++ b/tools/check_windows_package.py
+@@ -129,7 +129,14 @@ def main():
+             raise RuntimeError('The packaged engine planning smoke did not pass.')
+         gui_path = Path(args.output).with_name('gui-verification.json')
+         step = 'actual packaged executable startup and version'
+-        process = subprocess.run([str(root / '1401.exe'), '--verify-package', str(gui_path)], cwd=root, timeout=30)
++        # --verify-package is the app's non-privileged self-check: it reads its own files, exercises the
++        # ScanEvidence binding and draws/closes the window; it never scans hardware or writes a disk. The manifest
++        # requests administrator for real use, so a non-elevated CI session would get WinError 740 here. Scope the
++        # compatibility layer to this self-check process only; real launches still go through UAC.
++        gui_env = dict(os.environ)
++        gui_env['__COMPAT_LAYER'] = 'RunAsInvoker'
++        process = subprocess.run([str(root / '1401.exe'), '--verify-package', str(gui_path)], cwd=root, timeout=30,
++                                 env=gui_env)
+         gui = json.loads(gui_path.read_text())
+         result['gui'] = gui
+         result['version'] = gui.get('assembly_version')
+-- 
+2.53.0.windows.2
+

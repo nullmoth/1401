@@ -1,0 +1,32 @@
+From 97522ba2fe10093156de01d023c50c1601ca734c Mon Sep 17 00:00:00 2001
+From: luoxiaoyu <137460387@qq.com>
+Date: Wed, 11 Nov 2026 11:33:43 +0800
+Subject: [PATCH] Packaged check: compile SDK assertions without initguid.h
+
+With Windows SDK 10.0.22621, including initguid.h before wlanapi.h makes windot11.h's
+DEFINE_NWF_GUID expand to "0x6cb9a43e+(ord)", which MSVC rejects as a pp-number; the packaged
+verification then failed at the peripheral SDK check. The C file only asserts struct/offset/
+constant layouts and uses no GUID objects, so the include is unnecessary. The C++ GUID checks use
+__uuidof and are unchanged. Verified by compiling and running positive and negative controls.
+---
+ tools/peripheral_sdk_check.py | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/tools/peripheral_sdk_check.py b/tools/peripheral_sdk_check.py
+index 861ddfb..8d70872 100644
+--- a/tools/peripheral_sdk_check.py
++++ b/tools/peripheral_sdk_check.py
+@@ -23,7 +23,9 @@ rename = {'WAVEFORMATEXTENSIBLE.wValidBitsPerSample': 'Samples.wValidBitsPerSamp
+ head = '''#define COBJMACROS
+ #define WIN32_LEAN_AND_MEAN
+ #include <windows.h>
+-#include <initguid.h>
++/* No <initguid.h>: this file only asserts struct/offset/constant layouts, and with Windows SDK 10.0.22621
++   initguid.h makes windot11.h's DEFINE_NWF_GUID expand to "0x6cb9a43e+(ord)", which MSVC rejects as a pp-number.
++   The GUID checks are the separate C++ file, which uses __uuidof and needs no object definitions. */
+ #include <setupapi.h>
+ #include <hidsdi.h>
+ #include <hidpi.h>
+-- 
+2.53.0.windows.2
+
