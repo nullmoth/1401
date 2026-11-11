@@ -19,7 +19,8 @@
 - 已修复 12 组可复现问题（P0 擦盘身份、Windows 参数拼接、大容量盘确认、完整安装器 416/越界、Recovery 擦盘前校验、依赖缓存不可写、校验缓存选择、Windows UI 安全默认值、打包 SDK/隐私/自检工具、自检夹具、完整安装器首分区全局变量、文档准确性），每项有独立提交与回归测试。
 - 发布：标签 `v2.9.1-huawei.1`；GitHub Release <https://github.com/a137460387/1401/releases/tag/v2.9.1-huawei.1>，资产 `1401-Windows-2.9.1.zip`（SHA-256 `e4a8bfba…`）、`SHA256SUMS.txt`、`windows-verification.json`。
 - 华为适配：A7A0 已由生成器选中 WhateverXe；AX211/itlwm 的安装器联网判定已修正；UTBDefault 无 map 已明确报告；TPD0/TPL1 已分开说明；TBU405Pro 外置盘已标记为“非安装目标”。
-- 完整测试：**1190 项，0 失败，8 项环境/可选依赖跳过**（OpenCore 1.0.8 归档、可选驱动包、DSDT 语料等）；官方打包门禁**通过**（ok=true，2.9.1，打包回归 1214 项 0 失败 0 跳过）。
+- WhateverXe 专项（`reports/whateverxe/`）：发布示例 EFI 的 `csr-active-config=0x03` 不满足 WhateverXe 0.8.0 的 `0x803`；本次已修复为 `0x0A03`（含 `0x803`），并固定 WEX 0.8.0 / AMFIPass 1.4.1 Mod。候选 EFI 通过 82 项文件级检查和 `ocvalidate`；A7A0 与内部 eDP 仍未实机验证。
+- 完整测试：2.9.1 基线 **1190 项，0 失败，8 项环境/可选依赖跳过**（OpenCore 1.0.8 归档、可选驱动包、DSDT 语料等）；WhateverXe 专项审计后 **1228 项，0 失败**（`scripts/run-tests.cmd`，见 `reports/whateverxe/03-候选EFI与测试.md`）；官方打包门禁**通过**（ok=true，2.9.1，打包回归 1214 项 0 失败 0 跳过）。
 - 发布产物：`out/release-artifact/1401-Windows-2.9.1.zip`，95,383,699 bytes，SHA-256 `e4a8bfba7f1f4b0238e54374386e96786a51fcbd160ff4a0a947cb6c8302f9f9`。
 - 未验证/外部边界：真实 macOS 启动与安装、WhateverXe 图形加速、AX211 在 macOS 下的 Wi-Fi、I2C 触摸板/触摸屏、USB 外置盘 UASP/睡眠唤醒、18 GB 完整安装器实际下载与可启动介质、标准 Apple `createinstallmedia` 离线盘（需 macOS）。
 - 未执行任何真实磁盘写入：aigo U350、ACASIS TBU405Pro、WD SN740 均未修改。
@@ -31,6 +32,7 @@
 | `source/` | 源码结构、依赖、许可证、Windows 开发环境与构建 |
 | `bugs/` | GitHub 历史问题审计、已修复清单、未修复与阻塞 |
 | `hardware/` | 真实硬件扫描、适配矩阵、EFI 生成与文件级验证 |
+| `whateverxe/` | WhateverXe / Huawei 图形加速专项审计、8086:A7A0 与 Tahoe 26 证据、候选 EFI、风险与未验证清单 |
 | `recovery/` | Recovery 下载/校验证据、EXITBS 与 root_hash 分析、完整安装器边界 |
 | `tests/` | T0–T6 测试体系、1190 项测试结果、构建与打包验证 |
 | `releases/` | 版本说明、回滚方案、上游同步操作说明 |
@@ -41,6 +43,9 @@
 - `reports/logs/huawei-scan.log`：真实硬件扫描。
 - `reports/logs/huawei-build-release.log`：真实扫描生成发布 EFI 的完整 JSON 结果与通知。
 - `reports/hardware/efi-file-check.json`：EFI 文件级检查 + `ocvalidate`。
+- `reports/hardware/efi-file-check-whateverxe-audit.json`：WhateverXe 专项候选 EFI 的 82 项检查 + `ocvalidate`。
+- `reports/whateverxe/README.md`：WhateverXe / Huawei 审计的最终结论与交付物索引。
+- `reports/logs/huawei-build-release.log:9171-9174`：2.9.1 示例 EFI 把 SIP 从 `0x0A03` 降到 `0x03` 的记录。
 - `reports/recovery/verification.json`：Apple Recovery 与完整安装器的真实网络证据。
 - `reports/logs/unittest-final2.log`：1188 项测试最终结果。
 - `reports/logs/release-prepare*.log`、`reports/tests/windows-verification.json`：Windows 打包验证（见对应报告）。
