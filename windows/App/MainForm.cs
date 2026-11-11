@@ -768,7 +768,7 @@ namespace A1401
                 ScanEvidence.Remember(Engine.Work, scanRunId);
                 Say(Loc.T("Checking this PC..."));
                 var scanLines = new List<string>();
-                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { scanLines.Add(l); Say(l); });
+                int rc = await Engine.Run("p1401.scan " + Engine.Q(scanDir) + " --run-id " + scanRunId, l => { lock (scanLines) scanLines.Add(l); Say(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 if (rc != 0)
@@ -928,7 +928,7 @@ namespace A1401
                 if (allowLarge) args += " --allow-large";
                 if (armApps.Checked && armApps.Visible) args += " --arm-apps";
                 var writeLines = new List<string>();
-                int rc = await Engine.Run(args, l => { writeLines.Add(l); Say(l); });
+                int rc = await Engine.Run(args, l => { lock (writeLines) writeLines.Add(l); Say(l); });
                 // The stick holds a Mac or Windows partition (an older macOS installer, or a disk with a system on it).
                 // Name what is there and ask once more; only an explicit Yes erases it.
                 var found = writeLines.FirstOrDefault(l => l.Contains("1401-OS-PARTITIONS:"));
@@ -1082,7 +1082,7 @@ namespace A1401
                 "(the DSDT and SSDTs, which describe how the board connects its devices; licence-key and logo tables are left out). Windows capabilities do not establish macOS support. Your Windows user name and PC name are removed first. " +
                 "Nothing else on this PC is sent.\r\n\r\nClick OK to send it now, or Cancel to keep it only on this PC.", Loc.Op(kind));
             var ask = MessageBox.Show(this, text,
-                Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+                Loc.T("1401 - sending the log"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information, MessageBoxDefaultButton.Button2);
             if (ask != DialogResult.OK) { Say(Loc.T("The log was not sent. It stays in ") + file + Loc.T(".")); return; }
             var ids = new List<string>();
             var batch = NewBatch();
@@ -1513,7 +1513,7 @@ namespace A1401
                 send.Left = f.ClientSize.Width - margin - send.Width - cancel.Width - 8; send.Top = f.ClientSize.Height - margin - send.Height;
                 cancel.Left = f.ClientSize.Width - margin - cancel.Width; cancel.Top = send.Top;
                 f.Controls.AddRange(new Control[] { msg, q, box, send, cancel });
-                f.AcceptButton = send; f.CancelButton = cancel;
+                f.AcceptButton = cancel; f.CancelButton = cancel;
                 f.ResumeLayout(false); f.PerformLayout();
                 var r = f.ShowDialog(this);
                 screen = (box.Text ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
