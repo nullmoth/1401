@@ -77,9 +77,10 @@ def classify(gpu):
 _BASIC = ("macOS installs and runs on the screen the firmware sets up (basic display: the desktop and apps work, no "
           "graphics acceleration, the resolution the firmware picked)")
 _NOTE = {
-    WHATEVERXE: ("Graphics: {name} ({family}) has no Apple driver. " + _BASIC + ". After macOS is installed, the 1401 "
-                 "Mac app offers Intel Xe graphics through b00t0x's WhateverXe as an opt-in test, for macOS 15.8 or "
-                 "26.7 and later. It is off unless you turn it on."),
+    WHATEVERXE: ("Graphics: {name} ({family}) has no Apple driver. " + _BASIC + ". This EFI includes b00t0x's "
+                 "WhateverXe 0.8.0 for the card, so macOS starts with its basic display path. The full graphics "
+                 "package is an opt-in test installed from the 1401 Mac app after macOS starts, for macOS 15.8 or "
+                 "26.7 and later."),
     NO_DRIVER: ("Graphics: {name} ({family}) has no Apple driver, and no driver 1401 can offer for it yet. " + _BASIC
                 + "."),
 }

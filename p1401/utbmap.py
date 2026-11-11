@@ -21,6 +21,18 @@ class Refused(Exception):
     pass
 
 
+def map_status(kexts):
+    """'mapped' when the build uses a UTBMap the user supplied, 'default' when UTBDefault is on with no map, 'none'
+    when neither is selected. UTBDefault assumes every port is usable and no port limit; on a laptop that can make
+    sleep/wake or a port unreliable, so the build says which case it is."""
+    chosen = {getattr(k, "name", "") for k in (kexts or ()) if getattr(k, "checked", False)}
+    if "UTBMap" in chosen:
+        return "mapped"
+    if "UTBDefault" in chosen:
+        return "default"
+    return "none"
+
+
 def check(src):
     """Raises Refused with the reason when `src` is not a usable USBToolBox map; returns the bundle's Info.plist."""
     if not os.path.isdir(src) or os.path.islink(src):
