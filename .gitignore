@@ -12,3 +12,8 @@ out/
 # dev environment + Rust build output
 .venv/
 loader/target/
+# project-local .NET SDK so the pinned global.json SDK never changes the machine
+.dotnet/
+.dotnet-setup/
+windows/App/obj/
+windows/App/bin/
