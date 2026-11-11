@@ -43,25 +43,25 @@
 
 | 文件 | SHA-256 |
 |---|---|
-| `out/release-artifact/1401-Windows-2.9.1.zip` | 见下方“打包后填写” |
+| `out/release-artifact/1401-Windows-2.9.1.zip` | `e4a8bfba7f1f4b0238e54374386e96786a51fcbd160ff4a0a947cb6c8302f9f9`（95,383,699 bytes） |
 | `out/huawei-efi-release/EFI/OC/config.plist` | `f1b65f6bceac80c1d3f986d898664746ecc36e3cab2ec1d31b536a83f7865bc5` |
 | `out/huawei-efi-release/EFI/OC/OpenCore.efi` | `5af6acdaabdf02f8727fd3ee2aac3ae8388f4059ce939970e167a503d12aa82a` |
 
-> 打包产物的 SHA-256 以 `reports/logs/release-package.log` 和 `reports/tests/02-回归与构建验证.md` 的最终记录为准。
+同一目录另有 `SHA256SUMS.txt` 与 `windows-verification.json`（`ok=true`，版本 2.9.1，打包回归 1214 项 0 失败 0 跳过）。
 
 ## 3. 验证状态
 
 | 项 | 状态 |
 |---|---|
 | Windows Release 构建 | 成功，0 warning/0 error |
-| Python 全量测试 | 1190 项，0 失败，10 跳过 |
+| Python 全量测试 | 1190 项，0 失败，8 跳过 |
 | 官方 corpus（x570 + optiplex） | 2/2 OK，ocvalidate 0 问题 |
 | 真实 MateBook EFI 生成 | ok=true，23 kext 名称/30 条目，11 ACPI，5 驱动 |
 | EFI `ocvalidate` | 0 问题 |
 | EFI 文件级检查 | ok=true，错误 0 |
 | Recovery 完整镜像 | 960,530,321 B，92/92 块，读回 0 差异 |
 | 完整安装器目录/URL/Range | 已验证；18 GB 未下载 |
-| 打包运行时验证 | 见 `reports/tests/windows-verification.json` |
+| 打包运行时验证 | **通过**：ok=true，2.9.1，回归 1214 项 0 失败 0 跳过，GUI 自检通过 |
 | 真实 macOS 启动/安装 | **未验证**（需授权写盘+重启） |
 
 ## 4. 华为硬件结论（摘要）

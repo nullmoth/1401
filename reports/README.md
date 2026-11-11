@@ -18,7 +18,8 @@
 - 已用官方引擎为真实扫描生成 OpenCore EFI：SMBIOS `MacBookPro16,2`，23 个 kext 名称（30 个 Kernel/Add 条目含插件），11 个 ACPI 表，5 个驱动；`ocvalidate` 0 问题。
 - 已修复 6 类可复现问题（P0 擦盘身份、Windows 参数拼接、大容量盘确认、完整安装器 416/越界、Recovery 擦盘前校验、依赖缓存不可写），每项有独立提交与回归测试。
 - 华为适配：A7A0 已由生成器选中 WhateverXe；AX211/itlwm 的安装器联网判定已修正；UTBDefault 无 map 已明确报告；TPD0/TPL1 已分开说明；TBU405Pro 外置盘已标记为“非安装目标”。
-- 完整测试：**1190 项，0 失败，8 项环境/可选依赖跳过**（OpenCore 1.0.8 归档、可选驱动包、DSDT 语料等）。
+- 完整测试：**1190 项，0 失败，8 项环境/可选依赖跳过**（OpenCore 1.0.8 归档、可选驱动包、DSDT 语料等）；官方打包门禁**通过**（ok=true，2.9.1，打包回归 1214 项 0 失败 0 跳过）。
+- 发布产物：`out/release-artifact/1401-Windows-2.9.1.zip`，95,383,699 bytes，SHA-256 `e4a8bfba7f1f4b0238e54374386e96786a51fcbd160ff4a0a947cb6c8302f9f9`。
 - 未验证/外部边界：真实 macOS 启动与安装、WhateverXe 图形加速、AX211 在 macOS 下的 Wi-Fi、I2C 触摸板/触摸屏、USB 外置盘 UASP/睡眠唤醒、18 GB 完整安装器实际下载与可启动介质、标准 Apple `createinstallmedia` 离线盘（需 macOS）。
 - 未执行任何真实磁盘写入：aigo U350、ACASIS TBU405Pro、WD SN740 均未修改。
 
@@ -30,7 +31,7 @@
 | `bugs/` | GitHub 历史问题审计、已修复清单、未修复与阻塞 |
 | `hardware/` | 真实硬件扫描、适配矩阵、EFI 生成与文件级验证 |
 | `recovery/` | Recovery 下载/校验证据、EXITBS 与 root_hash 分析、完整安装器边界 |
-| `tests/` | T0–T6 测试体系、1188 项测试结果、构建与打包验证 |
+| `tests/` | T0–T6 测试体系、1190 项测试结果、构建与打包验证 |
 | `releases/` | 版本说明、回滚方案、上游同步操作说明 |
 | `logs/` | 原始命令日志（构建、测试、扫描、验证） |
 
