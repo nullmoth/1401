@@ -1,15 +1,15 @@
-"""Writes the 1401 installer USB on Windows: GPT, one FAT32 partition, EFI/ and com.apple.recovery.boot/.
+"""Writes the 1401 installer USB on Windows: MBR, one active FAT32 partition, EFI/ and com.apple.recovery.boot/.
 
 This is the only part of 1401 that erases anything, so all the safety checks live here and not in the UI:
   - USB only. Never the boot disk, the system disk, an offline or read-only disk, or anything under 2 GiB.
   - Over 256 GiB needs allow_large (a USB drive that big is usually somebody's backup drive).
-  - The PowerShell checks the disk again (number, serial, size, model) right before Clear-Disk, in the same
-    run. If the stick gets pulled and another one plugged in, the new one can get the same disk number.
+  - The disk is re-identified by serial, size and model inside the destructive operation itself: the raw erase asks
+    the open PhysicalDrive what it is before dropping the partition table, and a diskpart fallback that cannot find
+    the stick again stops instead of reusing the old number.
+  - A disk that holds an APFS, HFS+ or Windows recovery partition needs a second, explicit confirmation.
 
-Layout follows Dortania's Windows guide (diskpart clean / convert gpt / create partition primary / format fs=fat32).
-The partition is capped at 16 GiB since Windows won't format FAT32 over 32 GiB. EFI + recovery need about 1 GiB.
-
-NOT TESTED ON WINDOWS YET. So far the script and its checks have only been tested on macOS against fake disks.
+Layout follows Dortania's Windows guide (clean, MBR, one active FAT32 partition). The partition is capped at 16 GiB
+since Windows won't format FAT32 over 32 GiB. EFI + recovery need about 1 GiB.
 """
 import json
 import os
@@ -650,7 +650,7 @@ if (-not $letter -and $p) {{
 if (-not $letter -and $p) {{
   $dp = Join-Path $env:TEMP ('1401-assign-' + [guid]::NewGuid().ToString() + '.txt')
   Set-Content -Path $dp -Encoding ASCII -Value ("select disk " + $p.DiskNumber + "`r`nselect partition 1`r`nassign`r`n")
-  & (Join-Path $env:SystemRoot 'System32\diskpart.exe') /s $dp | Out-Null
+  & (Join-Path $env:SystemRoot 'System32\\diskpart.exe') /s $dp | Out-Null
   Remove-Item $dp -ErrorAction SilentlyContinue
   Start-Sleep 2; Update-HostStorageCache; $p = Get-Partition -DiskNumber $p.DiskNumber -PartitionNumber 1 -ErrorAction SilentlyContinue; $letter = Letter-Of $p
 }}

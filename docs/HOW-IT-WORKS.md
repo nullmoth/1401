@@ -12,7 +12,7 @@ four steps of the app through the code.
 ```
 1401\
   1401.exe              the window (C#, .NET Framework 4.8, WinForms)            [windows/App/]
-  engine\python\        embedded Python 3.12 for Windows, with wmi, pywin32, certifi
+  engine\python\        embedded Python 3.13 for Windows, with wmi, pywin32, certifi
   engine\app\p1401\     the engine: every step the window runs                   [p1401/]
   engine\app\upstream\  OpCore-Simplify and Hardware Sniffer (pinned copies), bin\acpidump.exe, Scripts\iasl.exe
   NullMoth\             the NVIDIA driver package and the 1401 Mac app (copied to the stick for after the install)
@@ -45,7 +45,9 @@ A folder from an earlier build is cleared first (read-only flags included).
   system's boot arguments alone.
 
 `p1401/validate.py` checks the result with OpenCore's own `ocvalidate` (downloaded from the same OpenCore release the EFI
-was built from, checked by SHA-256) plus 1401's file checks. A validator that cannot run is a failure, not a pass.
+was built from, checked by SHA-256) plus 1401's file checks. If Windows application control blocks `ocvalidate` itself
+(error 4551), the config is checked against `Sample.plist` from the same verified OpenCore release instead and the
+result records that fallback; any other validator failure is a failure, not a pass.
 
 ## 4. Your BIOS steps (`p1401.guide`)
 
@@ -69,7 +71,7 @@ Reads the report and the built config and writes an HTML page with this board's 
 
 ## 6. When something fails
 
-If a build fails, 1401 shows the reason and saves `%LOCALAPPDATA%\NullMoth\1401\build-log.txt`. It then tells you it is
+If a build fails, 1401 shows the reason and saves a timestamped report under `%LOCALAPPDATA%\NullMoth\1401\diagnostic-reports`. It then tells you it is
 sending that log to nullmothsystems.com (the Windows user name and PC name are removed first) and sends it when you click
 OK; Cancel keeps it on the PC only. A stick made by 1401 also has OpenCore write its own log, Apple's boot log and any macOS
 panic onto the stick. If macOS does not start, boot back into Windows and open 1401: it finds those files on the stick and,
