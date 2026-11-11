@@ -67,6 +67,8 @@ v0.4.1 包必须在 macOS 启动后由 1401 Mac App 安装；而且 b00t0x 只�
   `out/huawei-efi-release/EFI/OC/config.plist`（`csr-active-config = 03 00 00 00`）。
 - 用新增 WEX 检查跑发布示例 EFI：`reports/hardware/efi-file-check-release-whateverxe.json`，只有
   `SIP includes 0x803: 0x0003` 与 `MinKernel: 20.0.0` 两项失败。
+- 发布资产内的旧逻辑：`1401-Windows-2.9.1.zip` → `1401/engine/app/p1401/policy.py:660-661`；
+  `1401/NullMoth/1401-Mac-2.9.zip` → `nullmoth-setup.sh:1408`（没有本次的 SIP 前置保护）。
 - 发布示例 EFI 的 WhateverXe：`reports/hardware/efi-file-check-release.json:161,256`；kext 版本 0.8.0。
 - 候选 EFI 的 WEX 下载与 SHA 校验：`out/huawei-efi-whateverxe-audit-build.json` 的构建上下文
   （`WhateverXe-0.8.0-RELEASE.zip`、`AMFIPass-v1.4.1-Mod-RELEASE.zip`，均 `Checksum verified successfully`）。
