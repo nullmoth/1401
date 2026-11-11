@@ -2,6 +2,8 @@
 
 - **版本**：2.9.1（Windows 应用 `AssemblyVersion/FileVersion` 2.9.1.0）
 - **基线**：官方 `nullmoth/1401` v2.9 = `03c79ef772f6142d59eb5203ce0efa98845bd0ba`
+- **标签**：`v2.9.1-huawei.1`（指向发布提交 `f64286e`）
+- **Release**：<https://github.com/a137460387/1401/releases/tag/v2.9.1-huawei.1>
 - **日期**：2026-11-11
 - **性质**：自有 Fork 的稳定开发版本；面向 Huawei MateBook X Pro 2023（MRGFG-XX，i7-1360P，Iris Xe A7A0，AX211）
 

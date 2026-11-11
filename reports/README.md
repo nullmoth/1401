@@ -16,7 +16,8 @@
 - 已在 Windows 11 原生环境构建 `1401.exe`（.NET SDK 8.0.425，net48/WinForms），版本 2.9.1。
 - 已对真实 MateBook 执行官方硬件扫描，生成 `out/huawei-scan/Report.json` 与 ACPI 表（含 DSDT）。
 - 已用官方引擎为真实扫描生成 OpenCore EFI：SMBIOS `MacBookPro16,2`，23 个 kext 名称（30 个 Kernel/Add 条目含插件），11 个 ACPI 表，5 个驱动；`ocvalidate` 0 问题。
-- 已修复 6 类可复现问题（P0 擦盘身份、Windows 参数拼接、大容量盘确认、完整安装器 416/越界、Recovery 擦盘前校验、依赖缓存不可写），每项有独立提交与回归测试。
+- 已修复 11 类可复现问题（P0 擦盘身份、Windows 参数拼接、大容量盘确认、完整安装器 416/越界、Recovery 擦盘前校验、依赖缓存不可写、校验缓存选择、Windows UI 安全默认值、打包 SDK/隐私/自检工具、自检夹具、完整安装器首分区全局变量），每项有独立提交与回归测试。
+- 发布：标签 `v2.9.1-huawei.1`；GitHub Release <https://github.com/a137460387/1401/releases/tag/v2.9.1-huawei.1>，资产 `1401-Windows-2.9.1.zip`（SHA-256 `e4a8bfba…`）、`SHA256SUMS.txt`、`windows-verification.json`。
 - 华为适配：A7A0 已由生成器选中 WhateverXe；AX211/itlwm 的安装器联网判定已修正；UTBDefault 无 map 已明确报告；TPD0/TPL1 已分开说明；TBU405Pro 外置盘已标记为“非安装目标”。
 - 完整测试：**1190 项，0 失败，8 项环境/可选依赖跳过**（OpenCore 1.0.8 归档、可选驱动包、DSDT 语料等）；官方打包门禁**通过**（ok=true，2.9.1，打包回归 1214 项 0 失败 0 跳过）。
 - 发布产物：`out/release-artifact/1401-Windows-2.9.1.zip`，95,383,699 bytes，SHA-256 `e4a8bfba7f1f4b0238e54374386e96786a51fcbd160ff4a0a947cb6c8302f9f9`。
