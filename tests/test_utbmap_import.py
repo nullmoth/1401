@@ -81,16 +81,17 @@ class UtbMapImport(unittest.TestCase):
             self.assertTrue(why.split()[-1] in str(cm.exception) or why.split()[0] in str(cm.exception), (why, str(cm.exception)))
 
     def test_a_link_is_refused(self):
+        # Branch-level test: a real symlink needs SeCreateSymbolicLinkPrivilege on Windows. The map's regular file is
+        # reported as a link for this call, so the refusal path runs on every machine.
+        from unittest import mock
         t = tempfile.mkdtemp()
-        link = make_map(t, "D.kext")
-        try:
-            os.symlink("/etc/hosts", os.path.join(link, "Contents", "hosts"))
-        except OSError as e:
-            if getattr(e, 'winerror', None) == 1314:
-                self.skipTest("this Windows session cannot make symlinks (Developer Mode / SeCreateSymbolicLinkPrivilege)")
-            raise
-        with self.assertRaises(utbmap.Refused) as cm:
-            utbmap.check(link)
+        folder = make_map(t, "D.kext")
+        hosts = os.path.join(folder, "Contents", "hosts")
+        open(hosts, "wb").close()
+        real = os.path.islink
+        with mock.patch("os.path.islink", lambda p: True if os.path.normcase(p) == os.path.normcase(hosts) else real(p)):
+            with self.assertRaises(utbmap.Refused) as cm:
+                utbmap.check(folder)
         self.assertIn("link", str(cm.exception))
 
     def test_a_build_without_usbtoolbox_does_not_take_a_map_it_cannot_load(self):

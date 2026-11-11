@@ -87,14 +87,12 @@ class FirmwareReview(unittest.TestCase):
         with self.assertRaises(guide.GuideError): guide.load_prerequisite(self.report, TOKEN)
 
     def test_a_symlinked_report_refuses(self):
-        link = self.root / 'link.json'
-        try:
-            link.symlink_to(self.report)
-        except OSError as e:
-            if getattr(e, 'winerror', None) == 1314:
-                self.skipTest("this Windows session cannot make symlinks (Developer Mode / SeCreateSymbolicLinkPrivilege)")
-            raise
-        with self.assertRaises(guide.GuideError): guide.load_prerequisite(link, TOKEN)
+        # Branch-level test: creating a real symlink needs SeCreateSymbolicLinkPrivilege on Windows, but the
+        # refusal itself is what matters and must run everywhere.
+        from unittest import mock
+        with mock.patch("pathlib.Path.is_symlink", lambda self: True):
+            with self.assertRaises(guide.GuideError):
+                guide.load_prerequisite(self.report, TOKEN)
 
     def test_storage_observation_is_not_current_mode_or_boot_drive_claim(self):
         text = self.text()
