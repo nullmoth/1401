@@ -160,3 +160,37 @@ class Policy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VerifyEfiMinKernel(unittest.TestCase):
+    """scripts/verify_efi.py mirrors policy: only a Darwin 25 (Tahoe) build must carry WhateverXe MinKernel 25.7.0."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("verify_efi", ROOT / "scripts" / "verify_efi.py")
+        cls.v = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.v)
+
+    def test_darwin_major_parses_the_forms_1401_uses(self):
+        self.assertEqual(self.v.darwin_major("25"), 25)
+        self.assertEqual(self.v.darwin_major("24.6.0"), 24)
+        self.assertIsNone(self.v.darwin_major(None))
+        with self.assertRaises(SystemExit):
+            self.v.darwin_major("Tahoe")
+
+    def test_tahoe_requires_25_7_0(self):
+        self.assertTrue(self.v.wex_minkernel_check("25.7.0", 25)[1])
+        self.assertFalse(self.v.wex_minkernel_check("", 25)[1])
+        self.assertFalse(self.v.wex_minkernel_check("25.0.0", 25)[1])
+
+    def test_sequoia_keeps_the_engine_value(self):
+        name, ok, _, warning = self.v.wex_minkernel_check("", 24)
+        self.assertTrue(ok)
+        self.assertIsNone(warning)
+        self.assertNotIn("25.7.0", name)
+
+    def test_unknown_target_warns_instead_of_failing(self):
+        _, ok, _, warning = self.v.wex_minkernel_check("", None)
+        self.assertTrue(ok)
+        self.assertIn("--macos 25", warning)

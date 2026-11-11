@@ -2,6 +2,8 @@
 """File-level verification of a built EFI against the scan and the Huawei expectations. Read-only.
 
     .venv/Scripts/python.exe scripts/verify_efi.py out/huawei-efi-final3 --json-out reports/hardware/efi-file-check.json
+    .venv/Scripts/python.exe scripts/verify_efi.py out/huawei-efi --macos 25    # a Tahoe (Darwin 25) build
+    .venv/Scripts/python.exe scripts/verify_efi.py out/huawei-efi --macos 24    # a Sequoia (Darwin 24) build
 
 This checks what is on disk: required files, every kext/ACPI/driver entry resolves, the config's hardware choices match
 the scan, and OpenCore's own ocvalidate passes. It does not claim a boot: a real Mac/macOS run is separate.
@@ -28,15 +30,43 @@ def sha256(path):
     return h.hexdigest()
 
 
+def darwin_major(macos):
+    """The Darwin major of a build target as 1401 passes it (--macos 25, 25.7.0, 24.6.0); None when not given."""
+    if macos is None or str(macos).strip() == "":
+        return None
+    try:
+        return int(str(macos).strip().split(".")[0])
+    except ValueError:
+        raise SystemExit(f"--macos must be a Darwin version such as 25 or 24.6.0, not {macos!r}")
+
+
+def wex_minkernel_check(min_kernel, darwin):
+    """(name, ok, detail, warning) for WhateverXe's MinKernel, mirroring policy.apply: only a Darwin 25 (Tahoe) build
+    gets MinKernel 25.7.0 (WhateverXe 0.8.0 supports 26.7+, not every 26.x). Sequoia and older keep the engine's
+    value, so requiring 25.7.0 there would fail a correct EFI. Without --macos the target is unknown on disk, so the
+    value is recorded and a warning says how to enforce it."""
+    value = str(min_kernel or "")
+    if darwin == 25:
+        return ("WhateverXe Tahoe MinKernel is 25.7.0", value == "25.7.0", value, None)
+    if darwin is not None:
+        return (f"WhateverXe MinKernel left to the engine (Darwin {darwin}, not Tahoe)", True, value, None)
+    return ("WhateverXe MinKernel (target macOS not given)", True, value,
+            "WhateverXe MinKernel was not enforced: pass --macos 25 for a Tahoe build (requires 25.7.0) "
+            "or --macos 24 for Sequoia")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("efi")
     parser.add_argument("--json-out")
+    parser.add_argument("--macos", help="target Darwin version the EFI was built for (25 = Tahoe, 24 = Sequoia); "
+                                        "enables the Tahoe-only WhateverXe MinKernel 25.7.0 check")
     args = parser.parse_args()
+    darwin = darwin_major(args.macos)
     root = os.path.abspath(args.efi)
     oc = os.path.join(root, "EFI", "OC")
     cfg_path = os.path.join(oc, "config.plist")
-    out = {"ok": False, "efi": root, "checks": [], "errors": []}
+    out = {"ok": False, "efi": root, "macos": args.macos, "checks": [], "errors": [], "warnings": []}
 
     def check(name, condition, detail=""):
         out["checks"].append({"check": name, "ok": bool(condition), "detail": detail})
@@ -83,7 +113,10 @@ def main():
     wex = next((k for k in add if k.get("BundlePath") == "WhateverXe.kext"), None)
     if wex is not None:
         check("WhateverXe is enabled", wex.get("Enabled") is True)
-        check("WhateverXe Tahoe MinKernel is 25.7.0", wex.get("MinKernel") == "25.7.0", str(wex.get("MinKernel")))
+        name, ok, detail, warning = wex_minkernel_check(wex.get("MinKernel"), darwin)
+        check(name, ok, detail)
+        if warning:
+            out["warnings"].append(warning)
         enabled_paths = [k.get("BundlePath") for k in add if k.get("Enabled")]
         check("Lilu is enabled before WhateverXe",
               "Lilu.kext" in enabled_paths and "WhateverXe.kext" in enabled_paths

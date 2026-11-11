@@ -59,9 +59,11 @@ scripts\run-tests.cmd          # 全量；自动加载 MSVC 环境
 验证：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\verify_efi.py out\huawei-efi --json-out reports\hardware\efi-file-check.json
+.\.venv\Scripts\python.exe scripts\verify_efi.py out\huawei-efi --macos 24 --json-out reports\hardware\efi-file-check.json
 .\.venv\Scripts\python.exe scripts\verify_recovery.py --json-out reports\recovery\verification.json
 ```
+
+`--macos` 填构建时的 Darwin 主版本（24 = Sequoia 15，25 = Tahoe 26）。只有 25 时才要求 WhateverXe `MinKernel=25.7.0`；不填时该项只记录并给出警告。
 
 ## 安全边界
 
