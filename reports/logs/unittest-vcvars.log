@@ -1,0 +1,162 @@
+D:\code\Ai\1401\p1401\usbwriter.py:675: SyntaxWarning: invalid escape sequence '\d'
+  except UsbError as e:
+.......s.......................................................................................................................................................................................................................................................................s.......................................................................s.....................................................s...................................................................................................E......................................................................................................................................................................s...........................................................................................s...........................................s.....................................................s..............................................................................................................................................................EEF.F.........................................................E........................................................................................EF..........................
+======================================================================
+ERROR: test_symlink_oversized_and_non_dictionary_reports_refuse (tests.test_firmware_guide.FirmwareReview.test_symlink_oversized_and_non_dictionary_reports_refuse)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_firmware_guide.py", line 84, in test_symlink_oversized_and_non_dictionary_reports_refuse
+    link = self.root / 'link.json'; link.symlink_to(self.report)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\HUAWEI\AppData\Local\Programs\Python\Python312\Lib\pathlib.py", line 1386, in symlink_to
+    os.symlink(target, self, target_is_directory)
+OSError: [WinError 1314] 客户端没有所需的特权。: 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmpro2fbu8a\\Report.json' -> 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmpro2fbu8a\\link.json'
+
+======================================================================
+ERROR: test_a_partition_windows_never_showed_gets_a_diskpart_erase_and_a_second_look (tests.test_system_tools.PartitionNotShown.test_a_partition_windows_never_showed_gets_a_diskpart_erase_and_a_second_look)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 674, in write
+    out = _ps(script)
+          ^^^^^^^^^^^
+  File "D:\code\Ai\1401\tests\test_system_tools.py", line 70, in ps
+    raise usbwriter.UsbError("1401: the stick was erased but Windows did not show its new partition. Unplug")
+p1401.usbwriter.UsbError: 1401: the stick was erased but Windows did not show its new partition. Unplug
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_system_tools.py", line 81, in test_a_partition_windows_never_showed_gets_a_diskpart_erase_and_a_second_look
+    usbwriter.write(PICK, tempfile.mkdtemp(), {})
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 692, in write
+    _diskpart(diskpart_script({**disk, "Number": n}, letter))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 413, in diskpart_script
+    n, size = int(disk["Number"]), int(disk["Size"])
+              ^^^^^^^^^^^^^^^^^^^
+TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'
+
+Stdout:
+(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)
+(the format error was: 1401: the stick was erased but Windows did not show its new partition. Unplug)
+
+======================================================================
+ERROR: test_a_volume_windows_could_not_format_gets_a_diskpart_erase (tests.test_system_tools.PartitionNotShown.test_a_volume_windows_could_not_format_gets_a_diskpart_erase)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 674, in write
+    out = _ps(script)
+          ^^^^^^^^^^^
+  File "D:\code\Ai\1401\tests\test_system_tools.py", line 90, in ps
+    raise usbwriter.UsbError("Format-Volume: Invalid Parameter; format.com: Invalid media or Track 0 bad - disk unusable.")
+p1401.usbwriter.UsbError: Format-Volume: Invalid Parameter; format.com: Invalid media or Track 0 bad - disk unusable.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_system_tools.py", line 101, in test_a_volume_windows_could_not_format_gets_a_diskpart_erase
+    usbwriter.write(PICK, tempfile.mkdtemp(), {})
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 692, in write
+    _diskpart(diskpart_script({**disk, "Number": n}, letter))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 413, in diskpart_script
+    n, size = int(disk["Number"]), int(disk["Size"])
+              ^^^^^^^^^^^^^^^^^^^
+TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'
+
+Stdout:
+(Windows could not format the erased stick; erasing it with Windows' diskpart instead)
+(the format error was: Format-Volume: Invalid Parameter; format.com: Invalid media or Track 0 bad - disk unusable.)
+
+======================================================================
+ERROR: test_each_kind_of_wrong_folder_is_refused_with_its_reason (tests.test_utbmap_import.UtbMapImport.test_each_kind_of_wrong_folder_is_refused_with_its_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_utbmap_import.py", line 78, in test_each_kind_of_wrong_folder_is_refused_with_its_reason
+    os.symlink("/etc/hosts", os.path.join(link, "Contents", "hosts"))
+OSError: [WinError 1314] 客户端没有所需的特权。: '/etc/hosts' -> 'C:\\Users\\HUAWEI\\AppData\\Local\\Temp\\tmpqew_m7xd\\D.kext\\Contents\\hosts'
+
+======================================================================
+ERROR: test_the_erase_is_diskpart_alone_and_never_a_storage_cmdlet (tests.test_wmi_disk_fallback.WmiWrite.test_the_erase_is_diskpart_alone_and_never_a_storage_cmdlet)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 734, in _write_wmi_erase
+    actual = rawdisk.read_identity(int(disk["Number"]))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\p1401\rawdisk.py", line 199, in read_identity
+    h = _open(k, rf"\\.\PhysicalDrive{int(disk)}", access=GENERIC_READ)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\p1401\rawdisk.py", line 56, in _open
+    raise DiskError(f"cannot open {path} (Windows error {ctypes.get_last_error()})")
+p1401.rawdisk.DiskError: cannot open \\.\PhysicalDrive3 (Windows error 2)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_wmi_disk_fallback.py", line 119, in test_the_erase_is_diskpart_alone_and_never_a_storage_cmdlet
+    root = usbwriter._write_wmi_erase(d, erase_os=False)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\code\Ai\1401\p1401\usbwriter.py", line 736, in _write_wmi_erase
+    raise UsbError(f"could not read disk {disk['Number']} to confirm it is the picked stick before erasing it ({e}). "
+p1401.usbwriter.UsbError: could not read disk 3 to confirm it is the picked stick before erasing it (cannot open \\.\PhysicalDrive3 (Windows error 2)). Nothing was erased.
+
+======================================================================
+FAIL: test_after_diskpart_the_letter_it_assigned_is_used_without_searching_again (tests.test_system_tools.PartitionNotShown.test_after_diskpart_the_letter_it_assigned_is_used_without_searching_again)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_system_tools.py", line 151, in test_after_diskpart_the_letter_it_assigned_is_used_without_searching_again
+    self.assertEqual(calls[-2:], ["release", "diskpart"])
+AssertionError: Lists differ: ['ps', 'release'] != ['release', 'diskpart']
+
+First differing element 0:
+'ps'
+'release'
+
+- ['ps', 'release']
++ ['release', 'diskpart']
+
+Stdout:
+(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)
+(the format error was: 1401: the stick was erased but Windows did not show its new partition. Unplug)
+
+======================================================================
+FAIL: test_a_stick_refusing_raw_writes_is_erased_with_diskpart (tests.test_system_tools.RawWriteFallback.test_a_stick_refusing_raw_writes_is_erased_with_diskpart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_system_tools.py", line 54, in test_a_stick_refusing_raw_writes_is_erased_with_diskpart
+    self.assertIn("diskpart", calls)
+AssertionError: 'diskpart' not found in ['ps', 'ps']
+
+Stdout:
+(this stick refuses direct writes; erasing it with Windows' diskpart instead)
+
+======================================================================
+FAIL: test_write_takes_the_wmi_route_for_a_wmi_disk (tests.test_wmi_disk_fallback.WmiWrite.test_write_takes_the_wmi_route_for_a_wmi_disk)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tests\test_wmi_disk_fallback.py", line 142, in test_write_takes_the_wmi_route_for_a_wmi_disk
+    self.assertEqual(usbwriter.write(d, "efi", {}), {"root": "Q:\\"})
+AssertionError: {'root': 'Q:\\', 'number': 3} != {'root': 'Q:\\'}
+- {'number': 3, 'root': 'Q:\\'}
++ {'root': 'Q:\\'}
+
+----------------------------------------------------------------------
+Ran 1186 tests in 54.173s
+
+FAILED (failures=3, errors=5, skipped=8)
+
+Stdout:
+(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)
+(the format error was: 1401: the stick was erased but Windows did not show its new partition. Unplug)
+
+Stdout:
+(Windows could not format the erased stick; erasing it with Windows' diskpart instead)
+(the format error was: Format-Volume: Invalid Parameter; format.com: Invalid media or Track 0 bad - disk unusable.)
+
+Stdout:
+(Windows did not pick up the erased stick; erasing it with Windows' diskpart and looking again)
+(the format error was: 1401: the stick was erased but Windows did not show its new partition. Unplug)
+
+Stdout:
+(this stick refuses direct writes; erasing it with Windows' diskpart instead)
+EXIT:1

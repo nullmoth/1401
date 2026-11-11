@@ -1,0 +1,15 @@
+z490-vision-g                      ab494696  FAILED URLError: <urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1010)>
+esprimo-q958                       18f5164d  ok report + 28 ACPI tables
+optiplex-5050-micro                78616d1d  ok report + 32 ACPI tables
+celsius-h760                       d6af7001  ok report + 26 ACPI tables
+dell-3442                          ea9efab3  ok report + 18 ACPI tables
+dell-5530                          8c3a8b97  ok report + 30 ACPI tables
+x570-5800x-6600xt                  a15f8a14  ok report + 26 ACPI tables
+trx40-3960x                        bad6ddd3  ok report + 23 ACPI tables
+dell-e7470                         4b0c179c  ok report + 23 ACPI tables
+thinkpad-t490s                     4c4aff2e  ok report + 32 ACPI tables
+sequoia-generic                    3dd633ab  ok report + 20 ACPI tables
+b660-12900kf                       837d7266  ok report + 0 ACPI tables
+hp-pavilion-15-dk0                 ca2fecc2  ok report + 0 ACPI tables
+lenovo-c640                        0a7088ff  ok report + 0 ACPI tables
+hp-245-g8                          1d082aa5  ok report + 0 ACPI tables

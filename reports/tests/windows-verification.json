@@ -1,0 +1,195 @@
+{
+  "error_type": "RuntimeError",
+  "failed_step": "packaged regression discovery and execution",
+  "failure_locations": [
+    {
+      "file": "check_windows_package.py",
+      "function": "main",
+      "line": 110
+    }
+  ],
+  "native_capture": {
+    "cim_engine": {
+      "fixed_read_only_cim_query": true,
+      "ok": true
+    },
+    "compiled_scan_evidence_binding": true,
+    "cpu_native": {
+      "actual_affinity_restored": true,
+      "actual_location_unavailable": 0,
+      "argument_refused": true,
+      "hardware_support_qualified": false,
+      "helper_sha256": "5e033dd8acaf9cb7b70784da939776724aa74740bc31298c073fc98f1ac23ac4",
+      "packaged_path_owned_worker": true,
+      "sdk_group_parser": {
+        "group_cap_status": true,
+        "group_record_bounds": true,
+        "mask_validation": true
+      },
+      "serial_leaf_excluded": true,
+      "stage_reason": null,
+      "stage_status": "measured",
+      "static_dependencies": [
+        "KERNEL32.DLL"
+      ],
+      "visited": 16
+    },
+    "device_map_native_stages": {
+      "measured": [
+        "platform_role",
+        "devices",
+        "display_paths",
+        "cpu_native",
+        "peripheral_caps",
+        "graphics",
+        "gpu_drivers"
+      ],
+      "partial": [
+        "pci_resources"
+      ],
+      "unavailable": [
+        "nvidia_detail",
+        "bios_settings"
+      ]
+    },
+    "device_map_stage_reasons": {
+      "bios_settings": {
+        "reason": "no documented vendor BIOS provider is installed (Lenovo, HP, Dell); BIOS settings are not observable here",
+        "source": "vendor WMI BIOS provider (read-only CIM query)",
+        "status": "unavailable"
+      },
+      "nvidia_detail": {
+        "reason": "nvml.dll not present in the Windows system directory (not observed)",
+        "source": "NVML (system nvml.dll)",
+        "status": "unavailable"
+      },
+      "pci_resources": {
+        "reason": "PCI function 0: descriptor type not decoded; PCI function 1: descriptor type not decoded; descriptor type not decoded; PCI function 2: descriptor type not decoded; PCI function 3: descriptor type not decoded; descriptor type not decoded; descriptor type not decoded; PCI function 4: descriptor type n",
+        "source": "CfgMgr32 allocated logical configuration (ALLOC_LOG_CONF)",
+        "status": "partial"
+      }
+    },
+    "device_map_windows_sdk_abi": true,
+    "device_nodes": 158,
+    "firmware_resource_job_windows_sdk_abi": true,
+    "graphics_adapters": 3,
+    "isolated_worker": true,
+    "peripheral_components": {
+      "audio": {
+        "observed_count": 2,
+        "reason": null,
+        "source": "WASAPI read-only endpoint mix format",
+        "status": "measured"
+      },
+      "hid": {
+        "observed_count": 9,
+        "reason": null,
+        "source": "SetupAPI + HID descriptor metadata",
+        "status": "measured"
+      },
+      "wifi": {
+        "observed_count": 1,
+        "reason": null,
+        "source": "Native Wi-Fi capability API",
+        "status": "measured"
+      }
+    },
+    "peripheral_sdk": {
+      "actual_sdk_positive": true,
+      "audio_guid_negative_rejected": true,
+      "boolean_width_negative_rejected": true,
+      "runtime_guids_and_hid_bitfield": true
+    },
+    "real_topology_api": true,
+    "signed_system_file_accepted": true,
+    "subprocess_containment": {
+      "descendant_terminated_on_worker_exit": true,
+      "owned_job_verified": true
+    },
+    "topology_matches_active_processors": true,
+    "trust_fixtures": [
+      {
+        "label": "system-powershell",
+        "os_signature_status": "Valid",
+        "os_signature_type": "Catalog",
+        "winverifytrust_hex": "0x800b0100",
+        "winverifytrust_status": -2146762496
+      },
+      {
+        "label": "installed-python",
+        "os_signature_status": "Valid",
+        "os_signature_type": "Authenticode",
+        "winverifytrust_hex": "0x00000000",
+        "winverifytrust_status": 0
+      },
+      {
+        "label": "installed-msvc",
+        "os_signature_status": "Valid",
+        "os_signature_type": "Authenticode",
+        "winverifytrust_hex": "0x00000000",
+        "winverifytrust_status": 0
+      }
+    ],
+    "unsigned_file_rejected": true,
+    "unsigned_status": -2146762749,
+    "unsigned_status_hex": "0x800b0003",
+    "vendor_driver_hardware_qualified": false,
+    "windows_sdk_layouts": {
+      "cache_mask": 40,
+      "file_handle": 16,
+      "file_size": 32,
+      "group_size": 16,
+      "numa_mask": 32,
+      "processor_groups": 30,
+      "processor_mask": 32,
+      "trust_file": 40,
+      "trust_size": 88,
+      "trust_state": 56
+    }
+  },
+  "ok": false,
+  "packaged_module_imports": [
+    "p1401/engine.py",
+    "p1401/acpi_diagnostics.py",
+    "p1401/dependency_cache.py",
+    "p1401/downloads.py",
+    "p1401/kernel_patches.py",
+    "p1401/report.py",
+    "p1401/hwcapture.py",
+    "p1401/machine_handoff.py",
+    "p1401/cpunative.py",
+    "p1401/peripheral_caps.py",
+    "p1401/panel_guard.py",
+    "p1401/mirror.py",
+    "p1401/bootfix.py",
+    "p1401/efidoctor.py",
+    "p1401/diagnose.py"
+  ],
+  "python_version": "3.13.17",
+  "regression_tests": {
+    "errors": 0,
+    "failures": 1,
+    "run": 1214,
+    "skipped": 0,
+    "skipped_tests": []
+  },
+  "runtime_packages": {
+    "WMI": "1.5.1",
+    "certifi": "2026.10.23",
+    "pywin32": "312"
+  },
+  "scope": "Windows packaged startup, dependency imports, regression tests and one public planning fixture; no disk writes or GPU qualification.",
+  "test_failure_locations": [
+    {
+      "frames": [
+        {
+          "file": "test_usb_disk_renumbered.py",
+          "function": "test_both_diskpart_fallbacks_look_the_stick_up_again_and_refuse_a_guess",
+          "line": 37
+        }
+      ],
+      "kind": "failure",
+      "test_id": "tests.test_usb_disk_renumbered.Renumbered.test_both_diskpart_fallbacks_look_the_stick_up_again_and_refuse_a_guess"
+    }
+  ]
+}

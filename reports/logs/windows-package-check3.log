@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "D:\code\Ai\1401\tools\check_windows_package.py", line 174, in <module>
+    main()
+    ~~~~^^
+  File "D:\code\Ai\1401\tools\check_windows_package.py", line 168, in main
+    raise RuntimeError('Windows packaged verification failed: ' + type(error).__name__) from None
+RuntimeError: Windows packaged verification failed: RuntimeError
+EXIT:1

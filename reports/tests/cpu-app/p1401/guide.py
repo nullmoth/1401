@@ -1,0 +1,674 @@
+"""Builds the install guide for one machine: what to do first, which BIOS settings to change on that machine, how
+to boot the stick, and how to install. Input is the scan (Report.json) and the EFI 1401 built (config.plist).
+
+Ask for as few BIOS changes as possible. Each one is a chance to break Windows, so a setting is only listed when
+macOS needs it on this machine, and the guide says "leave it" where the EFI already works around it (read from the
+built config, not assumed). TPM/PTT and SGX are never touched: turning TPM off breaks Windows 11 and BitLocker, and
+macOS doesn't care about either.
+
+Windows problems get fixed before any BIOS change. From the corpus: hp-pavilion-15-dk0 has SATA in RAID mode, and
+switching to AHCI without the safe-mode step leaves Windows failing with INACCESSIBLE_BOOT_DEVICE. A Legacy-mode
+Windows stops booting when CSM goes off. Turning Secure Boot off with BitLocker on asks for the recovery key.
+
+If the scan couldn't see something (BitLocker state, for example), the guide says so and keeps the step.
+
+BIOS facts are checked against the Dortania OpenCore Install Guide, but the wording is our own (that guide is
+CC BY-NC-SA, so none of its text is copied into this GPL-3 project).
+
+    python3 -m p1401.guide <Report.json> <config.plist> [--bitlocker On|Off] [--macos 25]
+    python3 -m p1401.guide <Report.json> <config.plist> --html guide.html [--mark other.jpg]   (default: the NullMoth mark beside this file)
+"""
+import base64
+import html
+import os
+import plistlib
+import re
+import sys
+from dataclasses import dataclass, field
+
+from . import loc, policy
+
+NVRAM_APPLE = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
+HERE = os.path.dirname(os.path.abspath(__file__))
+# Darwin major -> the name Apple ships it under. The engine answers in Darwin versions ("25.99.99").
+MACOS = {19: "macOS Catalina 10.15", 20: "macOS Big Sur 11", 21: "macOS Monterey 12", 22: "macOS Ventura 13",
+         23: "macOS Sonoma 14", 24: "macOS Sequoia 15", 25: "macOS Tahoe 26"}
+
+
+def macos_name(darwin):
+    try:
+        return MACOS.get(int(str(darwin).split(".")[0]), "")
+    except ValueError:
+        return ""
+
+
+class GuideError(RuntimeError):
+    pass
+
+
+@dataclass
+class Setting:
+    name: str            # what the BIOS usually calls it
+    want: str            # the value to set
+    required: bool       # False = recommended
+    why: str
+    now: str = ""        # what the scan saw, when it saw it
+    if_missing: str = field(default_factory=lambda: loc.t("If your BIOS doesn't have this setting, skip it."))
+
+
+@dataclass
+class Step:
+    title: str
+    body: list = field(default_factory=list)  # lines; `command`, **app button** and [[key]] are the only markup
+    blocker: bool = False  # must be done before the BIOS changes
+    settings: list = field(default_factory=list)  # [Setting]: the BIOS step's printout
+
+
+# (setup key, one-time boot menu key). Only vendors whose keys are consistent across their lines are named;
+# anything else gets the generic line instead of a guess that sends someone into the wrong menu.
+KEYS = {
+    "ASUSTEK": {"Desktop": ("Del or F2", "F8"), "Laptop": ("F2", "Esc")},
+    "GIGABYTE": ("Del", "F12"),
+    "MICRO-STAR": ("Del", "F11"),
+    "MSI": ("Del", "F11"),
+    "ASROCK": ("F2 or Del", "F11"),
+    "DELL": ("F2", "F12"),
+    "HP": ("F10", "F9 (or Esc for the startup menu)"),
+    "HEWLETT": ("F10", "F9 (or Esc for the startup menu)"),
+    "LENOVO": ("F1 (ThinkPad/ThinkCentre) or F2 (other Lenovo)", "F12"),
+    "FUJITSU": ("F2", "F12"),
+    "ACER": ("F2", "F12 (turn on 'F12 Boot Menu' in the BIOS first)"),
+}
+
+
+def boot_key_text(key):
+    """One vendor key entry: the key letters are never translated, only the wording around them
+    ("or Esc for the startup menu" and so on), because the letters are what the user presses."""
+    return loc.t(key)
+
+
+def _vendor(mb_name):
+    first = mb_name.split()[0].upper() if mb_name.split() else ""
+    return first if first in KEYS else ""
+
+
+def keys(report):
+    mb = report.get("Motherboard") or {}
+    v = _vendor(mb.get("Name", ""))
+    if not v:
+        return None
+    k = KEYS[v]
+    pair = k.get(mb.get("Platform"), k["Desktop"]) if isinstance(k, dict) else k
+    return tuple(boot_key_text(p) for p in pair)
+
+
+def _storage_trap(report):
+    """RAID/RST/VMD storage: macOS can't see the drives, and Windows needs a safe-mode boot to survive the switch."""
+    hits = [n for n in (report.get("Storage Controllers") or {})
+            if any(t in n.upper() for t in ("RAID", "VOLUME MANAGEMENT", "VMD", "RST "))]
+    return hits
+
+
+def load_prerequisite(report_path, expected_run=None):
+    """Read saved bytes only; an imported report never becomes current-host evidence."""
+    import json
+    import hashlib
+    from pathlib import Path
+    from . import scan_evidence
+    path = Path(report_path)
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 16 * 1024 * 1024:
+        raise GuideError("a bounded regular report is required; run Check this PC again")
+    with path.open("rb") as stream:
+        data = stream.read(16 * 1024 * 1024 + 1)
+    if len(data) > 16 * 1024 * 1024:
+        raise GuideError("report exceeds the firmware review limit")
+    report = json.loads(data)
+    if not isinstance(report, dict):
+        raise GuideError("report must contain a hardware dictionary")
+    evidence = scan_evidence.load_for_report(path)
+    binding = evidence.get("scan_binding") or {}
+    receipt = scan_evidence._read(path.parent / scan_evidence.RECEIPT) or {}
+    bound = (receipt.get("report_sha256") == hashlib.sha256(data).hexdigest()
+             and isinstance(expected_run, str) and scan_evidence.RUN_ID.fullmatch(expected_run)
+             and binding.get("status") == "same_scan_run" and binding.get("scan_status") == "complete"
+             and binding.get("run_id") == expected_run)
+    return report, bool(bound)
+
+
+def build_prerequisite_guide(report, scan_bound=False):
+    """No EFI assumptions or firmware changes: review storage before attempting a build."""
+    steps = [Step(loc.t("Firmware prerequisite review"), [
+        (loc.t("This report matches the completed Check this PC run selected in the app.") if scan_bound else
+         loc.t("This is an imported, changed, incomplete or unbound report. Its contents are not verified observations of this PC. Run Check this PC again before relying on them.")),
+        loc.t("No EFI has been generated by this review. It does not read startup configuration or change firmware, storage, Windows or security settings."),
+        loc.t("This page covers prerequisites only. A completed EFI gets its separate Your BIOS steps guide after a successful build."),
+    ])]
+    storage = report.get("Storage Controllers")
+    if isinstance(storage, dict):
+        names = [n[:160] for n in storage if isinstance(n, str) and any(t in n.upper() for t in ("RAID", "VOLUME MANAGEMENT", "VMD", "RST "))][:64]
+    else:
+        names = []
+    if names:
+        steps.append(Step(loc.t("Review the reported storage controllers"), [
+            loc.f("The report lists: {}. Controller names do not establish which drive uses them or the current firmware mode.", ", ".join(names)),
+            (loc.t("Intel VMD is a storage prerequisite that this builder cannot handle. A firmware change or a supported alternate storage path may be needed; a software update does not establish support.") if scan_bound and any("VMD" in n.upper() or "VOLUME MANAGEMENT" in n.upper() for n in names) else
+             loc.t("Confirm the controller and storage mode against a fresh scan and the exact system's documentation before proceeding.")),
+        ], blocker=True))
+    steps.extend([
+        Step(loc.t("Protect Windows before changing storage"), [
+            loc.t("Back up important files and prepare Windows recovery media. Save and verify the BitLocker or device-encryption recovery key before any firmware or storage change; if encryption status is unknown, treat the key as required."),
+            loc.t("Do not simply switch storage mode. Windows may stop with INACCESSIBLE_BOOT_DEVICE, and RAID or Optane volumes can lose access to data."),
+            loc.t("Use the PC or motherboard vendor's documented migration procedure for the exact model, firmware revision and drive arrangement. It must address existing RAID/Optane volumes and Windows boot-driver preparation. A generic Safe Mode sequence is not a verified procedure for every system."),
+            loc.t("If the vendor does not document a safe migration or the required setting is unavailable, stop and ask its support team. This app does not run migration commands or change security settings."),
+        ], blocker=True),
+        Step(loc.t("Check the exact firmware documentation"), [
+            loc.t("Use the exact board or PC manual to identify its storage controls. Menu names, supported modes and affected ports have not been verified by this scan; this page does not guess them."),
+            loc.t("After a documented migration, verify that Windows boots normally and storage remains accessible. Then return to Check this PC and run a fresh scan before attempting Build again."),
+            loc.t("This review does not authorize creating or erasing a macOS stick. Complete a successful EFI build first."),
+        ]),
+    ])
+    return steps
+
+
+def bios_settings(report, config, disabled_devices=None):
+    cpu = report.get("CPU") or {}
+    intel = "Intel" in (cpu.get("Manufacturer") or "")
+    bios = report.get("BIOS") or {}
+    from . import nullmoth
+    gpus = {n: g for n, g in (report.get("GPU") or {}).items()
+            if isinstance(g, dict) and not nullmoth.gpu_disabled(n, g, disabled_devices or {})}
+    dgpu = [n for n, g in gpus.items() if g.get("Device Type") == "Discrete GPU"]
+    igpu_intel = any(g.get("Device Type") == "Integrated GPU" and g.get("Manufacturer") == "Intel" for g in gpus.values())
+    kq = ((config.get("Kernel") or {}).get("Quirks")) or {}
+    boot_args = (((config.get("NVRAM") or {}).get("Add") or {}).get(NVRAM_APPLE) or {}).get("boot-args", "")
+    s = []
+
+    sb = bios.get("Secure Boot", "")
+    asus = _vendor((report.get("Motherboard") or {}).get("Name", "")) == "ASUSTEK"
+    s.append(Setting(loc.t("Secure Boot"), loc.t("Off"), True,
+                     loc.t("The macOS stick isn't signed by Microsoft, so a PC with Secure Boot on refuses to start it."),
+                     now=(loc.t("already off, nothing to change") if sb == "Disabled" else
+                          loc.f("currently {}", sb) if sb else loc.t("the scan couldn't read it")),
+                     if_missing=loc.t("It's usually on a Boot or Security tab.") +
+                                (loc.t(" On ASUS boards, set Boot -> Secure Boot -> OS Type to 'Other OS'.") if asus else "")))
+    s.append(Setting(loc.t("CSM (Compatibility Support Module / Legacy boot)"), loc.t("Off"), True,
+                     loc.t("macOS starts only in pure UEFI mode. With CSM on, graphics often stall during boot.")))
+    s.append(Setting(loc.t("Fast Boot (in the BIOS, not Windows)"), loc.t("Off"), False,
+                     loc.t("Fast Boot can skip USB setup, so the PC never sees the stick.")))
+    a4g = bios.get("Above 4G Decoding", "")
+    # A GeForce RTX build carries the NullMoth driver's boot arguments. That driver needs the card's large memory window:
+    # it moves BAR1 above 4 GB and arms the display only when BAR1 is 4 GB or more. With Above 4G or Resizable BAR off,
+    # macOS installs fine but, once the driver is in, the screen stays on the startup text (measured 10-07, RTX 5060).
+    nv = "nvfb=1" in boot_args.split()
+    if nv:
+        s.append(Setting(loc.t("Above 4G Decoding"), loc.t("On"), True,
+                         loc.t("Required by the NVIDIA driver: it maps the card's full memory above 4 GB."),
+                         now=loc.f("currently {} - turn it On", a4g) if a4g == "Disabled" else (loc.f("currently {}", a4g) if a4g else ""),
+                         if_missing=loc.t("Availability and menu names depend on the board and firmware. Check the exact board manual; if unavailable, stop and report it.")))
+    elif "npci=" in boot_args:
+        s.append(Setting(loc.t("Above 4G Decoding"), loc.t("On if you have it"), False,
+                         loc.t("Lets the GPU map its full memory. Your EFI already carries the workaround if it's missing."),
+                         now=loc.f("currently {}", a4g) if a4g else ""))
+    else:
+        s.append(Setting(loc.t("Above 4G Decoding"), loc.t("On"), bool(dgpu),
+                         loc.t("Lets the GPU map its full memory. Without it, macOS panics early on many graphics cards."),
+                         now=loc.f("currently {} - turn it On", a4g) if a4g == "Disabled" else (loc.f("currently {}", a4g) if a4g else ""),
+                         if_missing=loc.t("Most laptops don't show this setting. If yours doesn't, skip it.")
+                         if (report.get("Motherboard") or {}).get("Platform") == "Laptop" else
+                         loc.t("If your BIOS doesn't have it, skip it.")))
+    # Hardware Sniffer's Windows value comes from KMD_RebarControlMode, a registry value only AMD's driver writes, so
+    # every NVIDIA card read "Disabled" and the guide told people whose BIOS had it on to "turn it On" (10-23 chat, two
+    # users). It is used for AMD cards and for the stick's scan, which measures the BAR itself; otherwise it is unknown.
+    rebar = sorted({g.get("Resizable BAR") for g in gpus.values() if g.get("Resizable BAR") in ("Enabled", "Disabled")
+                    and (g.get("Resizable BAR source") == "BAR size" or str(g.get("Device ID") or "").upper().startswith("1002")
+                         or g.get("Manufacturer") == "AMD")})
+    if nv:
+        s.append(Setting(loc.t("Resizable BAR / Re-Size BAR"), loc.t("On"), True,
+                         loc.t("Required by the NVIDIA driver: without it the screen stays on the startup text once the driver is in.") + loc.t(" A card with a 16 GB window is fine: the EFI limits what macOS gets to 8 GB, so leave this On."),
+                         now=loc.f("currently {}", '/ '.join(rebar)) + (loc.t(" - turn it On") if "Disabled" in rebar else "") if rebar else "",
+                         if_missing=loc.t("On some boards it appears only after Above 4G Decoding is On, or after CSM is Off.")))
+    elif dgpu and rebar:
+        s.append(Setting(loc.t("Resizable BAR / Re-Size BAR"), loc.f("Leave it {}", rebar[0]), True,
+                         loc.t("Your EFI was built for this exact setting. If you change it, rebuild it in the app."),
+                         now=loc.f("currently {}", '/ '.join(rebar)), if_missing=""))
+    s.append(Setting(loc.t("XHCI Hand-off (and EHCI Hand-off if listed)"), loc.t("On"), False,
+                     loc.t("Lets macOS take over the USB ports from the firmware.")))
+    if intel:
+        cfg = kq.get("AppleXcpmCfgLock") or kq.get("AppleCpuPmCfgLock")
+        s.append(Setting(loc.t("CFG Lock (MSR 0xE2 write protection)"), loc.t("Off"), not cfg,
+                         loc.t("macOS writes a CPU power-management register that CFG Lock freezes."),
+                         if_missing=(loc.t("Most BIOSes hide it. Skip it: your EFI already works around CFG Lock.") if cfg else
+                                     loc.t("Your EFI does NOT work around this one, so it has to be off."))))
+        # 12th-gen and newer Intel: policy.py always turns DisableIoMapper on for these, so the line below used to drop
+        # VT-d from their guide entirely, and VT-d off in the BIOS is exactly what got them past EXITBS:START (1401 #10:
+        # five users on 265K/265KF/275HX/290HX; #11, #53, #58). Firmware with VT-d on can keep DMA remapping running
+        # after OpenCore hands off, which no config setting undoes.
+        if policy.is_intel_hybrid(cpu):
+            s.append(Setting(loc.t("VT-d"), loc.t("Off"), True,
+                             loc.t("On 12th-gen and newer Intel, including Core Ultra, macOS freezes at EXITBS:START with VT-d on. "
+                                   "Turning it off is what got these PCs past it."),
+                             if_missing=loc.t("Some laptops hide it: look on the Advanced or overclocking pages. On some (HONOR) it "
+                                              "appears only after X2APIC is turned off. Turn off Kernel DMA Protection or Pre-boot "
+                                              "DMA Protection too if the BIOS lists them.")))
+        elif not kq.get("DisableIoMapper"):
+            s.append(Setting(loc.t("VT-d"), loc.t("Off"), True, loc.t("macOS's own VT-d handling conflicts with most PC firmware.")))
+        if igpu_intel:
+            s.append(Setting(loc.t("DVMT Pre-Allocated (iGPU memory)"), loc.t("64M or more"), False,
+                             loc.t("Gives Intel graphics enough memory for macOS's framebuffer."),
+                             if_missing=loc.t("Skip it if your BIOS doesn't show it; most laptops don't.")))
+    else:
+        s.append(Setting(loc.t("IOMMU"), loc.t("Off"), False, loc.t("The AMD IOMMU is a common cause of hangs early in the macOS boot.")))
+    return s
+
+
+def build_guide(report, config, bitlocker=None, macos="", disabled_devices=None):
+    """-> [Step]. bitlocker: 'On' | 'Off' | None (unknown - then the step is kept)."""
+    mb = report.get("Motherboard") or {}
+    if not mb.get("Name") or not report.get("CPU"):
+        raise GuideError("the scan has no motherboard or CPU - scan again before building a guide")
+    bios = report.get("BIOS") or {}
+    steps = []
+
+    before = Step(loc.t("Before you start"), [
+        loc.t("Back up anything you can't lose. Installing macOS erases the disk you choose for it."),
+        loc.t("Install macOS on its own disk if you can. The installer erases the whole disk you pick, and that is the one "
+        "step you can't undo."),
+        loc.t("Have Ethernet ready. Many PC Wi-Fi cards don't work inside the macOS installer."),
+    ])
+    steps.append(before)
+
+    if bitlocker != "Off":
+        steps.append(Step(loc.t("BitLocker (Windows drive encryption)"), [
+            (loc.t("BitLocker is ON on this PC. ") if bitlocker == "On" else
+             loc.t("The app couldn't tell whether BitLocker is on. If it is: ")) +
+            loc.t("save your recovery key first (Settings -> Privacy & security -> Device encryption, or aka.ms/myrecoverykey). ") +
+            loc.t("Then the app pauses BitLocker for your next restarts. Changing Secure Boot with BitLocker running makes Windows ") +
+            loc.t("ask for that key."),
+        ], blocker=True))
+
+    if bios.get("Firmware Type") and bios.get("Firmware Type") != "UEFI":
+        steps.append(Step(loc.t("Windows is installed in Legacy (BIOS) mode"), [
+            loc.t("macOS needs CSM off, and a Legacy-mode Windows stops booting once CSM is off."),
+            loc.t("Convert Windows to UEFI first, using Microsoft's built-in MBR2GPT tool: in an administrator terminal, run ") +
+            "`mbr2gpt /validate /allowFullOS`, then `mbr2gpt /convert /allowFullOS`. " + loc.t("Only after that, turn CSM off."),
+            loc.t("Back up before converting."),
+        ], blocker=True))
+
+    trap = _storage_trap(report)
+    if trap:
+        steps.append(Step(loc.t("Your drive controller is in RAID mode"), [
+            loc.f("The scan found {}. macOS can't see drives in RAID/RST/VMD mode, so it has to change to "
+                 "AHCI, and Windows won't boot after that change unless you prepare it first:", ", ".join(trap)),
+            loc.t("1. In an administrator terminal, run `bcdedit /set {current} safeboot minimal`, then restart into the BIOS."),
+            loc.t("2. Set SATA Mode to AHCI (or turn Intel VMD off), save, and let Windows start. It starts in Safe Mode."),
+            loc.t("3. In Safe Mode, run `bcdedit /deletevalue {current} safeboot` and restart. Windows now boots normally on AHCI."),
+        ], blocker=True))
+
+    steps.append(Step(loc.t("Make the macOS stick"), [
+        loc.t("The app does this part. Use a USB stick of 4 GB or larger; everything on it is erased."),
+        loc.f("It writes this PC's boot files and downloads {} straight from Apple, checking every piece "
+             "against Apple's signature.", macos or "macOS"),
+    ]))
+
+    k = keys(report)
+    # They can't see this page while they're in the BIOS, so have them photograph it first.
+    open_bios = [loc.t("Before you restart, take a photo of this page with your phone. You can't see it while you're in "
+                 "the BIOS.")]
+    open_bios.append(loc.t("Click **Restart into BIOS setup** in the app. Windows restarts straight into your BIOS setup.")
+                     if bios.get("Firmware Type", "UEFI") == "UEFI" else
+                     loc.t("Restart and press the setup key as soon as the PC powers on."))
+    open_bios.append(loc.f("If that doesn't work: restart and press [[{}]] repeatedly right after power-on.", k[0]) if k else
+                     loc.t("If that doesn't work: restart and press the setup key for your PC (usually Del, F2, F10 or F1; "
+                     "your manual names it)."))
+    open_bios.append(loc.t("These settings follow the scanned hardware and generated EFI. Menu names and vendor-family boot keys "
+                     "are suggestions; check the manual for the exact model and board revision. No firmware changes are automated."))
+    open_bios.append(loc.t("Change the settings below, then Save & Exit (on most boards [[F10]]). Let Windows start once "
+                     "to check it still boots."))
+    steps.append(Step(loc.t("Change these BIOS settings, then Save & Exit"), open_bios,
+                      settings=bios_settings(report, config, disabled_devices)))
+
+    steps.append(Step(loc.t("Start from the stick"), [
+        loc.t("Leave the stick plugged in. Click **Restart now and pick the USB stick (Use a device)** in the app. Windows "
+             "restarts into its blue startup menu: choose Use a device, then your USB stick."),
+        loc.f("Or restart and press [[{}]] repeatedly as the PC starts, to open its boot menu, then pick the USB stick "
+             "marked UEFI.", k[1]) if k else
+        loc.t("Or restart and press your PC's boot-menu key (often F12, F11, F9 or Esc), then pick the USB stick marked UEFI."),
+        loc.t("A boot menu appears. Pick the macOS installer (the entry ending in '(dmg)')."),
+    ]))
+    steps.append(Step(loc.t("Install macOS"), [
+        loc.t("Open Disk Utility -> View -> Show All Devices. Select the whole DISK you chose for macOS (not Windows' disk). "
+             "Erase it as 'Macintosh HD', format APFS, scheme GUID Partition Map."),
+        loc.t("Quit Disk Utility, choose Reinstall macOS, and pick 'Macintosh HD'."),
+        loc.t("The PC restarts several times. Each time, start from the stick again and pick 'macOS Installer' until it "
+             "becomes 'Macintosh HD'."),
+        loc.t("Keep the stick. For now it's how this PC starts macOS."),
+    ]))
+    return steps
+
+
+def setting_line(st):
+    line = f"**{st.name} -> {st.want}** ({loc.t('must') if st.required else loc.t('recommended')}). {st.why}"
+    if st.now:
+        line += f" [{st.now}]"
+    if st.if_missing:
+        line += f" {st.if_missing}"
+    return line
+
+
+def render_text(steps):
+    out = []
+    for i, st in enumerate(steps, 1):
+        out.append(f"{i}. {st.title}" + ("  " + loc.t("(do this before changing the BIOS)") if st.blocker else ""))
+        out.extend(f"   - {b}" for b in st.body)
+        out.extend(f"   - {setting_line(x)}" for x in st.settings)
+    return "\n".join(out).replace("[[", "").replace("]]", "")
+
+
+# HTML page. The app, the copy on the stick, and the preview all use this one renderer so they can't drift apart.
+# Styling matches nullmothsystems.com and the 1401 Probe (see guide.css); layout is an old setup wizard, one step
+# per page. Everything is inline because the page opens from the stick with no network, and the CSP blocks every
+# request.
+CSP = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
+
+
+def _keys(k):
+    out = []
+    for part in k.split(" or "):
+        key, _, note = part.partition(" (")
+        out.append(f"<kbd>{key}</kbd>" + (f" ({note}" if note else ""))
+    return " or ".join(out)
+
+
+def _inline(s):
+    """Escape first (board and controller names come from the scan and can contain anything), then code/bold/keys."""
+    s = html.escape(s, quote=False)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+    return re.sub(r"\[\[(.+?)\]\]", lambda m: _keys(m.group(1)), s)
+
+
+def _pc(report, macos):
+    mb = report.get("Motherboard") or {}
+    cpu = re.sub(r"\((R|TM|tm)\)", "", (report.get("CPU") or {}).get("Processor Name", ""))
+    return [(loc.t("Board"), mb.get("Name", "")), (loc.t("Type"), mb.get("Platform", "")), (loc.t("CPU"), " ".join(cpu.split())),
+            (loc.t("Graphics"), ", ".join(report.get("GPU") or {})), (loc.t("macOS"), macos)]
+
+
+def _printout(settings):
+    rows = []
+    for st in settings:
+        flag = (("ok", loc.t("already done")) if st.now.startswith("already") else
+                ("must", loc.t("MUST")) if st.required else ("opt", loc.t("optional")))
+        rows.append(f'<tr><td class="set"><b>{_inline(st.name)}</b><br><span class="{flag[0]}">{flag[1]}</span></td>'
+                    f'<td><b class="want">-> {_inline(st.want)}</b><br>{_inline(st.why)}'
+                    + (f'<br><span class="saw">{loc.t("Your scan: ")}{_inline(st.now)}</span>' if st.now else "")
+                    + (f'<br><span class="miss">{_inline(st.if_missing)}</span>' if st.if_missing else "") + "</td></tr>")
+    return ('<div class="printout"><p class="ph">' + _inline(loc.t("BIOS SETTINGS FOR THIS PC ... print it, or take a photo of it")) + '</p>'
+            f'<table class="bios" cellspacing="0" cellpadding="0">{"".join(rows)}</table></div>')
+
+
+def app_html(report, steps, macos="", mark=None, uid="g", prerequisites=False):
+    """Every step is rendered visible; guide.js turns it into one step at a time with Back and Next.
+    Old-school layout: tables, <center>, <hr>, underlined links (see guide.css). The step list is plain
+    #anchors, so it still works with scripts off."""
+    n, side, pages = len(steps), [], []
+    heading = loc.t("Firmware Prerequisite Review") if prerequisites else loc.t("1401 Install Guide")
+    context_suffix = "" if prerequisites else loc.t(" for this PC")
+    ticker = loc.t("FIRMWARE REVIEW *** SAVED REPORT *** NO SETTINGS CHANGED") if prerequisites else loc.t("*** WRITTEN FOR THIS PC *** NOTHING ON THIS PAGE WAS SENT ANYWHERE *** TAKE A PHOTO BEFORE YOU OPEN THE BIOS *** 1401 IS FREE FOREVER ***")
+    introduction = (loc.t("This local page reviews the selected report before any EFI build. It does not establish current firmware settings or driver support.") if prerequisites else
+                    loc.t("Hi! The 1401 app wrote this page on this PC, just for this PC &mdash; the settings below follow your scan and EFI. Exact firmware menus and board revisions have not been verified. Go through the steps in order and take your time."))
+    for i, st in enumerate(steps, 1):
+        side.append(f'<li><a class="nav" href="#{uid}-h{i}"><span class="n">{i}</span> <span class="t">{_inline(st.title)}</span></a>'
+                    + (' <span class="star">*</span>' if st.blocker else "") + "</li>")
+        body, ol = [], []
+        for line in st.body:
+            m = re.match(r"(\d+)\.\s+(.*)", line)
+            if m:
+                ol.append(f"<li>{_inline(m.group(2))}</li>")
+                continue
+            if ol:
+                body.append(f"<ol>{''.join(ol)}</ol>")
+                ol = []
+            body.append(f"<p>{_inline(line)}</p>")
+        if ol:
+            body.append(f"<ol>{''.join(ol)}</ol>")
+        if st.settings:
+            body.append(_printout(st.settings))
+        caution = ('<p class="caution"><b>' + loc.t("STOP!") + '</b>' + loc.t(" Do this one before you change anything in the BIOS.") + '</p>'
+                   if st.blocker else "")
+        pages.append(f'<section class="pg" aria-labelledby="{uid}-h{i}"><p class="stepno">'
+                     + _inline(loc.f("Step {} of {}", i, n)) + '</p>'
+                     f'<h2 id="{uid}-h{i}" tabindex="-1">{_inline(st.title)}</h2>{caution}{"".join(body)}</section>')
+    img = (f'<img class="mark" src="data:image/jpeg;base64,{base64.b64encode(mark).decode()}" width="56" height="56" '
+           'alt="">' if mark else "")
+    plate = "".join(f"<tr><th>{a}</th><td>{_inline(b)}</td></tr>" for a, b in _pc(report, macos) if b)
+    first = (loc.t(' The ones with a red <span class="star">*</span> come first, before you touch the BIOS.')
+             if any(st.blocker for st in steps) else "")
+    return f'''<div class="app" id="{uid}">
+<center class="top">
+<table class="logo" role="presentation" cellspacing="0" cellpadding="0"><tr><td>{img}</td><td class="word"><span class="nm">NullMoth</span> <span class="sy">Systems</span><br><span class="ig">{heading}</span>{context_suffix}</td></tr></table>
+</center>
+<div class="ticker" aria-hidden="true"><span>{ticker}</span></div>
+<p class="hello">{introduction}{first}</p>
+<table class="pc" border="1" cellspacing="2" cellpadding="3"><caption>{_inline(loc.t("This guide is for:"))}</caption>{plate}</table>
+<table class="main" role="presentation" cellspacing="0" cellpadding="0"><tr>
+<td class="side"><nav aria-label="Steps"><p class="sh">{_inline(loc.t("Steps"))}</p><ol>{"".join(side)}</ol>
+<p class="every"><button type="button" class="all" aria-pressed="false">{_inline(loc.t("Show all the steps on one page"))}</button></p></nav></td>
+<td class="content">{"".join(pages)}
+<hr>
+<table class="btns" role="presentation" cellspacing="0" cellpadding="0"><tr><td class="where">{_inline(loc.f(" steps", n))}</td><td class="go"><button type="button" class="b back">{_inline(loc.t("&lt; Back"))}</button> <button type="button" class="b next">{_inline(loc.t("Next &gt;"))}</button></td></tr></table>
+</td></tr></table>
+<center class="foot">
+<hr width="80%">
+<p><a href="#{uid}">{_inline(loc.t("Back to the top"))}</a></p>
+<p class="badges" aria-hidden="true"><span class="bd bd1">NullMoth</span><span class="bd bd2">{_inline(loc.t("VIEWABLE WITH"))}<br>{_inline(loc.t("ANY BROWSER"))}</span><span class="bd bd3">{_inline(loc.t("NO COOKIES"))}<br>{_inline(loc.t("NO TRACKING"))}</span><span class="bd bd4">{_inline(loc.t("FREE"))}<br>{_inline(loc.t("FOREVER"))}</span></p>
+<p class="counter">{_inline(loc.t("You are visitor number "))}<b>000001</b>{_inline(loc.t(" (it's only ever you &mdash; this page never left this PC)"))}</p>
+<p>{_inline(loc.t("© 2026 NullMoth Systems"))}<br>{_inline(loc.t("NullMoth and the moth logo are trademarks of NullMoth Systems."))}</p>
+<p class="present">{_inline(loc.t("Present day. Present time."))}</p>
+</center>
+</div>'''
+
+
+def assets():
+    with open(os.path.join(HERE, "guide.css"), encoding="utf-8") as fh:
+        css = fh.read()
+    with open(os.path.join(HERE, "guide.js"), encoding="utf-8") as fh:
+        js = fh.read()
+    return css, js
+
+
+def render_html(report, steps, macos="", mark=None, prerequisites=False):
+    """mark=None puts in the NullMoth mark that ships beside this file (128 px JPEG, no EXIF); b"" leaves it out.
+    The mark and the NullMoth name aren't covered by the GPL (see NOTICE.md); modified builds must remove them."""
+    if mark is None:
+        with open(os.path.join(HERE, "moth-mark.jpg"), "rb") as fh:
+            mark = fh.read()
+    css, js = assets()
+    return ('<!doctype html>\n<html lang="' + ("zh-CN" if loc.language() == "zh" else "en") + '"\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            f'<meta http-equiv="Content-Security-Policy" content="{CSP}">\n'
+            '<meta name="color-scheme" content="dark">\n<title>' + _inline(loc.t("1401 Install Guide")) + '</title>\n'
+            f'<style>\n{css}</style>\n</head>\n<body>\n{app_html(report, steps, macos, mark, prerequisites=prerequisites)}\n'
+            f'<script>\n{js}</script>\n</body>\n</html>\n')
+
+
+def leaks(page):
+    """What a page must never carry: an email address, or a user-folder path from the machine that built it."""
+    return (re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", page) + re.findall(r"/Users/[^/\s\"'<]+", page)
+            + re.findall(r"[A-Za-z]:\\Users\\[^\\\s\"'<]+", page))
+
+
+def load(report_path, config_path):
+    import json  # noqa: PLC0415
+    with open(report_path, encoding="utf-8") as fh:
+        report = json.load(fh)
+    with open(config_path, "rb") as fh:
+        config = plistlib.load(fh)
+    return report, config
+
+
+def selftest():
+    import copy  # noqa: PLC0415
+    import glob  # noqa: PLC0415
+    import json  # noqa: PLC0415
+    import os  # noqa: PLC0415
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cache = os.path.join(repo, "tests", "corpus", "cache")
+    built = os.path.join(repo, "out", "corpus")
+    if not os.path.isdir(cache) or not os.path.isdir(built):
+        print("can't run: corpus or built EFIs missing (run tests/corpus/fetch.py, then tests/run_corpus.py build)")
+        return False
+    res = []
+
+    def arm(name, cond, shown):
+        res.append(bool(cond))
+        print(("ok   " if cond else "FAIL ") + name + f"  [{shown}]")
+
+    reports = {os.path.basename(d): json.load(open(os.path.join(d, "Report.json"))) for d in sorted(glob.glob(cache + "/*"))}
+    configs = {}
+    for m in reports:
+        p = os.path.join(built, m, "EFI", "OC", "config.plist")
+        if os.path.isfile(p):
+            with open(p, "rb") as fh:
+                configs[m] = plistlib.load(fh)
+    texts = {}
+    for m, r in reports.items():
+        try:
+            texts[m] = render_text(build_guide(r, configs.get(m, {})))
+        except Exception as e:  # noqa: BLE001 - reported by the next check
+            texts[m] = f"ERROR {type(e).__name__}: {e}"
+    arm("a guide renders for every corpus machine", all(not t.startswith("ERROR") for t in texts.values()),
+        f"{sum(not t.startswith('ERROR') for t in texts.values())}/{len(texts)}")
+    arm("every guide requires Secure Boot off", all("Secure Boot -> Off** (must)" in t for t in texts.values()), "all")
+
+    pav = texts["hp-pavilion-15-dk0"]
+    arm("the HP Pavilion (SATA in RAID mode) gets the safe-mode AHCI step, before the BIOS step",
+        "RAID mode" in pav and pav.index("RAID mode") < pav.index("Change these BIOS settings"), "RAID step first")
+    others = [m for m, t in texts.items() if "safeboot minimal" in t and m != "hp-pavilion-15-dk0"]
+    arm("no AHCI machine gets the RAID step (the trap check doesn't fire on everyone)", not others, others or "none")
+
+    amd = [m for m, r in reports.items() if "AMD" in r["CPU"].get("Manufacturer", "")]
+    arm("AMD machines get IOMMU and never CFG Lock", all("IOMMU" in texts[m] and "CFG Lock" not in texts[m] for m in amd), amd)
+    intel_cfg = [m for m in reports if m in configs and "Intel" in reports[m]["CPU"].get("Manufacturer", "")]
+    arm("Intel machines whose EFI has the CFG-Lock quirk are told they may skip it",
+        all("already works around CFG Lock" in texts[m] for m in intel_cfg), f"{len(intel_cfg)} Intel with EFIs")
+    cfg_off = copy.deepcopy(configs[intel_cfg[0]])
+    cfg_off["Kernel"]["Quirks"]["AppleXcpmCfgLock"] = cfg_off["Kernel"]["Quirks"]["AppleCpuPmCfgLock"] = False
+    t = render_text(build_guide(reports[intel_cfg[0]], cfg_off))
+    arm("...and an EFI without the quirk makes CFG Lock required", "CFG Lock (MSR 0xE2 write protection) -> Off** (must)" in t, intel_cfg[0])
+
+    a4 = [m for m, r in reports.items() if (r.get("BIOS") or {}).get("Above 4G Decoding") == "Disabled"]
+    arm("a machine the scan saw with Above 4G disabled is told to turn it on", all("turn it On" in texts[m] for m in a4), a4)
+
+    legacy = copy.deepcopy(reports["optiplex-5050-micro"])
+    legacy["BIOS"]["Firmware Type"] = "Legacy"
+    t = render_text(build_guide(legacy, configs.get("optiplex-5050-micro", {})))
+    arm("Legacy-mode Windows gets MBR2GPT before any BIOS change", "mbr2gpt /convert" in t and
+        t.index("mbr2gpt") < t.index("Change these BIOS settings"), "legacy")
+    arm("...and a UEFI Windows never does", not any("mbr2gpt" in texts[m] for m in texts), "0 UEFI hits")
+
+    t_on = render_text(build_guide(reports["dell-e7470"], configs.get("dell-e7470", {}), bitlocker="On"))
+    t_off = render_text(build_guide(reports["dell-e7470"], configs.get("dell-e7470", {}), bitlocker="Off"))
+    arm("BitLocker On -> recovery-key step; Off -> no step; unknown -> step kept",
+        "BitLocker is ON" in t_on and "BitLocker" not in t_off and "couldn't tell whether BitLocker" in texts["dell-e7470"], "3 states")
+
+    arm("Dell keys F2/F12, HP F10/F9, Gigabyte Del/F12, ASUS laptop vs desktop",
+        keys(reports["dell-e7470"]) == ("F2", "F12") and keys(reports["hp-245-g8"])[0] == "F10"
+        and keys(reports["x570-5800x-6600xt"]) == ("Del", "F12") and keys(reports["b660-12900kf"])[1] == "F8", "keys")
+    odd = copy.deepcopy(reports["optiplex-5050-micro"])
+    odd["Motherboard"]["Name"] = "ZOTAC ZBOX"
+    t = render_text(build_guide(odd, {}))
+    arm("an unknown vendor gets the generic key line, never another vendor's key", keys(odd) is None and "your manual names it" in t, "ZOTAC")
+    try:
+        build_guide({"CPU": {}}, {})
+        stopped = False
+    except GuideError:
+        stopped = True
+    arm("a scan with no motherboard stops the guide instead of guessing", stopped, "GuideError")
+    touched = [m for m, r in reports.items() for st in bios_settings(r, configs.get(m, {}))
+               if any(w in st.name.upper() for w in ("TPM", "PTT", "SGX"))]
+    arm("no guide ever asks for a TPM/PTT/SGX change (Windows 11 + BitLocker need them)", not touched, touched or "none")
+    arm("the ASUS OS-Type hint shows on ASUS boards only", "OS Type" in texts["b660-12900kf"]
+        and "OS Type" not in texts["z490-vision-g"], "ASUS yes, Gigabyte no")
+    arm("Secure Boot the scan saw Disabled reads 'already off'; Enabled reads 'currently Enabled'",
+        all(("already off" in texts[m]) == ((r.get("BIOS") or {}).get("Secure Boot") == "Disabled") for m, r in reports.items())
+        and any("currently Enabled" in t for t in texts.values()), "both states")
+    pages = {}
+    for m, r in reports.items():
+        try:
+            pages[m] = render_html(r, build_guide(r, configs.get(m, {})), "macOS Tahoe 26")
+        except Exception as e:  # noqa: BLE001 - reported by the next check
+            pages[m] = f"ERROR {type(e).__name__}: {e}"
+    good = [m for m, pg in pages.items() if pg.startswith("<!doctype")]
+    arm("the HTML page renders for every corpus machine", len(good) == len(pages), f"{len(good)}/{len(pages)}")
+    ext = [m for m in good if any(x in pages[m] for x in ('src="http', 'href="http', "url(http", "@import", "<link"))]
+    arm("every page is self-contained: nothing loads from the network (it has to open from the stick)",
+        not ext and all(CSP in pages[m] for m in good), ext or "none, CSP on all")
+    dirty = [m for m in good if leaks(pages[m])]
+    planted = leaks("mail a.person@example.com, built in " + "/Users/" + "someone/x and C:\\Users\\someone\\x")
+    arm("no page carries an email address or a user-folder path, and the check fires on planted ones",
+        not dirty and len(planted) == 3, f"clean {len(good) - len(dirty)}/{len(good)}, planted {len(planted)}/3")
+    hostile = copy.deepcopy(reports["dell-e7470"])
+    hostile["Motherboard"]["Name"] = "DELL <script>alert(1)</script>"
+    hp = render_html(hostile, build_guide(hostile, {}))
+    arm("a hostile board name from the scan is escaped, never run", "<script>alert" not in hp
+        and "&lt;script&gt;alert" in hp, "escaped")
+    arm("every step is a page and every page shows without script (none starts hidden)",
+        all(pages[m].count('<section class="pg"') == len(build_guide(reports[m], configs.get(m, {}))) for m in good)
+        and not any(re.search(r'<section class="pg"[^>]*\bhidden', pages[m]) for m in good), "all")
+    # The visible text should name the app and NullMoth Systems.
+    shown = {m: re.sub(r"<style>.*?</style>|<script>.*?</script>|<[^>]+>", " ", pages[m], flags=re.S) for m in good}
+    unnamed = [m for m in good if not ("1401 app" in shown[m] and "NullMoth Systems" in shown[m])]
+    arm("the page names the app (1401) and its maker (NullMoth Systems)", not unnamed, unnamed or "all")
+    bare = render_html(reports["dell-e7470"], build_guide(reports["dell-e7470"], configs.get("dell-e7470", {})), mark=b"")
+    unmarked = [m for m in good if 'class="mark" src="data:image/jpeg;base64,' not in pages[m]]
+    arm("every page carries the NullMoth mark from the repo by default, and the check fires on a page without it",
+        not unmarked and 'class="mark"' not in bare, unmarked or "all, control fires")
+    arm("vendor keys render as keycaps", "<kbd>F2</kbd>" in pages["dell-e7470"]
+        and "<kbd>F12</kbd>" in pages["dell-e7470"], "Dell F2/F12")
+    print(f"\n{sum(res)}/{len(res)} passed")
+    return all(res)
+
+
+if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(0 if selftest() else 1)
+    a = sys.argv[1:]
+
+    def opt(name):
+        return a[a.index(name) + 1] if name in a else None
+    if "--bios-only" in a:
+        report_path = opt("--bios-only")
+        if not report_path:
+            raise GuideError("--bios-only requires a report path")
+        rep, bound = load_prerequisite(report_path, opt("--run-id"))
+        steps = build_prerequisite_guide(rep, bound)
+        if opt("--html"):
+            page = render_html({}, steps, mark=None, prerequisites=True)
+            with open(opt("--html") + ".tmp", "w", encoding="utf-8") as fh:
+                fh.write(page)
+            os.replace(opt("--html") + ".tmp", opt("--html"))
+            print(f"wrote firmware prerequisite review ({len(page):,} bytes)")
+        else:
+            print(render_text(steps))
+        sys.exit(0)
+    rep, cfg = load(a[0], a[1])
+    mac = macos_name(opt("--macos") or "")
+    from . import machine_handoff
+    build = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(a[1]))))
+    disabled = {}
+    if os.path.isfile(os.path.join(build, machine_handoff.NAME)):
+        disabled = machine_handoff.verified(build, a[0]).get("disabled_devices", {})
+    steps = build_guide(rep, cfg, bitlocker=opt("--bitlocker"), macos=mac, disabled_devices=disabled)
+    if opt("--html"):
+        mark = None
+        if opt("--mark"):
+            with open(opt("--mark"), "rb") as fh:
+                mark = fh.read()
+        page = render_html(rep, steps, mac, mark)
+        with open(opt("--html") + ".tmp", "w", encoding="utf-8") as fh:
+            fh.write(page)
+        os.replace(opt("--html") + ".tmp", opt("--html"))
+        print(f"wrote {opt('--html')} ({len(page):,} bytes)")
+    else:
+        print(render_text(steps))

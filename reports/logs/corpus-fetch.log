@@ -1,0 +1,16 @@
+z490-vision-g                      ab494696  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+esprimo-q958                       18f5164d  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+optiplex-5050-micro                78616d1d  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+celsius-h760                       d6af7001  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+dell-3442                          ea9efab3  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+dell-5530                          8c3a8b97  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+x570-5800x-6600xt                  a15f8a14  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+trx40-3960x                        bad6ddd3  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+dell-e7470                         4b0c179c  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+thinkpad-t490s                     4c4aff2e  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+sequoia-generic                    3dd633ab  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+b660-12900kf                       837d7266  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+hp-pavilion-15-dk0                 ca2fecc2  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+lenovo-c640                        0a7088ff  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+hp-245-g8                          1d082aa5  FAILED URLError: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get issuer certificate (_ssl.c:1010)>
+EXIT:0

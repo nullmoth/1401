@@ -1,0 +1,613 @@
+{
+ "entries": {
+  "https://github.com/0xFireWolf/RealtekCardReader/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "294fa6c2cc88702d5c027482e407284c5798d0cdbfb3f5947705f727c0472840",
+   "size": 72,
+   "source_sha256": "c311a62bea36e09c5a7d02a84140ee1cfe62a922382ca5715f07cd4cb024173c"
+  },
+  "https://github.com/0xFireWolf/RealtekCardReader/releases/download/v0.9.7/RealtekCardReader_0.9.7_006a845_RELEASE.zip": {
+   "sha256": "48c21aaf8e83e21220ca417351e75c98b16930f0ce311bb3f651d163bd694760",
+   "size": 139466
+  },
+  "https://github.com/0xFireWolf/RealtekCardReader/releases/expanded_assets/v0.9.7": {
+   "sha256": "5cbdb0d3dae2daa37715353a676eb0be9bd0fc82ef5edd606633e46de6bb4bb3",
+   "size": 8609
+  },
+  "https://github.com/0xFireWolf/RealtekCardReaderFriend/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "576aa798ece5cee54648373fe85beece8e3efca53519aea37bf892c594493432",
+   "size": 78,
+   "source_sha256": "e50b21782036208436cc0e7f5dd2478813996fb8e6dec54075acd845d93dfb7d"
+  },
+  "https://github.com/0xFireWolf/RealtekCardReaderFriend/releases/download/v1.0.4/RealtekCardReaderFriend_1.0.4_e1e3301_RELEASE.zip": {
+   "sha256": "8fed1884e751fb1e9355604b1d047e8414b6abc986393ce7c56f32008278687c",
+   "size": 11598
+  },
+  "https://github.com/0xFireWolf/RealtekCardReaderFriend/releases/expanded_assets/v1.0.4": {
+   "sha256": "79cc72fd53878bbb2a728b6fe90342787ea308ceb15ddea8bf342e2f1807e505",
+   "size": 8659
+  },
+  "https://github.com/ChefKissInc/ForgedInvariant/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "0a92a520987bd0e2463caee434a2ef1cbd794187096f650a041dc58883eb9a33",
+   "size": 71,
+   "source_sha256": "790dfa3d6f27dc99d8d97bcfe2b6c0c740564535823bf57add5b68cf87fe67c4"
+  },
+  "https://github.com/ChefKissInc/ForgedInvariant/releases/expanded_assets/v1.5.0": {
+   "sha256": "782cf693bea87a9724951ce1890dfa838e96459d7a770dd6079b7049a85fc5ea",
+   "size": 12627
+  },
+  "https://github.com/ChefKissInc/NootedRed/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "5a9694484b0724cb0fa80f55288b4986d5ed13e53699d3119729a7f0698164b8",
+   "size": 66,
+   "source_sha256": "f6e361fc3d8df6d07b910bd8d47a018bd7eaaf4f0203678574385f1e0cf7fffb"
+  },
+  "https://github.com/ChefKissInc/NootedRed/releases/expanded_assets/v0.8.10": {
+   "sha256": "3253bc9162d665299d5f3b47ae9711be92872eaf1e22ae0e1c795284eafd23ff",
+   "size": 19288
+  },
+  "https://github.com/CloverHackyColor/IntelMausiEthernet/archive/refs/tags/3.0.3.tar.gz": {
+   "sha256": "6213f5662ef6ae0c8bce3bdfa0e6bafeb6254a45484e6cc7f202b920e3938ca9",
+   "size": 400906
+  },
+  "https://github.com/CloverHackyColor/IntelMausiEthernet/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "28178a902cd77062e71274c209e33ed528b9d7a0dd7908e24d62064446c60315",
+   "size": 78,
+   "source_sha256": "1243b202c687e37e5ea02297c1a524aa78d93bdd3f6917271579426893dd1ece"
+  },
+  "https://github.com/CloverHackyColor/IntelMausiEthernet/releases/download/3.0.3/IntelMausiEthernet.kext.zip": {
+   "sha256": "da08b26109a4e6c135be68b42b24e81280b01ee17375ec63f32848fc949a6def",
+   "size": 66888
+  },
+  "https://github.com/CloverHackyColor/IntelMausiEthernet/releases/expanded_assets/3.0.3": {
+   "sha256": "2886c5509be9d012c97fb3d375c4b441f4c0b40175e7388b2c598fd83c20c5d1",
+   "size": 8601
+  },
+  "https://github.com/DexterSLamb/itlwm/archive/refs/tags/v2.3.0.tar.gz": {
+   "sha256": "14be9853de1347d08c545c47e585c12f33ff218f961f75bad8c1d4d256dafbd6",
+   "size": 15645094
+  },
+  "https://github.com/DexterSLamb/itlwm/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "6c83b13dfa6bcfa7986c68da5378708baef2ea3c09f22225e9abb1073559575c",
+   "size": 61,
+   "source_sha256": "b288c2e6a5a4af9424f6b95522cfd206c4d3bc4126c72d21a983d0b4d80b4b73"
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Big_Sur-v2.3.0-51543d6.zip": {
+   "sha256": "56e49a7c07e80be84173a7a21a83648c7c2ec946ebe51b52bdfea0506c8a24b4",
+   "size": 15082114
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Catalina-v2.3.0-51543d6.zip": {
+   "sha256": "3299a795608255464bee8c890b76440380dab1693e790454ebdad227e1aacea9",
+   "size": 15082088
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-High_Sierra-v2.3.0-51543d6.zip": {
+   "sha256": "13a801868663d54d1fb14c2125fdce2e8c1329bd4de9b6fc6d5078994aec918e",
+   "size": 15081771
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Mojave-v2.3.0-51543d6.zip": {
+   "sha256": "0551a2c49e5d508107db4b8beb2cdd7d558ca6d78b049846110616ab1729b43c",
+   "size": 15081792
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Monterey-v2.3.0-51543d6.zip": {
+   "sha256": "c3217ac73f2c76adcaa360cea31767834ea4ec481c789a7e9d965f590d6e098f",
+   "size": 15082278
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Sonoma14.0-v2.3.0-51543d6.zip": {
+   "sha256": "59f439c0f4cbd7705bbaf25b40508e62bab42e9c6ffac5db512dfc0301f590a0",
+   "size": 15089552
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Sonoma14.4-v2.3.0-51543d6.zip": {
+   "sha256": "44ba20a713c9d20b02aaa62d7d11129ddeeae7d9b1058dee80027b921af76fa5",
+   "size": 15089647
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/AirportItlwm-Ventura-v2.3.0-51543d6.zip": {
+   "sha256": "bd33ece1394f0887a536a8556c58b1e28b1439c1cdc6f408094a23b1fda018b1",
+   "size": 15080048
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/download/v2.3.0/itlwm-v2.3.0-51543d6.zip": {
+   "sha256": "a1d1425cabb11ce600c3a357131505b00c291f81b883aac2f1fb2ceb40a6b068",
+   "size": 15063752
+  },
+  "https://github.com/DexterSLamb/itlwm/releases/expanded_assets/v2.3.0": {
+   "sha256": "de9a4de7e3ba1a4a59c872a2526157e7a8d546917e78922773512c3e269d3003",
+   "size": 40918
+  },
+  "https://github.com/Mieze/AtherosE2200Ethernet/archive/refs/tags/v2.4.0.tar.gz": {
+   "sha256": "a2b239aa36105163dd73674b1696cbb108f000c8df49779fc9a0768a4d5ce4cd",
+   "size": 146003
+  },
+  "https://github.com/Mieze/AtherosE2200Ethernet/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "ae3201a16b05d88a7a611e601080699f9058b959f9b0376f06ead4a1df2d4140",
+   "size": 70,
+   "source_sha256": "057b16342e0637362912779041f9ebf5aca499a8e35106a8ca50710b05ed9d7f"
+  },
+  "https://github.com/Mieze/AtherosE2200Ethernet/releases/download/v2.4.0/AtherosE2200Ethernet-V2.4.0.zip": {
+   "sha256": "4702edfcda5cc1b9c7e2ec1278130bb02c5c5a42c77f39b525fa5ac1ca900bfb",
+   "size": 44805
+  },
+  "https://github.com/Mieze/AtherosE2200Ethernet/releases/expanded_assets/v2.4.0": {
+   "sha256": "8cf92d312a236666fce1c2444bcd28b7c541386fb85d1a0904cfc9b496dc07da",
+   "size": 6560
+  },
+  "https://github.com/Mieze/IntelLucy/archive/refs/tags/v1.1.5.tar.gz": {
+   "sha256": "597c4c30a7a965aca63f72a23953c05d46c959e26cef5f560b3fabbd91830311",
+   "size": 3161963
+  },
+  "https://github.com/Mieze/IntelLucy/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "8b5277955a43847cdec10307f3f0a3470c7418768ac576bd1ca5bfc0e1a670c5",
+   "size": 59,
+   "source_sha256": "366bb961d45d957a55d45240bbfe3d0c05468660cbad5807ee36687e27375218"
+  },
+  "https://github.com/Mieze/IntelLucy/releases/download/v1.1.5/IntelLucy-V1.1.5.zip": {
+   "sha256": "4398b6653235c5d507ba888b71e7e1ac823102ac074dcc7119838029bc0be981",
+   "size": 109954
+  },
+  "https://github.com/Mieze/IntelLucy/releases/expanded_assets/v1.1.5": {
+   "sha256": "bac6a43d0f57237fe8b888fd7bef22c55f3267d9bfff05989b4f70a978db6edf",
+   "size": 8522
+  },
+  "https://github.com/Mieze/LucyRTL8125Ethernet/archive/refs/tags/v.1.2.3.tar.gz": {
+   "sha256": "ca97fe94f6e93b1d5cbfb93d53c2327e3f9c0e33950f1971f3de12b1d5dbffbf",
+   "size": 2867074
+  },
+  "https://github.com/Mieze/LucyRTL8125Ethernet/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "20e8f18a1edf95d4c88f1489639ac09ff9987c4fd0f2aeb661306500a9160a52",
+   "size": 70,
+   "source_sha256": "e4812c12210a5703a36871bb43e7c1d7affee553052d9af89f46a95cd5b89fce"
+  },
+  "https://github.com/Mieze/LucyRTL8125Ethernet/releases/download/v.1.2.3/LucyRTL8125Ethernet-1.2.300.zip": {
+   "sha256": "89ef03362baadba546418ade9614edc0469ae2483ea5380c0dcfb04941201521",
+   "size": 70274
+  },
+  "https://github.com/Mieze/LucyRTL8125Ethernet/releases/expanded_assets/v.1.2.3": {
+   "sha256": "5c16dc837158ee7eaec8b86dc5ea57e428db9c1966fdaf3112d36281e1e3d102",
+   "size": 8589
+  },
+  "https://github.com/Mieze/RTL8111_driver_for_OS_X/archive/refs/tags/2.4.2.tar.gz": {
+   "sha256": "73543e13caba91fc0bb29f47ab12036592cebdfa593dd104b9ed2760341863a0",
+   "size": 450332
+  },
+  "https://github.com/Mieze/RTL8111_driver_for_OS_X/releases/download/2.4.2/RealtekRTL8111-V2.4.2.zip": {
+   "sha256": "fa2a6a8435b4f7211fb503e30a2966017cf050c09e839a13e79c4a8a9cd2a8ba",
+   "size": 301740
+  },
+  "https://github.com/Mieze/RTL812xLucy/archive/refs/tags/v1.1.1.tar.gz": {
+   "sha256": "34587bda0f3ec617eda4225686f687fdcc140db8548ddc949bf8ca914a2c1881",
+   "size": 2982022
+  },
+  "https://github.com/Mieze/RTL812xLucy/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "8e82d834bf5d612f657b781c1b6b9a116c6bb7b89a67c460259242028078e521",
+   "size": 61,
+   "source_sha256": "97c933e3d00432e6faf2d5c4b5f465d825add1f8af1efb6d97ff6513549f2231"
+  },
+  "https://github.com/Mieze/RTL812xLucy/releases/download/v1.1.1/RTL812xLucy-V1.1.1.zip": {
+   "sha256": "7a50f9b8c776405ea537bf1c42bc7e062446fba8442aa1cfa7f2a60a966b295e",
+   "size": 129719
+  },
+  "https://github.com/Mieze/RTL812xLucy/releases/expanded_assets/v1.1.1": {
+   "sha256": "e6e741ce04d671d16dbf79219b664d44bad95d7d473cb0af0942213746435f7d",
+   "size": 8534
+  },
+  "https://github.com/MonkaKokosowa/KernReserveLow/releases/download/1.0/KernReserveLow-1.0.0-RELEASE.zip": {
+   "sha256": "a8c100b5218e33f48e30f9c7320c3965fb2e856eb081ec2c6383c9d3bd76b082",
+   "size": 22299
+  },
+  "https://github.com/MonkaKokosowa/XhciNudge/releases/download/1.0/XhciNudge-1.0.0.zip": {
+   "sha256": "271659aec947aa2d01300eadb514b138909e6322305163ddcab653403251bd1f",
+   "size": 8304
+  },
+  "https://github.com/OpenIntelWireless/IntelBluetoothFirmware/archive/a414375.tar.gz": {
+   "sha256": "1f18216d7b8e5d042bab789a6935ad1dd75741d9a07fcf78478d13950bc65cd1",
+   "size": 19363695
+  },
+  "https://github.com/RattletraPM/GUX-RyzenXHCIFix/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "e33f324b841e56a89562ea5304c367a5cf7cff363b5aedee14c5a1dd2886349c",
+   "size": 87,
+   "source_sha256": "7ef8d36bec6b9b968c2fb3ee4a648e5d8ba61462f094606b77d594eb2c665921"
+  },
+  "https://github.com/RattletraPM/GUX-RyzenXHCIFix/releases/expanded_assets/v1.3.0b1-ryzenxhcifix": {
+   "sha256": "20999a0187334d289e00478874619c2e47b42a287768803fa62ac77686206a23",
+   "size": 6594
+  },
+  "https://github.com/SongXiaoXi/AppleIGC/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "0c3df5e054b5064a766e9d6bfa138bb1fb842bcc438d724a08d88dfc5aed6946",
+   "size": 61,
+   "source_sha256": "af0b3980c45289dadf873a8cf1ca18db99d27665de1679af6f7f22817d1282c3"
+  },
+  "https://github.com/SongXiaoXi/AppleIGC/releases/expanded_assets/v1.9": {
+   "sha256": "293c37b155bb0f62b203a3c6722902d7e7f65c1eaad934c1c014074ad2eaa2ec",
+   "size": 8520
+  },
+  "https://github.com/TomHeaven/HoRNDIS/archive/refs/tags/rel9.3_2.tar.gz": {
+   "sha256": "699d6c66b285c84f5a88c1864f0d15e59338f456caeee1371937bad96519d75b",
+   "size": 43946
+  },
+  "https://github.com/TomHeaven/HoRNDIS/releases/download/rel9.3_2/Release.zip": {
+   "sha256": "8f9641ab02744ec6a6e74a1480babf36fbf8228533079ba0782ba016cf2968c3",
+   "size": 63147
+  },
+  "https://github.com/USBToolBox/kext/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "d351514a24d0609e223645910dcea0926d67bca989e9f93e95e34cb810e35390",
+   "size": 58,
+   "source_sha256": "d15b2bb4c5605898af15fe5f96ebe2a315897991d0fef485a52e686d396389ba"
+  },
+  "https://github.com/USBToolBox/kext/releases/expanded_assets/1.2.0": {
+   "sha256": "24712519210ff15717b96de34d0288faa30b35f9c3aca2a6c0303fa1c9787f33",
+   "size": 12545
+  },
+  "https://github.com/VoodooI2C/VoodooI2C/archive/5c0c99c.tar.gz": {
+   "sha256": "bdd86f1ddd8053ed82192948928beb2e90e9ff3761481d3cdf36e2ef0b9ac8a5",
+   "size": 709252
+  },
+  "https://github.com/VoodooSMBus/VoodooRMI/archive/83868f0.tar.gz": {
+   "sha256": "78f67b4829963df2d58c02cea553f73eb6b87f922d844ca0427c2790c009c6af",
+   "size": 92770
+  },
+  "https://github.com/VoodooSMBus/VoodooSMBus/archive/8fff9b9.tar.gz": {
+   "sha256": "3a695f8fec74eebd23a316c538a0af2bb10aa38f5dfba87b5a40460b83c78134",
+   "size": 36987
+  },
+  "https://github.com/Xiashangning/BigSurface/archive/refs/tags/v6.5.tar.gz": {
+   "sha256": "e6ff48a02c2861c6bd1a7c647f7df43a2d1ce0d7957cbbc49afc109ad2dd5d63",
+   "size": 88486
+  },
+  "https://github.com/Xiashangning/BigSurface/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "434358d229d768f025b27d720b710f53fcd8fc5eec310d1dc983c761b3cab8a9",
+   "size": 65,
+   "source_sha256": "fe2b1c37d2f9034f38f1a6c4457129248033fc5c06eb50a6c104a2ba9bfbb339"
+  },
+  "https://github.com/Xiashangning/BigSurface/releases/download/v6.5/BigSurface.zip": {
+   "sha256": "e3c6ea71133b9fef26a85b9184361f0cc08a25775115ddd7a3638a361616a4c3",
+   "size": 219192
+  },
+  "https://github.com/Xiashangning/BigSurface/releases/expanded_assets/v6.5": {
+   "sha256": "e83967902eac9600691560d816f961f55201c1a7d8684e739ab118feb500229e",
+   "size": 6510
+  },
+  "https://github.com/acidanthera/BrcmPatchRAM/archive/6538902.tar.gz": {
+   "sha256": "5069c5298825b0b8be3c7669663ebb0874d39200f7ad8f0c971fbbdef96acf03",
+   "size": 9191642
+  },
+  "https://github.com/acidanthera/VoodooInput/archive/d897813.tar.gz": {
+   "sha256": "665a64b2b868d17209ac04e436fd986811eb2c2ec9ecd1d3a6d94228117f9ee3",
+   "size": 24867
+  },
+  "https://github.com/acidanthera/VoodooPS2/archive/7eab4a3.tar.gz": {
+   "sha256": "4bf430307385fad3e3b5c6ffe467788a5d76dfc23dd2d700c0dd3a4bc0c9fb43",
+   "size": 1010223
+  },
+  "https://github.com/acpica/acpica/releases/download/R2024_12_12/acpidump.exe": {
+   "sha256": "9f54227f9f7dccbf1fbc652f05d342e7525d5de0861905bfef05254064a07fd4",
+   "size": 148480
+  },
+  "https://github.com/b00t0x/CpuTopologyRebuild/raw/refs/heads/master/patches_ht.plist": {
+   "sha256": "cd8e41626327447f029eba4e8a6c817387f77d1fc8351ec93936a606b62d28b0",
+   "size": 2466
+  },
+  "https://github.com/b00t0x/CpuTopologyRebuild/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "032f7294b481685a58b5246fe37c18e5e45e28a0c8cff9c385b9aba86d53bc7a",
+   "size": 68,
+   "source_sha256": "73d7a22f6a367fdadd95f2beeede93e8ba566af0fb2847238ff85443f456f986"
+  },
+  "https://github.com/b00t0x/CpuTopologyRebuild/releases/download/2.0.2/CpuTopologyRebuild-2.0.2-RELEASE.zip": {
+   "sha256": "c25d07464d2c9adf120dbf13a50321ff1bdb273290a5e82235eef4740db7b911",
+   "size": 51767
+  },
+  "https://github.com/b00t0x/CpuTopologyRebuild/releases/expanded_assets/2.0.2": {
+   "sha256": "f3e75e7b3e972f3dc6989af6f2efc6f5490c9f78bea06e4a3da221a513ae76d8",
+   "size": 8567
+  },
+  "https://github.com/blankmac/AlpsHID/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "9ee56a2f10c91b10465a973865f09bc68a24bd37d9498336107650d5fd68da41",
+   "size": 58,
+   "source_sha256": "0897414343fca43a6f1810d47d3800868593577913a4f3996c002440edfa5c99"
+  },
+  "https://github.com/blankmac/AlpsHID/releases/expanded_assets/v1.2": {
+   "sha256": "34691fee7009ffe09a5e84486b2603039b9c85254c1f2cc4792075898835ece3",
+   "size": 8469
+  },
+  "https://github.com/cholonam/Sinetek-rtsx/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "79b9630037092cf5978e69a73b233385af375c8a2decb4a05c0fbcfa7a402a1a",
+   "size": 74,
+   "source_sha256": "bc23cde323141bbfecdf4ba211c03216b729eb36aa76ace65abffe38dff3e9ef"
+  },
+  "https://github.com/cholonam/Sinetek-rtsx/releases/expanded_assets/Releases%2Fv9.0": {
+   "sha256": "70fcc77d2108b52d54eafe414dec76290ad9003d41130d79043e6dcf207c3d78",
+   "size": 6545
+  },
+  "https://github.com/daliansky/OS-X-USB-Inject-All/archive/refs/tags/v0.8.0.tar.gz": {
+   "sha256": "e6d21cdbdde7c3bdf94e4682d68df13cad1ef86443c6fd45456080ca7700650c",
+   "size": 34787
+  },
+  "https://github.com/daliansky/OS-X-USB-Inject-All/releases/download/v0.8.0/XHCI-unsupported.kext.zip": {
+   "sha256": "c54279175c7a01c26eb361f4ac54ad4778f351fb57bc0f7247dc7fa7a46dff1d",
+   "size": 1159
+  },
+  "https://github.com/dortania/build-repo/releases/download/AirportBrcmFixup-a5f0628/AirportBrcmFixup-2.2.2-RELEASE.zip": {
+   "sha256": "c838057c4c9cf65bca2385d6d47015e7b9196879fa304b6b5878486d4951435a",
+   "size": 103608
+  },
+  "https://github.com/dortania/build-repo/releases/download/AppleALC-ff01db2/AppleALC-1.9.9-RELEASE.zip": {
+   "sha256": "68c13a7712077d6de9978f03361dc31ee762011e0a6b80324ccd74247bc67062",
+   "size": 1852888
+  },
+  "https://github.com/dortania/build-repo/releases/download/BrcmPatchRAM-6538902/BrcmPatchRAM-2.7.3-RELEASE.zip": {
+   "sha256": "71a4bdf9d0804f16f4f9a35f5b67288cd680eda44e4347cd60640f2e422299ea",
+   "size": 5422645
+  },
+  "https://github.com/dortania/build-repo/releases/download/BrightnessKeys-37bdf47/BrightnessKeys-1.0.4-RELEASE.zip": {
+   "sha256": "8fc2be5041801cc4fbf481153034b975ed18e02af312d6316531ee859f764126",
+   "size": 66156
+  },
+  "https://github.com/dortania/build-repo/releases/download/CPUFriend-30c7733/CPUFriend-1.3.1-RELEASE.zip": {
+   "sha256": "d2e34f4c0a520216b8fbb2a0b4c853ac626b2d592bd005e524ed471925f5996a",
+   "size": 75766
+  },
+  "https://github.com/dortania/build-repo/releases/download/CpuTscSync-17db149/CpuTscSync-1.1.3-RELEASE.zip": {
+   "sha256": "a4a547be7ac1f6561d7d4ff0ca486a98b04dd82ed6e093046e6d9ea6f0ecfa23",
+   "size": 70918
+  },
+  "https://github.com/dortania/build-repo/releases/download/CryptexFixup-9e6aa57/CryptexFixup-1.0.6-RELEASE.zip": {
+   "sha256": "e660f0c1f8fc173cb06179a9df34b556d7f2f7628adeb0346b537aa7c4496504",
+   "size": 67477
+  },
+  "https://github.com/dortania/build-repo/releases/download/FeatureUnlock-201bd45/FeatureUnlock-1.1.9-RELEASE.zip": {
+   "sha256": "bb1ac807fad412b478f690a8a563dc80333ddd834c1c41cbbc19511c7faad64b",
+   "size": 88619
+  },
+  "https://github.com/dortania/build-repo/releases/download/HibernationFixup-86a5f8a/HibernationFixup-1.5.5-RELEASE.zip": {
+   "sha256": "84bd6d3a7b5949b3bfba6ef4bb2b873ecb435581d530882740ee996fc2313a0d",
+   "size": 113082
+  },
+  "https://github.com/dortania/build-repo/releases/download/IntelBluetoothFirmware-a414375/IntelBluetoothFirmware-2.5.0-RELEASE.zip": {
+   "sha256": "53a81964a2f7c2a20c885b8f327b4d427174f322c0094462df33eac8ecdc7ba1",
+   "size": 11428635
+  },
+  "https://github.com/dortania/build-repo/releases/download/Lilu-0515f40/Lilu-1.7.3-RELEASE.zip": {
+   "sha256": "261aebb9dc83adb6515c96405653f53c3c50b09c89babdb91fb41f7b33a1cd2a",
+   "size": 760006
+  },
+  "https://github.com/dortania/build-repo/releases/download/NVMeFix-4862220/NVMeFix-1.1.4-RELEASE.zip": {
+   "sha256": "8c0c9b83f6f36db59a963ab91205a5d26aa9b368736b3b885ee8fa9ad90f6e9e",
+   "size": 104815
+  },
+  "https://github.com/dortania/build-repo/releases/download/NoTouchID-9010c9e/NoTouchID-1.0.4-RELEASE.zip": {
+   "sha256": "d05f21129d97079dc5f53c017bf198bdd9e1d5b21cb622f5b3cf2d4eff5298b2",
+   "size": 8652
+  },
+  "https://github.com/dortania/build-repo/releases/download/OpenCorePkg-6d8490d/OpenCore-1.0.9-DEBUG.zip": {
+   "sha256": "68ac1c968de5122a815cd6f320c7fa6e85cf18002bf7a5499c2d2b0a9bd562ac",
+   "size": 11837993
+  },
+  "https://github.com/dortania/build-repo/releases/download/RTCMemoryFixup-4f1db4e/RTCMemoryFixup-1.0.8-RELEASE.zip": {
+   "sha256": "ac23e6a80f80f8459135c96b58935c09e6a9a3c9a6a155533487fec62af780e0",
+   "size": 57009
+  },
+  "https://github.com/dortania/build-repo/releases/download/RestrictEvents-9265e78/RestrictEvents-1.1.7-RELEASE.zip": {
+   "sha256": "e5a8c15adeba9251be2709899214fe7fd847f6d38fca6c09adb65e9b2af64f0a",
+   "size": 106738
+  },
+  "https://github.com/dortania/build-repo/releases/download/VirtualSMC-b5c62c2/VirtualSMC-1.3.9-RELEASE.zip": {
+   "sha256": "0d020ad354fc72f9143b0cc4d57335e9f3a61c9c3b1f8ccf7b332223d8a541c5",
+   "size": 1316184
+  },
+  "https://github.com/dortania/build-repo/releases/download/VoodooI2C-5c0c99c/release.zip": {
+   "sha256": "2347e42fb09f2386b47f4c02b265441bc5f3cf344d1ff168daed93a6b6c411e3",
+   "size": 261500
+  },
+  "https://github.com/dortania/build-repo/releases/download/VoodooInput-d897813/VoodooInput-1.1.7-RELEASE.zip": {
+   "sha256": "5a30a642afc59c7c87a11fc7d9c4d76509b059fa01fd3e058bd999fb30a76d65",
+   "size": 120236
+  },
+  "https://github.com/dortania/build-repo/releases/download/VoodooPS2-7eab4a3/VoodooPS2Controller-2.3.8-RELEASE.zip": {
+   "sha256": "4008968674f0fae549c656d9f55af3e689e0b335cb33b4484bf94ab237357016",
+   "size": 601945
+  },
+  "https://github.com/dortania/build-repo/releases/download/VoodooRMI-83868f0/VoodooRMI-1.4.3-RELEASE.zip": {
+   "sha256": "4793dd2256c339b302102b69b9103c88ce198c159ef9aa49bc1849bda176ca79",
+   "size": 546467
+  },
+  "https://github.com/dortania/build-repo/releases/download/VoodooSMBus-8fff9b9/release.zip": {
+   "sha256": "15a9a1ba95e615afdabb0fe7bcb3f0b22188dd989560ed098d42dbf4020c445f",
+   "size": 125288
+  },
+  "https://github.com/dortania/build-repo/releases/download/WhateverGreen-093e76f/WhateverGreen-1.7.2-RELEASE.zip": {
+   "sha256": "59a1fe3d64b2e57925c806985c88bb69ce0a6bbeea5980ca11551b0e7ddf55b9",
+   "size": 553515
+  },
+  "https://github.com/flxxxxddd/SimpleMtkWlan/archive/refs/tags/v1.5.0.tar.gz": {
+   "sha256": "bb01914935ea32929ec3b1c6270ac9c59c6bad626bb96161b94c61c80cb0fa6e",
+   "size": 3237058
+  },
+  "https://github.com/flxxxxddd/SimpleMtkWlan/releases/download/v1.5.0/AirportMtkWlan-Tahoe-1.5.0-RELEASE.zip": {
+   "sha256": "3b3f354f88d2ff3a3987d7adbeeb3a96b7929a22909115fab602fbaa6b22dcc0",
+   "size": 1848113
+  },
+  "https://github.com/hieplpvip/AsusSMC/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "162e91f3000e2a7bb0b0084a28f7410e8954b9b179b80fc00ba2301f43bb86fb",
+   "size": 60,
+   "source_sha256": "8f2958cfd04c15a9258a7981f62d46ee23b26d4156fae07008ac2989602a5563"
+  },
+  "https://github.com/hieplpvip/AsusSMC/releases/download/1.4.1/AsusSMC-1.4.1-RELEASE.zip": {
+   "sha256": "e688da90f79e76967557f06251bcbabd600145972f5b7392094fbfecee1a2000",
+   "size": 137200
+  },
+  "https://github.com/hieplpvip/AsusSMC/releases/expanded_assets/1.4.1": {
+   "sha256": "4b2242a1f1e83c34ae0a31fd592af58a559aeb5371d40257704eedf615550299",
+   "size": 8490
+  },
+  "https://github.com/hrx114514x/PC711Probe/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "2a0d6189c9b402ea88b6ccad4cf1f511dd35f6f4de1989aa9a502c68f3642c71",
+   "size": 65,
+   "source_sha256": "f03e9ec65dc3605895399d770033eec39ee693ac8a182ac5e8eb60b6e277de19"
+  },
+  "https://github.com/hrx114514x/PC711Probe/releases/download/v1.8.1/SHA256SUMS.txt": {
+   "sha256": "69901468342ff198a5f95c90f579a08f08ece8e266270651852ea1758a4b26a6",
+   "size": 619
+  },
+  "https://github.com/hrx114514x/PC711Probe/releases/expanded_assets/v1.8.1": {
+   "sha256": "0fb7f993f1c74d4763e097cb65e5c2aff57fc35e0a8aa41f605c2c0225d8aca5",
+   "size": 16520
+  },
+  "https://github.com/naveenkrdy/AmdTscSync/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "3940a1971ed07abcbe5488d26f64df8432138c98b7aff12e871fa2a89784acd4",
+   "size": 64,
+   "source_sha256": "67900fd01e64dac69628ec3594e0b64061f1b4db3e1575e655b268d1e39b5c50"
+  },
+  "https://github.com/naveenkrdy/AmdTscSync/releases/expanded_assets/2.0.0": {
+   "sha256": "1b601970c676451c2583c335c1d0f1bd0e864046195bbfad3d18a92cd3dbe65c",
+   "size": 8519
+  },
+  "https://github.com/nullmoth/amd-rdna4-macos/releases/download/v0.1.0-49f7f20c/AMDRadeonRDNA4-0.1.0-49f7f20c.zip": {
+   "sha256": "ac147a6ae7dc0e7768b48d122978d8debff4862b408fdb485339ce9757763e34",
+   "size": 320980
+  },
+  "https://github.com/razvanccr/AirportWCN7850/archive/refs/tags/v0.0.2.tar.gz": {
+   "sha256": "5d5c8288c0b4e7fe80ccb5cb133a1b1cc08b9449b4cd5d6b0b609d725d571ec3",
+   "size": 4667068
+  },
+  "https://github.com/razvanccr/AirportWCN7850/releases/download/v0.0.2/AirportWCN7850-0.0.2.zip": {
+   "sha256": "0a91635873f60243b5e8730577a29e5ccc3531b135f1dff27d1f3c69075f9e08",
+   "size": 3868966
+  },
+  "https://github.com/razvanccr/BluetoothWCN7850/releases/download/v1.0.0/BluetoothWCN7850-1.0.0.zip": {
+   "sha256": "acc9c4352525163050ee7e537f5bb42bd7c03cda5b0ecabd5e9db875a1eb90bd",
+   "size": 229271
+  },
+  "https://github.com/souissiak1-maker/AirportRTW/archive/refs/tags/V2.1.0.tar.gz": {
+   "sha256": "87cdc11e9c0c704f1ed934ce38fb70558b5057a6c0af69ce62c8ef7247795909",
+   "size": 30273861
+  },
+  "https://github.com/souissiak1-maker/AirportRTW/releases/download/V2.1.0/AirportRTW-Sequoia-Release.zip": {
+   "sha256": "1e6b5daf388968d5af42a26b51b71a1b1019bd9229efe08474d3d4f26931d1b7",
+   "size": 20187077
+  },
+  "https://github.com/souissiak1-maker/AirportRTW/releases/download/V2.1.0/AirportRTW-Tahoe-Release.zip": {
+   "sha256": "3c5b6a31d23d088826614d54267bdc9f33137b1e8a67df9b38a94ef558ea6ed1",
+   "size": 20187579
+  },
+  "https://github.com/thegwchr/Feixiao/archive/refs/tags/v1.0.1.tar.gz": {
+   "sha256": "33fa758be8ce84abec01ff252656577556cf781235e7dc110249704bdcb973c4",
+   "size": 117120
+  },
+  "https://github.com/thegwchr/Feixiao/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "1d3b4d6aebf83de2eaf22e963dae5af3fe26524dd5a96b929ab0597952d3ad72",
+   "size": 60,
+   "source_sha256": "e5469f9a5e6b8da61a0e6407d37f5aa3b0341ee60fa34773c57942f2598a8675"
+  },
+  "https://github.com/thegwchr/Feixiao/releases/download/v1.0.1/Feixiao_v1.0.1_FBFEB3FE-3540-398D-9A72-D54F7BAB548C.zip": {
+   "sha256": "3c18571aa0038487ba713574db0afccaf310763e0be46e9f9aafa00e2f36d982",
+   "size": 683234
+  },
+  "https://github.com/thegwchr/Feixiao/releases/expanded_assets/v1.0.1": {
+   "sha256": "973617f5de4de74aa23e966b8e71a1c795f65f2dc3eb51f40430e9718e269bf6",
+   "size": 8630
+  },
+  "https://github.com/thegwchr/RealtekBluetoothFirmware/archive/refs/tags/v1.0.2.tar.gz": {
+   "sha256": "564c5df7df71fdc67c6b4fce7cfba7502ce806a3dfa449befdf24d35a182df2e",
+   "size": 1585444
+  },
+  "https://github.com/thegwchr/RealtekBluetoothFirmware/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "b8f8883c8e49307a7b3ae0ce0bb2d9a36f0eb183af6df585e61a1617110ed6da",
+   "size": 77,
+   "source_sha256": "c4f86540ba3bd4966299c35e0b2143240d20a977d3a216a0eee4f27f3eb6a195"
+  },
+  "https://github.com/thegwchr/RealtekBluetoothFirmware/releases/download/v1.0.2/RealtekBluetoothFirmware_v1.0.2_5080405E-068B-3F14-92D7-0F48AB51C52B.zip": {
+   "sha256": "d9fc23d9c8d942720d93e687cfff863aee1198a821ca4f089c8d2eae9cab0c61",
+   "size": 617803
+  },
+  "https://github.com/thegwchr/RealtekBluetoothFirmware/releases/expanded_assets/v1.0.2": {
+   "sha256": "36e333826c550147bebb23673e6abd1a16eb37c9e7a66b608fa7b348ce8d9f55",
+   "size": 8732
+  },
+  "https://github.com/watchthelight-labs/LegionCbmrFix/releases/download/1.0.0/LegionCbmrFix-1.0.0.zip": {
+   "sha256": "52f7217896ca72c74a2527f5e5943939dda99a3b46bba4651bc05cd135255ec9",
+   "size": 961
+  },
+  "https://github.com/watchthelight-labs/LegionCpuPower/releases/download/0.3.3/LegionCpuPower-0.3.3.zip": {
+   "sha256": "441a25bd349395954208c60e6577494987f5f4f4aede4a8a20681d28302bc813",
+   "size": 75086
+  },
+  "https://github.com/watchthelight-labs/LegionI2CArrowLake/releases/download/1.1.0/LegionI2CArrowLake-1.1.0.zip": {
+   "sha256": "41cae11bbd5e12a6a9949bb5a3320fca6ee74b3fceaa2ae728a28070b55ef6ea",
+   "size": 2341
+  },
+  "https://github.com/watchthelight-labs/LegionITEKbdFix/releases/download/1.0.0/LegionITEKbdFix-1.0.0.zip": {
+   "sha256": "3624df9a1b5da807213761cbc5cb9b5b54398bd7c12adf2116f2a73911af8645",
+   "size": 2147
+  },
+  "https://github.com/zhen-zen/YogaSMC/archive/refs/tags/1.5.3.tar.gz": {
+   "sha256": "912dd998f03893e652e52cd23e88c3f10f4e9d7471e7ac145d3744c18b964646",
+   "size": 392707
+  },
+  "https://github.com/zhen-zen/YogaSMC/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "892c69f9e998947463cd4a97e4d985db261a5e40c33ba017abb898bd57d9b430",
+   "size": 59,
+   "source_sha256": "1a39b0dc8062846d7daa19113a70f002967e7b638f21e5a2251b87a61767f01b"
+  },
+  "https://github.com/zhen-zen/YogaSMC/releases/download/1.5.3/YogaSMC-Release.zip": {
+   "sha256": "d212edf601a6f7722f60e63a572ed3e689430d89fdae8a0f5365c8d6f799768e",
+   "size": 174313
+  },
+  "https://github.com/zhen-zen/YogaSMC/releases/expanded_assets/1.5.3": {
+   "sha256": "cd89f503a6f0ac5c09994f75a9b58ce31cdbe7730d2ad2e69305b3bc05dda181",
+   "size": 14375
+  },
+  "https://github.com/zxystd/AthBluetoothFirmware/releases": {
+   "metadata_kind": "release-tag",
+   "sha256": "fcd897d09e35c5fb1d10f0deb86c7169a2de724c77f7aa31b403cc9e2580e6f8",
+   "size": 71,
+   "source_sha256": "53fdf07dca67ee173e3b881bdae7721a8c0e785480dc936023a84080134dea61"
+  },
+  "https://github.com/zxystd/AthBluetoothFirmware/releases/download/v1.1.0/Ath3kBT.kext.zip": {
+   "sha256": "83b68fa50c76699f343da606c297877915a43fdfa985ae6e2a6e36fd16a2b03a",
+   "size": 246477
+  },
+  "https://github.com/zxystd/AthBluetoothFirmware/releases/expanded_assets/v1.1.0": {
+   "sha256": "d8f566dad5635f4900bb30139e4d16906427ab3471bbf8ab4a877ca48899bb11",
+   "size": 6532
+  },
+  "https://nullmothsystems.com/mirror/3109381a2db4a9d77053bbc0fe86079c7f45382be8e8c4378012c07be5cd49fa": {
+   "sha256": "3109381a2db4a9d77053bbc0fe86079c7f45382be8e8c4378012c07be5cd49fa",
+   "size": 3074903
+  },
+  "https://nullmothsystems.com/mirror/7ec44e7e2651df42bb8864a8d6d3318512c84ee9f826f44e162bee96d088ece7": {
+   "sha256": "7ec44e7e2651df42bb8864a8d6d3318512c84ee9f826f44e162bee96d088ece7",
+   "size": 155266
+  },
+  "https://nullmothsystems.com/mirror/2f9bbee7cb1fba4ed51893e7792d5103f57d1d56a109f3ece4e15c1734242633": {
+   "sha256": "2f9bbee7cb1fba4ed51893e7792d5103f57d1d56a109f3ece4e15c1734242633",
+   "size": 35020
+  },
+  "https://nullmothsystems.com/mirror/da0ef98222f7d29a6e3cdde91185348b7fe8abdf5c324c5e2349295996ee18f9": {
+   "sha256": "da0ef98222f7d29a6e3cdde91185348b7fe8abdf5c324c5e2349295996ee18f9",
+   "size": 1822103
+  },
+  "https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json": {
+   "sha256": "96df876947bd12fc633257f5391d077e82828bd8ff618b8a5009f946f4275636",
+   "size": 58592
+  }
+ },
+ "schema": 1
+}

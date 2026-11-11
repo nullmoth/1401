@@ -1,0 +1,382 @@
+{
+ "ok": true,
+ "efi": "D:\\code\\Ai\\1401\\out\\huawei-efi-release",
+ "checks": [
+  {
+   "check": "config has every OpenCore section",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "required file EFI/BOOT/BOOTx64.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "required file EFI/OC/OpenCore.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "required file EFI/OC/config.plist",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves Lilu.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves AMFIPass.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves BlueToolFixup.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves BrightnessKeys.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves CpuTopologyRebuild.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves ECEnabler.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves IntelBTPatcher.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves IntelBluetoothFirmware.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves NVMeFix.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves RestrictEvents.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VirtualSMC.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves SMCBatteryManager.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves SMCLightSensor.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves SMCProcessor.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves SMCSuperIO.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves USBToolBox.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves UTBDefault.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooI2C.kext/Contents/PlugIns/VoodooI2CServices.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooI2C.kext/Contents/PlugIns/VoodooGPIO.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooI2C.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooI2C.kext/Contents/PlugIns/VoodooInput.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooI2CHID.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooPS2Controller.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooPS2Controller.kext/Contents/PlugIns/VoodooInput.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooPS2Controller.kext/Contents/PlugIns/VoodooPS2Keyboard.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooPS2Controller.kext/Contents/PlugIns/VoodooPS2Mouse.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves VoodooPS2Controller.kext/Contents/PlugIns/VoodooPS2Trackpad.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves WhateverXe.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves XHCI-unsupported.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "kext entry resolves itlwm.kext",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-ALSD.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-SBUS.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-EC.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-GPI0.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-MCHC.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-PLUG-ALT.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-PNLF.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-RTCAWAC.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-USB-Reset.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-USBX.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "ACPI entry resolves SSDT-XOSI.aml",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "driver entry resolves apfs_aligned.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "driver entry resolves HfsPlus.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "driver entry resolves OpenCanopy.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "driver entry resolves OpenRuntime.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "driver entry resolves ResetNvramEntry.efi",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "Huawei-relevant kext WhateverXe.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext itlwm.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext USBToolBox.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext UTBDefault.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext VoodooI2C.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext VoodooI2CHID.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext VoodooPS2Controller.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext Lilu.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "Huawei-relevant kext VirtualSMC.kext",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "ACPI table SSDT-PLUG-ALT.aml",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "ACPI table SSDT-PNLF.aml",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "ACPI table SSDT-GPI0.aml",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "ACPI table SSDT-USBX.aml",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "ACPI table SSDT-XOSI.aml",
+   "ok": true,
+   "detail": "present"
+  },
+  {
+   "check": "boot-arg ctrsmt=full",
+   "ok": true,
+   "detail": "-v debug=0x100 keepsyms=1 -allow3d -disablegfxfirmware -igfxdvmt -vi2c-force-polling ctrsmt=full -ibtcompatbeta revpatch=sbvmm"
+  },
+  {
+   "check": "boot-arg -vi2c-force-polling",
+   "ok": true,
+   "detail": "-v debug=0x100 keepsyms=1 -allow3d -disablegfxfirmware -igfxdvmt -vi2c-force-polling ctrsmt=full -ibtcompatbeta revpatch=sbvmm"
+  },
+  {
+   "check": "boot-arg -ibtcompatbeta",
+   "ok": true,
+   "detail": "-v debug=0x100 keepsyms=1 -allow3d -disablegfxfirmware -igfxdvmt -vi2c-force-polling ctrsmt=full -ibtcompatbeta revpatch=sbvmm"
+  },
+  {
+   "check": "Huawei topology CPUID byte 6 = 128",
+   "ok": true,
+   "detail": "55060a00000080000000000000000000"
+  },
+  {
+   "check": "Huawei topology CPUID mask byte 6 = 255",
+   "ok": true,
+   "detail": "ffffffff0000ff000000000000000000"
+  },
+  {
+   "check": "SMBIOS MacBookPro16,2",
+   "ok": true,
+   "detail": "MacBookPro16,2"
+  },
+  {
+   "check": "DevirtualiseMmio is off",
+   "ok": true,
+   "detail": "False"
+  },
+  {
+   "check": "DisableIoMapper is on",
+   "ok": true,
+   "detail": "True"
+  },
+  {
+   "check": "OpenCore ocvalidate",
+   "ok": true,
+   "detail": "{\"ok\": true, \"issues\": 0, \"text\": \"NOTE: This version of ocvalidate is only compatible with OpenCore version 1.0.9!\\n\\n\\nCompleted validating config.plist in 2 ms. No issues found.\"}"
+  }
+ ],
+ "errors": [],
+ "sha256": {
+  "EFI/OC/config.plist": "f1b65f6bceac80c1d3f986d898664746ecc36e3cab2ec1d31b536a83f7865bc5",
+  "EFI/OC/OpenCore.efi": "5af6acdaabdf02f8727fd3ee2aac3ae8388f4059ce939970e167a503d12aa82a"
+ },
+ "counts": {
+  "kexts": 30,
+  "acpi": 11,
+  "drivers": 5
+ },
+ "note": "File-level and ocvalidate verification only. Booting this EFI and installing macOS require the real machine and were not performed in this project."
+}

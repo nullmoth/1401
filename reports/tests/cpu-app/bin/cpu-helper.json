@@ -1,0 +1,8 @@
+{
+  "schema": "nullmoth-cpu-helper/1",
+  "sha256": "5e033dd8acaf9cb7b70784da939776724aa74740bc31298c073fc98f1ac23ac4",
+  "dependencies": [
+    "KERNEL32.DLL"
+  ],
+  "operation": "documented read-only CPUID allow-list"
+}
