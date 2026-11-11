@@ -25,7 +25,7 @@ def verify_capture_native(repo, output, evidence=None):
     evidence = evidence if evidence is not None else {}
     if sys.platform != 'win32' or ctypes.sizeof(ctypes.c_void_p) != 8:
         raise RuntimeError('Native capture verification needs 64-bit Windows.')
-    exe = Path(output).parent / 'capture-abi.exe'
+    exe = Path(output).resolve().parent / 'capture-abi.exe'
     subprocess.run(['cl', '/nologo', '/O2', str(Path(repo) / 'tools/windows_capture_abi.c'), '/link', '/OUT:' + str(exe)],
                    cwd=exe.parent, check=True, capture_output=True, timeout=30)
     sdk = json.loads(subprocess.check_output([str(exe)], timeout=10))
