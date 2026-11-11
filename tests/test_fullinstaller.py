@@ -9,6 +9,7 @@ import struct
 import tempfile
 import sys
 import unittest
+import urllib.error
 import zlib
 
 from p1401 import fullinstaller as f
@@ -126,10 +127,76 @@ class Fetch(unittest.TestCase):
         prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": hashlib.sha1(blob).hexdigest()}
         op = self.opener(blob, drop_after=2000)
         d = tempfile.mkdtemp()
-        path = f.fetch(prod, d, opener=op)
+        path = f.fetch(prod, d, opener=op, sleep=lambda s: None)
         self.assertEqual(open(path, "rb").read(), blob)
         self.assertEqual(op.calls[0], 0); self.assertGreater(op.calls[1], 0)
         self.assertFalse(os.path.exists(path + ".part"))
+
+    def test_a_part_larger_than_the_catalog_is_restarted_not_resumed_past_the_end(self):
+        # Issue #161: a .part of 19,032,695,007 bytes for a 18,388,869,343-byte package made every resume a Range past
+        # the end, which Apple answered 416 until the twelve tries ran out.
+        blob = make_xar(PKG_FILES)
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": hashlib.sha1(blob).hexdigest()}
+        d = tempfile.mkdtemp()
+        open(os.path.join(d, f.PACKAGE_NAME + ".part"), "wb").write(blob + b"EXTRA BYTES")
+        op = self.opener(blob)
+        path = f.fetch(prod, d, opener=op, sleep=lambda s: None)
+        self.assertEqual(open(path, "rb").read(), blob)
+        self.assertEqual(op.calls[0], 0, "an oversized .part must be restarted from byte 0")
+
+    def test_a_416_is_terminal_and_not_retried_twelve_times(self):
+        d = tempfile.mkdtemp()
+        open(os.path.join(d, f.PACKAGE_NAME + ".part"), "wb").write(b"12345")
+        calls = []
+
+        def op(url, start):
+            calls.append(start)
+            raise urllib.error.HTTPError(url, 416, "range", None, None)
+
+        with self.assertRaises(f.FullInstallerError) as e:
+            f.fetch({"url": "https://x/InstallAssistant.pkg", "size": 10}, d, opener=op, sleep=lambda s: None)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("416", str(e.exception))
+
+    def test_a_refused_request_is_terminal(self):
+        calls = []
+
+        def op(url, start):
+            calls.append(start)
+            raise urllib.error.HTTPError(url, 403, "forbidden", None, None)
+
+        with self.assertRaises(f.FullInstallerError) as e:
+            f.fetch({"url": "https://x/InstallAssistant.pkg", "size": 10}, tempfile.mkdtemp(), opener=op,
+                    sleep=lambda s: None)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("403", str(e.exception))
+
+    def test_the_stream_is_closed_even_when_the_read_fails(self):
+        blob = make_xar(PKG_FILES)
+        state = {"closed": False}
+
+        class S(io.BytesIO):
+            def read(self, n=-1):
+                b = io.BytesIO.read(self, n)
+                if not b:
+                    raise OSError("connection reset")
+                return b
+
+            def close(self):
+                state["closed"] = True
+                io.BytesIO.close(self)
+
+        with self.assertRaises(f.FullInstallerError):
+            f.fetch({"url": "https://x/InstallAssistant.pkg", "size": len(blob) + 10},
+                    tempfile.mkdtemp(), opener=lambda u, s: (S(blob), None), tries=1, sleep=lambda s: None)
+        self.assertTrue(state["closed"])
+
+    def test_a_server_that_sends_more_than_the_catalog_is_refused(self):
+        blob = make_xar(PKG_FILES)
+        with self.assertRaises(f.FullInstallerError) as e:
+            f.fetch({"url": "https://x/InstallAssistant.pkg", "size": 100},
+                    tempfile.mkdtemp(), opener=lambda u, s: (io.BytesIO(b"x" * 200), None), sleep=lambda s: None)
+        self.assertIn("more than", str(e.exception))
 
     def test_a_wrong_digest_throws_the_download_away(self):
         blob = make_xar(PKG_FILES)
