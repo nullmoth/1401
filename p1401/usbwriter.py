@@ -435,7 +435,10 @@ def current_number(disk):
     """The stick's disk number now. Taking a stick offline and online (the write's own retry, release()) can give it a
     new number: a 1.15 write log (10-13, ADATA USB Flash Drive) then sent diskpart "select disk 3" and got "The disk
     you specified is not valid". Found again by serial; by size and model when the serial does not identify exactly one
-    disk (some controllers report a new serial on every read); the number the user picked when neither does."""
+    disk (some controllers report a new serial on every read).
+
+    None when neither identifies exactly one disk. Returning the picked number here used to send diskpart "select disk
+    N; clean" after a failed erase had already invalidated that number - the number may by then belong to another disk."""
     n = int(disk["Number"])
     if platform.system() != "Windows":
         return n
@@ -446,7 +449,7 @@ if ($hit.Count -ne 1) {{ $hit = @($all | Where-Object {{ $_.Size -eq $sz -and $_
 if ($hit.Count -eq 1) {{ Write-Output "NUMBER=$($hit[0].Number)" }}
 """)
     got = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("NUMBER=")), "")
-    return int(got) if got.isdigit() else n
+    return int(got) if got.isdigit() else None
 
 
 def release(n):
@@ -562,23 +565,32 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
             raise UsbError('The machine profile changed before erasing the stick. Rebuild the EFI.')
     if disk.get("Via") == "Win32_DiskDrive":
         root = _write_wmi_erase(disk, erase_os)
-        return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
+        done = _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
+        done["number"] = int(disk["Number"])
+        return done
     _ps(check_script(disk, erase_os))
     from . import rawdisk  # noqa: PLC0415
     n = int(disk["Number"])
     letter = _free_letter()
     try:
         try:
-            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
+            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True), expected=disk)
         except rawdisk.DiskError as e:
             # A 2.0.1 write log: "cannot open \\.\PhysicalDrive1 (Windows error 2)" right after its volume was locked;
             # the stick had come back under another disk number. Find it again by serial and erase that one, once.
-            moved = current_number(disk) if "Windows error 2" in str(e) else n
+            if "Windows error 2" not in str(e):
+                raise
+            moved = current_number(disk)
+            if moved is None:
+                raise rawdisk.DiskError(
+                    "the stick could not be found again by its serial number, size and model after Windows renumbered "
+                    "the disks, so 1401 will not erase a disk that may be a different one. Nothing else was erased. "
+                    "Unplug the stick, plug it in again and press Write again.") from e
             if moved == n:
                 raise
             print(f"(Windows renumbered the stick: disk {n} is now disk {moved}; erasing that one)", flush=True)
             n = moved
-            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True))
+            rawdisk.wipe_mbr_fat32(n, int(disk["Size"]), PART_CAP, say=lambda m: print(m, flush=True), expected=disk)
     except rawdisk.DiskError as e:
         # Some sticks refuse raw sector writes outright (1.7 logs 10-10: Lexar, "Windows error 5" with nothing else
         # using them). Windows' own diskpart erase goes through the volume manager and works on them; it was the
@@ -589,7 +601,13 @@ def write(disk, efi_build_dir, recovery_info, allow_large=False, progress=None, 
         if not code or int(code.group(1)) not in RAW_REFUSED:
             raise
         print("(this stick refuses direct writes; erasing it with Windows' diskpart instead)", flush=True)
-        n = current_number(disk)
+        moved = current_number(disk)
+        if moved is None:
+            raise rawdisk.DiskError(
+                "the stick could not be found again by its serial number, size and model, so 1401 will not hand a disk "
+                "number to diskpart that may now belong to a different disk. Nothing else was erased. Unplug the stick, "
+                "plug it in again and press Write again.") from e
+        n = moved
         release(n)
         _diskpart(diskpart_script({**disk, "Number": n}, letter))
     script = (f"""$ErrorActionPreference = 'Stop'
@@ -602,7 +620,9 @@ function Find-Stick {{
   $hit = @($all | Where-Object {{ $sn -and (($_.SerialNumber + '').Trim() -eq $sn) }})
   if (-not $hit.Count) {{ $hit = @($all | Where-Object {{ $_.FriendlyName -eq $fn }}) }}
   if ($hit.Count -eq 1) {{ return $hit[0] }}
-  return Get-Disk -Number {n} -ErrorAction SilentlyContinue
+  # Not the picked stick by serial, size and model (or two candidates): never fall back to the old disk number, which
+  # may by now belong to a different disk. The caller waits and retries, then stops without formatting anything.
+  return $null
 }}
 $p = $null
 for ($i = 0; $i -lt 40 -and -not $p; $i++) {{
@@ -648,6 +668,7 @@ if (-not $done) {{
   if ($LASTEXITCODE -ne 0) {{ throw "Format-Volume: $last; format.com: $($out | Select-Object -Last 2)" }}
 }}
 Write-Output "LETTER=$letter"
+Write-Output "DISK=$($p.DiskNumber)"
 """)
     try:
         out = _ps(script)
@@ -682,6 +703,11 @@ Write-Output "LETTER=$letter"
             out = _ps(script)
     got_letter = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("LETTER=")), "")
     letter = got_letter[:1].upper() if got_letter[:1].isalpha() else letter
+    got_disk = next((ln.split("=", 1)[1].strip() for ln in (out or "").splitlines() if ln.startswith("DISK=")), "")
+    if got_disk.isdigit():
+        # The format script found the stick itself, by serial/size/model. If Windows gave it another number while it was
+        # formatted, the full-installer partition must be made on that number, never on the one picked before the erase.
+        n = int(got_disk)
     root = letter + ":\\"
     for _ in range(60):
         if os.path.isdir(root):
@@ -692,7 +718,9 @@ Write-Output "LETTER=$letter"
         # the stick search's own answer (empty when it found nothing) is now part of it.
         seen = " ".join((out or "").split())[-300:]
         raise UsbError(f"diskpart finished but {root} did not appear (the stick search said: {seen or 'nothing'})")
-    return _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
+    done = _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile, stick_name(disk), opt_in)
+    done["number"] = n
+    return done
 
 
 def _write_wmi_erase(disk, erase_os):
@@ -701,7 +729,17 @@ def _write_wmi_erase(disk, erase_os):
     letter), which goes through the volume manager rather than the storage provider. Returns the drive root."""
     _ps(wmi_check_script(disk, erase_os))
     letter = _free_letter()
-    print("(erasing the stick with Windows' diskpart: this PC's storage service lists no disks)", flush=True)
+    from . import rawdisk  # noqa: PLC0415
+    try:
+        actual = rawdisk.read_identity(int(disk["Number"]))
+    except rawdisk.DiskError as e:
+        raise UsbError(f"could not read disk {disk['Number']} to confirm it is the picked stick before erasing it ({e}). "
+                       f"Nothing was erased.") from e
+    ok, why = rawdisk._identity_matches(disk, actual)
+    if not ok:
+        raise UsbError(f"refusing: disk {disk['Number']} is not the USB stick that was picked ({why}). Nothing was erased. "
+                       f"Unplug the stick, plug it in again and press Write again.")
+    print(f"(erasing the stick with Windows' diskpart: this PC's storage service lists no disks; {why})", flush=True)
     _diskpart(diskpart_script(disk, letter))
     root = letter + ":\\"
     for _ in range(60):
@@ -1134,6 +1172,7 @@ def cli_write(argv):
     res = write(disk, efi, info, allow_large="--allow-large" in argv, progress=progress, machine_profile=handoff,
                 erase_os="--erase-os-partitions" in argv, opt_in=opt_in)
     root = res["root"]
+    final_number = int(res.get("number", disk["Number"]))
     print('OK verified build profile written to the stick (live identity remains unverified)', flush=True)
     if opt_in:
         print('OK ARM apps requested: after macOS starts, the 1401 Mac app offers to finish setting them up, if this Mac can run them',
@@ -1146,7 +1185,9 @@ def cli_write(argv):
         print("STEP making the second partition for the full macOS installer", flush=True)
         letter2 = _free_letter()
         try:
-            _diskpart(fullinstaller.diskpart_script(int(disk["Number"]), letter2, PART_CAP >> 20))
+            # final_number is the disk the write itself ended on: Windows can renumber a USB disk while it is erased
+            # and formatted, and the second partition must never be made on the number that disk had before.
+            _diskpart(fullinstaller.diskpart_script(final_number, letter2, PART_CAP >> 20))
             for _ in range(40):
                 if os.path.isdir(letter2 + ":\\"):
                     break
