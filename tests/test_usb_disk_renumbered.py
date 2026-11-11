@@ -20,17 +20,20 @@ class Renumbered(unittest.TestCase):
         self.assertEqual(n, 4)
         self.assertIn("'2A57'", script)
 
-    def test_no_single_match_keeps_the_picked_number(self):
-        self.assertEqual(self.number("")[0], 3)
-        self.assertEqual(self.number("NUMBER=\n")[0], 3)
+    def test_no_single_match_is_refused_instead_of_guessed(self):
+        # The old fallback returned the picked number, and diskpart then cleaned whatever disk held that number after
+        # the stick had moved. None stops the write before diskpart runs.
+        self.assertIsNone(self.number("")[0])
+        self.assertIsNone(self.number("NUMBER=\n")[0])
 
     def test_off_windows_the_picked_number_stands(self):
         with mock.patch.object(usbwriter.platform, "system", return_value="Darwin"):
             self.assertEqual(usbwriter.current_number(STICK), 3)
 
-    def test_both_diskpart_fallbacks_look_the_stick_up_again(self):
+    def test_both_diskpart_fallbacks_look_the_stick_up_again_and_refuse_a_guess(self):
         src = inspect.getsource(usbwriter.write)
-        self.assertEqual(src.count("n = current_number(disk)"), 2)
+        self.assertEqual(src.count("moved = current_number(disk)"), 2)
+        self.assertEqual(src.count("if moved is None:"), 2)
         self.assertEqual(src.count('_diskpart(diskpart_script({**disk, "Number": n}, letter))'), 2)
         self.assertNotIn("_diskpart(diskpart_script(disk, letter))", src)
 
