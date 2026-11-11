@@ -40,6 +40,7 @@ class RawWriteFallback(unittest.TestCase):
              mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
              mock.patch.object(usbwriter, "_ps", lambda s: calls.append("ps") or ""), \
              mock.patch.object(rawdisk, "wipe_mbr_fat32", wipe), \
+             mock.patch.object(usbwriter, "current_number", lambda d: int(PICK["Number"])), \
              mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
              mock.patch.object(usbwriter, "release", lambda n: calls.append("release")), \
              mock.patch.object(usbwriter, "_diskpart", lambda s: calls.append("diskpart")):
@@ -73,6 +74,7 @@ class PartitionNotShown(unittest.TestCase):
         with mock.patch.object(usbwriter, "eligible", lambda d, allow_large=False: (True, [])), \
              mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
              mock.patch.object(usbwriter, "_ps", ps), mock.patch.object(rawdisk, "wipe_mbr_fat32", lambda *a, **k: None), \
+             mock.patch.object(usbwriter, "current_number", lambda d: int(PICK["Number"])), \
              mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
              mock.patch.object(usbwriter, "release", lambda x: calls.append("release")), \
              mock.patch.object(usbwriter, "_diskpart", lambda x: calls.append("diskpart")), \
@@ -93,6 +95,7 @@ class PartitionNotShown(unittest.TestCase):
         with mock.patch.object(usbwriter, "eligible", lambda d, allow_large=False: (True, [])), \
              mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
              mock.patch.object(usbwriter, "_ps", ps), mock.patch.object(rawdisk, "wipe_mbr_fat32", lambda *a, **k: None), \
+             mock.patch.object(usbwriter, "current_number", lambda d: int(PICK["Number"])), \
              mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
              mock.patch.object(usbwriter, "release", lambda x: calls.append("release")), \
              mock.patch.object(usbwriter, "_diskpart", lambda x: calls.append("diskpart")), \
@@ -137,6 +140,7 @@ class PartitionNotShown(unittest.TestCase):
         with mock.patch.object(usbwriter, "eligible", lambda d, allow_large=False: (True, [])), \
              mock.patch("p1401.validate.validate", lambda d: {"ok": True}), \
              mock.patch.object(usbwriter, "_ps", ps), mock.patch.object(rawdisk, "wipe_mbr_fat32", lambda *a, **k: None), \
+             mock.patch.object(usbwriter, "current_number", lambda d: int(PICK["Number"])), \
              mock.patch.object(usbwriter, "_free_letter", lambda: "Q"), \
              mock.patch.object(usbwriter, "release", lambda x: calls.append("release")), \
              mock.patch.object(usbwriter, "_diskpart", dp), \

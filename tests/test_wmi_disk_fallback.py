@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from p1401 import usbwriter
+from p1401 import rawdisk, usbwriter
 
 STICK = {"Index": 3, "Model": "SanDisk Ultra", "SerialNumber": " 4C53 ", "PNPDeviceID": "USBSTOR\\DISK&VEN_SANDISK\\1",
          "InterfaceType": "USB", "MediaType": "Removable Media", "Size": 15998753280, "IsSystem": False, "IsBoot": False}
@@ -115,6 +115,7 @@ class WmiWrite(unittest.TestCase):
         with patch.object(usbwriter, "_ps", side_effect=lambda s: scripts.append(s) or ""), \
              patch.object(usbwriter, "_diskpart", side_effect=parts.append), \
              patch.object(usbwriter, "_free_letter", return_value="Q"), \
+             patch.object(rawdisk, "read_identity", return_value={"SerialNumber": "4C53", "Model": "SanDisk Ultra", "Size": STICK["Size"]}), \
              patch.object(usbwriter.os.path, "isdir", return_value=True), patch("builtins.print"):
             root = usbwriter._write_wmi_erase(d, erase_os=False)
         self.assertEqual(root, "Q:\\")
@@ -139,7 +140,7 @@ class WmiWrite(unittest.TestCase):
              patch.object(usbwriter, "_write_wmi_erase", return_value="Q:\\") as erase, \
              patch.object(usbwriter, "_write_payload", return_value={"root": "Q:\\"}) as payload, \
              patch.object(usbwriter, "check_script", side_effect=AssertionError("Get-Disk check on a WMI disk")):
-            self.assertEqual(usbwriter.write(d, "efi", {}), {"root": "Q:\\"})
+            self.assertEqual(usbwriter.write(d, "efi", {}), {"root": "Q:\\", "number": 3})
         erase.assert_called_once()
         payload.assert_called_once()
 

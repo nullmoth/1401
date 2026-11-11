@@ -6,6 +6,7 @@ probe must name that disk; it must also leave no drive letter mounted behind. El
 import json
 import subprocess
 import sys
+import time
 import unittest
 
 from p1401 import usbwriter
@@ -35,6 +36,13 @@ $fw = (Get-ItemProperty HKLM:\\System\\CurrentControlSet\\Control -Name PEFirmwa
         if out["known"]:
             self.assertIn(out["esp"], out["sys"] if isinstance(out["sys"], list) else [out["sys"]], out)
         letters_after = self.run_ps("(Get-WmiObject Win32_LogicalDisk | ForEach-Object { $_.DeviceID }) -join ','")
+        # mountvol /d returns before Windows' logical-disk list drops the letter (observed on the MateBook: the
+        # first read still had R: while the probe had already dismounted it). Poll briefly; a letter that never
+        # disappears still fails the test, so a probe that genuinely leaves a mount behind is not hidden.
+        deadline = time.time() + 8
+        while letters_after != letters_before and time.time() < deadline:
+            time.sleep(0.25)
+            letters_after = self.run_ps("(Get-WmiObject Win32_LogicalDisk | ForEach-Object { $_.DeviceID }) -join ','")
         self.assertEqual(letters_before, letters_after, "the probe left a drive letter mounted")
 
 

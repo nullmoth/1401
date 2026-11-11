@@ -72,17 +72,26 @@ class UtbMapImport(unittest.TestCase):
             "no personalities": make_map(t, "B.kext", info={"CFBundleIdentifier": "x"}),
             "an executable named": make_map(t, "C.kext", info={"CFBundleIdentifier": "x", "CFBundleExecutable": "X",
                                                                 "IOKitPersonalities": {"a": {}}}),
-            "a link": None,
         }
-        link = make_map(t, "D.kext")
-        os.symlink("/etc/hosts", os.path.join(link, "Contents", "hosts"))
-        cases["a link"] = link
         big = make_map(t, "E.kext", extra={"Contents/big.bin": b"0" * (utbmap.MAX_BYTES + 1)})
         cases["larger than 1 MB"] = big
         for why, path in cases.items():
             with self.assertRaises(utbmap.Refused, msg=why) as cm:
                 utbmap.check(path)
             self.assertTrue(why.split()[-1] in str(cm.exception) or why.split()[0] in str(cm.exception), (why, str(cm.exception)))
+
+    def test_a_link_is_refused(self):
+        t = tempfile.mkdtemp()
+        link = make_map(t, "D.kext")
+        try:
+            os.symlink("/etc/hosts", os.path.join(link, "Contents", "hosts"))
+        except OSError as e:
+            if getattr(e, 'winerror', None) == 1314:
+                self.skipTest("this Windows session cannot make symlinks (Developer Mode / SeCreateSymbolicLinkPrivilege)")
+            raise
+        with self.assertRaises(utbmap.Refused) as cm:
+            utbmap.check(link)
+        self.assertIn("link", str(cm.exception))
 
     def test_a_build_without_usbtoolbox_does_not_take_a_map_it_cannot_load(self):
         out = efi(add=[{"BundlePath": "Lilu.kext", "Enabled": True}])

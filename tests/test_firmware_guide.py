@@ -80,13 +80,21 @@ class FirmwareReview(unittest.TestCase):
         self.assertEqual(report, self.value)
         self.assertFalse(bound)
 
-    def test_symlink_oversized_and_non_dictionary_reports_refuse(self):
-        link = self.root / 'link.json'; link.symlink_to(self.report)
-        with self.assertRaises(guide.GuideError): guide.load_prerequisite(link, TOKEN)
+    def test_oversized_and_non_dictionary_reports_refuse(self):
         self.report.write_bytes(b'x' * (16 * 1024 * 1024 + 1))
         with self.assertRaises(guide.GuideError): guide.load_prerequisite(self.report, TOKEN)
         self.report.write_text('[]')
         with self.assertRaises(guide.GuideError): guide.load_prerequisite(self.report, TOKEN)
+
+    def test_a_symlinked_report_refuses(self):
+        link = self.root / 'link.json'
+        try:
+            link.symlink_to(self.report)
+        except OSError as e:
+            if getattr(e, 'winerror', None) == 1314:
+                self.skipTest("this Windows session cannot make symlinks (Developer Mode / SeCreateSymbolicLinkPrivilege)")
+            raise
+        with self.assertRaises(guide.GuideError): guide.load_prerequisite(link, TOKEN)
 
     def test_storage_observation_is_not_current_mode_or_boot_drive_claim(self):
         text = self.text()
