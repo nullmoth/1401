@@ -530,15 +530,62 @@ OCK_CACHE = (os.path.join(os.environ["LOCALAPPDATA"], "NullMoth", "1401", "OCK_F
              else os.path.join(REPO, "upstream", "OpCore-Simplify", "OCK_Files"))
 
 
+def cache_writable(path):
+    """True when this process can create a file in the cache folder and in every folder already inside it. A folder
+    left with a protected ACL (a sandbox or another user's tool made it) can still be listed at the top while one of
+    its children refuses every write; the build then died on that child's first kext manifest."""
+    try:
+        os.makedirs(path, exist_ok=True)
+        probe = os.path.join(path, ".1401-write-test")
+        with open(probe, "w", encoding="ascii") as fh:
+            fh.write("x")
+        os.remove(probe)
+        children = os.listdir(path)
+    except OSError:
+        return False
+    for name in children:
+        child = os.path.join(path, name)
+        try:
+            is_dir = stat.S_ISDIR(os.stat(child).st_mode)
+        except OSError:
+            return False
+        if not is_dir:
+            continue
+        probe = os.path.join(child, ".1401-write-test")
+        try:
+            with open(probe, "w", encoding="ascii") as fh:
+                fh.write("x")
+            os.remove(probe)
+        except OSError:
+            return False
+    return True
+
+
+def pick_cache(base, writable=None):
+    """The first writable cache folder: base, then base-2, base-3. A cache that cannot be written is never deleted
+    (it may belong to another user); a fresh one is used beside it."""
+    writable = writable or cache_writable
+    for suffix in ("", "-2", "-3"):
+        candidate = base + suffix
+        if writable(candidate):
+            return candidate
+    return None
+
+
 def _use_ock_cache(o):
-    os.makedirs(OCK_CACHE, exist_ok=True)
-    o.o.ock_files_dir = OCK_CACHE
-    o.o.download_history_file = os.path.join(OCK_CACHE, "history.json")
+    cache = pick_cache(OCK_CACHE)
+    if cache is None:
+        raise RuntimeError(f"the dependency cache folders {OCK_CACHE}, {OCK_CACHE}-2 and {OCK_CACHE}-3 cannot be "
+                           f"written. Close other 1401 windows, or delete the folder named in Send logs, and build again.")
+    if cache != OCK_CACHE:
+        print(f"OK the dependency cache {OCK_CACHE} is not writable; using {cache} instead", flush=True)
+    o.o.ock_files_dir = cache
+    o.o.download_history_file = os.path.join(cache, "history.json")
     if hasattr(o.o, 'integrity_checker'):
         from . import dependency_cache
         dependency_cache.harden(o.o.integrity_checker)
-        dependency_cache.tolerate_cache_locks(o.o.utils, OCK_CACHE)
-    o.k.ock_files_dir = OCK_CACHE
+        dependency_cache.tolerate_cache_locks(o.o.utils, cache)
+    o.k.ock_files_dir = cache
 
 
 
