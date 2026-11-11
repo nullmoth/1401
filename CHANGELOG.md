@@ -3,6 +3,39 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 2.9.1 (Huawei fork)
+- Writing a stick: the disk is re-identified inside the destructive operation itself. The raw erase asks the open
+  `PhysicalDrive` for its serial number, vendor/product and byte size before dropping the partition table, and the
+  diskpart fallbacks stop instead of reusing a disk number that Windows may have given to another disk. The
+  full-installer second partition uses the number the write ended on.
+- Windows app: command-line arguments are quoted by the `CommandLineToArgvW` rule, so a path ending in `\` can no
+  longer swallow `--stick-id`/`--stick-size`/`--stick-name`. A USB disk above 256 GiB asks for its own confirmation
+  instead of receiving `--allow-large` automatically. Send-log and screen-line dialogs default to Cancel.
+- Full installer download: reads are capped at Apple's catalog size, an oversized `.part` is restarted from zero,
+  HTTP 416 and non-transient 4xx are terminal, transient errors back off, and the response stream is always closed
+  (upstream #161: "stopped at 19032695007 of 18388869343 bytes").
+- Recovery: a local `BaseSystem.dmg` is fully verified (signed chunklist, exact size, every chunk's SHA-256) before
+  the stick is erased; an optional `BaseSystem.product.json` records its macOS. The online preflight now hashes the
+  first chunk instead of only counting bytes. Image and chunklist are fsynced; local copies survive a stick remount.
+- Building again: a dependency cache whose child folder refuses writes (for example a protected ACL) falls back to
+  `OCK_Files-2`/`-3` instead of failing on the first kext manifest. Validation uses the cache that actually built the
+  EFI, so a fallback cache no longer trips the "OpenCore.efi differs" invariant.
+- Huawei MateBook X Pro 2023 (MRGFG-XX, i7-1360P, Iris Xe A7A0, AX211):
+  - a Huawei profile names A7A0 in WhateverXe's table, AX211's itlwm/HeliPort path, the I2C touchpad (GXTP786) versus
+    the I2C touchscreen (GXTP738X), and the TBU405Pro USB enclosure as an external, non-target disk;
+  - a `theory` machine recipe applies `ProvideCurrentCpuInfo` and the 128-logical-processor CPUID fix used for the
+    same i7-1360P on the Dell XPS 13 Plus 9320 (not yet booted on this board);
+  - itlwm is no longer counted as installer-capable Wi-Fi, so the build recommends Ethernet or a full offline
+    installer for AX211;
+  - the build says whether it used a supplied UTBMap or the generic UTBDefault (the no-map case);
+  - the Intel Xe notice now matches the EFI: WhateverXe is included; the full graphics package remains opt-in.
+- Documentation: corrected the `EXITBS:START` and `OS.dmg.root_hash` explanations (the latter is a Preboot/SSV
+  preflight, not a Recovery file and not the cause of an EXITBS stop), the ocvalidate 4551 fallback, Python 3.13 in
+  the package, and the 2 GB minimum stick size.
+- Tests: 1190 in the fork's suite (0 failures, 10 environment skips), including new regressions for disk identity,
+  argument quoting, large-disk confirmation, #161, Recovery pre-erase verification, cache fallback, Huawei profile,
+  UTBMap status and validator cache selection.
+
 ## 2.9
 - Mac app: Intel Xe graphics now uses WhateverXe 0.8.0 and WhateverXe Graphics v0.4.1 (thanks b00t0x). New in the supported list: Tiger Lake `9A59 9AC0 9AC9 9AD9 9AF8`, Alder Lake `4626 4628 462A 46A0-46A2 46B0-46B2 46C0-46C2`, Raptor Lake-U `A720 A721`. Requirements are unchanged.
 - 1401 for Windows: AMD processors can get IntelMKLFixup (thanks carnations-botanica) so applications built on Intel's Math Kernel Library run. It is an experimental driver: it is added only when "Include experimental drivers" is on.
