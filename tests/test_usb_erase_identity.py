@@ -118,6 +118,10 @@ class FinalNumber(unittest.TestCase):
         self.assertTrue(got, "the second partition script was never run")
         self.assertIn("select disk 9", got[-1])
         self.assertNotIn("select disk 2", got[-1])
+        # The full-installer path must not mutate the module-wide cap: that leak made a later selftest see 2 GiB
+        # instead of 16 GiB in the same process.
+        self.assertEqual(usbwriter.PART_CAP, 16 * (1 << 30))
+        self.assertTrue(usbwriter.selftest())
 
 
 if __name__ == "__main__":
