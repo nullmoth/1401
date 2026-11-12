@@ -7,14 +7,14 @@
 *{box-sizing:border-box}body{margin:0;padding:20px 24px;background:var(--bg);color:var(--fg);font:13px -apple-system,system-ui,sans-serif}
 h1{font-size:18px;margin:0 0 4px}h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:24px 0 8px}
 p.lead{color:var(--mut);margin:0 0 8px}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px}
-.row{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center}.t{font-weight:600}.h{color:var(--mut);grid-column:1/-1}
+.row{display:grid;grid-template-columns:minmax(140px,1fr) auto;gap:6px 12px;align-items:center}.t{font-weight:600}button{white-space:nowrap}.h{color:var(--mut);grid-column:1/-1}
 .msg{grid-column:1/-1;min-height:1em}.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
 select,input[type=text],input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
 button{font:inherit;border:1px solid var(--acc);color:var(--acc);background:transparent;border-radius:6px;padding:4px 12px;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}.gpu{font-family:ui-monospace,Menlo,monospace;font-size:12px}.fact{color:var(--mut)}
 .mask label{margin-right:10px}.warn{color:var(--bad)}
 </style></head><body>
-<h1>Driver settings</h1>
+<div style="display:flex;justify-content:space-between;align-items:center"><h1>Driver settings</h1><button type="button" id="lang">中文</button></div>
 <p class="lead">Each change is shown to you in full and asked for before anything is written. Display settings are boot arguments and take effect after a restart.</p>
 <div id="warn" class="warn"></div>
 <h2>Your GPUs</h2><div id="gpus"><p class="lead">Reading the hardware...</p></div>
@@ -77,5 +77,90 @@ function row(s,safe){
   if(s.id==='surround'&&displays.length)c.append($('div','h','Displays now connected: '+displays.join(', ')+'. Tick the framebuffer numbers that form one display.'));
   c.append($('div','msg'));return c}
 function result(r){const c=document.getElementById('s-'+r.id);if(!c)return;const m=c.querySelector('.msg');m.className='msg '+(r.ok?'ok':'bad');m.textContent=r.message}
+const ZH_SET={
+  "Driver settings":"驱动设置",
+  "Each change is shown to you in full and asked for before anything is written. Display settings are boot arguments and take effect after a restart.":"每项修改在写入前都会完整展示并征得你的确认。显示设置属于启动参数（boot-args），重启后生效。",
+  "Your GPUs":"你的显卡",
+  "Reading the hardware...":"正在读取硬件信息...",
+  "No NVIDIA GPU is visible to the system.":"系统未检测到可见的 NVIDIA 显卡。",
+  "The current boot arguments hold characters this panel will not rewrite, so display settings are read-only here.":"当前启动参数包含此面板不会重写的特殊字符，因此显示设置在此处为只读。",
+  "Display":"显示",
+  "Performance":"性能",
+  "Apply":"应用",
+  "Remove":"移除",
+  "Add an application":"添加应用",
+  "0 (primary)":"0（主卡）",
+  " every other application on card ":" 其余应用默认使用显卡 ",
+  " on card ":" 使用显卡 ",
+  "executable name":"可执行文件名",
+  " (restart needed)":"（需重启生效）",
+  "HDR10":"HDR10",
+  "Advertise HDR10 to displays that list PQ in their EDID.":"向 EDID 中包含 PQ 支持的显示器通告 HDR10。",
+  "10-bit colour":"10-bit 色深",
+  "Scan out 30-bit surfaces on mode changes.":"在切换显示模式时扫描输出 30-bit 画面。",
+  "Variable refresh rate (G-Sync Compatible / Adaptive-Sync)":"可变刷新率（G-Sync 兼容 / Adaptive-Sync）",
+  "Let WindowServer request variable refresh on displays that support it.":"允许 WindowServer 在受支持的显示器上请求可变刷新率。",
+  "Output colour depth":"输出色深",
+  "Bits per colour channel on the link; default lets the driver pick.":"显示链路每个颜色通道的位数；default 由驱动自动选择。",
+  "Output colour format":"输出色彩格式",
+  "Pixel format on the link; default lets the driver pick.":"显示链路上的像素格式；default 由驱动自动选择。",
+  "Output dynamic range":"输出动态范围",
+  "Full or limited RGB range; default lets the driver pick.":"全范围（full）或有限范围（limited）RGB；default 由驱动自动选择。",
+  "Digital vibrance":"数字振动（色彩饱和度）",
+  "Saturation gain, 0 to 200; 100 leaves colours alone.":"饱和度增益（0 至 200；100 为原始色彩）。",
+  "Dynamic super resolution (render above the panel's resolution)":"动态超级分辨率（DSR，高于面板原生分辨率渲染）",
+  "Offer desktops larger than the panel and scale them down. Reserves scanout memory.":"提供高于屏幕物理分辨率的桌面并缩放输出。会额外预留显存。",
+  "HiDPI 'looks like' modes":"HiDPI 缩放模式",
+  "Back scaled modes with a desktop up to twice the panel raster.":"使用最高两倍于面板分辨率的画布支持 HiDPI 缩放模式。",
+  "Scaled modes on rotated displays":"旋转显示器上的缩放模式",
+  "Offer extra resolutions on a rotated head.":"在旋转后的显示输出上提供额外的缩放分辨率。",
+  "Surround (several displays as one)":"多屏拼接（Surround，将多台显示器合并为一整块）",
+  "Bit mask of framebuffer indices that form one logical display, for example 3 for the first two. 0 or default turns it off.":"组成同一逻辑显示器的帧缓冲区位掩码（勾选对应编号）；0 或 default 为关闭。",
+  "Laptop panel brightness over the display link":"通过显示链路调节笔记本内屏亮度",
+  "On by default; off disables brightness control through the panel's AUX channel.":"默认开启；关闭后将禁用通过内屏 AUX 通道进行的亮度调节。",
+  "Frame-rate limit":"帧率限制（FPS Limit）",
+  "One number for every application (60) or a list per application (Game=60,*=0). 10 to 1000; 0 is unlimited. Never applies to WindowServer.":"可填单个数字应用于所有应用（如 60），或按应用分别指定（如 Game=60,*=0）。范围 10 至 1000，0 为不限制。不会作用于 WindowServer。",
+  "Low-latency mode (GPU work queued ahead)":"低延迟模式（GPU 预排队任务数）",
+  "How many parts of GPU work may be queued ahead, 1 to 32 (default 16). A low number cuts input lag and can cost frame rate. Applies to every application, the desktop included.":"允许提前排队的 GPU 工作负载数量，1 至 32（默认 16）。调小可降低输入延迟，但可能略微降低帧率。对包括桌面在内的所有应用生效。",
+  "Shader cache size limit (MB)":"着色器缓存大小上限 (MB)",
+  "Size at which the shader cache is trimmed (default 2048). 0 turns trimming off.":"触发着色器缓存清理的容量上限（默认 2048 MB），0 表示不清理。",
+  "More than one NVIDIA card (experimental)":"多张 NVIDIA 显卡支持（实验性）",
+  "Accelerate every NVIDIA card, one start-up at a time. A process drives one card: the primary, or the one assigned below.":"逐一初始化并加速所有 NVIDIA 显卡。每个进程使用一张显卡：主卡，或在下方指定。",
+  "Card for an application":"为应用指定显卡",
+  "With more than one card: 0 is the primary, 1 the second and so on (up to 7), for every application (1) or per application (Game=1,*=0).":"拥有多张显卡时：0 为主卡，1 为第二张显卡（最高至 7），可全局指定（如 1）或按应用指定（如 Game=1,*=0）。",
+  "Built-in per-application profiles":"内置按应用优化配置",
+  "On by default; off turns every shipped per-application profile off.":"默认开启；关闭后将停用驱动附带的所有特定应用优化配置。",
+  "Keep CPU-written memory in system RAM":"将 CPU 写入的显存保留在系统内存中",
+  "On by default for stability; off places it in video memory (faster in some games, unsafe for the desktop).":"出于稳定性默认开启；关闭则将其放入显存（部分游戏更快，但对桌面环境不安全）。"
+};
+let lastLoad=null,lang=(()=>{try{return localStorage.getItem('lang')||'en'}catch(e){return 'en'}})();
+function translateSettingsDOM(){
+  if(lang!=='zh')return;
+  document.querySelectorAll('h2,.t,.h,button,option,p.lead,#warn').forEach(e=>{
+    const t=e.textContent;
+    if(ZH_SET[t])e.textContent=ZH_SET[t];
+    else if(t.endsWith(' (restart needed)')){const b=t.slice(0,-17);if(ZH_SET[b])e.textContent=ZH_SET[b]+ZH_SET[' (restart needed)'];}
+    else if(/^This Mac shows \d+ NVIDIA cards?/.test(t)){e.textContent=t.replace(/^This Mac shows (\d+) NVIDIA cards?\..*$/,'本机当前识别到 $1 张 NVIDIA 显卡。使用第二张及更多显卡需先开启上方“多张 NVIDIA 显卡支持”并重启。');}
+    else if(t.startsWith('Displays now connected: ')){e.textContent=t.replace('Displays now connected: ','当前已连接的显示器：').replace('. Tick the framebuffer numbers that form one display.','。请勾选要合并为同一块屏幕的帧缓冲区编号。');}
+  });
+  document.querySelectorAll('input[placeholder]').forEach(i=>{if(ZH_SET[i.placeholder])i.placeholder=ZH_SET[i.placeholder]});
+  const w=document.createTreeWalker(document.getElementById('groups'),4);let n;
+  while((n=w.nextNode()))if(ZH_SET[n.nodeValue])n.nodeValue=ZH_SET[n.nodeValue];
+}
+function applyLang(){
+  document.getElementById('lang').textContent=lang==='zh'?'EN':'中文';
+  document.title=lang==='zh'?ZH_SET['Driver settings']:'Driver settings';
+  document.querySelector('h1').textContent=lang==='zh'?ZH_SET['Driver settings']:'Driver settings';
+  document.querySelector('p.lead').textContent=lang==='zh'?ZH_SET['Each change is shown to you in full and asked for before anything is written. Display settings are boot arguments and take effect after a restart.']:'Each change is shown to you in full and asked for before anything is written. Display settings are boot arguments and take effect after a restart.';
+  document.querySelector('h2').textContent=lang==='zh'?ZH_SET['Your GPUs']:'Your GPUs';
+  if(lastLoad){origRender(lastLoad);translateSettingsDOM();}
+}
+const origRender=render;
+render=d=>{lastLoad=d;origRender(d);translateSettingsDOM();
+  const addBtn=document.querySelector('#s-card button');if(addBtn){const prev=addBtn.onclick;addBtn.onclick=()=>{prev();translateSettingsDOM()}}
+};
+document.getElementById('lang').onclick=()=>{lang=lang==='zh'?'en':'zh';try{localStorage.setItem('lang',lang)}catch(e){}applyLang()};
+window.addEventListener('storage',e=>{if(e.key==='lang'&&e.newValue){lang=e.newValue;applyLang()}});
+applyLang();
 post({act:'load'});
 </script></body></html>

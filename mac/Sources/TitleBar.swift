@@ -10,7 +10,7 @@ enum TitleBar {
         let box = NSView(frame: NSRect(origin: .zero, size: size))
         web.frame = box.bounds; web.autoresizingMask = [.width, .height]
         box.addSubview(web)
-        let drag = TitleDragView(frame: NSRect(x: 84, y: size.height - 38, width: max(0, size.width - 84 - 80), height: 38))
+        let drag = TitleDragView(frame: NSRect(x: 84, y: size.height - 38, width: max(0, size.width - 84 - 120), height: 38))
         drag.autoresizingMask = [.width, .minYMargin]
         box.addSubview(drag)   // added after the page, so it is on top and takes the clicks in the bar
         return box
