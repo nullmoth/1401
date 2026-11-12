@@ -1,5 +1,19 @@
 {
   "version": "3.0",
   "base": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v3.0/",
-  "kits": {}
+  "kits": {
+    "10.7": {"name": "nullmoth-nvidia-legacy-10.7-3.0.tar.gz", "sha256": "598d79a3ab1266a418e368d61fb8e1ad951625877bba7cf58fc1f594cd303015"},
+    "10.8": {"name": "nullmoth-nvidia-legacy-10.8-3.0.tar.gz", "sha256": "a6950b15fc187effa0098c9f4b2a2d1f70dfcef5b9676292bd2eb9dbc343ee29"},
+    "10.9": {"name": "nullmoth-nvidia-legacy-10.9-3.0.tar.gz", "sha256": "d101fc242bbacf3c73c76f108f3c4b248e31bffa67670b04c21ff026fb287041"},
+    "10.10": {"name": "nullmoth-nvidia-legacy-10.10-3.0.tar.gz", "sha256": "66466b03fbec30ccebff2124b5394f7c07deceae7d0db65dd3da49717edcc844"},
+    "10.11": {"name": "nullmoth-nvidia-legacy-10.11-3.0.tar.gz", "sha256": "7a02ed4de71b98f1b2aef0f7467d3c36fe58fcb65fc06271ee2803311344badd"},
+    "10.12": {"name": "nullmoth-nvidia-legacy-10.12-3.0.tar.gz", "sha256": "00cbcf14a9442449400b6d32a89493eee2992e398cdf6d9192f51d0a947c1aef"},
+    "10.13": {"name": "nullmoth-nvidia-legacy-10.13-3.0.tar.gz", "sha256": "2b7a025a5fc4afa4c20aa29ce8e4fd6f7b976dad720e35f7980037e614a357de"},
+    "10.14": {"name": "nullmoth-nvidia-legacy-10.14-3.0.tar.gz", "sha256": "75d02f618eb45e1dfef6d90a5c50f501d1c375e694e023332a4574d194cb4090"},
+    "10.15": {"name": "nullmoth-nvidia-legacy-10.15-3.0.tar.gz", "sha256": "0ba443f1842044ab8962d395cf1e88a31a4b077d8ee872d7d47442ad8b4c7c12"},
+    "11": {"name": "nullmoth-nvidia-legacy-11-3.0.tar.gz", "sha256": "39bb2bc5c18d5a976319ed3cff71e3a57c38c9790ff9b0c53f4fd5c8c6a109cd"},
+    "12": {"name": "nullmoth-nvidia-legacy-12-3.0.tar.gz", "sha256": "1bf63a7172e06bb83c5d6bd2373dc1a0479bf72aaa3f0b4d433985d669c82bd5"},
+    "13": {"name": "nullmoth-nvidia-legacy-13-3.0.tar.gz", "sha256": "547fd2b36ce45389775f4f9e1191ec93ec840f2fe7c020085ca89df135b9bcc1"},
+    "14": {"name": "nullmoth-nvidia-legacy-14-3.0.tar.gz", "sha256": "d7b70baa2bd8d3993cead840af315b8cae095a384f83b2e9a1fffc7821e8b23b"}
+  }
 }

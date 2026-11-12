@@ -280,7 +280,17 @@ def stage(usb_root, cache_dir, darwin, fetch=None):
     if not os.path.exists(src) or _sha(src) != k["sha256"]:
         if fetch is None:
             raise RuntimeError(f"driver kit missing or wrong in {cache_dir}")
-        fetch(k["url"], src + ".part")
+        try:
+            fetch(k["url"], src + ".part")
+        except Exception as e:  # noqa: BLE001 - GitHub failing: the same file from the site, checked the same way
+            from . import nullmoth  # noqa: PLC0415
+            mirror = nullmoth.mirror_of(k["url"])
+            if not mirror:
+                raise
+            print(f"(GitHub download failed: {e}; trying the NullMoth mirror)", flush=True)
+            if os.path.exists(src + ".part"):
+                os.remove(src + ".part")
+            fetch(mirror, src + ".part")
         if _sha(src + ".part") != k["sha256"]:
             os.remove(src + ".part")
             raise RuntimeError("driver kit download does not match its SHA-256 - not written to the stick")
@@ -407,6 +417,18 @@ def selftest():
             dst = stage(usb, cache, 13)
             arm("a kit that matches its pin is copied to the stick with how to run it",
                 os.path.exists(dst) and "install-legacy.sh" in open(os.path.join(usb, "NullMoth", "README.txt")).read())
+            os.remove(os.path.join(cache, name))
+            tried = []
+
+            def fetch(url, path):
+                tried.append(url)
+                if "github.com" in url:
+                    raise OSError("504")
+                with open(path, "wb") as fh:
+                    fh.write(b"kit")
+            stage(usb, cache, 13, fetch=fetch)
+            arm("when GitHub fails the kit comes from the site's copy and is checked the same way",
+                len(tried) == 2 and tried[1].startswith("https://nullmothsystems.com/download/nvidia/v"), str(tried))
             KITS["kits"][RELEASE[13]] = {"sha256": "0" * 64}
             try:
                 stage(usb, cache, 13); ok = False
