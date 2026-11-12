@@ -32,6 +32,7 @@ from . import intel_gpu
 from . import ryzen_power
 from . import community
 from . import own_experimental
+from . import legacy
 from . import own_virtualsmc
 from . import community_gpu
 from . import continuity
@@ -201,6 +202,11 @@ class Policy:
     # They are unproven on the hardware they claim, so a build that silently carried them could take a machine that
     # installs fine on the firmware framebuffer and leave it with no picture. Off, the build still says they exist.
     experimental_drivers: bool = False
+    # The experimental older macOS releases (10.7 to 14, legacy.py) are OFF unless the user turns them on: their boot
+    # configuration and driver kits have been checked against Apple's files and never run on a PC.
+    legacy: bool = False
+    # Filled by build(), never by the user: the Darwin major of the experimental release this build is for (0 = none).
+    legacy_target: int = 0
     # Persistent NVRAM on AMD guard boards, through OpenCore's emulated NVRAM (OpenVariableRuntimeDxe + a LogoutHook that
     # saves NVRAM to nvram.plist at shutdown). Off by default: the DisableVariableWrite guard exists because real AM5/AM4
     # boards stopped POSTing after macOS wrote firmware NVRAM, and emulated NVRAM replaces that guard (writes go to an
@@ -881,7 +887,7 @@ def _nullmoth_gpu_pass(checker, h):
             exited = None
         except EngineExit as e:
             exited = e
-        hit = nullmoth.mark(checker.hardware_report)
+        hit = nullmoth.mark(checker.hardware_report, legacy=bool(h.policy.legacy_target))
         # Per-AMD-GPU notice (family -> the macOS path it gets), independent of the NVIDIA path above. It names the
         # card so the user sees before building whether this AMD GPU gets full acceleration, basic display with an
         # opt-in/experimental route, or no driver at all.
@@ -914,6 +920,8 @@ def _nullmoth_gpu_pass(checker, h):
             h.notices.append(mux)
         checker._restrict_native_compatibility(checker._widest_compatibility(g.get("Compatibility") for g in gpus.values()))
         target = "macOS 26 Tahoe" if h.policy.prefer["macOS"] == "25" else "macOS 15 Sequoia"
+        if h.policy.legacy_target:
+            target = legacy.NAME[h.policy.legacy_target] + " (experimental)"
         h.notices.append(NVIDIA_NOTICE + ", ".join(hit) + f" selected for {target}."
                          + ("" if nullmoth.tested(checker.hardware_report) else
                             " This card is in NVIDIA's supported list but has not been tested with the driver yet."))
@@ -990,6 +998,10 @@ def _select(o, h, policy, res, report, load_capture, prepare):
     machine_key, prior_identity = prepare()
     needs_oclp = _oclp_still_needed(cust, needs_oclp, h)
     smbios = o.s.select_smbios_model(cust, mv)
+    if legacy.converted(policy.legacy_target or None):
+        # the model the engine picked is one macOS 10.13 runs on; the older release needs one it knows itself
+        smbios = legacy.model_for(report)
+        h.notices.append(f"SMBIOS: {smbios} - a model {legacy.NAME[policy.legacy_target]} supports.")
     # macOS 26 dropped iMacPro1,1, which the engine picks for a discrete-GPU desktop on macOS 15; that PC then stops
     # at Apple's "not supported on this platform" (Mac-7BA5B2D9E42DDD94, 1.9 stick log 10-10) the day it takes
     # macOS 26. MacPro7,1 runs both and is what the engine picks for 26 itself; its options (RestrictEvents) follow.
@@ -1044,6 +1056,13 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     """Report.json + ACPI dump -> OpenCore EFI in out_dir. download=False stops after planning (no network)."""
     policy = policy or Policy()
     policy = dataclasses.replace(policy, prefer=dict(policy.prefer))  # the Wi-Fi pre-pass writes to prefer
+    lt, legacy_off = legacy.target(policy.macos), ""
+    if lt is not None and not policy.legacy:
+        legacy_off = (f"{legacy.NAME[lt]} is an experimental target. Turn on \"Experimental: older macOS releases\" "
+                      f"in 1401 to build for it.")   # raised below, where a build failure is reported
+    elif lt is not None:
+        # below the engine's floor the engine builds for 10.13 and legacy.apply converts the result
+        policy = dataclasses.replace(policy, legacy_target=lt, macos=str(max(lt, legacy.ENGINE_FLOOR)))
     out_dir = os.path.abspath(out_dir)
     _adopt_leftover_build(out_dir)
     if os.path.exists(out_dir) and os.listdir(out_dir) and not os.path.exists(os.path.join(out_dir, MARKER)):
@@ -1052,6 +1071,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
     res = BuildResult(ok=False, out_dir=out_dir)
     h = None
     try:
+        if legacy_off:
+            raise RuntimeError(legacy_off)
         mod, utils_mod = _load_engine()
         h = Headless(utils_mod, policy, echo)
         try:
@@ -1101,6 +1122,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if not valid or errors:
                 raise RuntimeError(f"hardware report rejected: {errors}")
             res.hardware = report
+            if policy.legacy_target:
+                h.notices.extend(legacy.check_hardware(report, policy.legacy_target))   # refuses a PC that cannot run it
             o.ac.dsdt = o.ac.acpi.acpi_tables = None
             from . import acpi_diagnostics, acpi_dupnames
             with acpi_diagnostics.capture(o.ac.acpi, res.acpi_diagnostics), \
@@ -1114,6 +1137,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                           lambda: _prepare_for_build(out_dir, res, policy, h))
             cust, disabled, smbios, mv, needs_oclp = sel.cust, sel.disabled, sel.smbios, sel.mv, sel.needs_oclp
             net_status, machine_key, prior_identity, hw = sel.net_status, sel.machine_key, sel.prior_identity, sel.hw
+            if legacy.converted(policy.legacy_target or None):
+                res.macos_version = f"{policy.legacy_target}.0.0"   # what the build is for, not what the engine built
             if download:
                 if not o.o.gather_bootloader_kexts(o.k.kexts, mv):
                     raise RuntimeError('Dependency gathering stopped before the EFI was ready. '
@@ -1137,6 +1162,14 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                 _identity_rom_pass(out_dir, prior_identity, h)
                 res.decisions = h.decisions  # the policy pass reads what was decided
                 res.policy_changes = policy_mod.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), res, policy)
+                if policy.legacy_target:
+                    if legacy.converted(policy.legacy_target):
+                        h.notices.extend(legacy.apply(
+                            os.path.join(out_dir, "EFI", "OC", "config.plist"), policy.legacy_target, report,
+                            lambda rule, before, after, why: res.policy_changes.append(
+                                {"rule": rule, "before": before, "after": after, "why": why})))
+                        res.macos_version = f"{policy.legacy_target}.0.0"
+                    legacy.write_marker(out_dir, policy.legacy_target)
                 _identity_and_continuity_notices(out_dir, hw, res.kexts, smbios, h)
                 community.apply_efi_drivers(os.path.join(out_dir, "EFI", "OC", "config.plist"), cust, mv, h.notices,
                                             lambda url: downloads.make_request(o.o.fetcher, url).read(),

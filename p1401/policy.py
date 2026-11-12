@@ -647,7 +647,7 @@ def apply(config_path, result, policy):
                "patch bits outside ReplaceMask are never written; ocvalidate refuses them")
 
     # 3. NullMoth driver: a GeForce RTX the engine kept (nullmoth.mark) gets the tested boot-args + SIP.
-    driver = nullmoth.apply(cfg, result, change)
+    driver = nullmoth.apply(cfg, result, change, legacy_target=getattr(policy, "legacy_target", 0))
     # , measured on an RTX 5060 with Resizable BAR on: with the full BAR the installer's screen froze right after
     # "PCI configuration end" (macOS re-places the large BAR and the firmware framebuffer goes with it); with
     # ResizeAppleGpuBars 0 (Dortania: firmware with Resizable BAR) it boots on. The Mac helper sets the 8 GB BAR back after install.

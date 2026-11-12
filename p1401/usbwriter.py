@@ -770,7 +770,10 @@ def _write_payload(root, efi_build_dir, recovery_info, progress, machine_profile
         from . import nullmoth  # noqa: PLC0415
         cache = os.path.join(efi_build_dir, ".cache")
         os.makedirs(cache, exist_ok=True)
-        driver = nullmoth.stage(root, cache, fetch=_fetch)
+        from . import legacy  # noqa: PLC0415
+        older = legacy.read_marker(efi_build_dir)
+        # an EFI built for an experimental older release carries that release's kit instead of the 15/26 package
+        driver = legacy.stage(root, cache, older, fetch=_fetch) if older else nullmoth.stage(root, cache, fetch=_fetch)
         nullmoth.stage_firmware(root, cache, fetch=_fetch)
     if machine_profile is not None:
         machine_handoff.copy_to_installer(machine_profile, root, opt_in)
@@ -842,12 +845,14 @@ def verify_efi_copy(source, destination, copy=None):
                        + '. The stick is not ready. If an antivirus is running, let it allow the 1401 folder and write again.')
 
 def needs_nullmoth(efi_build_dir):
-    """True when the built config carries the NullMoth driver's boot-args (only nullmoth.apply writes nvaccel=1)."""
+    """True when the built config carries the NullMoth driver's boot-args (only nullmoth.apply writes nvaccel=1, and
+    for an experimental older release nvfb=1 alone)."""
     import plistlib  # noqa: PLC0415
     with open(os.path.join(efi_build_dir, "EFI", "OC", "config.plist"), "rb") as fh:
         cfg = plistlib.load(fh)
     nv = cfg.get("NVRAM", {}).get("Add", {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {})
-    return "nvaccel=1" in (nv.get("boot-args") or "").split()
+    args = (nv.get("boot-args") or "").split()
+    return "nvaccel=1" in args or "nvfb=1" in args
 
 
 def _pinned_package(path):
@@ -1031,6 +1036,13 @@ def cli_write(argv):
     The Windows app's write step. Every line printed is "STEP|OK|PROGRESS|STOP ..." so the window can show it."""
     from . import apple, nullmoth, netsupport  # noqa: PLC0415
     num, efi, darwin = int(argv[0]), argv[1], int(argv[2])
+    from . import legacy  # noqa: PLC0415
+    older = legacy.read_marker(efi)
+    if older and older != darwin:
+        # the EFI on the stick and the macOS image must be for the same release
+        print(f"STOP this EFI was built for {legacy.NAME[older]}; build again for the macOS you want to write, or write "
+              f"{legacy.NAME[older]}. Nothing was erased.", flush=True)
+        return 2
     def opt(n): return [argv[i + 1] for i, a in enumerate(argv) if a == n and i + 1 < len(argv)]
     disks = list_disks()
     disk = next((d for d in disks if int(d.get("Number", -1)) == num), None)
