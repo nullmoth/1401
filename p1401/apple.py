@@ -48,12 +48,22 @@ TARGETS = {
     19: ("macOS 10.15 Catalina", "Mac-00BE6ED71E35EB86"),
     18: ("macOS 10.14 Mojave", "Mac-7BA5B2D9E42DDD94"),
     17: ("macOS 10.13 High Sierra", "Mac-7BA5B2D9E42DDD94"),
+    # Older releases (experimental targets). Board-ids and board serials are the ones in OpenCore's own
+    # macrecovery list (Utilities/macrecovery/recovery_urls.txt). Mac OS X 10.6 has no recovery image at Apple.
+    16: ("macOS 10.12 Sierra", "Mac-77F17D7DA9285301"),
+    15: ("OS X 10.11 El Capitan", "Mac-FFE5EF870D7BA81A"),
+    14: ("OS X 10.10 Yosemite", "Mac-E43C1C25D4880AD6"),
+    13: ("OS X 10.9 Mavericks", "Mac-F60DEB81FF30ACF6"),
+    12: ("OS X 10.8 Mountain Lion", "Mac-7DF2A3B5E5D671ED"),
+    11: ("Mac OS X 10.7 Lion", "Mac-2E6FAB96566FE58C"),
 }
-MAJOR = {25: "26", 24: "15", 23: "14", 22: "13", 21: "12", 20: "11", 19: "10.15", 18: "10.14", 17: "10.13"}
+MAJOR = {25: "26", 24: "15", 23: "14", 22: "13", 21: "12", 20: "11", 19: "10.15", 18: "10.14", 17: "10.13",
+         16: "10.12", 15: "10.11", 14: "10.10", 13: "10.9", 12: "10.8", 11: "10.7"}
 # Before Catalina the generic MLB returns that board's newest OS, not the one asked for: Apple picks the image from a
 # real board serial with os=default (Dortania's macrecovery commands). WAS missing: 18 High Sierra builds in two days
 # (Maxwell/Pascal cards) stopped at "no recovery target for Darwin 17".
-OLD_MLB = {18: "00000000000KXPG00", 17: "00000000000J80300"}
+OLD_MLB = {18: "00000000000KXPG00", 17: "00000000000J80300", 16: "00000000000J0DX00", 15: "00000000000GQRX00",
+           14: "00000000000GDVW00", 13: "00000000000FNN100", 12: "00000000000F65100", 11: "00000000000F25Y00"}
 
 # From macrecovery.py (zhangyoufu, gist MCJack123/943eaca762730ca4b7ae460b731b68e7, 2021-10-08): Apple EFI ROM key 1.
 APPLE_EFI_ROM_KEY_1 = int(

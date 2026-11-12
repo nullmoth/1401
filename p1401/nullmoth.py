@@ -20,6 +20,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # (max, min) Darwin the driver is built for: macOS 15 Sequoia and macOS 26 Tahoe. Was 24 only, which left Tahoe off
 # the engine's menu for every NVIDIA PC, so picking macOS 26 in 1401 2.0 failed the build (NM-RRSB2644).
 SEQUOIA = ("25.99.99", "24.0.0")
+# With the experimental older releases on (legacy.py): the kits reach down to 10.13 in the engine's own range; the
+# releases below that are built as 10.13 and converted.
+LEGACY = ("25.99.99", "17.0.0")
+OURS = (SEQUOIA, LEGACY)
 DEFAULT_DARWIN = "24"  # when the user did not pick: Sequoia, the release with the longest testing on the driver
 # The working machine's OpenCore config before it was changed for dtrace (2026-): kexts, FS, NVRAM, recovery, root.
 SIP_DRIVER = bytes.fromhex("430A0000")
@@ -73,13 +77,14 @@ def cards(report):
     return {n: g for n, g in (report.get("GPU") or {}).items() if supported(g)}
 
 
-def mark(report):
-    """Gives each supported card macOS 15 compatibility. Returns the names marked.
+def mark(report, legacy=False):
+    """Gives each supported card macOS 15 compatibility (down to 10.13 with the experimental older releases on).
+    Returns the names marked.
     A laptop with an unsupported integrated GPU is marked too. This permits building for its discrete GPU; it does not
     establish that the internal panel or external connectors are wired to that GPU. mux_help() describes that limitation."""
     hit = []
     for n, g in cards(report).items():
-        g["Compatibility"] = SEQUOIA
+        g["Compatibility"] = LEGACY if legacy else SEQUOIA
         g.pop("OCLP Compatibility", None)
         g["Codename"] = g.get("Codename") if g.get("Codename") not in (None, "", "Unknown") else "NullMoth driver"
         hit.append(n)
@@ -153,17 +158,21 @@ def gpu_disabled(name, gpu, disabled_devices):
     return any(label in disabled_devices for label in labels)
 
 
-def apply(cfg, result, change):
+def apply(cfg, result, change, legacy_target=0):
     """Policy-pass rule. cfg = the loaded config.plist dict; change(rule, before, after, why) records it.
-    Returns True when the driver settings were applied (the SIP rule then must not lower them again)."""
+    Returns True when the driver settings were applied (the SIP rule then must not lower them again).
+    legacy_target: the Darwin major of an experimental older release; its kit starts the display driver only."""
     gpus = (result.hardware or {}).get("GPU", {})
-    live = [n for n, g in gpus.items() if supported(g) and g.get("Compatibility") == SEQUOIA and not gpu_disabled(n, g, result.disabled_devices)]
+    live = [n for n, g in gpus.items() if supported(g) and g.get("Compatibility") in OURS and not gpu_disabled(n, g, result.disabled_devices)]
     if not live:
         return False
     nv = cfg["NVRAM"]["Add"].setdefault("7C436110-AB2A-4BBB-A880-FE41995C9F82", {})
     args = (nv.get("boot-args") or "").split()
     add = [a for a in BOOT_ARGS if a not in args]
-    if add:
+    if legacy_target:
+        from . import legacy  # noqa: PLC0415
+        legacy.driver_args(cfg, change)
+    elif add:
         nv["boot-args"] = " ".join(args + add)
         change("nullmoth-boot-args", "", " ".join(add), f"NullMoth driver for {', '.join(live)}: framebuffer, accelerator, AMFI")
     weg_boot_screen(cfg, nv, change)

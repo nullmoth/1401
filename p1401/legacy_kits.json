@@ -1,0 +1,5 @@
+{
+  "version": "3.0",
+  "base": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v3.0/",
+  "kits": {}
+}
