@@ -42,6 +42,21 @@ class LegacyTargets(unittest.TestCase):
         self.assertNotIn("nvaccel=1", args)
         self.assertTrue(seen)
 
+    def test_windows_picker_matches_the_engine(self):
+        import re
+        from p1401 import legacy
+        src = open(os.path.join(REPO, "windows", "App", "MainForm.cs"), encoding="utf-8").read()
+        names = re.search(r"OlderNames = \{(.*?)\};", src, re.S).group(1)
+        older = re.findall(r'"([^"]+)"', names)
+        # picker order is newest first: index 2 is Darwin 23, the last is Darwin 11
+        self.assertEqual(older, [legacy.NAME[d] for d in range(23, 10, -1)])
+        self.assertIn('return (23 - (index - 2)).ToString();', src)
+        self.assertIn('(osPick.SelectedIndex >= 2 ? " --legacy" : "")', src)
+        self.assertIn('Loc.T("Experimental: ") + older', src)
+        # every release the picker can name, the engine can name too
+        for d in range(11, 24):
+            self.assertIn(f'case "{d}": return', src)
+
 
 if __name__ == "__main__":
     unittest.main()

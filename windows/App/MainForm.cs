@@ -169,6 +169,9 @@ namespace A1401
             osPick.DropDownStyle = ComboBoxStyle.DropDownList; osPick.Width = 300;
             osPick.BackColor = Theme.Panel; osPick.ForeColor = Theme.Text; osPick.Font = Theme.Picker;
             osPick.Items.AddRange(new object[] { Loc.T("macOS 15 Sequoia"), Loc.T("macOS 26 Tahoe") }); osPick.SelectedIndex = 0;
+            // The older releases follow the two supported ones, each marked experimental: their startup files and driver
+            // kits were checked against Apple's files for that release and have not been run on a PC (p1401/legacy.py).
+            foreach (var older in OlderNames) osPick.Items.Add(Loc.T("Experimental: ") + older);
             // A different pick needs different startup files: drop the finished build so Build runs again.
             osPick.SelectedIndexChanged += (s, e) => { if (built && !busy) { built = false; summary = ""; Go(2); } };
             expDrivers.Text = Loc.T("Include experimental drivers (Wi-Fi, AMD RDNA 4 graphics, USB and power fixes)");
@@ -805,7 +808,7 @@ namespace A1401
                 var stoppedFile = Path.Combine(Engine.Work, "stopped-at.txt");
                 try { if (File.Exists(stoppedFile)) bootLogs += " --stopped-at " + Engine.Q(File.ReadAllText(stoppedFile).Trim()); } catch (Exception) { }
                 if (bootLogs.Length > 0) Say(Loc.T("Using the last startup log on the stick to adjust this build."));
-                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + (osPick.SelectedIndex == 1 ? "25" : "24") + (expDrivers.Checked ? " --experimental-drivers" : "") + (utbMapDir.Length > 0 ? " --utbmap " + Engine.Q(utbMapDir) : "") + (persistNvram.Checked ? " --persistent-nvram-amd" : "") + (externalTarget.Checked ? " --external-target" : "") + (newIdentity.Checked ? " --new-identity" : "") + bootLogs, l => { lines.Add(l); });
+                int rc = await Engine.Run("p1401 build " + Engine.Q(rep) + " " + Engine.Q(acpi) + " " + Engine.Q(efiDir) + " --json --macos " + PickedDarwin(osPick.SelectedIndex) + (osPick.SelectedIndex >= 2 ? " --legacy" : "") + (expDrivers.Checked ? " --experimental-drivers" : "") + (utbMapDir.Length > 0 ? " --utbmap " + Engine.Q(utbMapDir) : "") + (persistNvram.Checked ? " --persistent-nvram-amd" : "") + (externalTarget.Checked ? " --external-target" : "") + (newIdentity.Checked ? " --new-identity" : "") + bootLogs, l => { lines.Add(l); });
                 ReportSaveStatus();
                 busy = false; next.Enabled = true;
                 var json = string.Join("\n", lines.SkipWhile(l => !l.TrimStart().StartsWith("{")));
@@ -885,6 +888,13 @@ namespace A1401
                 string fullPkg = null;
                 if (fullInstaller.Checked && fullInstaller.Visible)
                 {
+                    if (osPick.SelectedIndex >= 2)
+                    {
+                        // Apple's full installer is fetched for macOS 15 and 26 only; an older release installs from its recovery image
+                        busy = false; next.Enabled = true; refresh.Enabled = true;
+                        MessageBox.Show(this, Loc.T("Apple's full installer is available here for macOS 15 and 26 only. Turn the option off to write an experimental older release."), "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
                     if (d.Size < 32UL * 1024 * 1024 * 1024)
                     {
                         busy = false; next.Enabled = true; refresh.Enabled = true;
@@ -1509,9 +1519,23 @@ namespace A1401
             }
         }
 
+        // The experimental older releases in picker order (newest first), and the Darwin major of each.
+        static readonly string[] OlderNames = { "macOS 14 Sonoma", "macOS 13 Ventura", "macOS 12 Monterey", "macOS 11 Big Sur",
+            "macOS 10.15 Catalina", "macOS 10.14 Mojave", "macOS 10.13 High Sierra", "macOS 10.12 Sierra", "OS X 10.11 El Capitan",
+            "OS X 10.10 Yosemite", "OS X 10.9 Mavericks", "OS X 10.8 Mountain Lion", "Mac OS X 10.7 Lion" };
+        // Picker index -> Darwin major: 0 = macOS 15 (24), 1 = macOS 26 (25), then 23 down to 11.
+        internal static string PickedDarwin(int index)
+        {
+            if (index == 1) return "25";
+            if (index >= 2 && index < 2 + OlderNames.Length) return (23 - (index - 2)).ToString();
+            return "24";
+        }
         static string MacName(string d)
         {
-            switch (d) { case "25": return "Tahoe"; case "24": return "Sequoia"; case "23": return "Sonoma"; case "22": return "Ventura"; case "21": return "Monterey"; default: return d; }
+            switch (d) { case "25": return "Tahoe"; case "24": return "Sequoia"; case "23": return "Sonoma"; case "22": return "Ventura"; case "21": return "Monterey";
+                case "20": return "Big Sur"; case "19": return "Catalina"; case "18": return "Mojave"; case "17": return "High Sierra"; case "16": return "Sierra";
+                case "15": return "El Capitan"; case "14": return "Yosemite"; case "13": return "Mavericks"; case "12": return "Mountain Lion"; case "11": return "Lion";
+                default: return d; }
         }
     }
 }
