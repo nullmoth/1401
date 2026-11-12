@@ -3,6 +3,12 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 3.0
+- Experimental: older macOS releases. The macOS picker now also lists macOS 14 Sonoma down to Mac OS X 10.7 Lion, each marked experimental. Their startup files and NVIDIA driver kits were checked against Apple's own files for each release and have not been run on a PC, so expect to send logs. macOS 15 and macOS 26 are unchanged and remain the supported releases.
+- Releases below 10.13 are built as 10.13 and then changed for the older release; every change is listed in the build result with where it comes from. A PC that cannot run a release is told why before anything is written (AMD processors need 10.13 or later; a PC with only NVMe disks needs 10.10 or later).
+- The stick carries the driver kit for the release it was built for. On these releases the driver is installed from Terminal with two lines the guide gives; the 1401 Mac app needs macOS 15 or later.
+- The display driver starts first and the accelerator stays off until you switch it on, so a first start always shows the desktop on the display driver alone.
+
 ## 2.9
 - Mac app: Intel Xe graphics now uses WhateverXe 0.8.0 and WhateverXe Graphics v0.4.1 (thanks b00t0x). New in the supported list: Tiger Lake `9A59 9AC0 9AC9 9AD9 9AF8`, Alder Lake `4626 4628 462A 46A0-46A2 46B0-46B2 46C0-46C2`, Raptor Lake-U `A720 A721`. Requirements are unchanged.
 - 1401 for Windows: AMD processors can get IntelMKLFixup (thanks carnations-botanica) so applications built on Intel's Math Kernel Library run. It is an experimental driver: it is added only when "Include experimental drivers" is on.
