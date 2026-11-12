@@ -65,6 +65,7 @@ class MacosNotOffered(RuntimeError):
 
 
 MACOS_NAMES = {"24": "macOS 15 Sequoia", "25": "macOS 26 Tahoe", "23": "macOS 14 Sonoma", "22": "macOS 13 Ventura"}
+MACOS_NAMES.update({str(d): n for d, n in legacy.NAME.items()})   # the experimental older releases, by their own names
 
 
 def macos_not_offered_message(wanted, offered):
