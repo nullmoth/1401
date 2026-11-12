@@ -31,7 +31,9 @@ from . import loc, policy
 NVRAM_APPLE = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Darwin major -> the name Apple ships it under. The engine answers in Darwin versions ("25.99.99").
-MACOS = {19: "macOS Catalina 10.15", 20: "macOS Big Sur 11", 21: "macOS Monterey 12", 22: "macOS Ventura 13",
+MACOS = {11: "Mac OS X Lion 10.7", 12: "OS X Mountain Lion 10.8", 13: "OS X Mavericks 10.9", 14: "OS X Yosemite 10.10",
+         15: "OS X El Capitan 10.11", 16: "macOS Sierra 10.12", 17: "macOS High Sierra 10.13", 18: "macOS Mojave 10.14",
+         19: "macOS Catalina 10.15", 20: "macOS Big Sur 11", 21: "macOS Monterey 12", 22: "macOS Ventura 13",
          23: "macOS Sonoma 14", 24: "macOS Sequoia 15", 25: "macOS Tahoe 26"}
 
 
@@ -335,7 +337,13 @@ def build_guide(report, config, bitlocker=None, macos="", disabled_devices=None)
         loc.t("Or restart and press your PC's boot-menu key (often F12, F11, F9 or Esc), then pick the USB stick marked UEFI."),
         loc.t("A boot menu appears. Pick the macOS installer (the entry ending in '(dmg)')."),
     ]))
+    from . import legacy  # noqa: PLC0415
+    older = legacy.target(str(macos).split(".")[0]) if macos else None
+    # the releases before 10.13 cannot read APFS: their disk is Mac OS Extended, and Disk Utility has no device view
+    hfs = older is not None and older < 17
     steps.append(Step(loc.t("Install macOS"), [
+        loc.t("Open Disk Utility. Select the whole DISK you chose for macOS (not Windows' disk). Erase it as 'Macintosh HD', "
+              "format Mac OS Extended (Journaled), scheme GUID Partition Table.") if hfs else
         loc.t("Open Disk Utility -> View -> Show All Devices. Select the whole DISK you chose for macOS (not Windows' disk). "
              "Erase it as 'Macintosh HD', format APFS, scheme GUID Partition Map."),
         loc.t("Quit Disk Utility, choose Reinstall macOS, and pick 'Macintosh HD'."),
@@ -343,6 +351,19 @@ def build_guide(report, config, bitlocker=None, macos="", disabled_devices=None)
              "becomes 'Macintosh HD'."),
         loc.t("Keep the stick. For now it's how this PC starts macOS."),
     ]))
+    nv = ((config or {}).get("NVRAM", {}).get("Add", {}).get("7C436110-AB2A-4BBB-A880-FE41995C9F82", {}).get("boot-args") or "").split()
+    if older is not None and "nvfb=1" in nv:
+        k = legacy.kit(older)
+        folder = k["name"][:-len(".tar.gz")]
+        steps.append(Step(loc.t("Install the NVIDIA driver (experimental)"), [
+            loc.t("This macOS is an experimental target: its startup files and driver were checked against Apple's own "
+                  "files for this release and have not been run on a PC. Expect to send logs."),
+            loc.t("At the desktop, open Terminal (Applications -> Utilities) and run these two lines:"),
+            "cd ~ && tar -xzf /Volumes/1401/NullMoth/" + k["name"],
+            "sudo sh ~/" + folder + "/install-legacy.sh",
+            loc.t("It tests the driver against this macOS before it changes anything, and stops with the reason if a test "
+                  "fails. Then restart from the stick. The 1401 Mac app does not run on this release."),
+        ]))
     return steps
 
 
