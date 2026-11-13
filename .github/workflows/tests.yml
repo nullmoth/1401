@@ -1,0 +1,29 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out the change
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          # Full history: some tests compare against an earlier commit as their negative control.
+          fetch-depth: 0
+      - name: Show the Python in use
+        run: python3 --version
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -t . -p 'test_*.py'

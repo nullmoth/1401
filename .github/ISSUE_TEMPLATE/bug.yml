@@ -1,0 +1,22 @@
+name: Something went wrong
+description: 1401 or the Mac app failed, or did something you did not expect.
+body:
+  - type: input
+    id: report
+    attributes:
+      label: Report ID
+      description: Press Send logs in 1401 (Windows) or the 1401 Mac app and paste the ID it gives you, like NM-ABCD1234.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: In a few sentences of your own, what you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: machine
+    attributes:
+      label: Your PC
+      description: Board or laptop model, CPU and GPU.
