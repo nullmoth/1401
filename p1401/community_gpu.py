@@ -14,8 +14,12 @@ says what became of it:
 - OPTIONAL: a licence that is free to use but obliges anyone who distributes it (Thou Shalt Not Profit). 1401 never
   copies it into NullMoth code or hosts it; the build notice gives the author's archive pinned by commit, size and SHA-256
   for the user to fetch.
-- NAMED: a useful driver with no licence (all rights reserved). 1401 names it in the build notice with a link to the
-  author's page for matching hardware, and downloads or redistributes nothing. docs/COMMUNITY-LICENCE-REQUEST.md asks the
+- LINKED: a released driver whatever its licence (including none, and including packages that carry Apple's own drivers).
+  1401 never hosts, bundles or merges it. The build notice links the author's own release file, pinned by URL, size and
+  SHA-256 (LINKED_DOWNLOADS), and only on a machine whose scan shows the hardware it targets, so the user's machine fetches
+  it from its author when it needs it.
+- NAMED: a useful driver with no licence (all rights reserved) and no release to fetch. 1401 names it in the build notice
+  with a link to the author's page for matching hardware, and downloads or redistributes nothing. docs/COMMUNITY-LICENCE-REQUEST.md asks the
   authors for MIT or PolyForm Noncommercial.
 - EXCLUDED: not used. The reason is one of: no licence, a licence that forbids redistribution or commercial use of the
   part we would need, assistant-written code, not a GPU driver for real hardware, or a fork identical to an upstream we
@@ -29,9 +33,9 @@ disagree or when a pinned commit is not a full hash.
 """
 from . import intel_gpu
 
-INTEGRATED, DRIVER_IDEA, PORT_REVIEW, OPTIONAL, NAMED, EXCLUDED = ("integrated", "driver-idea", "port-review", "optional-download",
-                                                                   "named-only", "excluded")
-VERDICTS = (INTEGRATED, DRIVER_IDEA, PORT_REVIEW, OPTIONAL, NAMED, EXCLUDED)
+INTEGRATED, DRIVER_IDEA, PORT_REVIEW, OPTIONAL, LINKED, NAMED, EXCLUDED = (
+    "integrated", "driver-idea", "port-review", "optional-download", "linked-download", "named-only", "excluded")
+VERDICTS = (INTEGRATED, DRIVER_IDEA, PORT_REVIEW, OPTIONAL, LINKED, NAMED, EXCLUDED)
 
 
 def _p(repo, commit, date, licence, verdict, what, why):
@@ -66,9 +70,10 @@ PROJECTS = (
        PORT_REVIEW, "ten patches over XeGfx 0.0.44 for Arrow Lake-HX: GGTT zero-copy scanout, 240 Hz HiDPI, Tile4/CCS scanout, colour",
        "patches only (no code of its own to fetch); reviewed for NMXGPU and NMIntelFB, scanout ideas feed the hybrid import path"),
     _p("VedCloud/Meteor-Lake-Xe-LPG-Metal-Graphics", "62de794b8a810c51369901a5b98579a4dfb17db9", "2026-10-30",
-       "own licence: Apache-like for the original work only", PORT_REVIEW,
+       "own licence: Apache-like for the original work only", LINKED,
        "Meteor Lake i915-on-LinuxKPI port with Metal; 6.8 GB repository with 874 binaries",
-       "derived from our tree; the licence excludes every file derived from a third-party component, which is most of it; assistant-aided"),
+       "Tahoe Graphics-Audio 0.3.21 (2026-10-30) for the Dell Latitude 5350 (7D45) is linked, fetched from its author; derived from "
+       "our tree and assistant-aided, so its patches are still only reviewed for NMXGPU, never merged as is"),
     _p("vedprajapatiunitedkingdom-wq/CoreUltraGraphics", "05b19dc81db6aedcf4058525981f7326f57c04e2", "2026-10-17", "none", EXCLUDED,
        "earlier Meteor Lake attempt by the same author", "no licence file"),
     _p("kitsuneislife/nmx-intel", "b4bb3a0c653248ce125ce7d36b920d216e53c16f", "2026-10-30", "none", NAMED,
@@ -81,8 +86,9 @@ PROJECTS = (
        "98 patches making NMXGPU drive a Panther Lake SR-IOV virtual function in a QEMU guest (Metal, GL, Vulkan)",
        "no licence (all rights reserved): named in the build notice for Panther Lake, nothing downloaded; patches are not merged until the author grants a licence"),
     _p("luuumi-dev/nullarc", "8aba872560a3c9b7dc7a0ddebfad001c6dddf315", "2026-11-09", "MIT or GPL-2.0 (own code); PolyForm-NC (derived from our tree)",
-       PORT_REVIEW, "Metal on Radeon 780M/760M/740M (Phoenix, Hawk Point) with a 120 Hz display kext and RADV",
-       "alpha, one machine, assistant-aided (83 commits); its Phoenix bring-up and RADV patches are reviewed for NMXGPU"),
+       LINKED, "Metal on Radeon 780M/760M/740M (Phoenix, Hawk Point) with a 120 Hz display kext and RADV",
+       "release 0.4.0-alpha linked for machines with no NVIDIA card: its package installs its own NVMTLDriver.bundle, the "
+       "same path as NullMoth's Metal plugin. Alpha, one machine, assistant-aided (83 commits); patches still reviewed for NMXGPU"),
     _p("yt42c2mvn2-cmd/nullarc-760m", "f08b89803c88daf627ef5e551e2b476b77be519d", "2026-11-08", "as nullarc", EXCLUDED,
        "fork of nullarc for a Radeon 760M laptop", "a fork of the project above"),
     _p("Helemen7/RedNavi", "587de1af7bf7685c080139fb298eefa5e63cf7ff", "2026-11-08", "BSD-3-Clause", PORT_REVIEW,
@@ -91,17 +97,18 @@ PROJECTS = (
     _p("JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe", "24450b476d7ca025b83c85d7b8362caf3234d2f2", "2026-11-03",
        "Thou Shalt Not Profit License 1.0", OPTIONAL, "Iris Xe on one Dell laptop through NootedGreen plus the XCPM power fix (EFI, build and install scripts)",
        "assistant-written (75 commits) and free to use, but a distributor must license copies under it: never merged into NullMoth code, never hosted; the build notice gives the author's archive pinned by commit and SHA-256 for a Dell XPS 13 Plus"),
-    _p("pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS", "f8a98b7344241db69dc9cdd850ccbf65e62bf5c0", "2026-11-04", "none",
-       NAMED, "stand-alone Raptor Lake-U (A7AC) kext", "no licence (all rights reserved) and assistant-written (README names its coding tool): named in the build notice for A7AC, nothing downloaded"),
+    _p("pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS", "cbf8e3746aa3ef05f9cca959773288e52045a785", "2026-11-13", "none",
+       LINKED, "stand-alone Raptor Lake-U (A7AC) kext", "no licence (all rights reserved) and assistant-written (README names its coding tool): "
+       "never hosted or merged; its own installer v4.4.121 is linked for A7AC (author targets macOS 12+, Tahoe not shown)"),
     _p("wallali77666-cyber/iris-xe-macos-driver", "9bf31c915e84293e3545bc1d090595799a3234f8", "2026-10-18", "none", EXCLUDED,
        "Tiger Lake scaffold modelled on our tree", "no licence; stubs only (phase D, acceleration, is 'research')"),
     _p("pawan295/AppleIntelTGLDriver.kext", "0da9a50d19502b6b57c31bc07879194b9bb4c24e", "2026-07-30", "none", EXCLUDED,
        "Tiger Lake controller skeleton", "no licence; the author states it has no command submission and no Metal"),
     _p("change-48/xegfx-migrate", "eb07530591ed170545bacf31e5a72dfe29d3b9a0", "2026-11-07", "none", EXCLUDED,
        "scratch patch scripts for an XeGfx migration", "no licence; temporary scripts and 132 MB of build output"),
-    _p("belugaa-01/whateverxe-patched", "1ac73a39359107727c58c08ee54e83abd985f964", "2026-11-06", "BSD-3-Clause", EXCLUDED,
-       "two-check patch to WhateverXe 0.6.1 for a 6-bit eDP panel (Alder Lake-U 46B3)",
-       "targets 0.6.1, verified on one machine; WhateverXe 0.8.0 reworks the eDP path, so the patch no longer applies"),
+    _p("belugaa-01/whateverxe-patched", "cb29b1d67f3b8100d78c8d7e7387e007fffea58a", "2026-11-13", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe with extra framebuffer patches for a 6-bit eDP panel (Alder Lake-U 46B3); release 0.2.0",
+       "verified on one i3-1215U only; upstream WhateverXe 0.8.x covers 46B3 and reworks the eDP path"),
     _p("taingo936-ui/whateverxe-alderlakes", "2373eded960ba6103731d47c0fc9de0d99b52821", "2026-11-03", "BSD-3-Clause", EXCLUDED,
        "WhateverXe fork with an experimental Lenovo LOQ 144 Hz eDP stage", "machine-specific experimental branch of WhateverXe"),
     _p("thatisjigen/whateverxe", "d0b7fb6275ca51fde088fa7e91595462bd457ec9", "2026-11-02", "BSD-3-Clause", EXCLUDED,
@@ -121,6 +128,69 @@ PROJECTS = (
        "AMD processor kernel patches (patches.plist)", "no licence; 1401 writes its own AMD kernel patches (p1401/kernel_patches.py)"),
     _p("LuneFlu/AMDHelper", "b4cabfb762bcecb2866697adc0055a68ff81e5e6", "2024-10-21", "none", EXCLUDED,
        "Ryzen power-limit helper (ryzenadj wrapper)", "no licence; not a graphics driver; last commit 2024"),
+    # --- 2026-11-13 census: every iGPU project found that claims Tahoe, read at the commit shown ---------------------------
+    _p("wzh4869/Radeon-680M-Hackintosh", "a34b37d2839dff3223315188dad7851ca58060d7", "2026-11-11", "GPL-2.0", PORT_REVIEW,
+       "RembrandtGfx: Radeon 680M (rev 02 -> c7 compatibility) with an accelerated Tahoe 26.7.2 desktop, 2560x1600 at 120 Hz, fixed 512 MiB",
+       "the only iGPU-only 680M route found; no release to fetch, so it is named for 680M machines without an NVIDIA card; "
+       "its revision fix is reviewed for NMXGPU's Rembrandt path. One RedmiBook Pro 14"),
+    _p("OscarrWu/780m-hackintosh", "a3a45d9ccc5eee1d1f6cc297eae7c681e7524315", "2026-11-13", "MIT", PORT_REVIEW,
+       "Radeon 780M kext with its own PSP/SMU/GMC power-up and RADV Darwin patches, staged bring-up notes",
+       "MIT and no release yet; its power-up order is reviewed for NMXGPU's RDNA 3 path beside nullarc"),
+    _p("m4j2rpf766-crypto/IntelIGPU-Tahoe", "9baa4bbe36c4a0085efac41d07feb420f841ac6a", "2026-09-28", "GPL-3.0", EXCLUDED,
+       "Alder Lake (46A3) display, Metal desktop at ~120 fps on 144 Hz, backlight, HEVC service, GPU stall recovery on Tahoe 25G83",
+       "source snapshot without the Apple binaries it needs and no release; WhateverXe already covers 46A3 with a release"),
+    _p("wkin-t/IntelIGPU-Tahoe", "9baa4bbe36c4a0085efac41d07feb420f841ac6a", "2026-11-09", "GPL-3.0", EXCLUDED,
+       "fork of IntelIGPU-Tahoe", "the same commit as the project above"),
+    _p("sgiammori/NootedGreen", "95f81898be65cb9f7b3d370ca78054be4cc8a62d", "2026-05-23", "none", EXCLUDED,
+       "Lilu plugin running Apple's Tiger Lake driver on Haswell to Raptor Lake", "no licence, work in progress (still panics), no "
+       "release; reaches users only through JulioNectar's project, which is already an optional download"),
+    _p("dssoftx/Hackintosh-X1Carbon-G11-IrisXe-Tahoe", "5098a08c68cd03f279670027e8742488011dd245", "2026-10-26", "none", LINKED,
+       "JulioNectar's Tahoe Iris Xe stack ported to the ThinkPad X1 Carbon Gen 11 (Raptor Lake-U A7A1), 26.7.1 25G241",
+       "a whole EFI plus post-install package for one laptop; release V0.4 linked for that laptop only, never hosted"),
+    _p("mschiller890/Hackintosh-X13YogaG2-Iris", "8d88daa046da13426958bcdcea0d751e8b7fd864", "2026-11-13", "none", EXCLUDED,
+       "JulioNectar's stack on a ThinkPad X13 Yoga Gen 2 (Tiger Lake)", "its own README says the Tahoe USB stops at EXITBS:START"),
+    _p("samranahmad09/WhateverXe-RaptorLakeP", "565252faaf62ff9734d328452ea435c07aa81744", "2026-11-11", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe branch for Raptor Lake-P with native panel, Metal, OpenGL, sleep and wake", "no release; its rplp-accel work is upstream's job"),
+    _p("akiffurkan/WhateverXe-0xA7A0", "c76768b461d6f49878e62ef6306231ea908f7b29", "2026-11-13", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe 0.8.2 built for the XPS 13 Plus A7A0 eDP", "machine build of upstream 0.8.2"),
+    _p("TigerShota/WhateverXe", "25da56121126e83aff8da3a34c59bd37098cea66", "2026-11-08", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe 0.7.0 for an Alder Lake-H 48 EU (46A3) 120 Hz panel", "machine build of an older upstream"),
+    _p("jkbuha/WhateverXe", "09bd397eb40d68ef3c57ba7373bf2321276dfc89", "2026-11-13", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe for the XPS 13 Plus 9320 (eDP, hibernate)", "machine branch, no release"),
+    _p("dristotle/WhateverXe-ASUS-F15-eDP", "90806abb3874f51490dc0edbc29845bc37a67cf3", "2026-11-13", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe 0.8.2 eDP test build for a Tiger Lake-H45 ASUS TUF F15", "machine test build, no release"),
+    _p("lcrlcr666/WhateverXe-RGB8", "3afef31f3b93a391f407f43f093b3f41dd39ddbb", "2026-11-13", "BSD-3-Clause", EXCLUDED,
+       "WhateverXe 0.8.1 with a forced RGB8 switch (upstream issue 74)", "one switch over upstream, no release"),
+    _p("ManasSoni-2009/AlderXe", "e72c2b604123c644ae1af40bdf745689be61a934", "2026-11-12", "none", EXCLUDED,
+       "WhateverXe mod for Alder Lake-HX", "no licence, no description of what it changes, no release"),
+    _p("Minorli/WhateverXe-Next", "c2a64215ef2ea8fe807f74918a75b4501e49282c", "2026-11-13", "MIT", EXCLUDED,
+       "WhateverXe research fork on a Tiger Lake 96 EU, Tahoe 26.7.3", "research only; its author notes GPU queue hangs and forced shutdowns"),
+    _p("retropineaple/whateverxe-hp-envy-x360", "3b52397bc6a58cab92c62c57ef506ae3ccdd1fb7", "2026-11-11", "none", EXCLUDED,
+       "WhateverXe set-up for an HP Envy x360 (46AA) OLED on Tahoe 26.7.1", "a machine guide; the driver is upstream WhateverXe"),
+    _p("longurara/ArcMTL", "3acbe5557b6d7f3ed079bfa65218d9292e130eaa", "2026-11-02", "none", NAMED,
+       "Meteor Lake 155H (7D55) display + Metal 3 + Vulkan, or a headless Metal device beside the boot GPU, Tahoe and Sequoia",
+       "no licence and no release; XeGfx already covers 7D55, so it is catalogued and not noticed"),
+    _p("samwu07/xegfx-thinkbook14plus-mtl", "f85a4d5932e98a0bfce1eaee4334a561d3f20f4a", "2026-11-11", "BSD-2-Clause", PORT_REVIEW,
+       "XeGfx on a ThinkBook 14+ 2024 (7D55): GuC band fix, framebuffer move, zero-copy flip, Sequoia 15.8.1",
+       "Sequoia only; its GGTT and IOPresentment fixes are reviewed for NMXGPU and NMIntelFB"),
+    _p("taqieallah/ThinkPad-E16-ArrowLake-macOS", "e2115d3ed6e06815310e93e2c91c6ee71f18a1f5", "2026-11-13", "BSD-2-Clause", PORT_REVIEW,
+       "XeGfx on an Arrow Lake-H 255H (7D51): GPU-composited desktop, GGTT flip, deferred ordering, Tahoe",
+       "no release; its K9b ordering and flip work are reviewed for NMXGPU"),
+    _p("IT-EXPRESS-Bayern/LunarBridge-Hackintosh", "077fadac2a4bf4a6ad600dc720e25999fa6c01d6", "2026-10-12", "GPL-3.0", EXCLUDED,
+       "Lunar Lake Arc 130V (64A0) research on Tahoe", "its own status: Metal and display blocked"),
+    _p("nvsaim/mothbridge-630", "89a5348cfb41dd4370023e70b366405cac4f3523", "2026-11-08", "none", NAMED,
+       "NVIDIA desktop on the UHD 630 (3E9B) panel of MUX-less Coffee Lake laptops, through NullMoth",
+       "no licence and no release: named for 3E9B beside an NVIDIA card; our Hybrid laptop mode covers the same job"),
+    _p("medkintos/VP8MetalDecoder", "d50764f8dd96ed86fed4b42de135aa4591724ec2", "2026-11-05", "none", EXCLUDED,
+       "VP8/VP9 decode on Metal compute as a VideoToolbox bundle", "not a GPU driver; no licence"),
+    _p("shandftk/RenoirDSBFix", "8f8e80e24bf992b04d8d9c4b72628b2a2ac6eb11", "2026-11-11", "MIT", EXCLUDED,
+       "dual-source-blend hang fix for Renoir under NootedRed", "Sequoia only, and an add-on to a driver 1401 does not use"),
+    _p("kevin8717/TongFang-7840HS-Hackintosh", "6758dda39c6f3b29306cc7f97fe0e9969c4f69ab", "2026-11-08", "MIT", EXCLUDED,
+       "an EFI that runs nullarc's PhxBringup on a 780M (15BF) under Tahoe 26.7.2", "a machine EFI; the driver is nullarc, linked above"),
+    _p("Harshshah6/PrimeBridge-nomux-hp-victus", "66bbf3b65b28830799bba7220c1e7275496dfc18", "2026-11-12", "MIT (as PrimeBridge)", EXCLUDED,
+       "fork of PrimeBridge for an HP Victus", "a copy of PrimeBridge, which our NMGopFB already reimplements"),
+    _p("NekoMirra/phoenix-hackintosh-toolkit", "32ee33063dc6d0624a0c3289e87921cf7597a0d3", "2026-11-05", "none", EXCLUDED,
+       "SMU and brightness tools for a Phoenix 8845H laptop", "not a GPU driver; no licence"),
 )
 
 # --- hardware fingerprints. Upper-case "VVVV-DDDD" as the scan writes them. ---------------------------------------------
@@ -139,6 +209,16 @@ XPS13PLUS_BOARDS = ("xps 13 9320", "xps 13 plus")
 # Raptor Lake-P Iris Xe with an NVIDIA card: the one GPU nmx-intel documents (a7a8). Raptor Lake-U A7AC: MyIntelGPU.
 NMXINTEL_IDS = ("8086-A7A8",)
 MYINTELGPU_IDS = ("8086-A7AC",)
+# 2026-11-13 census. Meteor Lake-P 7D45 in a Dell Latitude 5350 (VedCloud's packages are built for that laptop's profile).
+VEDCLOUD_IDS = ("8086-7D45",)
+VEDCLOUD_BOARDS = ("latitude 5350",)
+# Raptor Lake-U A7A1 in a ThinkPad X1 Carbon Gen 11 (machine types 21HM / 21HN), the laptop dssoftx's EFI is built for.
+X1C11_IDS = ("8086-A7A1",)
+X1C11_BOARDS = ("x1 carbon gen 11", "21hm", "21hn")
+# Radeon 680M with no NVIDIA card (with one, PrimeBridge / Hybrid laptop mode is the route): RembrandtGfx.
+RADEON680M_IDS = ("1002-1681",)
+# Coffee Lake UHD 630 driving the panel of a MUX-less laptop with an NVIDIA card: mothbridge-630.
+MOTHBRIDGE_IDS = ("8086-3E9B",)
 PANTHER_LAKE_IDS = ("8086-B080", "8086-B081", "8086-B082", "8086-B083", "8086-B08F", "8086-B090", "8086-B0A0", "8086-B0B0")
 
 # The author's archive of the commit read, for the user to fetch. 1401 never downloads or hosts it. Verify with
@@ -150,6 +230,41 @@ OPTIONAL_DOWNLOADS = {
         "licence": "Thou Shalt Not Profit License 1.0",
     },
 }
+
+# The author's own release files for the LINKED projects: fetched on the user's machine from the author, never hosted by
+# NullMoth. Size and SHA-256 were measured on the files as published on the date in the PROJECTS row; any other bytes are
+# refused. "tahoe" says whether the author shows it running on macOS 26.
+LINKED_DOWNLOADS = {
+    "luuumi-dev/nullarc": {
+        "tag": "v0.4.0-alpha", "tahoe": True,
+        "files": (("https://github.com/luuumi-dev/nullarc/releases/download/v0.4.0-alpha/nullarc-0.4.0-alpha.zip",
+                   55827407, "dcfeaa04917719683487b24259933b6ea84513a840cc862a68cd91205af47bbb"),),
+    },
+    "VedCloud/Meteor-Lake-Xe-LPG-Metal-Graphics": {
+        "tag": "dell-packages-20261030", "tahoe": True,
+        "files": (("https://github.com/VedCloud/Meteor-Lake-Xe-LPG-Metal-Graphics/releases/download/dell-packages-20261030/"
+                   "Tahoe-Graphics-Audio-0.3.21-20261030.tar.gz",
+                   95400938, "857afd7048634087e33c848d14c1f0c1d3922fa51173196f4acdfa0ee1944e87"),),
+    },
+    "pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS": {
+        "tag": "v4.4.121", "tahoe": False,
+        "files": (("https://github.com/pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS/releases/download/v4.4.121/"
+                   "MyIntelGPU-4.4.120.pkg", 73259, "fa375047c3ff541f2dbe1fa7b725829b4aa9166fcaf192e4f35cbfd342151c64"),),
+    },
+    "dssoftx/Hackintosh-X1Carbon-G11-IrisXe-Tahoe": {
+        "tag": "V0.4", "tahoe": True,
+        "files": (("https://github.com/dssoftx/Hackintosh-X1Carbon-G11-IrisXe-Tahoe/releases/download/V0.4/EFI-Install.zip",
+                   16145391, "75799dd12164c26de34c911177754ee946469d218e3bbd134cccabfdf3782f84"),
+                  ("https://github.com/dssoftx/Hackintosh-X1Carbon-G11-IrisXe-Tahoe/releases/download/V0.4/EFI-PostInstall.zip",
+                   30795853, "b9b86de640ae7d3b8d74a5c7c7b18226b5d96728fe7fd12a19649cb92afdd9ca")),
+    },
+}
+
+
+def _files(repo):
+    """The pinned files of a LINKED project as one line per file for a build notice."""
+    return " ".join("%s (size %d bytes, SHA-256 %s)" % f for f in LINKED_DOWNLOADS[repo]["files"])
+
 
 _NOTES = {
     "xegfx": ("Graphics: {name} ({family}) - a developer-stage community driver for this GPU exists: XeGfx (WTLIntelGfx by "
@@ -178,7 +293,28 @@ _NOTES = {
             "https://github.com/ericek111/vibe-nullmoth-xe3-qemu."),
     "nullarc": ("Graphics: {name} ({family}) - a community project, nullarc (luuumi-dev), reports Metal on this family of AMD "
                 "Phoenix and Hawk Point graphics on macOS Tahoe, tested by its author on one machine, alpha, with parts "
-                "licensed PolyForm Noncommercial. It is not part of this build and NullMoth has not tested it."),
+                "licensed PolyForm Noncommercial. NullMoth does not include or host it and has not tested it. Its release, "
+                "fetched from its author: {files}; check it with shasum -a 256 first."),
+    "nullarc_nvidia": ("Graphics: {name} ({family}) - the community project nullarc (luuumi-dev) drives this GPU, but its package "
+                       "installs its own NVMTLDriver.bundle at the same path as NullMoth's Metal driver, so on this machine it would "
+                       "replace the driver for your NVIDIA card. Do not install it here; NullMoth's Hybrid laptop mode is the route."),
+    "myintelgpu": ("Graphics: {name} - a community project (pongpan-bk) writes a kernel driver for this Raptor Lake-U GPU. It has no "
+                   "licence, so NullMoth does not include, host or review it; its author targets macOS 12 and later and does not show "
+                   "it on Tahoe. Its own installer, fetched from its author: {files}. Page: "
+                   "https://github.com/pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS"),
+    "vedcloud": ("Graphics: {name} on a Dell Latitude 5350 - the community project Meteor-Lake-Xe-LPG-Metal-Graphics (VedCloud) "
+                 "reports Metal, Vulkan and an accelerated desktop on this laptop on macOS Tahoe 26.7.1. NullMoth does not include, "
+                 "host or test it. Its Tahoe package, fetched from its author: {files}; check it with shasum -a 256 first."),
+    "x1c11": ("Graphics: {name} on a ThinkPad X1 Carbon Gen 11 - the community project Hackintosh-X1Carbon-G11-IrisXe-Tahoe "
+              "(dssoftx, a port of JulioNectar's work) reports Iris Xe acceleration on this laptop on macOS Tahoe 26.7.1 (25G241 only). "
+              "It replaces your EFI: keep your current one. NullMoth does not include or host it. From its author: {files}"),
+    "radeon680m": ("Graphics: {name} - a community project, RembrandtGfx (wzh4869, GPL-2.0), reports an accelerated desktop on a "
+                   "Radeon 680M on macOS Tahoe 26.7.2 (one RedmiBook Pro 14). It has no release yet, so NullMoth includes and "
+                   "downloads nothing: https://github.com/wzh4869/Radeon-680M-Hackintosh"),
+    "mothbridge": ("Graphics: {name} drives this laptop's panel - a community project, mothbridge-630 (nvsaim), shows the NVIDIA "
+                   "desktop on the UHD 630 panel of MUX-less Coffee Lake laptops. It has no licence and no release, so NullMoth "
+                   "cannot include or download it: https://github.com/nvsaim/mothbridge-630. NullMoth's Hybrid laptop mode (Mac app) "
+                   "covers the same job."),
 }
 
 
@@ -216,13 +352,25 @@ def options(report):
         if did in NMXINTEL_IDS and has_nvidia:
             out.append({"project": "kitsuneislife/nmx-intel", "action": "pointer", "gpu": name, "text": _NOTES["nmxintel"].format(name=name)})
         if did in MYINTELGPU_IDS:
-            out.append({"project": "pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS", "action": "pointer", "gpu": name,
-                        "text": _NOTES["myintelgpu"].format(name=name)})
+            r = "pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS"
+            out.append({"project": r, "action": "pointer", "gpu": name, "text": _NOTES["myintelgpu"].format(name=name, files=_files(r))})
         if did in PANTHER_LAKE_IDS:
             out.append({"project": "ericek111/vibe-nullmoth-xe3-qemu", "action": "pointer", "gpu": name, "text": _NOTES["xe3"].format(name=name)})
         if did in NULLARC_IDS:
+            key = "nullarc_nvidia" if has_nvidia else "nullarc"
             out.append({"project": "luuumi-dev/nullarc", "action": "pointer", "gpu": name,
-                        "text": _NOTES["nullarc"].format(name=name, family="Phoenix / Hawk Point, RDNA 3")})
+                        "text": _NOTES[key].format(name=name, family="Phoenix / Hawk Point, RDNA 3", files=_files("luuumi-dev/nullarc"))})
+        if did in VEDCLOUD_IDS and any(b in board for b in VEDCLOUD_BOARDS):
+            r = "VedCloud/Meteor-Lake-Xe-LPG-Metal-Graphics"
+            out.append({"project": r, "action": "pointer", "gpu": name, "text": _NOTES["vedcloud"].format(name=name, files=_files(r))})
+        if did in X1C11_IDS and any(b in board for b in X1C11_BOARDS):
+            r = "dssoftx/Hackintosh-X1Carbon-G11-IrisXe-Tahoe"
+            out.append({"project": r, "action": "pointer", "gpu": name, "text": _NOTES["x1c11"].format(name=name, files=_files(r))})
+        if did in RADEON680M_IDS and not has_nvidia:
+            out.append({"project": "wzh4869/Radeon-680M-Hackintosh", "action": "pointer", "gpu": name,
+                        "text": _NOTES["radeon680m"].format(name=name)})
+        if did in MOTHBRIDGE_IDS and has_nvidia:
+            out.append({"project": "nvsaim/mothbridge-630", "action": "pointer", "gpu": name, "text": _NOTES["mothbridge"].format(name=name)})
     return out
 
 

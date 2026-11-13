@@ -27,8 +27,11 @@ class Selection(unittest.TestCase):
         self.assertEqual(projects(r), ["myvoow/PrimeBridge"])
         self.assertTrue(any("PrimeBridge" in n and "2.6.3" in n for n in community_gpu.notes(r)))
 
-    def test_a_680m_without_an_nvidia_card_gets_nothing(self):
-        self.assertEqual(projects(machine("1002-1681")), [])
+    def test_a_680m_without_an_nvidia_card_is_pointed_at_rembrandtgfx_not_primebridge(self):
+        r = machine("1002-1681")
+        self.assertEqual(projects(r), ["wzh4869/Radeon-680M-Hackintosh"])
+        (n,) = community_gpu.notes(r)
+        self.assertIn("downloads nothing", n)
 
     def test_an_nvidia_card_beside_another_amd_igpu_is_not_a_primebridge_machine(self):
         # PrimeBridge matches 1002:1681 only; its register offsets are Rembrandt's
@@ -62,13 +65,48 @@ class Selection(unittest.TestCase):
         self.assertEqual(community_gpu.notes(r), [])
 
     def test_unlicensed_projects_are_named_with_a_link_and_never_downloaded(self):
-        cases = {("8086-A7A8", "10DE-2582"): "nmx-intel", ("8086-A7AC",): "First-Custom-iGPU-Driver", ("8086-B080",): "vibe-nullmoth-xe3-qemu"}
+        cases = {("8086-A7A8", "10DE-2582"): "nmx-intel", ("8086-3E9B", "10DE-1F91"): "mothbridge-630", ("8086-B080",): "vibe-nullmoth-xe3-qemu"}
         for ids, word in cases.items():
             (n,) = community_gpu.notes(machine(*ids))
             self.assertIn(word, n)
             self.assertIn("https://github.com/", n)
             self.assertIn("cannot include or download it", n)
         self.assertEqual(community_gpu.notes(machine("8086-A7A8")), [])      # nmx-intel needs the NVIDIA card too
+        self.assertEqual(community_gpu.notes(machine("8086-3E9B")), [])      # so does mothbridge-630
+
+    def test_linked_projects_give_the_authors_pinned_file_and_only_on_their_hardware(self):
+        cases = {("8086-A7AC",): ("pongpan-bk/First-Custom-iGPU-Driver-for-Intel-Core-5-120U-on-macOS", None),
+                 ("1002-15BF",): ("luuumi-dev/nullarc", None),
+                 ("8086-7D45",): ("VedCloud/Meteor-Lake-Xe-LPG-Metal-Graphics", "Dell Inc. Latitude 5350"),
+                 ("8086-A7A1",): ("dssoftx/Hackintosh-X1Carbon-G11-IrisXe-Tahoe", "LENOVO 21HMCTO1WW")}
+        for ids, (repo, board) in cases.items():
+            r = machine(*ids)
+            if board:
+                r["Motherboard"] = {"Name": board}
+            text = " ".join(community_gpu.notes(r))
+            for url, size, sha in community_gpu.LINKED_DOWNLOADS[repo]["files"]:
+                self.assertIn(url, text, repo); self.assertIn(sha, text, repo); self.assertIn(str(size), text, repo)
+            self.assertIn("does not include", text, repo)
+        # the board-built packages stay off other laptops with the same GPU
+        self.assertNotIn("VedCloud", " ".join(community_gpu.notes(machine("8086-7D45"))))
+        self.assertEqual(community_gpu.notes(machine("8086-A7A1")), [])
+
+    def test_nullarc_is_never_offered_beside_an_nvidia_card_because_it_replaces_the_metal_plugin(self):
+        (n,) = community_gpu.notes(machine("1002-15BF", "10DE-2684"))
+        self.assertIn("Do not install it here", n)
+        for _url, _size, sha in community_gpu.LINKED_DOWNLOADS["luuumi-dev/nullarc"]["files"]:
+            self.assertNotIn(sha, n)
+
+    def test_every_linked_project_has_a_well_formed_pin_and_the_linked_verdict(self):
+        verdict = {p["repo"]: p["verdict"] for p in community_gpu.PROJECTS}
+        for repo, d in community_gpu.LINKED_DOWNLOADS.items():
+            self.assertEqual(verdict.get(repo), community_gpu.LINKED, repo)
+            self.assertTrue(d["files"], repo)
+            for url, size, sha in d["files"]:
+                self.assertTrue(url.startswith("https://github.com/" + repo + "/releases/download/" + d["tag"] + "/"), url)
+                self.assertGreater(size, 0, url)
+                self.assertRegex(sha, r"^[0-9a-f]{64}$", url)
+        self.assertEqual(sorted(r for r, v in verdict.items() if v == community_gpu.LINKED), sorted(community_gpu.LINKED_DOWNLOADS))
 
     def test_only_the_licence_restricted_project_has_a_pinned_download(self):
         self.assertEqual(list(community_gpu.OPTIONAL_DOWNLOADS), ["JulioNectar/Hackintosh-XPS13Plus-IrisXe-Tahoe"])
@@ -76,6 +114,7 @@ class Selection(unittest.TestCase):
             if p["verdict"] == community_gpu.NAMED:
                 self.assertIn("none", p["licence"].lower(), p["repo"])
                 self.assertNotIn(p["repo"], community_gpu.OPTIONAL_DOWNLOADS)
+                self.assertNotIn(p["repo"], community_gpu.LINKED_DOWNLOADS)
 
     def test_the_whateverxe_ids_added_by_0_8_0_are_recognised(self):
         # single-channel Alder Lake-H (4626), Tiger Lake-H45 (9AC0) and Raptor Lake-U (A721) were not in the 0.6.1 list
@@ -88,8 +127,8 @@ class Selection(unittest.TestCase):
             self.assertEqual(projects(machine(did)), ["luuumi-dev/nullarc"], did)
 
     def test_other_amd_and_nvidia_hardware_gets_no_community_graphics_notice(self):
-        # Navi 33, Navi 31, Strix Point, Polaris, an RTX 5060, a Kaby Lake iGPU, Lunar Lake
-        for did in ("1002-7480", "1002-744C", "1002-150E", "1002-67EF", "10DE-2D05", "8086-5912", "8086-64A0"):
+        # Navi 33, Navi 31, Strix Point, Polaris, an RTX 5060, a Kaby Lake iGPU, Lunar Lake, a UHD 630 alone
+        for did in ("1002-7480", "1002-744C", "1002-150E", "1002-67EF", "10DE-2D05", "8086-5912", "8086-64A0", "8086-3E9B"):
             self.assertEqual(projects(machine(did)), [], did)
 
     def test_a_scan_with_no_gpu_section_is_not_an_error(self):
