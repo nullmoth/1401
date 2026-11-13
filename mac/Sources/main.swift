@@ -995,7 +995,7 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         alert.addButton(withTitle: "Download Driver")
         alert.addButton(withTitle: "Choose Driver File…")
         alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: window) { response in
+        alert.beginSheetModal(for: window) { [self] response in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [unowned self] in
                 switch response {
                 case .alertFirstButtonReturn:
