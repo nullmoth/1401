@@ -1,0 +1,27 @@
+name: My hardware is not supported
+description: 1401 refuses or mishandles a CPU, GPU, board or laptop.
+body:
+  - type: input
+    id: report
+    attributes:
+      label: Report ID
+      description: From Send logs in 1401, if it got that far.
+  - type: input
+    id: machine
+    attributes:
+      label: Your PC
+      description: Board or laptop model, CPU, GPU, and Wi-Fi card if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What 1401 did
+      description: Which step stopped, and what it said.
+    validations:
+      required: true
+  - type: textarea
+    id: known
+    attributes:
+      label: Known to work elsewhere
+      description: Links to a working OpenCore setup or driver for this hardware, if you know one.
