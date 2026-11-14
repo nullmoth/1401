@@ -33,9 +33,9 @@ SIP_DRIVER = bytes.fromhex("430A0000")
 BOOT_ARGS = ("nvfb=1", "nvaccel=1", "nvfbheads=4", "-nvkmsnosmooth", "amfi_get_out_of_my_way=0x1", "amfi=0x80",
              "ipc_control_port_options=0")
 # Package published with the driver; the stick carries it so the Mac companion can install it offline.
-PACKAGE = {"name": "nullmoth-nvidia-2.9.tar.gz",
-           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v2.9/nullmoth-nvidia-2.9.tar.gz",
-           "sha256": "b624bf07c78cea03043e096383d5c8b01e4fb2c804a6ba377a4e66a2566422ef"}
+PACKAGE = {"name": "nullmoth-nvidia-3.0.tar.gz",
+           "url": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v3.0/nullmoth-nvidia-3.0.tar.gz",
+           "sha256": "40f0390d0b7cda75637991879b09abb7f8f7e3e5db2e811196963b3a2cacbcad"}
 
 # NVIDIA's own Linux driver package. The GPU firmware the driver needs is inside it, and the NullMoth package no longer
 # carries that firmware (NVIDIA's licence): the Mac installer (package/fw_fetch.sh) reads it from this file. The stick
