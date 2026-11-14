@@ -17,3 +17,7 @@ descriptions and bug reports are closed without review.
 - One change per pull request, and say what you tested: your PC, the stick, what you ran and what it printed.
 - Keep the description short: what was wrong, what you changed, how you tested it. Link the issue.
 - Run the tests before you open it: `python3 -m unittest discover -s tests -t . -p 'test_*.py'`.
+- Sign off every commit (`git commit -s`). It certifies you wrote the change or may submit it under this
+  repository's licence (Developer Certificate of Origin, <https://developercertificate.org>).
+
+Setting up, the repository map, the full tests and the rules for changes are in `DEVELOPING.md`.
