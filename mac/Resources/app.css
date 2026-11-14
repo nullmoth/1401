@@ -16,7 +16,8 @@
 @media (prefers-reduced-motion:reduce){.sky{animation:none}}
 .desk{--win-bg:rgba(8,3,16,.45)}
 .desk.light{--win-bg:rgba(250,247,255,.5)}
-.theme{margin-left:auto;position:relative;width:46px;height:22px;padding:0 5px;border-radius:999px;border:1px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--well2);box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
+.lang{margin-left:auto;height:22px;padding:0 8px;border-radius:999px;border:1px solid var(--line);background:var(--well2);color:var(--muted);font:bold 11px -apple-system,Verdana,sans-serif;cursor:pointer;box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}.lang:hover{color:var(--text)}
+.theme{position:relative;width:46px;height:22px;padding:0 5px;border-radius:999px;border:1px solid var(--line);cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:var(--well2);box-shadow:inset 0 1px 2px rgba(0,0,0,.35)}
 .theme svg{width:11px;height:11px;fill:none;stroke:var(--muted);stroke-width:1.2;stroke-linecap:round}
 .theme .moon{fill:var(--muted);stroke:none}
 .knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:linear-gradient(180deg,var(--go-a),var(--go-b));box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.6);transition:transform .2s}
@@ -69,6 +70,7 @@ table.ports th{width:auto;border-radius:0}table.ports td{border-radius:0}
 .todo{margin:6px 0;padding-left:22px}
 .todo li{margin:0 0 10px}
 .todo li.done b::after{content:"  [done]";color:var(--cyan);font:bold 11px "Courier New",Courier,monospace}
+.desk.zh .todo li.done b::after{content:"  [已完成]"}
 .todo li.now b{color:var(--accent)}
 #log{margin:0;height:220px;overflow:auto;padding:8px;border-radius:10px;background:var(--ink);box-shadow:inset 0 0 0 1px var(--line);color:var(--cyan);font:12px/1.35 "Courier New",Courier,monospace;white-space:pre-wrap}
 #log .c{color:var(--amber)}#log .k{color:var(--cyan)}#log .x{color:#ff7092;font-weight:bold}#log .s{color:var(--text);font-weight:bold}
