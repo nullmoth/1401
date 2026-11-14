@@ -99,9 +99,20 @@ launchctl bootout system/com.nullmoth.lastgood 2>/dev/null || true
 rm -f /Library/LaunchDaemons/com.nullmoth.lastgood.plist /Library/NullMoth/lastgood.sh || die "cannot remove the fallback job"
 launchctl bootout system/com.nullmoth.bootguard 2>/dev/null || true
 rm -f /Library/LaunchDaemons/com.nullmoth.bootguard.plist /Library/NullMoth/bootguard.sh || die "cannot remove the boot-guard job"
+launchctl bootout system/com.nullmoth.backlight 2>/dev/null || true
+rm -f /Library/LaunchDaemons/com.nullmoth.backlight.plist /Library/NullMoth/backlight.sh /Library/NullMoth/backlight.level /Library/NullMoth/backlight.log || die "cannot remove the backlight job"
 nvram -d 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-nv-starts 2>/dev/null || true
 nvram -d 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-nv-ok 2>/dev/null || true
 nvram -d 7C436110-AB2A-4BBB-A880-FE41995C9F82:nullmoth-backlight 2>/dev/null || true
+# The installer may have added gfxrst=4 to the NVRAM boot-args (WhateverGreen's boot screen copy). Take out only that one,
+# and only when the installer recorded adding it.
+if grep -qx "gfxrst=4" /Library/NullMoth/added-boot-args 2>/dev/null; then
+  cur=$(nvram boot-args 2>/dev/null | cut -f2-); kept=""
+  for a in $cur; do [ "$a" = "gfxrst=4" ] || kept="$kept $a"; done
+  kept=${kept# }
+  if [ -n "$kept" ]; then nvram boot-args="$kept" 2>/dev/null || true; else nvram -d boot-args 2>/dev/null || true; fi
+  rm -f /Library/NullMoth/added-boot-args
+fi
 if [ "$REMOVE_KC" = 1 ]; then
   rm -f "$KC" "$KC.nullmoth-install-new" "$KC.nullmoth-update-new" "$KC.nullmoth-remove-new" || die "cannot remove the auxiliary collection"
 elif [ "$CANDIDATE" = "$NEWKC" ]; then
