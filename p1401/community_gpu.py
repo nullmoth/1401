@@ -128,7 +128,7 @@ PROJECTS = (
        "AMD processor kernel patches (patches.plist)", "no licence; 1401 writes its own AMD kernel patches (p1401/kernel_patches.py)"),
     _p("LuneFlu/AMDHelper", "b4cabfb762bcecb2866697adc0055a68ff81e5e6", "2024-10-21", "none", EXCLUDED,
        "Ryzen power-limit helper (ryzenadj wrapper)", "no licence; not a graphics driver; last commit 2024"),
-    # --- 2026-11-13 census: every iGPU project found that claims Tahoe, read at the commit shown ---------------------------
+    # --- Census: every iGPU project found that claims Tahoe, read at the commit and date shown ---------------------------
     _p("wzh4869/Radeon-680M-Hackintosh", "a34b37d2839dff3223315188dad7851ca58060d7", "2026-11-11", "GPL-2.0", PORT_REVIEW,
        "RembrandtGfx: Radeon 680M (rev 02 -> c7 compatibility) with an accelerated Tahoe 26.7.2 desktop, 2560x1600 at 120 Hz, fixed 512 MiB",
        "the only iGPU-only 680M route found; no release to fetch, so it is named for 680M machines without an NVIDIA card; "
@@ -209,7 +209,7 @@ XPS13PLUS_BOARDS = ("xps 13 9320", "xps 13 plus")
 # Raptor Lake-P Iris Xe with an NVIDIA card: the one GPU nmx-intel documents (a7a8). Raptor Lake-U A7AC: MyIntelGPU.
 NMXINTEL_IDS = ("8086-A7A8",)
 MYINTELGPU_IDS = ("8086-A7AC",)
-# 2026-11-13 census. Meteor Lake-P 7D45 in a Dell Latitude 5350 (VedCloud's packages are built for that laptop's profile).
+# From the census: Meteor Lake-P 7D45 in a Dell Latitude 5350 (VedCloud's packages are built for that laptop's profile).
 VEDCLOUD_IDS = ("8086-7D45",)
 VEDCLOUD_BOARDS = ("latitude 5350",)
 # Raptor Lake-U A7A1 in a ThinkPad X1 Carbon Gen 11 (machine types 21HM / 21HN), the laptop dssoftx's EFI is built for.
