@@ -3,6 +3,14 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 3.0.1 (Turing Stutter & BAR1 Fixes)
+- Turing TU106/TU104/TU116 & small BAR1 optimization: eliminated WindowServer dragging micro-stutter, surface drops, and black window boxes on Turing GPUs (tested on AMD Ryzen 5 5600 + NVIDIA GeForce RTX 2060 SUPER 8GB, macOS Sequoia 15.8.3).
+- Driver configuration: added `turing-bar1-stutter-optimization` rule to `mac/Resources/nullmoth-rules.json` (`NVMTL_VRAM_HEADROOM_MB=48`, `NVMTL_NO_SURFACE_PAGEOFF=0`, uncached GPU sysmem, zero buffer grace, and pool bypass).
+- NVRMFB patch: bypassed 256MB VRAM budget barrier (`vramGrant` check at offset `0x21ea3`, `jle` -> `jmp`) preventing surface allocation failure.
+- NVAccel patch: disabled 100ms surface eviction (`gSurfGpuOn` at offset `0x251e0` -> `0`) and sticky VM mapping churn (`gVmSticky` at offset `0x23f1c` -> `0`).
+- Setup & Diagnostics: integrated automatic patch application in `mac/Resources/nullmoth-setup.sh` and standalone diagnostic script `tools/apply-turing-fix.sh` (with `--check`, `--status`, and `--revert`).
+- Documentation: added comprehensive architectural breakdown and offsets in `docs/TURING_OPTIMIZATION.md`.
+
 ## 3.0
 - Experimental: older macOS releases. The macOS picker now also lists macOS 14 Sonoma down to Mac OS X 10.7 Lion, each marked experimental. Their startup files and NVIDIA driver kits were checked against Apple's own files for each release and have not been run on a PC, so expect to send logs. macOS 15 and macOS 26 are unchanged and remain the supported releases.
 - Releases below 10.13 are built as 10.13 and then changed for the older release; every change is listed in the build result with where it comes from. A PC that cannot run a release is told why before anything is written (AMD processors need 10.13 or later; a PC with only NVMe disks needs 10.10 or later).

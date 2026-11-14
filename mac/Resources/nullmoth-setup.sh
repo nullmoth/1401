@@ -2582,6 +2582,69 @@ if [ -f "$CONF" ]; then
       echo "# --- end 1401 per-system rules ---"; } >> "$CONF"
   fi
 fi
+
+# Turing TU106/TU104/TU116 / Small BAR1 stutter and VRAM grant budget optimization:
+# Patches the 256MB vramGrant budget limit in NVRMFB and the 100ms surface eviction in NVAccel.
+patch_turing_stutter() {
+  local p_changed=0
+  local TARGET_ACCEL="/Library/Extensions/NVAccel.kext/Contents/MacOS/NVAccel"
+  if [ -f "$TARGET_ACCEL" ]; then
+    [ -f "/Library/Extensions/NVAccel.orig.bin" ] || cp -p "$TARGET_ACCEL" "/Library/Extensions/NVAccel.orig.bin"
+    /usr/bin/perl -e '
+      my $file = $ARGV[0];
+      open(my $fh, "+<", $file) or exit 0;
+      binmode $fh;
+      seek($fh, 0x23f1c, 0);
+      read($fh, my $b1, 4);
+      if (unpack("L", $b1) == 1) {
+        seek($fh, 0x23f1c, 0);
+        print $fh pack("L", 0);
+        print "NOTE patched NVAccel 0x23f1c (gVmSticky: 1 -> 0)\n";
+      }
+      seek($fh, 0x251e0, 0);
+      read($fh, my $b2, 4);
+      if (unpack("L", $b2) == 1) {
+        seek($fh, 0x251e0, 0);
+        print $fh pack("L", 0);
+        print "NOTE patched NVAccel 0x251e0 (gSurfGpuOn: 1 -> 0)\n";
+      }
+      close($fh);
+    ' "$TARGET_ACCEL"
+    codesign -f -s - /Library/Extensions/NVAccel.kext 2>/dev/null && p_changed=1
+  fi
+
+  local TARGET_FB="/Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB"
+  if [ -f "$TARGET_FB" ]; then
+    [ -f "/Library/Extensions/NVRMFB.orig.bin" ] || cp -p "$TARGET_FB" "/Library/Extensions/NVRMFB.orig.bin"
+    /usr/bin/perl -e '
+      my $file = $ARGV[0];
+      open(my $fh, "+<", $file) or exit 0;
+      binmode $fh;
+      seek($fh, 0x21ea3, 0);
+      read($fh, my $buf, 6);
+      if ($buf eq "\x0f\x8e\x6d\x01\x00\x00") {
+        seek($fh, 0x21ea3, 0);
+        print $fh "\xe9\x6e\x01\x00\x00\x90";
+        print "NOTE patched NVRMFB 0x21ea3 (vramGrant budget ceiling check bypassed)\n";
+      }
+      close($fh);
+    ' "$TARGET_FB"
+    codesign -f -s - /Library/Extensions/NVRMFB.kext 2>/dev/null && p_changed=1
+  fi
+
+  sysctl debug.nvaccel_vm_sticky=0 debug.nvaccel_surface_gpu_on=0 >/dev/null 2>&1 || true
+
+  if [ "$p_changed" = 1 ]; then
+    ok "applied Turing stutter & BAR1 budget patches to NVAccel/NVRMFB"
+    local K=/System/Library/Kernels/kernel; local KARG=(--allow-missing-kdk); [ -f "$K" ] && KARG+=(--kernel "$K")
+    kmutil create -n aux --volume-root / "${KARG[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
+      -S /System/Library/KernelCollections/SystemKernelExtensions.kc --repository /Library/Extensions \
+      -A /Library/KernelCollections/AuxiliaryKernelExtensions.kc -z >/dev/null 2>&1 || true
+  fi
+}
+if [ "${TURING:-0}" = 1 ] || [ -f "/Library/Extensions/NVRMFB.kext/Contents/MacOS/NVRMFB" ]; then
+  patch_turing_stutter
+fi
 if [ -n "$PROFILE" ] && [ -f "$PROFILE" ]; then
   # read as the console user: root would follow a link in the user's temp folder to a root-only file
   sudo -u "$(stat -f %Su /dev/console)" cat "$PROFILE" > "$ST/system-profile.json.tmp" && chmod 644 "$ST/system-profile.json.tmp" && mv "$ST/system-profile.json.tmp" "$ST/system-profile.json"

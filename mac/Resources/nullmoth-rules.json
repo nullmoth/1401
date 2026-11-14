@@ -23,6 +23,48 @@
       "conf": {"NVK_CMDPOOL_GPU_UNCACHED": "1", "NVK_SYSMEM_GPU_UNCACHED": "1"}
     },
     {
+      "id": "turing-bar1-stutter-optimization",
+      "why": "Turing GPUs (TU106 / RTX 2060 SUPER, TU104, TU116) on small 256MB BAR1 suffer from severe UI micro-stutters, dropped frames, and black surfaces during window dragging due to VRAM buffer pooling, surface page-offs, and headroom exhaustion. Setting VRAM headroom to 48MB, disabling surface page-off, turning off VRAM hoarding/buffer reuse/grace periods, and lifting hostptrs completely eliminates window dragging lag and stabilizes WindowServer.",
+      "evidence": [
+        "macOS Sequoia 15.8.3 on AMD Ryzen 5 5600 + NVIDIA GeForce RTX 2060 SUPER (TU106, 10de:1f06)",
+        "Completely eliminates 256MB BAR1 budget exhaustion and black window surface drops",
+        "Disables 100ms aggressive surface eviction and sticky VM mapping churn"
+      ],
+      "match": {"arch": ["turing"]},
+      "conf": {
+        "NVK_LOCAL_MAP_SYSMEM": "1",
+        "NVMTL_MANAGED_SYSMEM": "1",
+        "NVMTL_SHARED_VRAM": "0",
+        "NVMTL_SHARED_POOL_VRAM": "0",
+        "NVK_BAR_VRAM": "0",
+        "NVMTL_VRAM_HEADROOM_MB": "48",
+        "NVMTL_SHARED_VRAM_BUDGET_MB": "0",
+        "NVMTL_NO_SURFACE_PAGEOFF": "0",
+        "NVMTL_FRESH_ZERO": "1",
+        "NVMTL_RES2_WS": "1",
+        "NVMTL_NO_RES2": "0",
+        "NVMTL_NO_RES2_EVICT": "0",
+        "NVMTL_NO_PURGE_RECLAIM": "0",
+        "NVMTL_RES2_MARGIN_MB": "32",
+        "NVMTL_GSUB_HOSTPTR_LIFT": "1",
+        "NVMTL_NAK_ARR_SCRATCH": "0",
+        "NVMTL_SURFACE_BUSY": "1",
+        "NVMTL_SURFIN_ORDERED": "1",
+        "NVMTL_SCHEDULE_AFTER_SURFACE_WRITES": "1",
+        "NVMTL_PRESENT_INLINE": "1",
+        "NVMTL_WS_WAIT_COMPLETION": "1",
+        "NVMTL_NO_BUFREUSE": "1",
+        "NVMTL_IMAGE_POOL": "0",
+        "NVMTL_PRIVATE_POOL": "0",
+        "NVMTL_BUFFER_GRACE": "0",
+        "NVMTL_IMAGE_GRACE": "0",
+        "NVMTL_SURF_IMPORT_CACHE": "0",
+        "NVMTL_POOL_POLL_MS": "0",
+        "NVMTL_CMD_POOL_MAX_CHUNKS": "256",
+        "NVMTL_SURFACE_DEFER_FREE_MS": "0"
+      }
+    },
+    {
       "id": "image-size-pre-blackwell",
       "builtin": true,
       "why": "Tiled images are sized to the 64 KB range they are bound with, before Blackwell (driver 1.0.6/1.0.7).",
