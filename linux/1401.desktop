@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=1401
+Comment=Build a macOS installer for this PC
+Exec=@EXEC@
+Terminal=false
+Categories=System;

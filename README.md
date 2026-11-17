@@ -4,6 +4,7 @@ Install macOS on the PC you already own: the reverse of Boot Camp. 1401 runs on 
 an OpenCore setup for it and writes a macOS install stick. It is free and open source.
 
 - Download: [releases page](https://github.com/nullmoth/1401/releases) (`1401-Windows-<version>.zip`)
+- Linux: [build and run it from source](linux/README.md); the window does the same four steps
 - Changes: [CHANGELOG.md](CHANGELOG.md)
 - Problems: [troubleshooting](docs/TROUBLESHOOTING.md)
 - How it works: [docs/HOW-IT-WORKS.md](docs/HOW-IT-WORKS.md)
