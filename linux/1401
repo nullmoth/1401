@@ -1,0 +1,5 @@
+#!/bin/sh
+# Starts 1401 from this checkout. The engine and the window need the repository around them, so this stays in linux/.
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 -u "$here/1401.py" "$@"

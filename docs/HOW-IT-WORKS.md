@@ -3,6 +3,9 @@
 1401 is a Windows app that turns a USB stick into a macOS installer built for one specific PC. This page follows the
 four steps of the app through the code.
 
+The source tree also has a Linux window (`linux/README.md`) that runs the same engine steps; the paths below describe
+the Windows release, which is what most people use.
+
 > 1401 is new and may not work on every PC. If it does not work on yours, set up OpenCore by hand with the
 > [OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/). The NVIDIA driver and its Mac app work
 > on any OpenCore setup.

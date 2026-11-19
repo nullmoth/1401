@@ -113,6 +113,12 @@ def diagnostic_hardware(report):
     return result
 
 
+# Linux names a monitor's connector after its DRM port ("card0-HDMI-A-1" is reported as "HDMI-A"); the builder's schema
+# and its display checks use the Windows names. eDP and LVDS are the built-in panel, which Windows reports as Internal.
+_CONNECTOR_NAMES = {"VGA": "VGA", "DVI": "DVI", "HDMI": "HDMI", "DP": "DP", "EDP": "Internal", "LVDS": "Internal"}
+_ACPI_SB = re.compile(r"^[\\]?_SB(\.[A-Z0-9_]+)+$")
+
+
 def normalize(report):
     """Mutates and returns (report, notes). Each note names what was dropped and why."""
     notes = []
@@ -143,6 +149,30 @@ def normalize(report):
             notes.append(f"BIOS: firmware type read as {ft!r} (extra text from PowerShell) - taken as {word}")
     _clean_text(report, notes)
     _field_gaps(report, notes)
+    # Linux scan: DRM port names ("HDMI-A", "eDP") and root-scope ACPI paths ("\HPET", "\AOD_") are not what the
+    # builder's schema and display checks know. It drops the whole report over one unknown value. A connector name still
+    # says which kind of port it is, so translate it. A path outside _SB cannot be reached by the SSDTs the engine
+    # writes, so leave just that path out; the device keeps its ID and still gets the matching quirks.
+    monitors = report.get("Monitor")
+    if isinstance(monitors, dict):
+        for name, props in monitors.items():
+            if not isinstance(props, dict):
+                continue
+            was = props.get("Connector Type")
+            kind = str(was or "").upper().split("-")[0]
+            props["Connector Type"] = _CONNECTOR_NAMES.get(kind, "Uninitialized")
+            if props["Connector Type"] != was:
+                notes.append(f"Monitor: {name!r} connector type {was!r} - read as {props['Connector Type']} (Linux names "
+                             "the port; the builder uses the Windows names)")
+    for section, devices in report.items():
+        if section in ("CPU", "Motherboard", "BIOS") or not isinstance(devices, dict):
+            continue
+        for name, props in devices.items():
+            path = props.get("ACPI Path") if isinstance(props, dict) else None
+            if path is not None and not _ACPI_SB.match(str(path)):
+                del props["ACPI Path"]
+                notes.append(f"{section}: {name!r} ACPI path {path!r} is outside _SB - left out (the builder only maps "
+                             "devices under _SB; the device ID is still used)")
     if isinstance(report.get('GPU'), dict) and not report['GPU']:
         raise RuntimeError('The scan lists no graphics adapter at all, so there is nothing to plan a display for. Run Check this PC again; '
                            'if it still lists none, send the log from the failed run.')
