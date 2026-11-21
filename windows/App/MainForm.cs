@@ -895,7 +895,9 @@ namespace A1401
                         MessageBox.Show(this, Loc.T("Apple's full installer is available here for macOS 15 and 26 only. Turn the option off to write an experimental older release."), "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         return;
                     }
-                    if (d.Size < 32UL * 1024 * 1024 * 1024)
+                    // Windows uses GiB when calculating USB sizes uses, however Windows still displays as GB
+                    // Just use the number that is around 32GB
+                    if (d.Size < 31UL * 1000 * 1000 * 1000)
                     {
                         busy = false; next.Enabled = true; refresh.Enabled = true;
                         MessageBox.Show(this, Loc.T("The full macOS installer needs a stick of 32 GB or more. Pick a larger stick or turn the option off."), "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
