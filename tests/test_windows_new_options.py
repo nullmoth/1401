@@ -21,7 +21,7 @@ class WindowsOptions(unittest.TestCase):
         self.assertIn('args += " --full-installer " + Engine.Q(fullPkg)', SRC)
 
     def test_a_stick_under_32_gb_is_refused_with_the_number_the_engine_uses(self):
-        self.assertIn("d.Size < 32UL * 1024 * 1024 * 1024", SRC)
+        self.assertIn("d.Size < 31UL * 1000 * 1000 * 1000", SRC)
         self.assertEqual(fullinstaller.MIN_STICK, 32 * (1 << 30))
 
     def test_the_option_is_off_by_default_and_needs_the_explanation(self):
