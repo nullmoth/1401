@@ -14,6 +14,8 @@ a = T.index('if [ -n "${EXPER:-}" ]; then')
 BLOCK = T[a:T.index('if [ -n "${GPUBOOST:-}" ]; then')]
 B = "7C436110-AB2A-4BBB-A880-FE41995C9F82"
 FUNCS = (T[T.index("has() {"):T.index("\nget() {")] + "\n" + T[T.index("get() {"):T.index("; }\n", T.index("get() {")) + 4])
+# the boot-args writer the script's features use (nvram first, the OpenCore config when NVRAM refuses)
+FUNCS += "\n" + T[T.index("nvram_boot_args() {"):T.index("\n}\n", T.index("nvram_boot_args() {")) + 3]
 
 
 class Env:
