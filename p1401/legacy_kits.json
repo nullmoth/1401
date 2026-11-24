@@ -1,19 +1,19 @@
 {
-  "version": "3.0",
-  "base": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v3.0/",
+  "version": "3.1",
+  "base": "https://github.com/nullmoth/nvidia-macos-driver/releases/download/v3.1/",
   "kits": {
-    "10.7": {"name": "nullmoth-nvidia-legacy-10.7-3.0.tar.gz", "sha256": "964eaddbd848b899757ac6f9c0c968cd339f196683c4d19b233d6bc5c260ade1"},
-    "10.8": {"name": "nullmoth-nvidia-legacy-10.8-3.0.tar.gz", "sha256": "d4ee8423ee06e406aaa747ad8d2372619f39e3be045842f32e1e77ad9b87a275"},
-    "10.9": {"name": "nullmoth-nvidia-legacy-10.9-3.0.tar.gz", "sha256": "0d64d8dfe116eba52c4d4db8ea94257b94bcc6ee7bb9dd708cf770322c3768b9"},
-    "10.10": {"name": "nullmoth-nvidia-legacy-10.10-3.0.tar.gz", "sha256": "7c9a394b40807837ea8cab8dfd235296866366ad72c2a869ef4f31fc96832657"},
-    "10.11": {"name": "nullmoth-nvidia-legacy-10.11-3.0.tar.gz", "sha256": "5ac8812f53099b620c0e3396266297e81e129ca00426bd9b464f6c61384179ef"},
-    "10.12": {"name": "nullmoth-nvidia-legacy-10.12-3.0.tar.gz", "sha256": "c9050c244bb7b8020ae78ae52fdf9ff47ed1f73e9d1b95c4e6ef8b78ec363033"},
-    "10.13": {"name": "nullmoth-nvidia-legacy-10.13-3.0.tar.gz", "sha256": "b37fa4cf198f0bc2d5d91dce3fcf0a02681b4ee4a304fabdac91c03b7b5b48ce"},
-    "10.14": {"name": "nullmoth-nvidia-legacy-10.14-3.0.tar.gz", "sha256": "ea82fb7352e4dad93fe0c30692419b2d87bc47d362432a573e6203c72034227b"},
-    "10.15": {"name": "nullmoth-nvidia-legacy-10.15-3.0.tar.gz", "sha256": "56707ca30edbf22309c004d6592052120189497faa6bbee77af3528b3de45bd3"},
-    "11": {"name": "nullmoth-nvidia-legacy-11-3.0.tar.gz", "sha256": "9c89214757c8d6bd5654bd511ae7fc99b1f21a475f36c7efc41d826993c899fa"},
-    "12": {"name": "nullmoth-nvidia-legacy-12-3.0.tar.gz", "sha256": "a2f0cd4f192a6529bbe0645ae689354e7d88eea92af21a90ea9225a7341a868a"},
-    "13": {"name": "nullmoth-nvidia-legacy-13-3.0.tar.gz", "sha256": "6b10388d0a10980fddf536936dcb4a55a4d1a5640db99e3eb45a8435087cb5d3"},
-    "14": {"name": "nullmoth-nvidia-legacy-14-3.0.tar.gz", "sha256": "7bf8687f418637ef900e54c902a128cf1f56bbddc0ede37b3832f37b958ec174"}
+    "10.7": {"name": "nullmoth-nvidia-legacy-10.7-3.1.tar.gz", "sha256": "7767f98fc658bd02b30e59016ed26ed7ba225225c65b2c2284c125e0db2fe014"},
+    "10.8": {"name": "nullmoth-nvidia-legacy-10.8-3.1.tar.gz", "sha256": "00ee3ff18b4b2331622171ae228d3a172e43b6e820290a1603f6d2bfb1d9f1c7"},
+    "10.9": {"name": "nullmoth-nvidia-legacy-10.9-3.1.tar.gz", "sha256": "7e47b1390727a07aa448e5fed77cc7a1815e15f661f37c84cb3b9269bf4d6385"},
+    "10.10": {"name": "nullmoth-nvidia-legacy-10.10-3.1.tar.gz", "sha256": "a7698fe6b98f5f1bab6f2e9e60d424f76c561951912e463575035c30d3390875"},
+    "10.11": {"name": "nullmoth-nvidia-legacy-10.11-3.1.tar.gz", "sha256": "5e666fdf39c4af83c87dde91b6d8876c95776fb66a2e4548201da95c2ab26c55"},
+    "10.12": {"name": "nullmoth-nvidia-legacy-10.12-3.1.tar.gz", "sha256": "71a9c14312f0a1dafafb479f48128331756ff9141bac7ac2cbff96db6c5a33ba"},
+    "10.13": {"name": "nullmoth-nvidia-legacy-10.13-3.1.tar.gz", "sha256": "feeb28adaa7544af2b41b02a81a81b762e04ed71d49dafeba835862a14812032"},
+    "10.14": {"name": "nullmoth-nvidia-legacy-10.14-3.1.tar.gz", "sha256": "193bc03030d9fd8ad6e1c1e0fa0c8a49f3ebcda1321e64c17a5d1bd93e5d16ce"},
+    "10.15": {"name": "nullmoth-nvidia-legacy-10.15-3.1.tar.gz", "sha256": "dee74843c4aecd74576d1b5b73f8708f6dca7777d9596cfc5913dae74da50b77"},
+    "11": {"name": "nullmoth-nvidia-legacy-11-3.1.tar.gz", "sha256": "20f5eeabc78adb73c99873ea36861f8e05ffbcc7d6291fad9ffd61e2460e77c4"},
+    "12": {"name": "nullmoth-nvidia-legacy-12-3.1.tar.gz", "sha256": "43ad86855e451ec998f0512f185c95e82fc673573bad95843d1282c8b90a5cbd"},
+    "13": {"name": "nullmoth-nvidia-legacy-13-3.1.tar.gz", "sha256": "a1253f9ebc2b74a36b6f5ca8c007ed641f86e9e972593af98cb3e4f885e094b3"},
+    "14": {"name": "nullmoth-nvidia-legacy-14-3.1.tar.gz", "sha256": "ad6f80a2bcafd04ea858477768e2087b0488bf341a78aabba1e03814749a3b65"}
   }
 }
