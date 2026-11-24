@@ -1,5 +1,6 @@
 """Scans this machine with Hardware Sniffer (upstream/Hardware-Sniffer, BSD-3, pinned in upstream/PINNED.json) and
-writes Report.json + ACPI/*.aml, the two inputs engine.build needs. Windows (WMI) or Linux (sysfs, root for ACPI).
+writes Report.json + ACPI/*.aml, the two inputs engine.build needs. Windows (WMI) or Linux (sysfs; the ACPI tables
+are root-only, so Linux asks policykit once to copy them).
 
 Nothing gets sent anywhere. The Sniffer reads WMI/sysfs and its own bundled pci.ids/usb.ids. The one thing it
 downloads, acpidump.exe from GitHub (unverified), is replaced with a copy pinned by sha256 below.
@@ -277,8 +278,14 @@ def _storage_drives_section(rows):
 
 
 def collect_storage_drives():
-    """Windows only: the installed drives and their models, via PowerShell Get-Disk (FriendlyName is the model, BusType
-    tells USB from internal). Fail-safe: any error returns no rows, so the scan is never held up by this extra read."""
+    """The installed drives and their models: PowerShell Get-Disk on Windows, lsblk on Linux. Fail-safe: any error
+    returns no rows, so the scan is never held up by this extra read."""
+    if platform.system() == "Linux":
+        try:
+            from . import linuxusb  # noqa: PLC0415
+            return linuxusb.storage_rows()
+        except Exception:  # noqa: BLE001 - an optional read; never block the scan
+            return []
     if platform.system() != "Windows":
         return []
     try:
@@ -323,6 +330,10 @@ def _sniffer_body(out_dir, token):
     h.u.head = lambda *a, **k: None  # it clears the console; a child has none
     if platform.system() == "Windows":
         h.check_acpidump = acpidump_path  # pinned copy, not its own download
+    else:
+        # Its Linux dump calls `sudo cp`, which asks through a terminal this child does not have. linuxroot copies
+        # the tables after the report is written, through one policykit prompt.
+        h.dump_acpi_tables = lambda: None
     original_progress = h.hardware_info.utils.progress_bar
     def checkpoint_progress(*args, **kwargs):
         scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
@@ -335,7 +346,15 @@ def _sniffer_body(out_dir, token):
         scan_evidence.save_partial(out_dir, token, getattr(h.hardware_info, "result", {}))
     h.export_hardware_report()
     _add_storage_drives(out_dir)  # record drive models so a "no disk" report can name the exact SSD
-    h.dump_acpi_tables()
+    if platform.system() == "Linux":
+        from . import linuxroot  # noqa: PLC0415
+        try:
+            linuxroot.elevate_acpi(os.path.join(out_dir, "ACPI"))
+        except linuxroot.RootError as error:
+            print(str(error), file=sys.stderr)
+            return 1
+    else:
+        h.dump_acpi_tables()
     acpi = os.path.join(out_dir, "ACPI")
     if platform.system() == "Windows":
         for note in windows_tables(acpi):   # anything acpidump missed (FACP, MCFG, ...), straight from Windows

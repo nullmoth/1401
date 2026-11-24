@@ -19,6 +19,7 @@ This is the guide for working on 1401's source. To report a bug, see `CONTRIBUTI
 |---|---|---|---|
 | Engine (scan, build, BIOS guide, stick writer) | `p1401/` | any OS for the tests; Windows in the app | Python 3.12 or newer |
 | Windows app (the window) | `windows/App/` | Windows | .NET SDK 8.0.425 (`global.json` pins it), Visual Studio C++ tools for `native/` |
+| Linux app (the same four steps) | `linux/` | Linux | Python 3.12 or newer, GTK 4, PyGObject, polkit |
 | Mac app (after the install) | `mac/` | macOS 15 or newer | Xcode (Swift 6.3 and 6.4 both build it) |
 | UEFI loader (experimental, unused by the app) | `loader/` | QEMU | Rust |
 | Upstream engines (pinned copies) | `upstream/` | | do not edit; `PINNED.json` names the commits |
@@ -31,6 +32,8 @@ Most work is in the engine, and the engine's tests need no special hardware.
   `nullmoth.py` (Build the Mac setup and its rules), `guide.py` (Your BIOS steps), `usbwriter.py` (Create the macOS
   stick), `report.py` (Send logs). `community_gpu.py` lists other people's GPU drivers and when to mention them.
 - `windows/App/`: the C# window. It runs each engine step as `python -u -m <module>` and shows its output.
+- `linux/`: the GTK 4 window, its launcher, and `linuxusb.py`'s Linux entry point in `p1401/`. It runs the same engine
+  modules as the C# window; root steps go through `pkexec`.
 - `mac/`: the Mac app that finishes the setup after macOS is installed. `mac/build.sh` builds it and runs its own tests.
 - `tests/`: unit tests (`test_*.py`), the hardware corpus (`tests/corpus/`), and the corpus runner (`run_corpus.py`).
 - `tools/`: release, packaging and corpus tools.
@@ -80,6 +83,15 @@ dotnet build windows/App/App.csproj --configuration Release --output build
 ```
 
 `.github/workflows/windows-candidate.yml` is the full packaging run, step by step.
+
+**Linux app:**
+
+```bash
+bash linux/build.sh /tmp/1401-linux
+```
+
+It runs the Linux writer tests and a window self-test, then stages a folder that runs with `./1401`. The packages it
+needs and the places it keeps scans and logs are in `linux/README.md`.
 
 **Mac app:**
 
