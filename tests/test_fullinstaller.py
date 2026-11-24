@@ -9,6 +9,7 @@ import struct
 import tempfile
 import sys
 import unittest
+from unittest.mock import patch
 import zlib
 
 from p1401 import fullinstaller as f
@@ -33,6 +34,23 @@ def make_xar(files, toc_sum=True, corrupt=None):
     if corrupt:
         out[-1] ^= 0xFF
     return bytes(out)
+
+
+def toc_sha1(blob):
+    """What Apple's catalog Digest is: the SHA-1 of the compressed table of contents."""
+    size, _v, clen = struct.unpack(">HHQ", blob[4:16])
+    return hashlib.sha1(blob[size:size + clen]).hexdigest()
+
+
+def integrity(blob, chunk=1000):
+    """An integrityDataV1 for blob: CNKL header, (u32 size, sha256) per chunk, then SHA-256 of all of that."""
+    sizes = [min(chunk, len(blob) - o) for o in range(0, len(blob), chunk)]
+    body = struct.pack("<4sIBBBxQQQ", b"CNKL", 36, 1, 1, 2, len(sizes), 36, 36 + 36 * len(sizes))
+    off = 0
+    for n in sizes:
+        body += struct.pack("<I", n) + hashlib.sha256(blob[off:off + n]).digest()
+        off += n
+    return body + hashlib.sha256(body).digest()
 
 
 PKG_FILES = {"Distribution": b"<installer-gui-script/>", "InstallAssistant.pkg/Payload": os.urandom(5000), "Scripts": os.urandom(777)}
@@ -123,7 +141,7 @@ class Fetch(unittest.TestCase):
 
     def test_a_dropped_connection_resumes_and_the_package_verifies(self):
         blob = make_xar(PKG_FILES)
-        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": hashlib.sha1(blob).hexdigest()}
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": toc_sha1(blob)}
         op = self.opener(blob, drop_after=2000)
         d = tempfile.mkdtemp()
         path = f.fetch(prod, d, opener=op)
@@ -146,9 +164,138 @@ class Fetch(unittest.TestCase):
                     opener=self.opener(blob), tries=3)
         self.assertIn(f"stopped at {len(blob)} of {len(blob) + 10}", str(e.exception))
 
+    def test_a_part_from_another_package_is_not_resumed(self):
+        blob = make_xar(PKG_FILES)
+        d = tempfile.mkdtemp()
+        part = os.path.join(d, f.PACKAGE_NAME + ".part")
+        with open(part, "wb") as fh:
+            fh.write(b"bytes of an older macOS build" * 50)
+        with open(part + ".for", "w") as fh:
+            fh.write("https://x/old/InstallAssistant.pkg\n999\n\n")
+        op = self.opener(blob)
+        path = f.fetch({"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": toc_sha1(blob)},
+                       d, opener=op)
+        self.assertEqual(op.calls, [0])
+        self.assertEqual(open(path, "rb").read(), blob)
+        self.assertEqual(sorted(os.listdir(d)), [f.PACKAGE_NAME])
+
+    def test_a_part_with_no_record_of_its_package_is_not_resumed(self):
+        blob = make_xar(PKG_FILES)
+        d = tempfile.mkdtemp()
+        with open(os.path.join(d, f.PACKAGE_NAME + ".part"), "wb") as fh:
+            fh.write(b"x" * 10)
+        op = self.opener(blob)
+        f.fetch({"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": ""}, d, opener=op)
+        self.assertEqual(op.calls, [0])
+
+    def test_a_part_longer_than_the_package_starts_over(self):
+        blob = make_xar(PKG_FILES)
+        d = tempfile.mkdtemp()
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": ""}
+        part = os.path.join(d, f.PACKAGE_NAME + ".part")
+        with open(part + ".for", "w") as fh:
+            fh.write(f"{prod['url']}\n{len(blob)}\n\n")
+        with open(part, "wb") as fh:
+            fh.write(blob + b"overrun")        # #161: 19032695007 of 18388869343 bytes
+        op = self.opener(blob)
+        path = f.fetch(prod, d, opener=op)
+        self.assertEqual(op.calls, [0])
+        self.assertEqual(open(path, "rb").read(), blob)
+
+    def test_negative_control_the_same_package_still_resumes(self):
+        blob = make_xar(PKG_FILES)
+        d = tempfile.mkdtemp()
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": ""}
+        part = os.path.join(d, f.PACKAGE_NAME + ".part")
+        with open(part + ".for", "w") as fh:
+            fh.write(f"{prod['url']}\n{len(blob)}\n\n")
+        with open(part, "wb") as fh:
+            fh.write(blob[:1000])
+        op = self.opener(blob)
+        path = f.fetch(prod, d, opener=op)
+        self.assertEqual(op.calls, [1000])
+        self.assertEqual(open(path, "rb").read(), blob)
+
+    def test_a_resume_that_starts_at_another_byte_is_refused(self):
+        class R:
+            status = 206
+            headers = {"Content-Range": "bytes 0-99/100"}
+            def close(self): pass
+        with patch("urllib.request.urlopen", lambda req, timeout=None: R()):
+            with self.assertRaisesRegex(OSError, "not at byte 50"):
+                f._open_range("https://x/a.pkg", 50)
+        R.headers = {"Content-Range": "bytes 50-99/100"}
+        with patch("urllib.request.urlopen", lambda req, timeout=None: R()):
+            self.assertIsInstance(f._open_range("https://x/a.pkg", 50)[0], R)
+
     def test_only_https_addresses_are_opened(self):
         with self.assertRaises(f.FullInstallerError):
             f._open_range("http://x/a.pkg", 0)
+
+
+class Digest(unittest.TestCase):
+    def test_the_catalog_digest_is_the_table_of_contents_not_the_whole_file(self):
+        blob = make_xar(PKG_FILES)
+        p = os.path.join(tempfile.mkdtemp(), "i.pkg")
+        open(p, "wb").write(blob)
+        self.assertEqual(f.toc_digest(p), toc_sha1(blob))
+        self.assertNotEqual(f.toc_digest(p), hashlib.sha1(blob).hexdigest())
+
+    def test_a_good_download_passes_with_the_catalog_digest(self):
+        blob = make_xar(PKG_FILES)
+        path = f.fetch({"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": toc_sha1(blob)},
+                       tempfile.mkdtemp(), opener=lambda url, start: (io.BytesIO(blob[start:]), None))
+        self.assertEqual(open(path, "rb").read(), blob)
+
+    def test_negative_control_a_whole_file_sha1_is_not_accepted_as_the_digest(self):
+        blob = make_xar(PKG_FILES)
+        with self.assertRaisesRegex(f.FullInstallerError, "digest"):
+            f.fetch({"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": hashlib.sha1(blob).hexdigest()},
+                    tempfile.mkdtemp(), opener=lambda url, start: (io.BytesIO(blob[start:]), None))
+
+
+class Repair(unittest.TestCase):
+    def test_integrity_data_parses_and_a_changed_byte_is_refused(self):
+        blob = make_xar(PKG_FILES)
+        data = integrity(blob)
+        chunks = f.parse_integrity(data)
+        self.assertEqual(sum(s for _, s, _ in chunks), len(blob))
+        bad = bytearray(data); bad[50] ^= 1
+        with self.assertRaises(f.FullInstallerError):
+            f.parse_integrity(bytes(bad))
+
+    def test_a_damaged_chunk_is_fetched_again_not_the_whole_package(self):
+        blob = make_xar(PKG_FILES)
+        served = bytearray(blob); served[1500] ^= 0xFF          # the first pass delivers one damaged byte
+        calls = []
+        def opener(url, start):
+            calls.append(start)
+            src = served if len(calls) == 1 else blob
+            return io.BytesIO(bytes(src[start:])), None
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": toc_sha1(blob),
+                "integrity_url": "https://x/InstallAssistant.pkg.integrityDataV1"}
+        path = f.fetch(prod, tempfile.mkdtemp(), opener=opener, integrity_get=lambda u: integrity(blob))
+        self.assertEqual(open(path, "rb").read(), blob)
+        self.assertEqual(calls, [0, 1000])                     # one full pass, then only the chunk at 1000
+
+    def test_a_chunk_that_stays_damaged_keeps_the_download_for_next_time(self):
+        blob = make_xar(PKG_FILES)
+        served = bytearray(blob); served[1500] ^= 0xFF
+        d = tempfile.mkdtemp()
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": toc_sha1(blob),
+                "integrity_url": "https://x/i"}
+        with self.assertRaisesRegex(f.FullInstallerError, "kept"):
+            f.fetch(prod, d, opener=lambda url, start: (io.BytesIO(bytes(served[start:])), None),
+                    integrity_get=lambda u: integrity(blob))
+        self.assertTrue(os.path.exists(os.path.join(d, f.PACKAGE_NAME + ".part")))
+
+    def test_unusable_integrity_data_only_turns_repair_off(self):
+        blob = make_xar(PKG_FILES)
+        prod = {"url": "https://x/InstallAssistant.pkg", "size": len(blob), "digest": toc_sha1(blob),
+                "integrity_url": "https://x/i", "integrity_size": 5}
+        path = f.fetch(prod, tempfile.mkdtemp(), opener=lambda url, start: (io.BytesIO(blob[start:]), None),
+                       integrity_get=lambda u: integrity(blob))
+        self.assertEqual(open(path, "rb").read(), blob)
 
 
 class Stick(unittest.TestCase):
@@ -180,8 +327,14 @@ class Stick(unittest.TestCase):
     def test_a_small_stick_is_refused_with_its_size(self):
         with self.assertRaises(f.FullInstallerError) as e:
             f.check_stick(16 << 30)
-        self.assertIn("at least 32 GB", str(e.exception))
+        self.assertIn("32 GB stick or larger", str(e.exception))
         f.check_stick(64 << 30)
+
+    def test_a_stick_sold_as_32_gb_is_accepted(self):
+        f.check_stick(32 * 10**9)            # 29.8 GiB: refused by 3.0 (#173)
+        f.check_stick(31_000_000_000)        # some "32 GB" sticks are a little smaller
+        with self.assertRaises(f.FullInstallerError):
+            f.check_stick(16 * 10**9)
 
     def test_the_helper_script_parses_in_bash(self):
         import subprocess
