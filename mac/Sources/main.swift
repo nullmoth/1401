@@ -445,7 +445,10 @@ final class App: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKUIDe
         cfg.userContentController.add(self, name: "nm")
         web = WKWebView(frame: .zero, configuration: cfg)
         web.uiDelegate = self
-        web.setValue(false, forKey: "drawsBackground")
+        // The web view keeps its own background on. With it off, the window showed only the animated sky layers on
+        // the NVIDIA driver (#646, RTX 2080, 3.0): a see-through web view's base layer was never put on screen, while
+        // the same page in an opaque web view drew completely. The page paints its own background, so nothing
+        // visible depends on the web view being see-through.
         // The page draws its own striped title bar under a transparent one, so the window's close, minimise and zoom
         // buttons sit on it; the strip below keeps the window draggable, since the web view takes every click.
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 760),
