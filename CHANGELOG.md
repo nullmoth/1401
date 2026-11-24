@@ -4,7 +4,9 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
 ## 3.1
-1401 for Windows only; the NVIDIA driver and Mac app stay 3.0. For macOS 26 and earlier.
+1401 for Windows, the Mac app and the NVIDIA driver, all 3.1. For macOS 26 and earlier. The driver's changes are in its own changelog: the lock-screen crash loop, offline installs, the boot guard, the Ryzen power profile.
+- Mac app: the window showed only drifting stars on a black background on some NVIDIA systems (#646); the page now draws in full.
+- Mac app: settings that are saved as boot arguments (experimental features, verbose startup, brightness, Ryzen power) did nothing after a restart on Macs whose NVRAM refuses writes on macOS 26 (#590). They now go into the OpenCore config when NVRAM refuses them, and the app says so.
 - Builds on networks where GitHub's downloads time out finish again. The OpenCore and kext lists are now read from the NullMoth mirror this release recorded, so every file they name is on the mirror too. In 3.0 the live lists moved on to OpenCore and Lilu builds published after the 3.0 mirror was recorded, and those builds stopped.
 - When OcBinaryData cannot be downloaded, the build continues with OpenCore's own HFS+ driver (OpenHfsPlus.efi) and the built-in boot picker instead of stopping. macOS 26 still needs Apple's APFS driver from it; that build now says so and names the network as the cause.
 - Experimental older macOS releases (10.7 to 14): the driver kits are on the release and the mirror, so choosing one no longer stops with "HTTP Error 404".
