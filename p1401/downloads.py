@@ -268,7 +268,7 @@ def make_request(fetcher, url, timeout=20):
     Once the mirror has served a file GitHub could not, the rest of the build asks the mirror first."""
     from . import mirror  # noqa: PLC0415
     agent = dict(fetcher.request_headers).get('User-Agent', '1401')
-    if mirror.preferred() and mirror.has(url):
+    if (mirror.preferred() or mirror.pinned(url)) and mirror.has(url):
         try:
             return mirror.fetch(url, fetcher.ssl_context, timeout, agent)
         except mirror.MirrorError as error:

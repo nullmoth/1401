@@ -418,6 +418,9 @@ def _load_engine():
     spec.loader.exec_module(mod)
     _patient_downloads()
     _dsdt_signature_fix()
+    from Scripts import dsdt as _dsdt  # noqa: PLC0415 - upstream module
+    from . import iasl_pin  # noqa: PLC0415
+    iasl_pin.install(_dsdt.DSDT, sys.platform)
     _modern_nvidia_stays_ours()
     from . import tls  # noqa: PLC0415
     tls.install()   # verify against the Windows store + certifi, not certifi alone
@@ -607,6 +610,8 @@ def _patient_downloads():
     from .downloads import make_request, verified_context
     kernel_patches.harden(gathering_files.gatheringFiles)
     _keep_first_kext(gathering_files)
+    from . import ocbinarydata  # noqa: PLC0415
+    ocbinarydata.install(rf.ResourceFetcher, gathering_files.gatheringFiles)
     _opencore_debug(gathering_files)
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
@@ -1141,6 +1146,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
             if legacy.converted(policy.legacy_target or None):
                 res.macos_version = f"{policy.legacy_target}.0.0"   # what the build is for, not what the engine built
             if download:
+                from . import ocbinarydata  # noqa: PLC0415
+                ocbinarydata.reset()
                 if not o.o.gather_bootloader_kexts(o.k.kexts, mv):
                     raise RuntimeError('Dependency gathering stopped before the EFI was ready. '
                                        'Check the preceding download error and rebuild; no installable EFI was produced.')
@@ -1171,6 +1178,8 @@ def build(report_path, acpi_dir, out_dir, policy=None, echo=False, download=True
                                 {"rule": rule, "before": before, "after": after, "why": why})))
                         res.macos_version = f"{policy.legacy_target}.0.0"
                     legacy.write_marker(out_dir, policy.legacy_target)
+                from . import ocbinarydata  # noqa: PLC0415
+                res.policy_changes += ocbinarydata.apply(os.path.join(out_dir, "EFI", "OC", "config.plist"), h.notices)
                 _identity_and_continuity_notices(out_dir, hw, res.kexts, smbios, h)
                 community.apply_efi_drivers(os.path.join(out_dir, "EFI", "OC", "config.plist"), cust, mv, h.notices,
                                             lambda url: downloads.make_request(o.o.fetcher, url).read(),

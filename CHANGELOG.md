@@ -3,6 +3,12 @@
 Each release also bundles the NVIDIA driver and Mac app of the same version; see the
 [driver changelog](https://github.com/nullmoth/nvidia-macos-driver/blob/main/CHANGELOG.md).
 
+## 3.1
+1401 for Windows only; the NVIDIA driver and Mac app stay 3.0. For macOS 26 and earlier.
+- Builds on networks where GitHub's downloads time out finish again. The OpenCore and kext lists are now read from the NullMoth mirror this release recorded, so every file they name is on the mirror too. In 3.0 the live lists moved on to OpenCore and Lilu builds published after the 3.0 mirror was recorded, and those builds stopped.
+- When OcBinaryData cannot be downloaded, the build continues with OpenCore's own HFS+ driver (OpenHfsPlus.efi) and the built-in boot picker instead of stopping. macOS 26 still needs Apple's APFS driver from it; that build now says so and names the network as the cause.
+- Experimental older macOS releases (10.7 to 14): the driver kits are on the release and the mirror, so choosing one no longer stops with "HTTP Error 404".
+
 ## 3.0
 - Experimental: older macOS releases. The macOS picker now also lists macOS 14 Sonoma down to Mac OS X 10.7 Lion, each marked experimental. Their startup files and NVIDIA driver kits were checked against Apple's own files for each release and have not been run on a PC, so expect to send logs. macOS 15 and macOS 26 are unchanged and remain the supported releases.
 - Releases below 10.13 are built as 10.13 and then changed for the older release; every change is listed in the build result with where it comes from. A PC that cannot run a release is told why before anything is written (AMD processors need 10.13 or later; a PC with only NVMe disks needs 10.10 or later).

@@ -82,6 +82,18 @@ def has(url):
     return url in entries()
 
 
+def pinned(url):
+    """A listing this release recorded: the dependency index (build-repo latest.json) or a release page. The build
+    reads these from the mirror first, so it resolves to the same versions this release recorded and every download
+    those listings name is in the mirror too. Read live, a listing moves on (3.0 builds died on OpenCore and Lilu
+    builds published after the 3.0 mirror was recorded, on networks where GitHub's downloads time out)."""
+    entry = entries().get(url)
+    if not entry:
+        return False
+    return (entry.get("metadata_kind") == "release-tag" or url.endswith("/latest.json")
+            or "/releases/expanded_assets/" in url)
+
+
 def prefer():
     _state["preferred"] = True
 
