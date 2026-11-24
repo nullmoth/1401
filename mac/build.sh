@@ -10,36 +10,36 @@ rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 T=$(mktemp -d)
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/EfiRules.swift tests/efi_rules/main.swift -o "$T/efi_rules_test"
 RUN=(); [ "$(uname -m)" = arm64 ] && RUN=(arch -x86_64)
-"${RUN[@]}" "$T/efi_rules_test" ../p1401/efi_rules.json tests/efi_rules/vectors.json || { echo "STOP: the Mac EFI checker disagrees with 1401's"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/efi_rules_test" ../p1401/efi_rules.json tests/efi_rules/vectors.json || { echo "STOP: the Mac EFI checker disagrees with 1401's"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/TitleBar.swift tests/title_bar/main.swift -o "$T/title_bar_test"
-"${RUN[@]}" "$T/title_bar_test" || { echo "STOP: the window cannot be dragged by its title bar"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/title_bar_test" || { echo "STOP: the window cannot be dragged by its title bar"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/Mirror.swift tests/mirror/main.swift -o "$T/mirror_test"
-"${RUN[@]}" "$T/mirror_test" || { echo "STOP: the download mirror maps an address it must refuse"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/mirror_test" || { echo "STOP: the download mirror maps an address it must refuse"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/OSGate.swift tests/os_gate/main.swift -o "$T/os_gate_test"
-"${RUN[@]}" "$T/os_gate_test" || { echo "STOP: the app would install the driver on a macOS it is not built for"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/os_gate_test" || { echo "STOP: the app would install the driver on a macOS it is not built for"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/Privileged.swift Sources/BundleHashes.swift tests/privileged/main.swift -o "$T/privileged_test"
-"${RUN[@]}" "$T/privileged_test" || { echo "STOP: the password prompt still reads as a hang while logs are collected"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/privileged_test" || { echo "STOP: the password prompt still reads as a hang while logs are collected"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/Privileged.swift Sources/BundleHashes.swift Sources/GameMode.swift tests/gamemode/main.swift -o "$T/gamemode_test"
-"${RUN[@]}" "$T/gamemode_test" || { echo "STOP: the Game Mode service command is wrong"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/gamemode_test" || { echo "STOP: the Game Mode service command is wrong"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/DriverSettings.swift tests/settings/main.swift -o "$T/settings_test"
-"${RUN[@]}" "$T/settings_test" "$PWD/tests/settings" || { echo "STOP: the settings window disagrees with the command-line tool"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/settings_test" "$PWD/tests/settings" || { echo "STOP: the settings window disagrees with the command-line tool"; exit 1; }
 # the catalogue the window ships must be the one the driver's tool prints (set NULLMOTH_DRIVER to a driver checkout)
 if [ -f "${NULLMOTH_DRIVER:-../../driver}/tools/nullmoth_settings.py" ]; then
   python3 "${NULLMOTH_DRIVER:-../../driver}/tools/nullmoth_settings.py" --catalog-json | cmp -s - Resources/settings_catalog.json \
     || { echo "STOP: Resources/settings_catalog.json is not the driver tool's catalogue"; exit 1; }
 fi
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/GpuFacts.swift tests/gpufacts/main.swift -o "$T/gpufacts_test"
-"${RUN[@]}" "$T/gpufacts_test" || { echo "STOP: the GPU facts in the settings window are read wrongly"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/gpufacts_test" || { echo "STOP: the GPU facts in the settings window are read wrongly"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/RyzenPower.swift tests/ryzen_args/main.swift -o "$T/ryzen_args_test"
-"${RUN[@]}" "$T/ryzen_args_test" || { echo "STOP: the Ryzen power profile would pass a limit the script refuses"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/ryzen_args_test" || { echo "STOP: the Ryzen power profile would pass a limit the script refuses"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/ConfigChoice.swift tests/config_choice/main.swift -o "$T/config_choice_test"
-"${RUN[@]}" "$T/config_choice_test" || { echo "STOP: the config.plist choice accepts a path it must refuse"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/config_choice_test" || { echo "STOP: the config.plist choice accepts a path it must refuse"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/GPUBoost.swift tests/gpu_boost/main.swift -o "$T/gpu_boost_test"
-"${RUN[@]}" "$T/gpu_boost_test" || { echo "STOP: the GPU boost status text says something the daemon is not doing"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/gpu_boost_test" || { echo "STOP: the GPU boost status text says something the daemon is not doing"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/PackagePin.swift tests/package_pin/main.swift -o "$T/package_pin_test"
-"${RUN[@]}" "$T/package_pin_test" || { echo "STOP: a root action would run a package the page named without the pinned hash"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/package_pin_test" || { echo "STOP: a root action would run a package the page named without the pinned hash"; exit 1; }
 xcrun swiftc -warnings-as-errors -O -target x86_64-apple-macos15.0 -sdk "$SDK" Sources/Experimental.swift tests/experimental/main.swift -o "$T/experimental_test"
-"${RUN[@]}" "$T/experimental_test" || { echo "STOP: the experimental features list accepts something it must refuse"; exit 1; }
+${RUN[@]+"${RUN[@]}"} "$T/experimental_test" || { echo "STOP: the experimental features list accepts something it must refuse"; exit 1; }
 rm -rf "$T"
 cp Resources/* "$APP/Contents/Resources/"
 cp ../p1401/efi_rules.json "$APP/Contents/Resources/"

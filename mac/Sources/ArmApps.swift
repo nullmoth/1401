@@ -263,7 +263,7 @@ enum ArmApps {
                     + "{ echo \"STOP: /opt/homebrew belongs to $o\"; exit 1; }; "
             }
             c += "todo=''; for d in " + dirs.joined(separator: " ") + "; do "
-                + "rootchain \"$(/usr/bin/dirname \"$d\")\" || continue; "
+            c += "rootchain \"$(/usr/bin/dirname \"$d\")\" || continue; "
                 + "if [ -L \"$d\" ]; then echo \"STOP: $d is a symbolic link\"; exit 1; fi; "
                 + "if [ -e \"$d\" ] && [ ! -d \"$d\" ]; then echo \"STOP: $d is not a folder\"; exit 1; fi; "
                 + "[ -d \"$d\" ] || /bin/mkdir \"$d\"; "
