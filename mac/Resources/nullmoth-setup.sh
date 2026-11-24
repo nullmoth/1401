@@ -61,6 +61,30 @@ stop() { echo "STOP $*"; cleanup; echo "RESULT stop"; exit 1; }
 driver_os_ok() { case "${1%%.*}" in 15|26) return 0;; esac; return 1; }
 has() { plutil -extract "$1" raw -o - "$C" >/dev/null 2>&1; }
 get() { plutil -extract "$1" raw -o - "$C" 2>/dev/null; }
+# boot-args for the next start. Some Macs on macOS 26 refuse every nvram(8) write ("Error creating CFTypeRef for value
+# IONVRAM-SYNCNOW-PROPERTY", #590): the app then said "updated" and nothing changed after a restart, because OpenCore
+# only puts its config's boot-args into NVRAM when NVRAM.Delete lists boot-args. When the write is refused, the value
+# (merged with the config's own) goes into the OpenCore config and boot-args joins NVRAM.Delete, so OpenCore sets it at
+# the next start. Returns non-zero only when neither took.
+nvram_boot_args() {
+  local v=$1 a merged dlist
+  if [ -n "$v" ]; then nvram boot-args="$v" 2>/dev/null && return 0; else nvram -d boot-args 2>/dev/null && return 0; fi
+  [ -n "${C:-}" ] && [ -f "$C" ] || return 1
+  merged=" $(get NVRAM.Add.$B.boot-args) "
+  for a in $v; do case "$merged" in *" $a "*) ;; *) merged="$merged$a ";; esac; done
+  merged=$(echo $merged)
+  if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$merged" "$C"
+  else plutil -insert NVRAM.Add.$B.boot-args -string "$merged" "$C"; fi || return 1
+  dlist=$(plutil -extract NVRAM.Delete.$B json -o - "$C" 2>/dev/null)
+  case "$dlist" in *'"boot-args"'*) ;;
+    "") has NVRAM.Delete || plutil -insert NVRAM.Delete -dictionary "$C" || return 1
+        plutil -insert NVRAM.Delete.$B -array "$C" 2>/dev/null; plutil -insert NVRAM.Delete.$B.0 -string boot-args "$C" || return 1;;
+    *) plutil -insert NVRAM.Delete.$B.0 -string boot-args "$C" || return 1;;
+  esac
+  plutil -lint "$C" >/dev/null || return 1
+  note "NVRAM refused the write; boot-args are in the OpenCore config now and OpenCore sets them at the next start"
+  return 0
+}
 mnt() { diskutil info "$1" 2>/dev/null | awk -F': *' '/Mount Point/{print $2}'; }
 ro_why() {      # $1 = a file; explains a failed write when macOS mounted its partition read-only
   # A 1.14.7 setup log showed "cp: ... Read-only file system", and the stop said only "could not back up". macOS mounts a
@@ -1323,7 +1347,7 @@ if [ -n "$VERB" ]; then
   cur=$(nvram boot-args 2>/dev/null | cut -f2-); nv=""
   for a in $cur; do [ "$a" = -v ] || nv="$nv $a"; done
   [ "$VERB" = on ] && nv="$nv -v"; nv=${nv# }
-  nvram boot-args="$nv" && ok "NVRAM boot-args: $nv" || note "could not write NVRAM boot-args; the config change still applies"
+  nvram_boot_args "$nv" && ok "boot-args: $nv" || note "could not write boot-args to NVRAM or the OpenCore config"
   ok "verbose startup $VERB - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
 fi
 
@@ -1342,7 +1366,7 @@ if [ -n "${BACKLIGHT:-}" ]; then
   plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
   nv=""; for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = nvrmacpibl=1 ] || nv="$nv $a"; done
   [ "$BACKLIGHT" = on ] && nv="$nv nvrmacpibl=1"
-  nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies"
+  nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"
   ok "built-in screen brightness $BACKLIGHT - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
 fi
 
@@ -1361,7 +1385,7 @@ if [ -n "${HIDPI:-}" ]; then
   plutil -lint "$C" >/dev/null || { cp -p "$BKC" "$C"; stop "editing the config failed - the original is restored"; }
   nv=""; for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = nvfbhidpi=1 ] || nv="$nv $a"; done
   [ "$HIDPI" = on ] && nv="$nv nvfbhidpi=1"
-  nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies"
+  nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"
   ok "HiDPI modes $HIDPI - takes effect at the next restart"; cleanup; echo "RESULT ok"; exit 0
 fi
 
@@ -1567,7 +1591,7 @@ if [ -n "${EXPER:-}" ]; then
     [ "$1" = add ] && new="$new $2"; new=${new# }
     if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
     for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
-    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+    [ "$1" = add ] && nv="$nv $2"; nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"; }
   # EFI drivers first: a refusal here must come before any boot argument is written to NVRAM
   for id in kbl hda; do
     k=$(xkext_of $id); i=$(xidx "$k")
@@ -1686,7 +1710,7 @@ if [ -n "${RYZEN:-}" ]; then
     [ "$1" = add ] && new="$new $2"; new=${new# }
     if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
     for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
-    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+    [ "$1" = add ] && nv="$nv $2"; nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"; }
   rauxkc() {
     K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
     kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
@@ -1762,7 +1786,7 @@ if [ -n "${HYBRID:-}" ]; then
     [ "$1" = add ] && new="$new $2"; new=${new# }
     if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
     for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
-    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+    [ "$1" = add ] && nv="$nv $2"; nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"; }
   hauxkc() {
     K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
     kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
@@ -1866,7 +1890,7 @@ if [ -n "${GPUTEST:-}" ]; then
     [ "$1" = add ] && new="$new $2"; new=${new# }
     if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
     for a in $(nvram boot-args 2>/dev/null | cut -f2-); do [ "$a" = "$2" ] || nv="$nv $a"; done
-    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+    [ "$1" = add ] && nv="$nv $2"; nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"; }
   auxkc() {
     K=/System/Library/Kernels/kernel; KA=(--allow-missing-kdk); [ -f "$K" ] && KA+=(--kernel "$K")
     kmutil create -n aux --volume-root / "${KA[@]}" -B /System/Library/KernelCollections/BootKernelExtensions.kc \
@@ -2085,7 +2109,7 @@ if [ -n "$UPD" ]; then
     [ "$1" = add ] && new="$new $2"; new=${new# }
     if has NVRAM.Add.$B.boot-args; then plutil -replace NVRAM.Add.$B.boot-args -string "$new" "$C"; else plutil -insert NVRAM.Add.$B.boot-args -string "$new" "$C"; fi
     cur=$(nvram boot-args 2>/dev/null | cut -f2-); for a in $cur; do [ "$a" = "$2" ] || nv="$nv $a"; done
-    [ "$1" = add ] && nv="$nv $2"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args"; }
+    [ "$1" = add ] && nv="$nv $2"; nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config"; }
   setq() { if has "$1"; then plutil -replace "$1" -integer "$2" "$C"; else plutil -insert "$1" -integer "$2" "$C"; fi; }
   backup() { BKC="$C.nullmoth-update-$(date +%Y%m%d-%H%M%S)"; cp -p "$C" "$BKC" || stop "could not back up $C$(ro_why "$C")"; }
   do_prepare() {
@@ -2535,7 +2559,7 @@ if [ $DRY = 0 ]; then
   # The running boot-args too, so the next start has it even before OpenCore rewrites NVRAM from the config.
   case " $ADDED " in *" gfxrst=4 "*)
     nv=""; for a in $(nvram boot-args 2>/dev/null | cut -f2-); do case "$a" in gfxrst=*) ;; *) nv="$nv $a";; esac; done
-    nv="$nv gfxrst=4"; nvram boot-args="${nv# }" || note "could not write NVRAM boot-args; the config change still applies";; esac
+    nv="$nv gfxrst=4"; nvram_boot_args "${nv# }" || note "could not write boot-args to NVRAM or the OpenCore config";; esac
 fi
 [ "${NULLMOTH_CONFIG_ONLY:-0}" = 1 ] && { cleanup; echo "RESULT ok"; exit 0; }
 if [ $SIPON = 1 ] && [ $DRY = 0 ]; then
