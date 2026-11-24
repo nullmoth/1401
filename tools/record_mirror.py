@@ -90,7 +90,10 @@ def main(out):
             if source not in recorded:
                 failures.append(f"{url}: its source {source} could not be recorded - binary not hosted")
                 recorded.pop(url)
-    # iasl is not recorded: the Windows package ships iasl.exe (windows/App/Engine.cs), so a build never downloads it.
+    # iasl.exe is downloaded by the engine on Windows the first time it reads ACPI tables (p1401/iasl_pin.py pins the
+    # release and its hash); it is recorded so a PC that cannot reach GitHub still gets it.
+    from p1401 import iasl_pin
+    get(iasl_pin.URL, sha=iasl_pin.ZIP_SHA256, what="iasl for Windows")
 
     os.makedirs(os.path.join(out, "files"), exist_ok=True)
     from p1401.mirror_metadata import release_index

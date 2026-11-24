@@ -78,6 +78,63 @@ class Fallback(unittest.TestCase):
         self.assertEqual(self.asked, [URL])
 
 
+LISTING = 'https://raw.githubusercontent.com/dortania/build-repo/builds/latest.json'
+PAGE = 'https://github.com/Mieze/RTL812xLucy/releases'
+RECORDED = b'{"Lilu": "the recorded index"}'
+
+
+class PinnedListings(unittest.TestCase):
+    """A listing the release recorded is read from the mirror even while GitHub works, so the build asks for the
+    versions the mirror holds; binaries and unrecorded listings still come from GitHub first."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        path = os.path.join(self.tmp.name, 'mirror.json')
+        sha = hashlib.sha256(RECORDED).hexdigest()
+        with open(path, 'w') as fh:
+            json.dump({'schema': 1, 'entries': {
+                LISTING: {'sha256': sha, 'size': len(RECORDED)},
+                PAGE: {'sha256': sha, 'size': len(RECORDED), 'metadata_kind': 'release-tag', 'source_sha256': sha},
+                URL: {'sha256': SHA, 'size': len(BODY)}}}, fh)
+        mirror.entries(path)
+        mirror._state['preferred'] = False
+        self.fetcher = SimpleNamespace(request_headers={'User-Agent': '1401'}, ssl_context=None)
+        self.asked = []
+
+    def tearDown(self):
+        mirror._state.update(entries=None, preferred=False)
+        self.tmp.cleanup()
+
+    def live(self, request, timeout=None, context=None):
+        self.asked.append(request.full_url)
+        if request.full_url.startswith(mirror.BASE):
+            return Served(RECORDED)
+        return Served(b'live and newer')
+
+    def get(self, url):
+        with patch('urllib.request.urlopen', self.live):
+            return downloads.make_request(self.fetcher, url).read()
+
+    def test_the_recorded_dependency_index_wins_over_a_newer_live_one(self):
+        self.assertEqual(self.get(LISTING), RECORDED)
+        self.assertTrue(self.asked[0].startswith(mirror.BASE))
+
+    def test_a_recorded_release_page_is_read_from_the_mirror(self):
+        self.assertEqual(self.get(PAGE), RECORDED)
+
+    def test_negative_control_a_recorded_binary_still_comes_from_github_first(self):
+        self.assertEqual(self.get(URL), b'live and newer')
+        self.assertEqual(self.asked, [URL])
+
+    def test_negative_control_an_unrecorded_listing_is_read_live(self):
+        self.assertEqual(self.get(OTHER), b'live and newer')
+        self.assertEqual(self.asked, [OTHER])
+
+    def test_pinning_does_not_switch_the_whole_build_to_the_mirror(self):
+        self.get(LISTING)
+        self.assertFalse(mirror.preferred())
+
+
 class Selftest(unittest.TestCase):
     def test_module_selftest(self):
         self.assertTrue(mirror.selftest())
