@@ -719,9 +719,23 @@ def local_image(folder):
     for cl in sorted(n for n in os.listdir(folder) if n.lower().endswith(".chunklist")):
         img = os.path.join(folder, os.path.splitext(cl)[0] + ".dmg")
         if os.path.isfile(img):
-            return {"local": True, "image_path": img, "chunklist_path": os.path.join(folder, cl),
+            info = {"local": True, "image_path": img, "chunklist_path": os.path.join(folder, cl),
                     "image_url": "file:///" + os.path.basename(img), "name": "recovery image from " + folder,
                     "product": os.path.basename(img)}
+            # Checked here, before anything is erased: 3.0 found a cut-short copy only while writing (ten PCs in two
+            # days had a BaseSystem.dmg of exactly 1,048,576 bytes against 884,317,790 in its chunklist - a copy or
+            # browser download that stopped after the first MiB).
+            try:
+                with open(info["chunklist_path"], "rb") as fh:
+                    total = sum(size for size, _ in parse_chunklist(fh.read()))
+                have = os.path.getsize(img)
+            except (OSError, AppleError) as error:
+                info["problem"] = f"{os.path.basename(cl)} in {folder} cannot be read as Apple's signed chunklist ({error})"
+                return info
+            if have != total:
+                info["problem"] = (f"{os.path.basename(img)} in {folder} is incomplete: {have / 1e6:.1f} MB of the "
+                                   f"{total / 1e6:.1f} MB its chunklist lists. Copy the whole file again to use it")
+            return info
     return None
 
 

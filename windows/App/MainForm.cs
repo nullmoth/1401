@@ -895,7 +895,7 @@ namespace A1401
                         MessageBox.Show(this, Loc.T("Apple's full installer is available here for macOS 15 and 26 only. Turn the option off to write an experimental older release."), "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         return;
                     }
-                    if (d.Size < 32UL * 1024 * 1024 * 1024)
+                    if (d.Size < 28000000000UL)   // a stick sold as 32 GB holds about 29.8 GiB (#173); same number as fullinstaller.MIN_STICK
                     {
                         busy = false; next.Enabled = true; refresh.Enabled = true;
                         MessageBox.Show(this, Loc.T("The full macOS installer needs a stick of 32 GB or more. Pick a larger stick or turn the option off."), "1401", MessageBoxButtons.OK, MessageBoxIcon.Information);

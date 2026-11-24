@@ -34,7 +34,10 @@ CATALOG_URLS = {
 PACKAGE_NAME = "InstallAssistant.pkg"
 LABEL = "NMINSTALL"
 FIRST_PARTITION = 2 * (1 << 30)    # OpenCore, drivers and the recovery image fit in 2 GiB; the rest of the stick is the data partition
-MIN_STICK = 32 * (1 << 30)         # the package is 17-19 GB and the first partition takes 2
+# A stick sold as "32 GB" holds 32 * 10**9 bytes, about 29.8 GiB; the 3.0 limit of 32 GiB refused every one of them
+# (#173, where a user patched the check down to 25 GB and the install worked). The package is 17-19 GB and the first
+# partition takes 2 GiB, so 28 * 10**9 bytes leaves room with any "32 GB" stick and still refuses a 16 GB one.
+MIN_STICK = 28 * 10**9
 
 
 class FullInstallerError(RuntimeError):
@@ -73,6 +76,8 @@ def parse_catalog(data, distributions=None):
         title, version, build = parse_distribution((distributions or {}).get(dist_url, ""))
         out.append({"product": pid, "title": title, "version": version, "build": build, "url": pkg["URL"],
                     "size": int(pkg.get("Size") or 0), "digest": (pkg.get("Digest") or "").lower(),
+                    "integrity_url": str(pkg.get("IntegrityDataURL") or ""),
+                    "integrity_size": int(pkg.get("IntegrityDataSize") or 0),
                     "date": str(p.get("PostDate") or ""), "distribution": dist_url})
     return out
 
@@ -141,6 +146,88 @@ def read_toc(fh):
     return files, heap, toc_ok
 
 
+def toc_digest(path):
+    """SHA-1 of the package's compressed table of contents. This is what the catalog's Digest names - measured 11-23
+    on a catalog package: Digest 9f35208a... = SHA-1 of the compressed TOC = the TOC checksum stored first in the heap,
+    while the SHA-1 of the whole file is 3cee5a0c... . 1401 3.0 compared Digest with the whole file, so every
+    full-installer download failed after 17 GB with "does not match Apple's digest" (#200, #174). The chain is
+    complete without a whole-file hash: catalog Digest -> table of contents -> each file's checksum (verify_xar)."""
+    with open(path, "rb") as fh:
+        head = fh.read(28)
+        if len(head) < 28 or head[:4] != XAR_MAGIC:
+            raise FullInstallerError("this is not a macOS installer package (no xar header)")
+        size, _ver, clen, _ulen, _calg = struct.unpack(">HHQQI", head[4:28])
+        if clen > 64 * (1 << 20):
+            raise FullInstallerError("the package's table of contents is not a valid one")
+        fh.seek(size)
+        ctoc = fh.read(clen)
+    if len(ctoc) != clen:
+        raise FullInstallerError("the package's table of contents is cut short")
+    return hashlib.sha1(ctoc).hexdigest()
+
+
+def parse_integrity(data):
+    """Apple's InstallAssistant.pkg.integrityDataV1: a chunklist (CNKL, 10 MiB chunks, SHA-256 each) whose trailer is
+    a plain SHA-256 of the body (method 2), not a signature. It comes over HTTPS from Apple's CDN with the size the
+    catalog names, and is used only to find and fetch again the chunks a download damaged; whether the package is
+    Apple's is decided by the catalog Digest and the checksums inside it. Returns [(offset, size, sha256)]."""
+    if len(data) < 36:
+        raise FullInstallerError("the installer's integrity data is cut short")
+    magic, hsize, ver, cmethod, smethod, count, coff, soff = struct.unpack_from("<4sIBBBxQQQ", data)
+    if (magic, hsize, ver, cmethod, smethod, coff) != (b"CNKL", 36, 1, 1, 2, 36) or count <= 0 \
+            or soff != coff + 36 * count or len(data) != soff + 32:
+        raise FullInstallerError("the installer's integrity data is not in the expected form")
+    if hashlib.sha256(data[:soff]).digest() != data[soff:]:
+        raise FullInstallerError("the installer's integrity data fails its own checksum")
+    out, off = [], 0
+    for i in range(count):
+        size, sha = struct.unpack_from("<I32s", data, coff + 36 * i)
+        out.append((off, size, sha))
+        off += size
+    return out
+
+
+def repair(path, chunks, url, opener, progress=None, rounds=2):
+    """Checks the file chunk by chunk and fetches the damaged ones again in place. Returns the number of chunks that
+    were replaced; raises when a chunk is still wrong after `rounds` tries. A damaged 10 MiB chunk no longer costs the
+    whole 17 GB download."""
+    fixed = 0
+    total = sum(s for _, s, _ in chunks)
+    for attempt in range(rounds + 1):
+        bad, done = [], 0
+        with open(path, "rb") as fh:
+            for off, size, sha in chunks:
+                fh.seek(off)
+                if hashlib.sha256(fh.read(size)).digest() != sha:
+                    bad.append((off, size, sha))
+                done += size
+                if progress:
+                    progress(done, total)
+        if not bad:
+            return fixed
+        if attempt == rounds:
+            raise FullInstallerError(f"{len(bad)} part(s) of the download are still damaged after fetching them again - "
+                                     "something on this network or computer changes the download: turn off web/HTTP "
+                                     "scanning in your antivirus, or connect through a phone hotspot or a VPN")
+        with open(path, "r+b") as out:
+            for off, size, _sha in bad:
+                stream, _t = opener(url, off)
+                try:
+                    buf = b""
+                    while len(buf) < size:
+                        b = stream.read(min(1 << 20, size - len(buf)))
+                        if not b:
+                            break
+                        buf += b
+                finally:
+                    close = getattr(stream, "close", None)
+                    if close:
+                        close()
+                out.seek(off)
+                out.write(buf)
+                fixed += 1
+
+
 def verify_xar(path, progress=None, chunk=4 << 20):
     """Checks the package's table of contents and every file's archived checksum. Returns the file names. Raises
     FullInstallerError naming what is wrong. Reads the package once, in order."""
@@ -176,19 +263,50 @@ def verify_xar(path, progress=None, chunk=4 << 20):
     return sorted(names)
 
 
-def fetch(product, dest_dir, progress=None, opener=None, tries=12):
+def fetch(product, dest_dir, progress=None, opener=None, tries=12, integrity_get=None):
     """Downloads product['url'] to dest_dir/InstallAssistant.pkg with resume, then verifies size, digest and structure.
     `opener(url, start)` returns (stream, total_or_None); the default is urllib with a Range header."""
     os.makedirs(dest_dir, exist_ok=True)
     path = os.path.join(dest_dir, PACKAGE_NAME)
     part = path + ".part"
+    integrity = None
+    iu = product.get("integrity_url") or ""
+    if iu.startswith("https://"):
+        try:
+            data = (integrity_get or _http_get)(iu)
+            if product.get("integrity_size") and len(data) != product["integrity_size"]:
+                raise FullInstallerError(f"{len(data)} bytes, the catalog says {product['integrity_size']}")
+            integrity = parse_integrity(data)
+            if sum(s for _, s, _ in integrity) != int(product["size"]):
+                raise FullInstallerError("it covers another size than the package")
+        except (OSError, FullInstallerError) as error:
+            print(f"(the installer's integrity data could not be used: {error}; damaged parts cannot be repaired)")
+            integrity = None
     want = int(product["size"])
     opener = opener or _open_range
     last = None
+    # A partial download is resumed only when it is for this same package. 3.0 resumed any .part it found: a part from
+    # an earlier macOS build grew past this package's size (#161: "stopped at 19032695007 of 18388869343 bytes",
+    # HTTP 416) or ended in a file that failed Apple's digest after 17 GB (#200).
+    tag = part + ".for"
+    mine = f"{product['url']}\n{want}\n{product.get('digest') or ''}\n"
+    try:
+        with open(tag, encoding="utf-8") as fh:
+            same = fh.read() == mine
+    except OSError:
+        same = False
+    if not same or (want and os.path.exists(part) and os.path.getsize(part) > want):
+        if os.path.exists(part):
+            os.remove(part)
+        with open(tag, "w", encoding="utf-8") as fh:
+            fh.write(mine)
     for _ in range(tries):
         have = os.path.getsize(part) if os.path.exists(part) else 0
         if want and have == want:
             break
+        if want and have > want:
+            os.remove(part)      # never append past the end; start this package again
+            have = 0
         try:
             stream, _total = opener(product["url"], have)
             with open(part, "ab") as out:
@@ -205,20 +323,25 @@ def fetch(product, dest_dir, progress=None, opener=None, tries=12):
     have = os.path.getsize(part) if os.path.exists(part) else 0
     if want and have != want:
         raise FullInstallerError(f"the download stopped at {have} of {want} bytes ({last or 'the server closed the connection'})")
-    if product.get("digest"):
-        h = hashlib.sha1() if len(product["digest"]) == 40 else hashlib.sha256()
-        with open(part, "rb") as fh:
-            for b in iter(lambda: fh.read(4 << 20), b""):
-                h.update(b)
-        if h.hexdigest() != product["digest"]:
-            os.remove(part)
-            raise FullInstallerError("the download does not match Apple's digest in the catalog; it was thrown away")
+    if integrity:
+        try:
+            repair(part, integrity, product["url"], opener)
+        except (OSError, FullInstallerError) as error:
+            raise FullInstallerError(f"the download is damaged and could not be repaired ({error}); "
+                                     "it is kept, so pressing Next again continues from here") from None
+    if product.get("digest") and toc_digest(part) != product["digest"]:
+        os.remove(part)
+        if os.path.exists(tag):
+            os.remove(tag)
+        raise FullInstallerError("the download does not match Apple's digest in the catalog; it was thrown away")
     try:
         verify_xar(part)
     except FullInstallerError:
         os.remove(part)
         raise
     os.replace(part, path)
+    if os.path.exists(tag):
+        os.remove(tag)
     return path
 
 
@@ -228,7 +351,14 @@ def _open_range(url, start):
     req = urllib.request.Request(url, headers={"Range": f"bytes={start}-"} if start else {})
     r = urllib.request.urlopen(req, timeout=30)  # noqa: S310 - https only, checked above
     if start and r.status != 206:
+        r.close()
         raise OSError("the server ignored the resume request")
+    if start:
+        # the bytes must continue exactly where the part ends; a range that starts elsewhere would corrupt the file
+        m = re.match(r"bytes (\d+)-", r.headers.get("Content-Range") or "")
+        if not m or int(m.group(1)) != start:
+            r.close()
+            raise OSError(f"the server resumed at {m.group(1) if m else 'an unstated offset'}, not at byte {start}")
     return r, None
 
 
@@ -275,7 +405,8 @@ def diskpart_script(disk_number, letter, first_partition_mib):
 
 def check_stick(size_bytes):
     if size_bytes < MIN_STICK:
-        raise FullInstallerError(f"a stick for the full installer must hold at least {MIN_STICK >> 30} GB; this one holds {size_bytes >> 30} GB")
+        raise FullInstallerError(f"the full installer needs a 32 GB stick or larger (at least {MIN_STICK // 10**9} GB); "
+                                 f"this one holds {size_bytes / 10**9:.1f} GB")
 
 
 def place(root, pkg_path, product, copy=None, progress=None):

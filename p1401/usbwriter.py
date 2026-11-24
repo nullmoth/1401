@@ -1092,6 +1092,9 @@ def cli_write(argv):
     # networks on every session (HTTP 403 in 1.2.0 logs) and some PCs have no internet at all.
     rec = (opt("--recovery-dir") or [RECOVERY_DIR])[0]
     info = apple.local_image(rec)
+    if info and info.get("problem"):
+        print(f"NOTE {info['problem']}. It is not used; 1401 asks Apple for the recovery image instead.", flush=True)
+        info = None
     if netsupport.needs_local_image(efi):
         # The build found no network adapter the macOS installer can use: say what the install will need, then write.
         print("NOTE " + netsupport.OFFLINE_INSTALLER_MESSAGE, flush=True)

@@ -610,8 +610,6 @@ def _patient_downloads():
     from .downloads import make_request, verified_context
     kernel_patches.harden(gathering_files.gatheringFiles)
     _keep_first_kext(gathering_files)
-    from . import ocbinarydata  # noqa: PLC0415
-    ocbinarydata.install(rf.ResourceFetcher, gathering_files.gatheringFiles)
     _opencore_debug(gathering_files)
     cls = rf.ResourceFetcher
     if getattr(cls, "_1401_patient", False):
@@ -651,6 +649,9 @@ def _patient_downloads():
                 print(f"(could not keep {os.path.basename(resource_url)} for the validator: {e})")
         return ok
     cls.download_and_save_file = download_and_save_file
+    # outermost, so OcBinaryData gets every retry above before the build goes on without it
+    from . import ocbinarydata  # noqa: PLC0415
+    ocbinarydata.install(cls, gathering_files.gatheringFiles)
     fetch = _retry(cls.fetch_and_parse_content)
 
     def fetch_and_parse_content(self, resource_url, content_type=None):

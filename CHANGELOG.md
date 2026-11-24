@@ -8,6 +8,12 @@ Each release also bundles the NVIDIA driver and Mac app of the same version; see
 - Builds on networks where GitHub's downloads time out finish again. The OpenCore and kext lists are now read from the NullMoth mirror this release recorded, so every file they name is on the mirror too. In 3.0 the live lists moved on to OpenCore and Lilu builds published after the 3.0 mirror was recorded, and those builds stopped.
 - When OcBinaryData cannot be downloaded, the build continues with OpenCore's own HFS+ driver (OpenHfsPlus.efi) and the built-in boot picker instead of stopping. macOS 26 still needs Apple's APFS driver from it; that build now says so and names the network as the cause.
 - Experimental older macOS releases (10.7 to 14): the driver kits are on the release and the mirror, so choosing one no longer stops with "HTTP Error 404".
+- Full macOS installer option: works now. 3.0 checked the whole 17 GB download against Apple's catalog Digest, but that Digest is the hash of the package's table of contents, so every download was thrown away at the end (#200, #174). 1401 now checks the table of contents against the catalog and every file inside against it.
+- Full macOS installer option: a damaged part of the download is fetched again on its own (10 MB, using Apple's integrity data), instead of throwing away 17 GB. A partial download is resumed only for the same package; 3.0 could grow a leftover from another build past its size (#161, HTTP 416).
+- Full macOS installer option: sticks sold as 32 GB are accepted (they hold 29.8 GiB; 3.0 asked for 32 GiB) (#173).
+- A BaseSystem.dmg you put in the Recovery folder is checked against its chunklist before anything is erased. A cut-short copy is named with both sizes and 1401 downloads the image from Apple instead.
+- The ACPI compiler on Windows is ACPICA 20260408, pinned by hash and on the mirror. The 20251212 build crashed on some firmware tables (exit 0xc0000005), which stopped those builds. A copy of the old version left in the app folder is replaced.
+- OcBinaryData now gets every download retry before the build goes on without it (#196).
 
 ## 3.0
 - Experimental: older macOS releases. The macOS picker now also lists macOS 14 Sonoma down to Mac OS X 10.7 Lion, each marked experimental. Their startup files and NVIDIA driver kits were checked against Apple's own files for each release and have not been run on a PC, so expect to send logs. macOS 15 and macOS 26 are unchanged and remain the supported releases.
